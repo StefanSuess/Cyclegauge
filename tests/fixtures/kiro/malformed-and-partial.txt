@@ -1,0 +1,4 @@
+{"id": "synthetic-event-a", "timestamp": "2030-06-29T21:59:00Z", "payload": {"type": "usage_summary", "executionId": "synthetic-execution-a", "promptTurnSummaries": [{"unit": "credit", "unitPlural": "credits", "usage": 0.1}], "syntheticIgnored": "SYNTHETIC_CONTEXT_DO_NOT_RETAIN"}}
+{synthetic-malformed-json}
+{"id": "synthetic-event-b", "timestamp": "2030-06-29T22:01:00Z", "payload": {"type": "usage_summary", "executionId": "synthetic-execution-b", "promptTurnSummaries": [{"unit": "credit", "unitPlural": "credits", "usage": 0.2}], "syntheticIgnored": "SYNTHETIC_CONTEXT_DO_NOT_RETAIN"}}
+{"id":"synthetic-incomplete"

@@ -1,0 +1,22 @@
+{
+  "kiro.resourceNotifications.usageState": {
+    "timestamp": 1908979200000,
+    "usageBreakdowns": [
+      {
+        "currentUsage": 11.35,
+        "usageLimit": 100,
+        "resetDate": "2030-07-01T00:00:00Z",
+        "percentageUsed": 11.35,
+        "currentOverages": 0,
+        "overageCap": 0,
+        "overageCharges": 0,
+        "overageRate": 0.04,
+        "currency": {
+          "code": "USD",
+          "symbol": "$"
+        },
+        "extraCredits": []
+      }
+    ]
+  }
+}

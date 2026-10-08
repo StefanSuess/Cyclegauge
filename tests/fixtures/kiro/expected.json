@@ -1,0 +1,75 @@
+{
+  "synthetic": true,
+  "contract_version": 1,
+  "timezone": "Europe/Berlin",
+  "account_log": {
+    "input_records": 4,
+    "duplicate_records": 1,
+    "snapshots": [
+      {
+        "observed_at": "2030-06-29T10:00:00Z",
+        "current_usage": "10.10",
+        "usage_limit": "100",
+        "reset_at": "2030-07-01T00:00:00Z"
+      },
+      {
+        "observed_at": "2030-06-29T16:00:00Z",
+        "current_usage": "11.35",
+        "usage_limit": "100",
+        "reset_at": "2030-07-01T00:00:00Z"
+      },
+      {
+        "observed_at": "2030-07-02T10:00:00Z",
+        "current_usage": "0.80",
+        "usage_limit": "100",
+        "reset_at": "2030-08-01T00:00:00Z"
+      }
+    ],
+    "latest_account_usage": "0.80",
+    "latest_account_observed_at": "2030-07-02T10:00:00Z",
+    "same_cycle_interval_net_change": "1.25",
+    "reset_detected": true,
+    "cross_cycle_delta": null,
+    "previous_cycle_final_usage": null,
+    "account_daily_consumption_across_gap": null
+  },
+  "cache": {
+    "observed_at": "2030-06-29T16:00:00Z",
+    "current_usage": "11.35",
+    "selection": "older_than_latest_log",
+    "refresh_on_reread": false
+  },
+  "ide": {
+    "input_records": 4,
+    "unique_usage_events": 2,
+    "duplicates": 1,
+    "ignored_non_usage_records": 1,
+    "local_daily_observed_credits": {
+      "2030-06-29": "0.10",
+      "2030-06-30": "0.20"
+    },
+    "observed_total": "0.30",
+    "coverage": "partial_local",
+    "account_usage_override": false
+  },
+  "cli": {
+    "turn_count": 2,
+    "entry_count": 2,
+    "status": "unverified_semantics",
+    "aggregate_credits": null,
+    "empty_metering_turns": 1,
+    "hypothetical_interpretations_not_outputs": {
+      "if_additive": "0.40",
+      "if_cumulative_final_last": "0.30"
+    }
+  },
+  "malformed_and_partial": {
+    "complete_valid_records": 2,
+    "malformed_complete_records": 1,
+    "pending_trailing_records": 1
+  },
+  "privacy": {
+    "expected_projection_contains_sensitive_markers": false,
+    "raw_identifiers_retained": false
+  }
+}

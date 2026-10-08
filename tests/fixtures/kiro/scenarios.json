@@ -1,0 +1,370 @@
+{
+  "synthetic": true,
+  "contract_version": 1,
+  "note": "Inputs outside raw fixture files are synthetic contract cases, not claims that these additional fields or states were observed in Kiro. Decimal strings in normalized cases are EasyKiroGauge contract notation. Hypothetical interpretations do not authorize CLI aggregation.",
+  "cases": [
+    {
+      "id": "same-cycle-gap",
+      "kind": "snapshot_pair",
+      "input": [
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "4.20",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-08T10:00:00Z",
+          "current_usage": "5.45",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        }
+      ],
+      "expected": {
+        "status": "same_cycle_net_change",
+        "interval_net_change": "1.25",
+        "daily_consumption": null
+      }
+    },
+    {
+      "id": "reset-gap",
+      "kind": "snapshot_pair",
+      "input": [
+        {
+          "observed_at": "2030-06-29T16:00:00Z",
+          "current_usage": "11.35",
+          "reset_at": "2030-07-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-02T10:00:00Z",
+          "current_usage": "0.80",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        }
+      ],
+      "expected": {
+        "status": "cycle_change_observed",
+        "interval_net_change": null,
+        "daily_consumption": null
+      }
+    },
+    {
+      "id": "same-cycle-decrease",
+      "kind": "snapshot_pair",
+      "input": [
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "10.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-05T12:00:00Z",
+          "current_usage": "8.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        }
+      ],
+      "expected": {
+        "status": "counter_decrease_not_reset",
+        "interval_net_change": "-2.00",
+        "daily_consumption": null
+      }
+    },
+    {
+      "id": "account-change",
+      "kind": "snapshot_pair",
+      "input": [
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "10.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-05T12:00:00Z",
+          "current_usage": "0.50",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-b"
+        }
+      ],
+      "expected": {
+        "status": "account_discontinuity",
+        "interval_net_change": null,
+        "daily_consumption": null
+      }
+    },
+    {
+      "id": "unknown-account-association",
+      "kind": "snapshot_pair",
+      "input": [
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "10.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-05T12:00:00Z",
+          "current_usage": "10.50",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": null
+        }
+      ],
+      "expected": {
+        "status": "account_discontinuity",
+        "interval_net_change": null,
+        "daily_consumption": null
+      }
+    },
+    {
+      "id": "precision-fallback",
+      "kind": "breakdown",
+      "input": {
+        "resourceType": "CREDIT",
+        "unit": "INVOCATIONS",
+        "currentUsage": 12,
+        "usageLimit": 100
+      },
+      "expected": {
+        "status": "reduced_precision",
+        "current_usage": "12",
+        "remaining_credits": null
+      }
+    },
+    {
+      "id": "unknown-resource",
+      "kind": "breakdown",
+      "input": {
+        "resourceType": "SYNTHETIC_UNSUPPORTED",
+        "unit": "credit",
+        "currentUsageWithPrecision": 12
+      },
+      "expected": {
+        "status": "unsupported_resource",
+        "current_usage": null,
+        "remaining_credits": null
+      }
+    },
+    {
+      "id": "populated-bonus-unknown-schema",
+      "kind": "breakdown",
+      "input": {
+        "resourceType": "CREDIT",
+        "currentUsageWithPrecision": 1.25,
+        "bonuses": [
+          {
+            "syntheticUnknownShape": true
+          }
+        ]
+      },
+      "expected": {
+        "status": "unsupported_extra_credits",
+        "current_usage": "1.25",
+        "remaining_credits": null
+      }
+    },
+    {
+      "id": "missing-usage",
+      "kind": "breakdown",
+      "input": {
+        "resourceType": "CREDIT",
+        "usageLimitWithPrecision": 100
+      },
+      "expected": {
+        "status": "missing_usage",
+        "current_usage": null,
+        "remaining_credits": null
+      }
+    },
+    {
+      "id": "fractional-precision",
+      "kind": "breakdown",
+      "input": {
+        "resourceType": "CREDIT",
+        "currentUsage": 0,
+        "currentUsageWithPrecision": 0.123456789
+      },
+      "expected": {
+        "status": "precise",
+        "current_usage": "0.123456789",
+        "remaining_credits": null
+      }
+    },
+    {
+      "id": "spring-dst-local-day",
+      "kind": "local_day",
+      "input": {
+        "date": "2030-03-31",
+        "timezone": "Europe/Berlin"
+      },
+      "expected": {
+        "duration_hours": 23
+      }
+    },
+    {
+      "id": "autumn-dst-local-day",
+      "kind": "local_day",
+      "input": {
+        "date": "2030-10-27",
+        "timezone": "Europe/Berlin"
+      },
+      "expected": {
+        "duration_hours": 25
+      }
+    },
+    {
+      "id": "ambiguous-offset-free-log",
+      "kind": "ambiguous_local_time",
+      "input": {
+        "timestamp": "2030-10-27T02:30:00",
+        "timezone": "Europe/Berlin"
+      },
+      "expected": {
+        "status": "ambiguous_timezone",
+        "candidate_instants": [
+          "2030-10-27T00:30:00Z",
+          "2030-10-27T01:30:00Z"
+        ],
+        "selected_instant": null
+      }
+    },
+    {
+      "id": "repeated-cli-turn-update",
+      "kind": "cli_updates",
+      "input": [
+        {
+          "loop_id": "synthetic-turn-a",
+          "metering_usage": [
+            {
+              "value": 0.1,
+              "unit": "credit"
+            }
+          ]
+        },
+        {
+          "loop_id": "synthetic-turn-a",
+          "metering_usage": [
+            {
+              "value": 0.1,
+              "unit": "credit"
+            },
+            {
+              "value": 0.3,
+              "unit": "credit"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "observations": 2,
+        "logical_turns": 1,
+        "latest_entry_count": 2,
+        "aggregate_credits": null,
+        "status": "unverified_semantics"
+      }
+    },
+    {
+      "id": "multiple-ide-credit-summaries",
+      "kind": "ide_multiple",
+      "input": {
+        "promptTurnSummaries": [
+          {
+            "unit": "credit",
+            "usage": 0.1
+          },
+          {
+            "unit": "credit",
+            "usage": 0.3
+          }
+        ]
+      },
+      "expected": {
+        "status": "unverified_multiple_summary_semantics",
+        "aggregate_credits": null
+      }
+    },
+    {
+      "id": "conflicting-reset-fields",
+      "kind": "reset_mismatch",
+      "input": {
+        "nextDateReset": "2030-08-01T00:00:00Z",
+        "usageBreakdownList": [
+          {
+            "resourceType": "CREDIT",
+            "nextDateReset": "2030-09-01T00:00:00Z"
+          }
+        ]
+      },
+      "expected": {
+        "status": "conflicting_reset_metadata",
+        "selected_reset": null
+      }
+    },
+    {
+      "id": "sqlite-wal-unsupported",
+      "kind": "sqlite_guard",
+      "input": {
+        "wal_present": true,
+        "reader_mode": "immutable"
+      },
+      "expected": {
+        "status": "unavailable_unsupported_database_state",
+        "current_snapshot": null
+      }
+    },
+    {
+      "id": "unknown-session-version",
+      "kind": "unsupported_version",
+      "input": {
+        "schemaVersion": "synthetic-unsupported-version"
+      },
+      "expected": {
+        "status": "unsupported_format",
+        "aggregate_credits": null
+      }
+    },
+    {
+      "id": "equal-time-snapshot-conflict",
+      "kind": "snapshot_conflict",
+      "input": [
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "10.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        },
+        {
+          "observed_at": "2030-07-05T10:00:00Z",
+          "current_usage": "11.00",
+          "reset_at": "2030-08-01T00:00:00Z",
+          "account_partition": "synthetic-account-a"
+        }
+      ],
+      "expected": {
+        "status": "conflicting_snapshots",
+        "selected_usage": null
+      }
+    },
+    {
+      "id": "privacy-allowlist",
+      "kind": "privacy_projection",
+      "input": {
+        "resourceType": "CREDIT",
+        "currentUsageWithPrecision": 0.3,
+        "prompt": "SYNTHETIC_PROMPT_DO_NOT_RETAIN",
+        "sourceCode": "SYNTHETIC_CODE_DO_NOT_RETAIN",
+        "credential": "SYNTHETIC_CREDENTIAL_DO_NOT_RETAIN",
+        "userId": "synthetic-user-do-not-retain",
+        "unknownObject": {
+          "text": "SYNTHETIC_NESTED_DO_NOT_RETAIN"
+        }
+      },
+      "expected": {
+        "resource_type": "CREDIT",
+        "current_usage": "0.30"
+      }
+    }
+  ]
+}
