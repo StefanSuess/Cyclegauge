@@ -1,0 +1,163 @@
+# Milestone 6, Task 0: cross-platform CI skeleton.
+#
+# Levels (docs/superpowers/plans/2026-10-10-milestone-6.md, section 1): every job here proves C2
+# (the synthetic suite on that OS family) or collects C3 filesystem evidence. None of it is C4:
+# nothing here installs or runs Kiro. Windows Server runners are not Windows 11; the UBI 9 container
+# is RHEL 9 userland without SELinux. Jobs say so in their step summaries.
+#
+# Rules: read-only token, no secrets, third-party actions pinned by commit SHA, synthetic data only.
+name: ci
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PNPM_VERSION: '12.10.1'
+  # actions/checkout v4.2.2, actions/setup-node v4.4.0 (see uses: lines).
+
+jobs:
+  # macOS and Linux runners: the full suite must be green.
+  verify:
+    name: verify (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04, ubuntu-22.04]
+        node: ['24.13.0', '24.x']
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install pnpm
+        run: npm install --global pnpm@${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: Baseline suite (184 tests on the 0.5.1 baseline)
+        run: pnpm test
+      - name: Milestone 6 proof-of-concept tests (pure SDDL, tool shim, survey script)
+        run: pnpm test:poc
+      - name: Fixture contract validator
+        run: python3 tests/fixtures/kiro/validate.py
+      - name: Record runtime
+        run: node -p "process.version + ' ' + process.platform + ' ' + process.arch"
+
+  # Windows Server runners. Typecheck and the pure PoC tests must pass. The baseline suite is
+  # EXPECTED to fail wherever a Store is opened, because the production win32 fail-closed
+  # restriction is deliberately still in place; the failures are enumerated, not hidden.
+  windows:
+    name: windows (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+        node: ['24.13.0']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Install pnpm
+        run: npm install --global pnpm@${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - name: Verify checkout kept LF line endings
+        run: |
+          if grep -rIl $'\r' tests/fixtures src tests/unit package.json | head -n 1 | grep -q .; then echo 'CRLF found in checkout'; exit 1; fi
+      - name: Milestone 6 proof-of-concept tests
+        run: pnpm test:poc
+      - name: Fixture contract validator
+        run: |
+          if command -v python3 >/dev/null 2>&1; then python3 tests/fixtures/kiro/validate.py; else python tests/fixtures/kiro/validate.py; fi
+      - name: Baseline suite (failures expected while win32 storage stays fail-closed)
+        continue-on-error: true
+        run: |
+          set +e
+          node --disable-warning=ExperimentalWarning --test --test-reporter=tap tests/unit/*.test.ts > baseline.tap 2>&1
+          code=$?
+          {
+            echo "### Windows baseline suite on ${{ matrix.os }} (informational)"
+            echo
+            grep -E '^# (tests|pass|fail|skipped)' baseline.tap
+            echo
+            echo 'Failing top-level tests:'
+            echo '```'
+            grep -E '^not ok' baseline.tap | sort -u | head -n 400
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
+  # Task 1A: collects Windows ACL evidence on real NTFS. Output is fixed codes and counts only.
+  windows-acl-poc:
+    name: windows ACL proof-of-concept (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.13.0'
+      - name: Collect evidence (items 1-8)
+        run: node --disable-warning=ExperimentalWarning scripts/poc/win-acl/poc.ts --markdown-file "$GITHUB_STEP_SUMMARY"
+
+  # R2: the suite as a non-root user on RHEL 9 userland, using the Node floor from the host.
+  # Image pinned by digest (ubi9/ubi, multi-arch index). No SELinux, no Kiro: C2 only.
+  ubi9:
+    name: ubi9 container (non-root, node 24.13.0)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.13.0'
+      - name: Suites inside the container
+        run: |
+          NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          docker run --rm --user 1001:1001 --network none \
+            -v "$PWD":/work -v "$NODE_ROOT":/opt/node:ro \
+            -e HOME=/tmp -e TMPDIR=/tmp -w /work \
+            registry.access.redhat.com/ubi9/ubi@sha256:5858f9ace07316e3b12caab62f6c2481a5030bb6bafdca5a9ea324c321ef36df \
+            /opt/node/bin/node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts tests/poc/*.test.ts
+      - name: 'Survey script on RHEL 9 userland (not a RHEL host: no SELinux, no systemd)'
+        run: |
+          {
+            echo '### rhel9-survey.sh inside ubi9 container (CI proxy, not evidence for a real host)'
+            echo '```'
+            docker run --rm --user 1001:1001 --network none -v "$PWD":/work:ro -e HOME=/tmp -w /work \
+              registry.access.redhat.com/ubi9/ubi@sha256:5858f9ace07316e3b12caab62f6c2481a5030bb6bafdca5a9ea324c321ef36df \
+              sh scripts/poc/rhel9-survey.sh
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

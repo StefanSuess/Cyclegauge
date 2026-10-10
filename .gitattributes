@@ -1,0 +1,7 @@
+# Milestone 6 (Task 0): identical bytes on every OS. Fixtures, logs and shell
+# scripts are compared byte-for-byte, so no checkout may rewrite line endings.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.vsix binary
