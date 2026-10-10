@@ -1,14 +1,15 @@
 # Milestone 6 validation record (cross-platform, 0.6.0)
 
 Plan: [`docs/superpowers/plans/2026-10-10-milestone-6.md`](superpowers/plans/2026-10-10-milestone-6.md).
-Branch: `feature/cross-platform`, created from tag `v0.5.1` (`9ac4c0d`). Nothing is committed,
-tagged or pushed.
+Branch: `feature/cross-platform`, created from tag `v0.5.1` (`9ac4c0d`) and pushed to the private
+origin as preliminary, non-release work. `main` and `v0.5.1` are untouched.
 
-**Current position: stopped at Security Checkpoint SC1.** Task 0 and the *implementation* of
-Task 1A and Task 1B are done. The Windows proof-of-concept has **not been executed on Windows** and
-the RHEL 9 survey has **not been run on a RHEL host**; both are waiting for evidence that only those
-environments can produce. No production behaviour changed: the `win32` fail-closed restriction in
-`src/paths.ts` is untouched and a regression test now pins it.
+**Current position: Security Checkpoint SC1 is open.** Task 0 is complete, the Windows ACL
+proof-of-concept (Task 1A) has run on real Windows Server runners and is accepted as technically
+viable there, and the RHEL 9 survey (Task 1B) is prepared but **has not been run on a RHEL host**.
+SC1 stays open until native Windows 11 standard-user evidence and the RHEL 9 R0/R1 survey are
+reviewed. The `win32` fail-closed restriction in `src/paths.ts` is untouched and a regression test
+pins it. Independent Tasks 2, 3 and 6 may proceed (approved 2026-10-11); Tasks 4, 5 and 7 are gated.
 
 Evidence labels: **[observed]** run in this repository, **[documented]** vendor documentation,
 **[reported]** by the project owner, **[inferred]**, **[unverified]**. Verification levels C1–C4 are
@@ -16,26 +17,44 @@ defined in the plan, section 1.
 
 ## 1. What was actually run, and where
 
-All rows below were run on macOS (Darwin 27.0.0, arm64), by hand, on 2026-10-11. **No GitHub
-Actions run exists for this branch.**
+### 1.1 GitHub Actions: run 38095926725, commit `a7d470c`
 
-| Check | Node 26.11.1 | Node 24.13.0 | Level |
+GitHub Actions run `38095926725` on the private origin — **11 of 11 jobs
+succeeded** **[observed]**. Four earlier runs on the same branch failed for harness defects in
+this repository's own proof-of-concept code (see section 3.3); none of them changed production code.
+
+| Environment | Jobs | Result | Level |
 | --- | --- | --- | --- |
-| `tsc --noEmit` (src, tests, scripts) | pass | pass | C1 |
-| Baseline suite `tests/unit` | 184 / 184 | 184 / 184 | C1 (macOS: C3 for POSIX permission tests) |
-| Milestone 6 PoC tests `tests/poc` | 35 / 35 | 35 / 35 | C1 |
-| `tests/fixtures/kiro/validate.py` | pass | — | fixture contract only |
-| `git diff --check` | clean | — | — |
-| `vsce ls` package contents | `README.md`, `package.json`, `dist/extension.cjs` — unchanged allowlist | — | — |
-| `.github/workflows/ci.yml` | parses as YAML; every `uses:` pinned by SHA | — | **not executed** |
+| macOS (`macos-latest`), Node 24.13.0 and 24.x | 2 | typecheck, 184 baseline, PoC tests, fixture validator pass | C2 (C3 for POSIX permission tests) |
+| Ubuntu 24.04 and 22.04, Node 24.13.0 and 24.x | 4 | same checks pass | C2, C3 for POSIX rules |
+| UBI 9 container, non-root, Node 24.13.0 | 1 | baseline + PoC tests pass; survey script exercised | C2 (RHEL 9 userland, **no SELinux, no Kiro**) |
+| Windows Server 2022 (10.0.20348) and 2025 (10.0.26100), Node 24.13.0 | 2 | typecheck, LF checkout, PoC tests, validator pass; **baseline 162/184**, the 22 failures are exactly the Store-using tests (identical on both) | C2; fail-closed behaviour as designed |
+| Windows ACL proof-of-concept, same two runners | 2 | see section 3.2 | C3 on **Windows Server, elevated administrator**, not Windows 11 |
 
-Node 24.13.0 was the official darwin-arm64 tarball from nodejs.org, checked against the published
-`SHASUMS256.txt` (the checksum file itself was not signature-verified). It was unpacked into the
-session scratchpad and nothing was installed.
+The 22 Windows baseline failures are the tests in the CLI, collector, store-safety and extension
+controller/detail-view paths. They fail because `prepareStorage` still refuses `win32`; this matches
+the prediction in section 2 and is the intended state.
 
-**What this does and does not show.** It shows the 0.5.1 behaviour is intact on macOS under the
-declared Node floor and that the new pure logic behaves as specified. It shows nothing about
-Windows, RHEL, SELinux, NTFS ACLs or Kiro at runtime.
+Node 24.13 compatibility: the floor version is exercised by every `verify`, `windows` and `ubi9`
+job above, and was also run locally (section 1.2).
+
+### 1.2 Local, macOS arm64, 2026-10-11
+
+| Check | Node 26.11.1 | Node 24.13.0 |
+| --- | --- | --- |
+| `tsc --noEmit` | pass | pass |
+| Baseline suite `tests/unit` | 184 / 184 | 184 / 184 |
+| PoC tests `tests/poc` (grew from 35 to 37 during CI iterations) | pass | pass at 35 |
+| `tests/fixtures/kiro/validate.py`, `git diff --check` | pass | — |
+| `vsce ls` package contents | `README.md`, `package.json`, `dist/extension.cjs` (unchanged allowlist) | — |
+
+Node 24.13.0 was the official darwin-arm64 tarball from nodejs.org checked against the published
+`SHASUMS256.txt` (the list itself was not signature-verified), used from the session scratchpad.
+
+**What this shows and does not show.** It shows 0.5.1 behaviour is intact on macOS, Linux and (for
+non-storage tests) Windows under the declared Node floor, and that the Windows ACL mechanism works
+on Windows Server. It shows nothing about native Windows 11, standard-user behaviour, managed
+profiles, RHEL 9 with SELinux, or Kiro at runtime.
 
 ## 2. Task 0 — branch, `.gitattributes`, CI skeleton
 
@@ -48,22 +67,10 @@ Windows, RHEL, SELinux, NTFS ACLs or Kiro at runtime.
 | `.github/workflows/ci.yml` | jobs `verify` (macOS, Ubuntu 24.04/22.04 × Node 24.13.0/24.x), `windows` (2022/2025), `windows-acl-poc` (2022/2025), `ubi9` (digest-pinned container, non-root, `--network none`) |
 | Workflow hygiene | `permissions: contents: read`, no secrets, `persist-credentials: false`, actions pinned to the SHAs of `actions/checkout` v4.2.2 and `actions/setup-node` v4.4.0 (resolved through the public GitHub API), pnpm pinned to the version used locally (12.10.1) |
 
-Open points for the first real run:
-
-- **Exit criterion "macOS/Linux green; Windows failures enumerated" is not yet met** because no run
-  exists. The Windows baseline step is `continue-on-error` and writes the failing test names to the
-  job summary, so the enumeration will appear on the first run.
-- **Predicted Windows baseline failures [inferred]:** every test that constructs a `Store`
-  (directly, through the CLI, or through the extension controller) fails closed, because
-  `prepareStorage` still refuses `win32`. By file that is `cli.test`, `collector.test`,
-  `safety.test`, plus any controller path in `extension.test`/`evidence.test`. The projection,
-  history, forecast, view, chart and cost tests do not touch storage and are expected to pass.
-  Treat this as a prediction to compare with the real list, not as a result.
-- The ubi9 job runs Node from the host mounted read-only into the container, so it exercises RHEL 9
-  userland (glibc 2.34) with the Node floor. It has no SELinux and no systemd and is labelled so in
-  its summary.
-- The `windows` and `windows-acl-poc` jobs have never run; typos in the PowerShell strings will only
-  show there.
+Status of the earlier open points: the exit criterion "macOS/Linux green; Windows failures
+enumerated" is **met** (section 1.1). The predicted Windows failure set was correct (every test that
+constructs a Store). The ubi9 job runs the host's Node inside RHEL 9 userland; it has no SELinux and no
+systemd and says so in its summary.
 
 ## 3. Task 1A — Windows ACL proof-of-concept
 
@@ -74,78 +81,67 @@ Open points for the first real run:
 | `scripts/poc/win-acl/sddl.ts` | Throwaway **pure** SDDL parser and decision functions: directory, file and ancestor rules; rights-mask table; trustee categories. Unknown token ⇒ fixed rejection code. Not the production `src/sddl.ts` (Task 4) and not importable from `src/` (test asserts it) |
 | `scripts/poc/win-acl/tools.ts` | System-tool shim (D1): absolute `System32` paths, no shell, timeout and output cap, paths passed through one environment variable and never through script text, `-EncodedCommand`, fixed error codes |
 | `scripts/poc/win-acl/poc.ts` | Evidence runner for plan items 1–7 plus failure modes; synthetic directories only; report restricted to fixed tokens and scanned for private values before printing |
-| `tests/poc/*.test.ts` | 35 tests: SDDL tables (accept/reject per rule, malformed input, generic-right mapping, inherit-only and deny handling), shim behaviour with a fake runner and with real child processes, leak guard, fail-closed regression |
+| `tests/poc/*.test.ts` | 37 tests: SDDL tables (accept/reject per rule, malformed input, generic-right mapping, inherit-only and deny handling), shim behaviour with a fake runner and with real child processes, leak guard, fail-closed regression |
 
-### Status per plan item
+### 3.2 Results per plan item (CI run 38095926725, identical on Server 2022 and 2025)
 
-"Mechanism" is what the program does. "Proven" is what has actually been observed. **Until the
-Windows jobs or a native run have produced a report, every Windows-specific cell is not proven.**
+All results are from **elevated administrator** runner accounts on Windows Server; none are
+Windows 11 client or standard-user evidence.
 
-| # | Plan item | Mechanism in the PoC | Proven so far |
+| # | Plan item | Result | Notes |
 | --- | --- | --- | --- |
-| 1 | Current-user SID, locale-independent | `whoami /user /fo csv /nh`, SID column only; owner of a probe file cross-checked; UI culture recorded | Parser verified on invented localized output **[observed]**; behaviour on Windows **not run**. Locale independence is argued structurally and observed for one culture at most |
-| 2 | Descriptor reads without elevation, incl. under lockdown | One batched `Get-Acl`/`Get-Item` call; Constrained Language Mode emulated by downgrading the session and reading the mode back; `.NET` method call probed | Shim and parser verified with a fake runner **[observed]**; real PowerShell **not run**. "Without elevation" cannot be shown on a CI runner (administrator, high integrity); the report marks it `partial`/`RUNNER_ELEVATED` |
-| 3 | Child created in a T-only parent shows only inherited T entries | 20 directory+key pairs created via `mkdir`/exclusive create in a locked-down parent, then read; loose-parent control | **Not run** |
-| 4 | Protect step never broader than T | `icacls /inheritance:d`; state before/after; later parent change blocked; descriptor sampled from a second process while the step runs | **Not run.** By construction the sampler can show *states*, not instants; atomicity rests on documentation |
-| 5 | Default-profile ancestors pass; loosened ones rejected | Ancestor rule applied to the `%LOCALAPPDATA%` chain; 12 synthetic controls (delete, delete-child, write-DAC, write-owner, full, modify rejected; read, write accepted; extra trustee, deny ACE, re-enabled inheritance rejected) | Rules verified on invented SDDL **[observed]**; real NTFS **not run** |
-| 6 | Junction, 8.3, `nlink`, `bigint` identity | `fs.symlinkSync(…, 'junction')`, reparse attribute via PowerShell, `linkSync`, `statSync({bigint})`, short-name expansion via `Scripting.FileSystemObject`, non-ASCII directory name | **Not run** |
-| 7 | Launch cost, p95 < 1 s | 10 timed runs each of `whoami`, batched read (normal and constrained), `icacls` | **Not run** |
-| — | Failure modes | tool missing, timeout, output cap, garbage, index mismatch, `|`/UNC/relative path | Runner and parsers verified with real child processes on macOS **[observed]**; Windows tools **not run** |
+| 1 | Current-user SID, locale-independent | **established** | `whoami /user /fo csv /nh`; owner of a probe file classified `current_user`. Locale independence observed for `en-US` only (structural argument otherwise) |
+| 2 | Descriptor reads, incl. lockdown | **partial** | `Get-Acl`/`Get-Item` batch works in Full and in Constrained Language Mode, results identical, mode read back as effective, .NET method calls **blocked**. "Without elevation" **not observed** (integrity `high`) |
+| 3 | Child in a T-only parent is T-only on creation | **established** | 20/20 directories and 20/20 key files T-only, every ACE inherited; loose-parent control rejected |
+| 4 | Protect step never broader than T | **established** | `icacls /inheritance:d`: T-only and protected after, same entries, later parent change blocked, unprotected control broadened; 5,444–11,370 descriptor samples saw only the two expected states (unprotected, protected), ~18 ms. Instants cannot be observed; atomicity rests on documentation |
+| 5 | Default-profile ancestors pass; loosened rejected | **established (runner profile)** | 12/12 negative controls as expected; runner profile chain passed 5/5 ancestors; leaf passes as T-only parent and fails the protected-directory rule (`PPPuu` / `uPPuu`) |
+| 6 | Junction, 8.3, `nlink`, `bigint` identity | **established** | Junction seen by `lstat` and by reparse attribute; `nlink` 1→2; identity equal through hard link, case variant and 8.3 name; short names enabled; `os.tmpdir()` is in 8.3 form; file IDs 51 bit here; non-ASCII path transport works |
+| 7 | Launch cost | **established** | `whoami` p95 ≈ 29 ms, PowerShell batch p95 ≈ 430–440 ms (Constrained ≈ 440 ms), Store-open estimate ≈ 463 ms against a 1 s budget |
+| — | Failure modes | **established** | tool missing, timeout, output cap, garbage, index mismatch, `\|`/UNC/relative path: all fixed codes |
 
-### Findings so far (design-level, for review at SC1)
+Not covered by any CI evidence: non-elevated behaviour, a default Windows 11 client profile,
+managed-profile ACL additions, enforced (WDAC/AppLocker) Constrained Language Mode, ReFS/Dev Drive,
+OneDrive-redirected profiles, instantaneous races.
 
-These come from writing the evaluator against the documented ACL model. They are **[inferred]**
-until Windows evidence exists.
+### 3.3 Harness defects found by the CI iterations (not product defects)
 
-1. **The plan's parent rule is stricter than a default profile may satisfy.** Step 2 of the creation
-   protocol requires the immediate parent to pass "the full T-only rule", and the table lists
-   *protected* DACL. `%LOCALAPPDATA%` normally *inherits* its DACL from the profile directory, so
-   it is not protected. The PoC evaluates both variants and reports them separately
-   (`profile_leaf_as_parent_t_only` vs `profile_leaf_as_dir_protected`). **Proposed wording for
-   SC1:** the parent must be T-only (explicit or inherited) and its children must inherit only T;
-   protection is required of the storage directory itself, while upstream tampering is covered by the
-   ancestor rule. This does not weaken the model, but it is a change to an approved text and needs
-   an explicit decision.
-2. **Node cannot see every reparse point.** libuv reports only symlinks and junctions as links; a
-   OneDrive placeholder, dedup or app-execution link is an ordinary directory to `lstat`. The
-   Windows guard therefore has to read the file attributes (the PoC reads `ReparsePoint` through
-   PowerShell) rather than rely on the existing `isSymbolicLink()` checks.
-3. **Short (8.3) names break string containment.** `inside()` compares resolved strings, so a short
-   path and its long form look unrelated. `os.tmpdir()` is itself commonly in short form on
-   runners. Task 6 should compare canonical (`realpath.native`) paths or file identity; the PoC
-   records whether each assumption holds on the runner.
-4. **File IDs do not fit a `Number`.** NTFS file references carry a 16-bit sequence number in the
-   high bits; once it exceeds 31 the value is above 2⁵³. `bigint` identity (Task 6) is required, and
-   the existing fingerprint format must stay byte-identical on macOS.
-5. **`/inheritance:d`, not `/inheritance:r`, is the protect step.** `:r` removes inherited entries
-   and can leave an empty DACL; `:d` copies them first. This is the only difference that matters
-   to "never broader than T".
-6. **Constrained Language Mode blocks the alternative creation path.** Creation-time security
-   descriptors need .NET method calls, which that mode blocks **[documented]**; the PoC reports
-   whether the probe call was blocked. Unless it is allowed everywhere that matters, the verified
-   private parent remains the only creation mechanism, as the plan already assumes.
-7. **`__PSLockdownPolicy` is a machine-level test switch, not something a process can set for
-   itself [inferred].** The PoC therefore downgrades its own session and reads the mode back, which
-   is a stronger statement than "the variable was set".
-8. **Elevated token and ownership.** An elevated administrator creates objects owned by the
-   Administrators group, not the user. The rules already allow `BA` as owner; the PoC records which
-   one occurred so the standard-user run can be compared.
-9. **CREATOR OWNER / OWNER RIGHTS.** Treated as trusted only when the object's owner is in T, and
-   inherit-only entries are ignored for the object itself. Both are decisions the production
-   `sddl.ts` must keep explicit.
-10. **Ancestor-rule scope.** Rights that only add entries (write-data, append) are *not* rejected on
-    ancestors, exactly as the plan states; they cannot replace or re-secure our path. The negative
-    controls document this so a reviewer can disagree knowingly.
+| Run | Defect | Fix |
+| --- | --- | --- |
+| 1 | Leak guard discarded the entire report because the schema string contained `/`; survey tests ran under Git Bash on Windows; `os.userInfo()` threw in a container | lenient sanitiser listing key paths only; survey tests skip on win32; guarded call |
+| 2 | `SystemRoot` read from a spread copy of `process.env`, which loses case-insensitivity (Git Bash exports `SYSTEMROOT`) | case-insensitive lookup; Windows Python needs `tzdata` for the validator |
+| 3 | Built-in RID-500 account is rendered as SDDL alias `LA` and was treated as a foreign trustee, which made items 3–5 fail and made rejection controls pass for the wrong reason | `LA` resolved to the current user only when the user's SID has RID 500 |
+| 4 | Owner cross-check in item 1 did not resolve `LA` | same resolution, owner category reported |
 
-### Windows feasibility (assessment, not a result)
+The third row matters for the production design: alias handling is a security decision, and a
+parser that does not resolve an alias can silently turn a rejection control into a vacuous pass.
 
-- **Design: plausible.** The model needs only system tools that exist on every supported Windows,
-  works without a native addon, and has a pure, testable decision core.
-- **Evidence: none yet.** Items 2–7 are unproven on Windows. The honest status is *feasible in
-  design, unproven in practice*.
-- **Fail-closed behaviour is unchanged.** If any of items 1–5 cannot be established on Windows 11
-  hardware or a faithful runner, the plan's rule applies: the `win32` throw stays and 0.6.0 does not
-  claim Windows 11.
+### 3.4 Findings and approved design decisions (SC1, 2026-10-11)
+
+The findings below were raised during the proof-of-concept; the right-hand column records the
+approved decision.
+
+| # | Finding | Decision |
+| --- | --- | --- |
+| 1 | The plan required the immediate parent to be protected; a real profile's `AppData\Local` inherits its DACL and is not protected, so the literal rule fails the default location | **Approved:** the immediate parent must be T-only and safely inheritable; it does not itself need a protected DACL provided actual trustees, rights and the ancestor invariants pass. The **storage directory** must have a protected, verified DACL |
+| 2 | Node reports only symlinks and junctions as links | **Approved:** the Windows guard reads reparse attributes and rejects any reparse tag |
+| 3 | 8.3 short names defeat string containment; `os.tmpdir()` is in short form on runners | **Approved:** canonical path or file-identity validation |
+| 4 | NTFS file IDs can exceed 2⁵³ | **Approved:** `bigint` identities where required; macOS fingerprint format unchanged |
+| 5 | `/inheritance:d` (not `:r`) is the protect step | Confirmed by items 3–4 |
+| 6 | Constrained Language Mode blocks .NET calls | Confirmed (item 2); the verified private parent stays the only creation mechanism |
+| 7 | SDDL aliases are decisions, not lookups | **Approved:** known aliases resolved explicitly, unrecognised or ambiguous aliases rejected |
+| 8 | System-executable architecture (D1) | **Approved to continue**; native addon still needs separate approval |
+| 9 | Windows fail-closed restriction | **Preserved** until a separate SC1 approval |
+| 10 | RHEL 9 network/local storage policy | **Provisional** until the native survey is reviewed |
+
+### 3.5 Windows feasibility
+
+- **Mechanism: technically viable on the tested Windows Server environments (accepted by the
+  project owner on 2026-10-11).** Reads, private-parent creation, the protect step, ancestor rules
+  and latency behaved as designed on real NTFS.
+- **Windows 11: unproven.** Standard-user, default client profile, managed-profile and enforced
+  Constrained Language Mode behaviour need the native run.
+- **Fail-closed behaviour is unchanged.** If the native run cannot establish items 1–5, the `win32`
+  throw stays and 0.6.0 does not claim Windows 11.
 
 ## 4. Task 1B — RHEL 9 environment survey
 
@@ -170,8 +166,8 @@ phases are to be performed by the project owner on an authorised host.
 
 | Risk | Status |
 | --- | --- |
-| Windows PowerShell strings or `icacls` argument forms are wrong in some detail | PoC never run on Windows; first CI run will show |
-| Runner is elevated Windows Server, not a standard-user Windows 11 | Items 2 and 5 can only be `partial` on CI; native run needed |
+| Windows PowerShell strings or `icacls` argument forms are wrong in some detail | Resolved on Server 2022/2025 (run 38095926725) |
+| Runner is elevated Windows Server, not a standard-user Windows 11 | Item 2 `partial`; native Windows 11 standard-user run required |
 | Path-based checks cannot close all races (Node has no handle-relative descriptor API); filter drivers not modelled | Accepted limitation per plan; to be stated in release text |
 | Managed profiles with extra ACEs fail closed | Expected; PoC reports offender categories without identifiers |
 | Environment inherited by the PowerShell child (`PSModulePath`, profile) could redirect `Get-Acl` | Same-user attack, out of scope per threat model; `-NoProfile` used, fully qualified module call is an open hardening option for Task 5 |
@@ -182,14 +178,16 @@ phases are to be performed by the project owner on an authorised host.
 
 ## 6. Security Checkpoint SC1 — record
 
-Decision record is **open**. Inputs required before it can be signed:
+Status: **open.** Design decisions were approved on 2026-10-11 (section 3.4); enablement is not.
 
-- [ ] Windows PoC report from at least one Windows runner (`windows-acl-poc` job) reviewed against items 1–7.
+- [x] Windows PoC report from Windows runners reviewed against items 1–7 (run 38095926725; accepted as technically viable on Windows Server).
+- [x] Decision on the parent-rule wording: T-only, safely inheritable parent; protected, verified storage directory.
+- [x] Alias handling, reparse attributes, canonical path or identity, `bigint` identity, system-executable architecture approved.
 - [ ] Windows PoC report from a native Windows 11 **standard-user** account (managed or lab VM), or an explicit decision to treat Windows 11 as not claimed.
-- [ ] Decision on finding 1 (parent-rule wording).
 - [ ] RHEL 9 R0 survey record and R1 result reviewed (project owner, authorised host).
 - [ ] Storage policy finalised from R0, including the configured-local-location design if the home is networked.
 - [ ] Windows enablement confirmed, or the fail-closed throw explicitly retained for 0.6.0.
 
-Until all boxes are checked, Tasks 4, 5 and 7 do not start. Tasks 2, 3 and 6 are independent of SC1
-and may proceed, but were deliberately **not** started in this step.
+Until the open boxes are checked, Tasks 4, 5 and 7 do not start. Tasks 2, 3 and 6 are independent
+of SC1 and are authorised; they must not change Windows ACL enforcement or remove the `win32`
+restriction, and are not committed or pushed without separate approval.
