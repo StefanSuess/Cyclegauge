@@ -1,10 +1,13 @@
-import { test } from 'node:test';
+import { test as baseTest } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir, userInfo } from 'node:os';
+const userName = () => { try { return userInfo().username; } catch { return ''; } };
 import { join, resolve } from 'node:path';
 
+// The survey targets Linux userland; on Windows the POSIX shell and mount semantics do not apply.
+const test = (name: string, fn: () => void) => baseTest(name, { skip: process.platform === 'win32' }, fn);
 const SCRIPT = resolve('scripts/poc/rhel9-survey.sh');
 const LINE = /^[a-z0-9_]+=[A-Za-z0-9_.:+,-]{1,64}$/;
 const ELF = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
@@ -37,7 +40,7 @@ test('output consists only of fixed key=value tokens and never echoes paths or i
  assert.equal(values.get('loc_home_exists'), 'yes');
  assert.equal(values.get('loc_extra_exists'), 'no');
  assert.equal(values.get('loc_config_state'), 'not_absolute_or_unset');
- for (const secret of [w.base, w.home, 'synthetic-home-marker', 'injected', hostname(), userInfo().username].filter(s => s.length > 3)) {
+ for (const secret of [w.base, w.home, 'synthetic-home-marker', 'injected', hostname(), userName()].filter(s => s.length > 3)) {
   assert.ok(!text.includes(secret), 'output must not contain a private value');
  }
  rmSync(w.base, { recursive: true });

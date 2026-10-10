@@ -86,11 +86,14 @@ jobs:
         run: |
           if grep -rIl $'\r' tests/fixtures src tests/unit package.json | head -n 1 | grep -q .; then echo 'CRLF found in checkout'; exit 1; fi
       - name: Milestone 6 proof-of-concept tests
+        if: ${{ !cancelled() }}
         run: pnpm test:poc
       - name: Fixture contract validator
+        if: ${{ !cancelled() }}
         run: |
           if command -v python3 >/dev/null 2>&1; then python3 tests/fixtures/kiro/validate.py; else python tests/fixtures/kiro/validate.py; fi
       - name: Baseline suite (failures expected while win32 storage stays fail-closed)
+        if: ${{ !cancelled() }}
         continue-on-error: true
         run: |
           set +e

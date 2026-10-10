@@ -46,6 +46,28 @@ export function sanitize(value: Json): Json {
  return value;
 }
 
+/**
+ * Evidence-preserving variant used by the CLI: a value that is not a fixed token is replaced by
+ * `REJECTED` and its key path is listed, so one odd value cannot discard the whole report.
+ */
+export function sanitizeLenient(value: Json, path = '', rejected: string[] = []): { value: Json; rejected: string[] } {
+ if (typeof value === 'string') {
+  if (SAFE_STRING.test(value) && !/S-\d+-\d+/.test(value)) return { value, rejected };
+  rejected.push(path || 'root');
+  return { value: 'REJECTED', rejected };
+ }
+ if (Array.isArray(value)) return { value: value.map((v, i) => sanitizeLenient(v, `${path}[${i}]`, rejected).value), rejected };
+ if (value && typeof value === 'object') {
+  const out: Record<string, Json> = {};
+  for (const [k, v] of Object.entries(value)) {
+   const key = SAFE_STRING.test(k) ? k : 'REJECTED_KEY';
+   out[key] = sanitizeLenient(v, path ? `${path}.${key}` : key, rejected).value;
+  }
+  return { value: out, rejected };
+ }
+ return { value, rejected };
+}
+
 /** Last line of defence: the serialised report must not contain this process's private values. */
 export function assertNoLeak(text: string, forbidden: string[]): void {
  for (const f of forbidden) {
@@ -456,7 +478,8 @@ async function main(): Promise<number> {
  const mdIndex = argv.indexOf('--markdown-file');
  try {
   const { report, forbidden } = await runEvidence({ skipProfile: argv.includes('--skip-profile') });
-  const clean = sanitize(report as unknown as Json) as unknown as Report;
+  const lenient = sanitizeLenient(report as unknown as Json);
+  const clean = { ...(lenient.value as object), rejected_values: lenient.rejected } as unknown as Report;
   const text = JSON.stringify(clean, null, 1);
   assertNoLeak(text, forbidden);
   const markdown = renderMarkdown(clean);
