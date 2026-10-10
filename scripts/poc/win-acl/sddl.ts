@@ -163,12 +163,21 @@ export function fileRights(mask: number): number {
 }
 
 export interface Context { user: string }
+/**
+ * SDDL renders the built-in RID-500 account as the alias `LA`. It is resolved only when the current
+ * user's own SID has RID 500, in which case the alias can only mean that account.
+ */
+export function canonical(sid: string, ctx: Context): string {
+ return sid === 'relative:LA' && /-500$/.test(ctx.user) ? ctx.user : sid;
+}
 export function isTrusted(sid: string, ctx: Context): boolean {
+ sid = canonical(sid, ctx);
  return sid === ctx.user || sid === SID_SYSTEM || sid === SID_ADMINISTRATORS;
 }
 
 /** Fixed, non-identifying category of a trustee for diagnostics (never the SID itself). */
 export function category(sid: string, ctx: Context): string {
+ sid = canonical(sid, ctx);
  if (sid === ctx.user) return 'current_user';
  const named: Record<string, string> = {
   [SID_SYSTEM]: 'system', [SID_ADMINISTRATORS]: 'administrators', 'S-1-1-0': 'everyone', 'S-1-5-11': 'authenticated_users',
@@ -217,7 +226,7 @@ function onlyPlainTrusted(d: Descriptor, ctx: Context): Verdict | undefined {
 function userRights(d: Descriptor, ctx: Context) {
  let self = 0, objectInherit = 0, containerInherit = 0;
  for (const ace of d.dacl.aces) {
-  if (ace.type !== 'A' || ace.trustee !== ctx.user) continue;
+  if (ace.type !== 'A' || canonical(ace.trustee, ctx) !== ctx.user) continue;
   const r = fileRights(ace.rights);
   if (!ace.flags.includes('IO')) self |= r;
   if (ace.flags.includes('OI')) objectInherit |= r;

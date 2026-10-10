@@ -162,3 +162,14 @@ test('verdicts never carry SIDs, only fixed codes and categories', () => {
  const text = JSON.stringify(v);
  assert.ok(!text.includes(OTHER) && !text.includes(USER));
 });
+
+test('the RID-500 alias LA is the current user only when the user is RID 500', () => {
+ const admin = 'S-1-5-21-1111111111-2222222222-3333333333-500';
+ const text = 'O:LAG:SYD:PAI(A;OICI;FA;;;LA)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)';
+ assert.equal(evaluateDirectory(parse(text), { user: admin }, { requireProtected: true }).ok, true);
+ assert.equal(evaluateFile(parse('O:LAG:SYD:AI(A;ID;FA;;;LA)'), { user: admin }).ok, true);
+ const other = evaluateDirectory(parse(text), ctx, { requireProtected: true });
+ assert.equal(!other.ok && other.code, 'ACL_OWNER_UNTRUSTED');
+ const ancestor = evaluateAncestor(parse('O:SYG:SYD:PAI(A;OICI;FA;;;LA)'), ctx);
+ assert.deepEqual(!ancestor.ok && ancestor.offenders, { account_group_relative: 1 });
+});
