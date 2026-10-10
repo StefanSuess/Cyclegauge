@@ -1,0 +1,96 @@
+{
+  "name": "easykirogauge",
+  "version": "0.5.1",
+  "private": true,
+  "type": "module",
+  "displayName": "EasyKiroGauge",
+  "description": "Local account credit usage in Kiro IDE",
+  "publisher": "easykirogauge",
+  "main": "./dist/extension.cjs",
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=24.13.0"
+  },
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "easykirogauge.showUsage",
+        "title": "EasyKiroGauge: Show Account Credits"
+      },
+      {
+        "command": "easykirogauge.configureCostOptimizer",
+        "title": "EasyKiroGauge: Configure Cost Optimizer",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "easykirogauge.editCostScenario",
+        "title": "EasyKiroGauge: Edit Cost Scenario",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "easykirogauge.clearCostInputs",
+        "title": "EasyKiroGauge: Clear Cost Inputs",
+        "icon": "$(clear-all)"
+      }
+    ],
+    "configuration": {
+      "title": "EasyKiroGauge",
+      "properties": {
+        "easykirogauge.sourceRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Kiro IDE data root; leave empty for the platform default."
+        },
+        "easykirogauge.storageRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Private EasyKiroGauge storage root; leave empty for the platform default."
+        },
+        "easykirogauge.sourceTimezone": {
+          "type": "string",
+          "default": "",
+          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone."
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "easykirogauge.configureCostOptimizer",
+          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "group": "navigation@1"
+        },
+        {
+          "command": "easykirogauge.editCostScenario",
+          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "group": "navigation@2"
+        },
+        {
+          "command": "easykirogauge.clearCostInputs",
+          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "group": "navigation@3"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
+    "build:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs",
+    "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/easykirogauge-0.5.1.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.0"
+  }
+}

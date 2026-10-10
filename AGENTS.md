@@ -3,7 +3,10 @@
 ## Scope and authority
 
 - Follow [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
-- This initial phase contains documentation, invented fixtures, and fixture-validation tooling only. Do not implement the application without a subsequent request.
+- **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and session-only Cost Optimizer inputs in the script-disabled detail view; exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
+- **Deferred / unauthorized:** session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights, content analysis, purchases and authenticated calls. Each needs separate explicit approval and does not alter the privacy and read-only rules below.
+- No automatic Git commits. Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.
+- Keep the collector independent of VS Code APIs. Package only the extension bundle, manifest and public documentation; exclude source logs, stores, tests and local dependency caches from VSIX artifacts.
 - Account snapshots are authoritative for current **observed account usage**, with an explicit as-of time and freshness status. Session metering provides **observed local daily attribution**, never a replacement account balance.
 - Unknown consumption across observation gaps is unknown, not zero. Do not invent daily allocations or sum account snapshots with session totals.
 - CLI metering entries must be checked for additive versus cumulative semantics before aggregation. Do not infer semantics from a field name, increasing values, or one sample.
@@ -14,7 +17,7 @@
 - Never copy real Kiro logs, databases, transcripts, database backups, or exports into this repository, temporary fixture folders, bug reports, or review packages. Redaction of a copied real session is not an acceptable fixture-generation strategy.
 - All fixtures must be invented from scratch. Use obvious `synthetic-*` identifiers and fixed invented dates/numbers. Sensitive-content test markers must be inert invented sentinels, not realistic credentials or copied text.
 - Extract only explicitly allowlisted billing fields in memory. Drop every unrecognized field by default. Do not log rejected values, full records, exception representations containing data, dynamic filenames, or local absolute paths. Diagnostics may contain fixed error codes, counts, schema field names, and version/platform metadata only.
-- Do not read authentication stores, keychains, cookies, credential files, or authentication table values. Do not invoke Kiro commands, call authenticated Kiro services, or enable verbose logging to obtain more data.
+- Do not read authentication stores, keychains, cookies, credential files, or authentication table values. Do not invoke Kiro commands, call authenticated Kiro services, or enable verbose logging to obtain more data. IDE extension installation and activation for Milestone 2 validation are authorized; they must not trigger authenticated usage requests.
 - Do not send locally read data to external services or tools. Public documentation lookups must use generic queries without local identifiers or contents.
 - If account continuity requires identifiers, design a narrow in-memory projection and device-local opaque partition key. Never persist raw identifiers or expose opaque identity/deduplication keys in diagnostics. Treat derived identifiers as private too.
 
@@ -30,4 +33,8 @@
 - Distinguish locally observed, officially documented, inferred, and unverified claims. macOS observations for Kiro 1.2.37 do not verify Windows, Ubuntu, or RHEL.
 - Keep monetary amounts, credits, tokens, and context percentages separate. Preserve decimal precision and timestamp offsets; daily timezone and UTC billing boundaries are different concepts.
 - Run `python3 tests/fixtures/kiro/validate.py` and `git diff --check` after fixture/documentation changes. The validator checks fixture contracts, not production parser behavior.
-- Before committing, inspect the staged file list and verify it contains only intended documents, wholly synthetic fixtures, and validation tooling. Do not stage unrelated files with a blanket add.
+- Before committing, inspect the staged file list and verify it contains only intended application code, tests, dependency manifests, documents, wholly synthetic fixtures, and validation tooling. Do not stage unrelated files with a blanket add.
+
+## Milestone 4C approval — 2026-10-10 (historical)
+
+Long-term history and robust forecasting (0.4.1) was approved with refinements: never infer zero usage from missing snapshots, require independent comparable observations, enable heuristics only on walk-forward evidence, report availability/error/underprediction/stability separately with held-out scenarios, and reserve 0.5.0 for the dashboard. The three original forecast methods and the collector, Store, projection and billing semantics stay preserved. No charts in that milestone (0.5.0 later delivered the chart under its own approval), no automatic Git commits. This extends, and does not remove, the earlier boundaries.

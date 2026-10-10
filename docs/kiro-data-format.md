@@ -133,3 +133,7 @@ Only macOS paths/data were inspected. Windows `%APPDATA%\Kiro` and Ubuntu/RHEL `
 See [fixture README](../tests/fixtures/kiro/README.md). All inputs are invented; they are not redacted exports. Inputs preserve relevant observed structures while omitting private/unneeded fields. Unknown cache enums are omitted rather than fabricated; hypothetical schemas/scenarios are explicitly marked.
 
 Expected results preserve unknown values as JSON `null`, separate account snapshots from local attribution, and keep CLI totals unknown pending semantic verification. The fixture validator checks syntax, decimal arithmetic, timestamps, scenario consistency, and privacy projections only. It is not a production collector or proof that a production parser satisfies these contracts.
+
+## Milestone 1 implementation note
+
+The explicit implementation request enabled a TypeScript/Node.js log-only collector. [README.md](../README.md) documents commands and behavior. This does not add evidence about Kiro versions, live cache safety or target platform compatibility to the discovery findings above. Only synthetic account-response logs were used for implementation tests; no additional real logs or databases were read. A numeric `q-client.log.<number>` suffix is a tested adapter convention, not an observed Kiro retention contract. Identity projection is limited to in-memory userId for device-local HMAC partitioning; neither raw identity nor private tokens appear in CLI output.

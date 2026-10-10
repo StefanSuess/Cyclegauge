@@ -1,10 +1,10 @@
 # EasyKiroGauge specification
 
-Status: approved discovery baseline; no application implemented. Evidence: macOS, Kiro 1.2.37, investigation dated 2026-10-08. See [data findings](docs/kiro-data-format.md).
+Status: version 0.5.0. Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, local Cost Optimizer, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
 
 ## Purpose
 
-Provide local credit tracking and, eventually, forecasts that distinguish account-wide consumption from the portion attributable to retained local sessions. Support a future cross-platform application for macOS, Windows, Ubuntu, and RHEL without requiring Kiro credentials or changing Kiro state.
+Provide local credit tracking and qualified forecasts that distinguish account-wide consumption from the portion attributable to retained local sessions. Support a future cross-platform application for macOS, Windows, Ubuntu, and RHEL without requiring Kiro credentials or changing Kiro state.
 
 ## Data authority
 
@@ -13,7 +13,7 @@ Provide local credit tracking and, eventually, forecasts that distinguish accoun
 3. Compare sources for reconciliation; never add an account snapshot or snapshot delta to session totals. Report differences as unexplained coverage, timing, account-association, or adjustment differences, not automatically missing billable work.
 4. CLI `metering_usage[]` semantics are unresolved. Verify additive versus cumulative behavior for the applicable format/version before enabling its aggregation. Until then, report metering as present but uninterpreted, with no credit total derived from those entries.
 
-## Required behavior for subsequent implementation
+## Required behavior and implementation scope
 
 - Select the `CREDIT` resource and prefer `*WithPrecision` fields. Preserve decimal values without rounding until presentation. Do not confuse `INVOCATIONS`, token counts, or context percentages with billing units.
 - Attribute accepted local turn summaries to their completion day in the configured IANA timezone; default to the device timezone, initially Europe/Berlin. Label this as completion-time attribution, not exact within-turn consumption timing.
@@ -23,7 +23,7 @@ Provide local credit tracking and, eventually, forecasts that distinguish accoun
 - Treat advancing reset dates as cycle-change evidence. A counter decrease alone is an anomaly, not proof of reset. Preserve adjustments, plan/account changes, and reset ambiguity.
 - Keep plans, base credits, overages, bonuses, and add-on credits distinct. Unknown bonus schemas must not be folded into a fabricated remaining-credit balance.
 - Preserve provenance, partial coverage, unsupported-format status, stale/conflicting observations, and unresolved account association. A missing value is not zero.
-- Forecasting is a later milestone. It must disclose its observation window and coverage; insufficient coverage yields an unavailable forecast. Do not calculate a burn rate from sparse snapshot intervals as if they were complete daily measurements.
+- Milestone 3 forecasting discloses its method, observation window, policy and coverage. Insufficient coverage yields unavailable estimates; interval net rates never imply complete daily measurements.
 
 ## Privacy and platform requirements
 
@@ -31,6 +31,58 @@ Follow [AGENTS.md](AGENTS.md). No credentials, raw transcript persistence, raw i
 
 macOS source locations and sample shapes were inspected. Windows, Ubuntu, and RHEL are **design targets, not verified platforms**. Support native path APIs, configurable data roots, Unicode/spaces, explicit timezone handling, and safe unavailable states. Do not disable Windows protections or RHEL SELinux to gain access.
 
+## Milestone 2 IDE extension
+
+The primary product is a VS Code-compatible Kiro IDE extension. It imports the existing read-only IDE account-response logs on activation and when they change. A minute timer provides a fallback and reevaluates staleness even without new logs. The status bar shows remaining base credits; clicking opens a local detail view with usage, base limit, remaining base credits, reset, UTC-day budget allocation, snapshot time, freshness and warnings. Add-ons and overages are not folded into remaining base credits.
+
+The extension does not invoke Kiro commands or authenticated services. It retains the Milestone 1 account isolation, decimal handling and app-owned store. It does not implement separate CLI/Crew collectors. The source timezone defaults to the device timezone unless configured; that assumption must be visible in data quality. A rescan never changes an observation's source timestamp.
+
+The installed macOS Kiro 1.2.56 app declares Electron 44.4.3, whose documented Node version is 24.21.0. The VSIX was installed and activated inside this IDE; its live account reading confirms the extension host can run the bundled collector and `node:sqlite`. The exact extension-host `process.versions.node` value was not separately captured. Windows, Ubuntu and RHEL remain unverified targets.
+
 ## Current acceptance boundary
 
-Deliver discovery documentation, architecture and roadmap, wholly synthetic input/expected-output fixtures, and fixture validation only. No UI, daemon, collector, persistence implementation, authenticated integration, or forecast algorithm is part of this phase.
+Milestone 1 implements the log-only account collector, local SQLite persistence and CLI described in [README.md](README.md). Milestone 2 adds the IDE extension and local UI. Milestone 3 adds account history and qualified forecasts. Session attribution, daemon and Kiro SQLite access remain deferred. TypeScript is bundled to JavaScript for VSIX; runtime has no external dependencies.
+
+The CLI base-credit allocation divides observed remaining base credits by remaining UTC 24-hour days until explicit reset. It is a budget allocation, not statistical forecasting or known daily consumption. Its freshness threshold defaults to 24 hours and is configurable. Multiple/unknown account partitions and equal-time billing conflicts withhold the selected account view. Unsupported bonuses do not establish total availability. Windows storage fails closed pending ACL implementation; Windows, Ubuntu and RHEL remain unverified.
+
+## Milestone 3: history, budget and forecasts
+
+`history()` and `forecast()` are pure billing-only core modules. Existing owned persistence/account isolation remains unchanged. Group equal-time observations by instant, retain conflicts and select the latest contiguous explicit-reset cycle. History exposes points, classified net-change intervals and UTC days. A day receives only intervals contained wholly within it (including an endpoint at next midnight); it is complete only when comparable intervals cover all 24 hours. Missing/cross-day periods remain unknown. A partial daily sum is observed net change for the supported part of that day, not its total consumption.
+
+`averageObservedNetChangePerDay` is the comparable window's net counter change divided by elapsed UTC 24-hour days. It may describe a gap-spanning interval with known endpoints, but is explicitly not a complete daily series or an eligible forecast by itself. Counter decreases, changed limits, conflicts, missing fields and unsupported extras suspend comparisons. Daily history/coverage is limited to 3,660 elapsed days; excess ranges fail unavailable as an operational bound.
+
+Forecast schema/policy version 2 exposes `tier`: `provisional`, `regular` or `unavailable`, for the result and each method. Provisional estimates require at least three distinct comparable account snapshots spanning at least 48 elapsed hours. Regular forecasts preserve at least eight distinct comparable snapshots spanning seven days and automatically take precedence. Both require no interval exceeding 36 hours, unchanged known account/limit/reset, nonnegative comparable changes and a latest observation at most 24 hours old by default. Only `observed_window` supports the provisional tier; rolling and cycle-to-date retain their regular gates. These are conservative operational thresholds, not empirical accuracy guarantees. Zero observed net rate is valid; missing observations never become zeros. Historical barriers exclude every window crossing them; after a clean 48-hour/three-snapshot window, provisional window forecasts can resume; after seven days/eight snapshots, regular window forecasts can resume while cycle-to-date remains suspended.
+
+Methods: `observed_window` uses endpoint delta / elapsed time; `rolling_7_day` requires exact observed boundaries seven days apart; `cycle_to_date` uses observed cycle usage / elapsed cycle time only when an advancing prior reset establishes the start, the first observation lies within 24 hours of that start, and the entire retained cycle passes coverage gates. Never compute a start by subtracting a calendar month. Rolling rate is preferred, then cycle rate, then qualified observation-window fallback. Compare consecutive exact seven-day windows for trends only if both pass the gates.
+
+Projection is observed usage + net rate × (reset − **observation time**). Projected remaining is observed limit − projected usage; a negative value denotes base-credit shortfall. Exhaustion is conditional on the same constant rate and shown only as a UTC day before reset; zero rates do not yield an exhaustion date. Already exhausted is explicitly as-of, and exhaustion at reset is not before reset. Daily budget is max(limit − observed usage, 0) / (reset − **query time**) in UTC 24-hour days. Rate versus that allocation is a planning comparison, not measured consumption since the snapshot. That intervening usage remains unknown.
+
+Amounts stay decimal strings; BigInt rational arithmetic avoids binary floating-point billing errors. Calculated rates/projections are truncated to six decimals for presentation; projection/exhaustion arithmetic uses original decimal delta and exact duration rather than the displayed rate. Estimates retain `qualified` eligibility status, explicit assumptions and coverage; this is not confidence. Schema v2 removes the former `confidence` field in favor of `tier`. There are no statistical probability bands. Stale, future, ambiguous/conflicting, expired-reset or insufficient data yield fixed unavailable reasons; observed as-of billing fields remain distinct from estimates. Unsupported add-on schemas cannot supply a total-availability forecast.
+
+The extension labels the selected forecast “Provisional estimate – limited history”, “Regular forecast”, or “Forecast unavailable” with fixed reasons. It shows the selected window, elapsed days and comparable snapshot count; limited-history text explains that the window may not represent future usage. Both tiers show reset usage, remaining base credits and a conditional exhaustion day when mathematically supported. The extension status bar emphasizes daily budget and derived outlook instead of duplicating remaining credits. Stale/unavailable data cannot show a reassuring outlook; provisional tiers remain identified. Tight-budget presentation means the displayed rate is at least 90% of daily budget while not above it, without changing core forecast gates. A responsive four-card summary leads the detail view, followed by current status, forecast, observed history and quality/notes; exact values and eligibility evidence stay in expandable technical details. The extension adds a textual history/forecast summary with expandable recent observations (8), daily changes (14) and gaps (8). CLI JSON receives the same billing-only contract. No new collectors, services, dependencies or migrations in Milestone 3; the graphical chart arrived separately in 0.5.0.
+
+## Future product direction
+
+Evolve into a Kiro Usage & Cost Optimizer after Milestone 3. A separate configurable/versioned pricing-and-rules engine will compare current/higher/lower plans, add-on purchases and existing purchased capacity, and estimate savings over 1/3/6 months. Actual costs need independent evidence and remain separate from hypothetical scenarios and future expenditure. Never equate credits with money or infer plan/add-on balance from a displayed combined limit. Consumer rollover/expiration/proration and Enterprise overages need distinct rules. See the dated official-source reference and metadata gates in [optimizer roadmap](docs/cost-optimizer-roadmap.md).
+
+Future efficiency insights are limited to validated non-content metadata and evidence-backed comparisons. Duration or non-spec workflows do not imply inefficiency. Content analysis requires separate explicit privacy/security design review and opt-in authorization; AGENTS safeguards remain binding.
+
+## Milestone 4A implementation boundary — 2026-10-10 (historical)
+
+The [cost optimizer design](docs/cost-optimizer-roadmap.md) and [implementation plan](docs/superpowers/plans/2026-10-10-milestone-4.md) are approved for Tasks 1–4; the implemented engine is documented in [M4A checkpoint](docs/milestone-4a-validation.md). M4A separates catalog/rule evidence, manual billing profile, forecast/manual demand and exact scenario calculation; M4A has been accepted and M4B adds native session-only inputs and conditional comparisons to the existing script-disabled detail view. Current partial-cycle spending and 1/3/6 complete future billing cycles are distinct. Unknown rules, eligibility or purchased inventory produce conditional/unavailable results. Existing purchased value is never a new charge, and estimated savings never imply an actual invoice.
+
+The proposal uses session-only manual inputs, preserves current source/persistence/forecast contracts and implements no purchase or plan-change actions. The [Milestone 5 dashboard](docs/milestone-5-visual-dashboard.md) was approved separately on 2026-10-10 and implemented in 0.5.0 (see [validation](docs/milestone-5-validation.md)); that approval adds no data collection.
+
+## Milestone 4A approval — 2026-10-10 (historical)
+
+The user approved Tasks 1–4 of the existing Milestone 4 plan. Implement the independent billing-only cost engine with exact arithmetic and explicit hypothetical manual comparisons, without requiring forecast history or a fully known account profile. Unknown billing rules remain gates; any standalone zero-inventory/promotion-excluded scenario must be explicitly declared. Collector, Store, CLI, forecast policy and UI remain unchanged. Milestone 4B/5 and automatic commits are excluded. Stop after engine validation for review.
+
+## Milestone 4B approval and implementation — 2026-10-10 (historical)
+
+The user accepted the 113-test M4A checkpoint and approved Task 5 plus resolution of the synchronous break-even blocker. The extension compares manual or qualified-forecast demand across 1/3/6 full UTC cycles, separates before-reset costs, and supports explicit independent assumptions or a manual account-bound billing profile. Native configuration/edit/clear commands expose balances, lots/expiration, cohort/promotions, Enterprise permissions/headroom and eligible-plan restrictions. Unknown is never confirmed zero. Cheapest claims remain conditional when competitors cannot be priced. Inputs are session-only and account/editor isolated. Ordinary optimization now returns cheap conditional analytical references; exhaustive exact `findBreakEven` is optional engine-only work, absent from the extension bundle. Collector, Store, CLI and forecast algorithms are preserved. No M5 at that time (approved later; see above), authenticated APIs, purchases or commits. See [M4B validation](docs/milestone-4b-validation.md). This approval supersedes the earlier M4A-only boundary.
+
+## Milestone 4C: pooled long-term history (0.4.1)
+
+`history()` additionally returns billing-only `evidence` for at most the trailing 85 UTC days: per-cycle intervals with exact net counter changes, UTC day rows (`netChange`, `observedMilliseconds`, `zeroNetMilliseconds`, `snapshots`) and unattributed spans. Counters are never subtracted across a reset, the time after a cycle's last snapshot is excluded rather than zero, and base-limit changes, reset regressions or unknown resets and unsupported extra credits end the evidence regime. An unchanged counter between two real snapshots is *observed zero net change*, not proof of inactivity; a positive interval longer than 36 hours remains a quality barrier for the three in-cycle methods.
+
+Forecast schema/policy version 3 appends `history_7_day`, `history_14_day`, `history_28_day` and `history_84_day`: exact `evidenceCredits / evidenceMilliseconds` over complete UTC days before the latest observation's day. Each requires observed exposure, snapshot count, distinct snapshot days and independence (no single interval above half the exposure). Selection is `history_28_day`, `history_14_day`, `rolling_7_day`, `history_7_day`, `cycle_to_date`, `observed_window`. A single completed run of at least five fully observed zero-net UTC days followed by observed usage is excluded from pooled exposure; sustained-change selection is implemented but disabled by default and its observations are reported as `qualifiers`. The Cost Optimizer reuses the selected exact evidence and, for future full cycles, the longest qualified pooled window. Evidence and results are in [milestone-4c-validation.md](docs/milestone-4c-validation.md).
