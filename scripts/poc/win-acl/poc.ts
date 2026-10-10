@@ -15,7 +15,7 @@ import { join, resolve, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { noSymlinks, inside } from '../../../src/paths.ts';
 import {
- SID_ADMINISTRATORS, SID_SYSTEM, evaluateAncestor, evaluateDirectory, evaluateFile, isTrusted, tryParse,
+ SID_ADMINISTRATORS, SID_SYSTEM, canonical, category, evaluateAncestor, evaluateDirectory, evaluateFile, isTrusted, tryParse,
  type Context, type Descriptor, type Verdict,
 } from './sddl.ts';
 import {
@@ -129,12 +129,13 @@ async function item1(run: Run): Promise<Item> {
  writeFileSync(probe, Buffer.alloc(8), { flag: 'wx' });
  const read = await readDescriptors([probe]);
  const d = descriptorOf(read.entries[0]);
- const ownerOk = d?.owner !== undefined && (d.owner === sid || d.owner === SID_ADMINISTRATORS);
+ const ownerOk = d?.owner !== undefined && (canonical(d.owner, run.ctx) === sid || d.owner === SID_ADMINISTRATORS);
+ const ownerCategory = d?.owner === undefined ? 'unreadable' : category(d.owner, run.ctx);
  const facts = await readFacts(win32.parse(run.root).root.slice(0, 2));
  return {
   status: ownerOk ? 'established' : 'not_established', code: ownerOk ? 'OK' : 'ACL_OWNER_MISMATCH',
   data: {
-   sid_parsed: true, owner_is_user_or_administrators: ownerOk, integrity_level: token.integrity,
+   sid_parsed: true, owner_is_user_or_administrators: ownerOk, owner_category: ownerCategory, integrity_level: token.integrity,
    administrators_group_listed: token.administratorsListed, ui_culture: facts.uiCulture, locales_observed: 1,
    locale_independence: 'structural_only', method: 'whoami_csv_sid_column',
   },
