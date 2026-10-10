@@ -454,7 +454,7 @@ export async function runEvidence(opts: { skipProfile?: boolean } = {}): Promise
  const facts = await readFacts(win32.parse(root).root.slice(0, 2)).catch(() => undefined);
  const token = await tokenFacts().catch(() => undefined);
  const report: Report = {
-  schema: 'ekg-win-acl-poc/1',
+  schema: 'ekg-win-acl-poc.1',
   environment: {
    platform: process.platform, arch: arch(), node: process.version, os_release: release(),
    powershell_major_minor: facts?.psVersion ?? 'unknown', ui_culture: facts?.uiCulture ?? 'unknown',
@@ -488,7 +488,7 @@ async function main(): Promise<number> {
   if (mdIndex >= 0 && argv[mdIndex + 1]) appendFileSync(argv[mdIndex + 1], markdown);
   return 0;
  } catch (e) {
-  process.stdout.write(JSON.stringify({ schema: 'ekg-win-acl-poc/1', error: fixedCode(e) }) + '\n');
+  process.stdout.write(JSON.stringify({ schema: 'ekg-win-acl-poc.1', error: fixedCode(e) }) + '\n');
   return e instanceof ToolError && e.code === 'POC_NOT_WINDOWS' ? 2 : 3;
  }
 }

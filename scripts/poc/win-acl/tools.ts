@@ -40,7 +40,9 @@ export const runTool: Runner = (exe, args, opts) => new Promise(resolve => {
 // --- Windows locations ------------------------------------------------------------------------
 
 export function systemRoot(env: NodeJS.ProcessEnv = process.env): string {
- const root = env.SystemRoot ?? env.windir ?? '';
+ // A spread copy of process.env loses Windows' case-insensitive lookup, and Git Bash exports SYSTEMROOT.
+ const find = (name: string) => Object.entries(env).find(([k]) => k.toLowerCase() === name)?.[1];
+ const root = find('systemroot') ?? find('windir') ?? '';
  if (!/^[A-Za-z]:\\[^\\/:*?"<>|]+$/.test(root)) throw new ToolError('TOOL_ENV_INVALID');
  return root;
 }

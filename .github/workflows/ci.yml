@@ -91,7 +91,10 @@ jobs:
       - name: Fixture contract validator
         if: ${{ !cancelled() }}
         run: |
-          if command -v python3 >/dev/null 2>&1; then python3 tests/fixtures/kiro/validate.py; else python tests/fixtures/kiro/validate.py; fi
+          # Windows Python has no system timezone database; the validator needs the tzdata package.
+          PY=python3; command -v python3 >/dev/null 2>&1 || PY=python
+          "$PY" -m pip install --quiet tzdata
+          "$PY" tests/fixtures/kiro/validate.py
       - name: Baseline suite (failures expected while win32 storage stays fail-closed)
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -108,7 +111,7 @@ jobs:
             echo '```'
             grep -E '^not ok' baseline.tap | sort -u | head -n 400
             echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code
 
   # Task 1A: collects Windows ACL evidence on real NTFS. Output is fixed codes and counts only.

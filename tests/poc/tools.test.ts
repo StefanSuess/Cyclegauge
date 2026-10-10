@@ -59,6 +59,11 @@ test('system tools are addressed by absolute System32 path from a validated root
  }
 });
 
+test('system root is found regardless of variable-name case', () => {
+ assert.equal(systemRoot({ SYSTEMROOT: 'C:\\Windows' }), 'C:\\Windows');
+ assert.equal(systemRoot({ WINDIR: 'D:\\WINNT' }), 'D:\\WINNT');
+});
+
 test('descriptor read passes paths through the environment, never through the script text', async () => {
  const calls: { exe: string; args: string[]; env?: NodeJS.ProcessEnv }[] = [];
  const paths = ['C:\\Synthetic\\one', 'C:\\Synthetic\\two space'];
