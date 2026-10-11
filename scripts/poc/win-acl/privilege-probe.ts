@@ -1,7 +1,7 @@
 // Platform-verification feasibility PoC: measure what the CURRENT token can actually do, then run the
 // Windows ACL proof-of-concept in the same process context and embed its report.
 //
-//   node scripts/poc/win-acl/privilege-probe.ts --out <file> [--skip-profile]
+//   node scripts/poc/win-acl/privilege-probe.ts --out <file> --sid-out <file> [--skip-profile]
 //
 // It is started by standard-user.ts under a freshly created local standard account, but it only
 // measures and never assumes: the integrity level, the Administrators group state, the privileges the
@@ -13,7 +13,7 @@ import { dirname, join, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { isMain } from '../../is-main.ts';
-import { ToolError, encodeScript, parseWhoamiGroups, powershellExe, runTool, systemExe } from './tools.ts';
+import { ToolError, currentUser, encodeScript, parseWhoamiGroups, powershellExe, runTool, systemExe } from './tools.ts';
 
 /** Privileges a default standard-user token carries. Anything else is reported, not silently accepted. */
 export const STANDARD_PRIVILEGES = [
@@ -63,7 +63,7 @@ export function verdictOf(m: Measured): 'standard_user' | 'not_standard' {
   && m.privileges.powerful.length === 0
   && m.probes.system32_write === 'denied'
   && m.probes.program_files_write === 'denied'
-  && m.probes.net_session !== 'allowed';
+  && m.probes.net_session === 'denied';
  return ok ? 'standard_user' : 'not_standard';
 }
 
@@ -122,9 +122,13 @@ async function main(): Promise<number> {
  const argv = process.argv.slice(2);
  const outIndex = argv.indexOf('--out');
  const out = outIndex >= 0 ? argv[outIndex + 1] : undefined;
- if (process.platform !== 'win32' || !out || !win32.isAbsolute(out)) { console.log('PROBE_RESULT=not_applicable'); return 2; }
+ const sidIndex = argv.indexOf('--sid-out');
+ const sidOut = sidIndex >= 0 ? argv[sidIndex + 1] : undefined;
+ if (process.platform !== 'win32' || !out || !win32.isAbsolute(out) || !sidOut || !win32.isAbsolute(sidOut)) { console.log('PROBE_RESULT=not_applicable'); return 2; }
  try {
   const m = await measure();
+  // The identity of THIS process, read from its own token; the launcher compares it with the account it created.
+  writeFileSync(sidOut, (await currentUser()).sid);
   const here = dirname(fileURLToPath(import.meta.url));
   const run = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', join(here, 'poc.ts'), ...(argv.includes('--skip-profile') ? ['--skip-profile'] : [])], { encoding: 'utf8', timeout: 240_000, killSignal: 'SIGKILL' });
   let poc: unknown;

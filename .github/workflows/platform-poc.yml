@@ -4,35 +4,47 @@
 #   * windows-standard-user: the Windows ACL proof-of-concept under a genuinely separate, temporary local
 #     STANDARD account (not a reduced copy of the administrator token), on Windows 11 ARM64 (client) and
 #     on Windows Server x64. The child measures its own integrity level, Administrators group state,
-#     privileges and denied writes; the account is created only on GitHub-hosted runners and is removed.
+#     privileges and denied writes; the account is synthetic, refused when it already exists, and removed with
+#     confirmation (an unconfirmed cleanup marks the run invalid).
 #   * rhel9-container-hardened: the existing UBI 9 checks on x86_64 and aarch64 with a read-only root,
 #     all capabilities dropped and no-new-privileges, plus an XFS loopback location (RHEL's default file
 #     system) classified by the survey script.
 #
-# None of this is native Windows 11 x64 (no such hosted runner exists) or native RHEL 9 evidence: no
+# None of this is native Windows 11 x64 (no hosted runner exists) or native RHEL 9 evidence: no
 # SELinux, no systemd, no Kiro. Windows storage stays disabled; nothing here weakens SC1.
+#
+# Trust: the Windows job creates a local account and runs repository code as administrator on the
+# runner. Hosted runners are ephemeral and this workflow has a read-only token and no secrets, but
+# code from a fork must never reach that step. So there is NO pull_request trigger: the workflow runs
+# manually (workflow_dispatch, which needs write access) or on pushes to branches of this repository
+# (only writers can push those), and the Windows job skips forks. Do not add pull_request,
+# pull_request_target or workflow_run triggers without a new security review.
 #
 # Rules: read-only token, no secrets, third-party actions pinned by commit SHA, synthetic data only,
 # GitHub-hosted runners only.
 name: platform-poc
 
 on:
-  pull_request:
+  workflow_dispatch:
+  push:
+    branches: ['claude/**', 'feature/**']
     paths:
       - '.github/workflows/platform-poc.yml'
       - 'scripts/poc/**'
-  workflow_dispatch:
+      - 'tests/poc/standard-user.test.ts'
 
 permissions:
   contents: read
 
 concurrency:
   group: platform-poc-${{ github.ref }}
-  cancel-in-progress: true
+  # Never cancel mid-run: a cancelled run could leave the temporary account behind on the runner.
+  cancel-in-progress: false
 
 jobs:
   windows-standard-user:
     name: standard user PoC (${{ matrix.os }})
+    if: ${{ !github.event.repository.fork }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -52,17 +64,18 @@ jobs:
           node-version: '24.13.0'
       - name: Pure tests for the probe and the launcher logic
         run: node --disable-warning=ExperimentalWarning --test tests/poc/standard-user.test.ts
+      # The script exits 0 only when the child really ran as the intended standard user, every expected
+      # PoC item is established with the expected data, and cleanup is confirmed (1 fail, 2 refused,
+      # 3 invalid run: cleanup unconfirmed). pipefail (bash default here) keeps that code through tee.
       - name: Run the PoC under a temporary local standard account
         run: |
           node --disable-warning=ExperimentalWarning scripts/poc/win-acl/standard-user.ts \
             --i-understand-this-creates-a-local-account --markdown-file "$GITHUB_STEP_SUMMARY" | tee standard-user.txt
-          if ! grep -Eq '^STANDARD_USER_RESULT=obtained$' standard-user.txt; then
-            echo '::warning::no standard-user token was obtained on this runner; the report is NOT standard-user evidence'
-          fi
-      - name: The temporary account is gone
+      # Independent of the script's own report: the account and task must not exist, whatever happened above.
+      - name: The temporary account and task are gone
+        if: ${{ always() }}
         run: |
-          if powershell -NoProfile -Command "Get-LocalUser -Name 'synthetic-ekg-std'" >/dev/null 2>&1; then echo 'account left behind'; exit 1; fi
-          echo 'account removed'
+          powershell -NoProfile -Command 'if ((Get-LocalUser | Where-Object { $_.Name -eq "synthetic-ekg-std" }) -or (Get-ScheduledTask | Where-Object { $_.TaskName -eq "synthetic-ekg-std-task" })) { Write-Output "left behind"; exit 1 } else { Write-Output "account and task removed" }'
 
   rhel9-container-hardened:
     name: ubi9 container, hardened (${{ matrix.os }})
