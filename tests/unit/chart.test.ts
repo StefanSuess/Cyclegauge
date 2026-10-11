@@ -118,7 +118,8 @@ test('accessible data parity: every displayed value appears in the text alternat
  const t = table(html);
  for (const p of m.points) { assert.ok(t.includes(p.at), p.at); assert.ok(t.includes(`>${p.usage}<`) || t.includes(`${p.usage} CREDIT`), p.usage); }
  const markers = plot(html).match(/<(circle|polygon) class="pt/g) ?? [];
- assert.equal(markers.length, m.points.length);
+ // Markers are reduced to the ends, isolated and above-limit updates; every update stays in the data table.
+ assert.ok(markers.length >= 2 && markers.length <= m.points.length);
  const rows = (t.match(/data-kind="point"/g) ?? []).length;
  assert.equal(rows, m.points.length);
  const plain = text(html);
@@ -213,7 +214,7 @@ test('decimation is bounded, keeps barriers and the table lists exactly the plot
  assert.equal(m.points.at(-1)!.at, '2030-06-21T19:50:00.000Z');
  const html = presentChart(o);
  assert.equal((table(html).match(/data-kind="point"/g) ?? []).length, m.points.length);
- assert.equal((plot(html).match(/<(circle|polygon) class="pt/g) ?? []).length, m.points.length);
+ { const markers = (plot(html).match(/<(circle|polygon) class="pt/g) ?? []).length; assert.ok(markers >= 2 && markers <= m.points.length); }
  assert.match(text(html), new RegExp(`${m.omittedPoints} retained account updates`));
  assert.ok(html.length < 60_000, `chart HTML ${html.length} bytes`);
 });

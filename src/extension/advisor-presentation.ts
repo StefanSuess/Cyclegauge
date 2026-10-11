@@ -28,28 +28,39 @@ const summary=(h:CostHorizon,a:Advice)=>{
 function savings(o:CostOptimization|null){
  const r=o?.savingsRange;return r?` Modelled saving range: USD ${safe(r.minimum.amount)} to USD ${safe(r.maximum.amount)} over the period (list prices, pre-tax).`:'';
 }
-/** Recommendation first; configuration only when needed. Script-free, no links with commands. */
+/** Compact verdict first; assumptions, per-horizon comparisons and the full cost tables stay behind one disclosure. Script-free, no links with commands. */
 export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:CostHorizon[];advice:Advice[];singleAccount:boolean;failed?:boolean;limit:string|null}):string {
  const {hint,context,horizons,advice}=o;
- const plan=context.planSource==='confirmed'?`${safe(planNames[context.plan!])} — confirmed by you`
-  :context.planSource==='hint'?`${safe(planNames[context.plan!])} — hint only: matches the reported ${safe(o.limit??'')} credits, not confirmed`
-  :'Unknown — not confirmed by you, and the reported credit limit is unavailable or matches no catalog plan';
+ const planName=context.plan?safe(planNames[context.plan]):null;
  const codes=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions,...advice.flatMap(a=>a.reasons)])];
  const assumptions=codes.filter(c=>c in assumptionText).map(c=>assumptionText[c]);
  const engineReasons=codes.filter(c=>!(c in assumptionText));
- const confidence=context.planSource==='hint'?` Hint confidence: ${hint.confidence} (exact match with the plan's nominal credits only).`:'';
- const rows=horizons.map((h,i)=>summary(h,advice[i])).join('');
+ const conditions=[...assumptions,...engineReasons.map(reasonText)];
  const catalog=reviewedCatalog;
  const first=horizons[0]?.result??null;
- const headline=advice[0]?safe(adviceLabels[advice[0].kind]):safe(adviceLabels.insufficient_information);
- return `<section id="cost-advisor" aria-label="Cost Advisor"><h2>Cost Advisor</h2>`
-  +`<p><span class="badge">${headline}</span></p>`
-  +(o.failed?'<p>The Cost Advisor is unavailable; your budget and forecast remain usable.</p>':rows?`<ul>${rows}</ul>`:'<p>A qualified forecast is needed before costs can be compared. Keep using Kiro; this updates automatically.</p>')
-  +(advice[0]?.kind==='potential_savings'?`<p>${savings(first).trim()}</p>`:'')
-  +`<p class="small"><strong>Plan:</strong> ${plan}.${safe(confidence)}</p>`
-  +(assumptions.length||engineReasons.length?`<p class="small"><strong>Conditions that apply:</strong></p><ul class="small">${[...assumptions,...engineReasons.map(reasonText)].map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
-  +(horizons.some(h=>h.result)?`<details class="small"><summary>Compare options, assumptions and sensitivity</summary><p class="muted small">Saving figures are hidden unless every input is confirmed; differences here are costs under the conditions above, not savings.</p>${horizons.filter(h=>h.result).map(h=>`<h4>${h.months} full billing ${h.months===1?'cycle':'cycles'}</h4>${presentCost(h.result!,advice[horizons.indexOf(h)]?.kind==='potential_savings')}`).join('')}</details>`:'')
-  +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p>`
-  +`<p class="small">To change the plan or answer the questions above, use the <strong>Cost Advisor</strong> button (light-bulb) in this panel's title bar, or the Command Palette entry <strong>EasyKiroGauge: Cost Advisor</strong> (it also clears your answers).${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
-  +`</section>`;
+ const kind=advice[0]?.kind??'insufficient_information';
+ // The verdict never states a saving unless the engine classified it as potential_savings (every input confirmed).
+ const verdict=o.failed?'The Cost Advisor is unavailable; your budget and forecast remain usable.'
+  :kind==='potential_savings'?`Potential saving${first?.savingsRange?`: USD ${safe(first.savingsRange.minimum.amount)} to USD ${safe(first.savingsRange.maximum.amount)} over one billing cycle (list prices, pre-tax)`:''}. ${first?safe(winnerText(first)):''}`
+  :kind==='no_action'?'No cheaper option found for your forecast usage. Keep your current plan.'
+  :kind==='conditional_comparison'?'No saving can be confirmed yet. A comparison exists, but it depends on details you have not confirmed (see below). No savings are claimed.'
+  :horizons.length?'Not enough confirmed information to compare plans yet. No savings are claimed.':'A qualified forecast is needed before costs can be compared. Keep using Kiro; this updates automatically.';
+ const planLine=context.planSource==='confirmed'?`<span class="badge">Confirmed by you</span>`
+  :context.planSource==='hint'?`<span class="badge">Unconfirmed</span>`:'';
+ const planText=planName?`<strong>${planName}</strong>`:'<strong>Plan unknown</strong>';
+ const planNote=context.planSource==='hint'?`Inferred from the reported ${safe(o.limit??'')} credits; this may include purchased credits, so it is only a hint.`
+  :context.planSource==='confirmed'?'Used for the comparison below.':'Not confirmed, and the reported credit limit is unavailable or matches no catalog plan.';
+ const rows=horizons.map((h,i)=>summary(h,advice[i])).join('');
+ const detail=(rows||conditions.length||horizons.some(h=>h.result))
+  ?`<details><summary>Why, assumptions and comparison</summary>`
+   +(conditions.length?`<p class="small"><strong>Conditions that apply:</strong></p><ul class="small">${conditions.map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
+   +(rows?`<p class="small"><strong>By horizon</strong></p><ul class="small">${rows}</ul>`:'')
+   +(horizons.some(h=>h.result)?`<details class="small"><summary>Full cost comparison and sensitivity</summary><p class="muted small">Saving figures are hidden unless every input is confirmed; differences here are costs under the conditions above, not savings.</p>${horizons.filter(h=>h.result).map(h=>`<h4>${h.months} full billing ${h.months===1?'cycle':'cycles'}</h4>${presentCost(h.result!,advice[horizons.indexOf(h)]?.kind==='potential_savings')}`).join('')}</details>`:'')
+   +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p></details>`
+  :'';
+ return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
+  +`<p class="plan-row"><span class="label">Likely plan</span> ${planText} ${planLine}</p><p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`
+  +`<p class="verdict">${verdict}</p>`
+  +`<p class="action small"><strong>Confirm or change your plan:</strong> use the <strong>Cost Advisor</strong> light-bulb button in this panel's title bar, or run <strong>EasyKiroGauge: Cost Advisor</strong> from the Command Palette (it also clears your answers).${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
+  +detail+`</section>`;
 }

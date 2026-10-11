@@ -187,7 +187,7 @@ test('answers cannot cross accounts, ambiguity or stale editor tickets',()=>{
 test('presentation is script-free, escaped, traceable to the catalog and never offers a purchase instruction',()=>{
  const hint=planHint('1000',catalog);
  const html=presentAdvisor({hint,context:ctx({planSource:'hint',plan:'pro',billingConfirmed:false,addOns:'assumed_none',assumptions:['plan_is_hint','billing_assumed_consumer','add_ons_assumed_none']}),horizons:[],advice:[],singleAccount:true,limit:'<img src=x onerror=synthetic-sentinel>'});
- for(const marker of ['Cost Advisor','hint only','not confirmed',catalog.version,catalog.verifiedOn.slice(0,10),'Offline only','Insufficient information'])assert.ok(html.includes(marker),marker);
+ for(const marker of ['Cost Advisor','Unconfirmed','only a hint',catalog.version,catalog.verifiedOn.slice(0,10),'Offline only','qualified forecast is needed'])assert.ok(html.includes(marker),marker);
  assert.ok(!html.includes('<img'));assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script'));assert.ok(!html.includes('command:'));
  assert.ok(!/buy now|purchase now|click to buy/i.test(html));
 });
@@ -214,24 +214,24 @@ test('detail view shows the advisor first, answers are applied through the nativ
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(!html.includes('Cost Optimizer'));assert.ok(!html.includes('cost-optimizer'));
   // Recommendation at a glance: directly after the current status and before the chart and advanced details.
-  assert.ok(html.indexOf('class="outlook"')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
+  assert.ok(html.indexOf('class="hero ')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
   if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
-  assert.ok(commands.has('advisor'));assert.ok(!html.includes('Pro — confirmed by you'));
+  assert.ok(commands.has('advisor'));assert.ok(!html.includes('Confirmed by you'));
   if(process.platform==='win32'){
    // Windows storage stays fail-closed: no store opens, so there are no observations. The advisor must still render,
    // say that nothing can be compared, and must not pretend an answer was applied.
-   assert.ok(html.includes('Insufficient information'));
+   assert.ok(html.includes('qualified forecast is needed'));
    assert.ok(html.includes('storage')||html.includes('Storage'),'the fail-closed storage reason must be visible, not just an empty log');
    answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
-   assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!/Potential savings|No action needed/.test(html));
+   assert.ok(!html.includes('Confirmed by you'));assert.ok(!/Potential saving|No cheaper option/.test(html));
   }else{
-   assert.ok(html.includes('hint only'));
+   assert.ok(html.includes('Unconfirmed'));
    const budget=status;
    answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
-   assert.ok(html.includes('Pro — confirmed by you'));assert.equal(status,budget);
-   assert.ok(!/Potential savings|No action needed/.test(html),'the engine marks every priced comparison conditional');
+   assert.ok(html.includes('Confirmed by you'));assert.equal(status,budget);
+   assert.ok(!/Potential saving|No cheaper option/.test(html),'the engine marks every priced comparison conditional');
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
-   assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
+   assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   }
   controller.dispose();
  }finally{await rm(env.base,{recursive:true,force:true});}

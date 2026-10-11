@@ -9,13 +9,13 @@ export const CHART_CSS = `.chart-frame{margin:0}.chart-frame svg{display:block;w
 .chart-frame .obs{stroke:var(--vscode-charts-blue,#3794ff);fill:none;stroke-width:2}.chart-frame circle.pt{fill:var(--vscode-charts-blue,#3794ff);stroke:var(--vscode-editor-background,#fff);stroke-width:1}
 .chart-frame polygon.over{fill:var(--vscode-editor-background,#fff);stroke:var(--vscode-charts-red,#f14c4c);stroke-width:2.5}
 .chart-frame .limit{stroke:var(--vscode-charts-red,#f14c4c);stroke-width:2.5;fill:none}.chart-frame .above{fill:var(--vscode-charts-red,#f14c4c);fill-opacity:.12}
-.chart-frame .central{stroke:var(--vscode-charts-purple,#b180d7);stroke-width:2;stroke-dasharray:8 5;fill:none}.chart-frame .lower{stroke:var(--vscode-charts-green,#89d185);stroke-width:2;stroke-dasharray:2 5;stroke-linecap:round;fill:none}
-.chart-frame .higher{stroke:var(--vscode-charts-orange,#d18616);stroke-width:2;stroke-dasharray:12 4 2 4;fill:none}.chart-frame .env{fill:var(--vscode-charts-purple,#b180d7);fill-opacity:.14;stroke:none}
+.chart-frame .central{stroke:var(--vscode-charts-purple,#b180d7);stroke-width:2;stroke-dasharray:8 5;fill:none}.chart-frame .lower{stroke:var(--vscode-charts-green,#89d185);stroke-width:1.5;stroke-opacity:.85;stroke-dasharray:2 5;stroke-linecap:round;fill:none}
+.chart-frame .higher{stroke:var(--vscode-charts-orange,#d18616);stroke-width:1.5;stroke-opacity:.85;stroke-dasharray:12 4 2 4;fill:none}.chart-frame .env{fill:var(--vscode-charts-purple,#b180d7);fill-opacity:.14;stroke:none}.chart-frame .split{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1;stroke-dasharray:2 3;fill:none}.chart-frame .zone{fill:var(--vscode-descriptionForeground,#888);font-size:11px}
 .chart-frame .budget{stroke:var(--vscode-charts-yellow,#cca700);stroke-width:1.5;stroke-dasharray:3 3;fill:none}.chart-frame .reset{stroke:var(--vscode-foreground);stroke-width:1.5;fill:none}
 .chart-frame .query{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1.5;stroke-dasharray:1 4;stroke-linecap:round;fill:none}
 .chart-frame .unk{fill:url(#chart-unknown);stroke:var(--vscode-panel-border,#8888);stroke-dasharray:4 3}.chart-frame .unk-hatch{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1}
 .chart-frame .mark{stroke:var(--vscode-foreground);stroke-width:2.5;fill:none}.chart-frame .flag{fill:var(--vscode-editorWarning-foreground,#cca700);stroke:var(--vscode-foreground);stroke-width:1}
-.chart-clip{margin:8px 0;padding-left:20px;font-weight:600;font-size:.95rem}.chart-legend{list-style:none;padding:0;margin:10px 0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 14px;font-size:.9rem}.chart-legend-full{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));font-size:1rem}.chart-legend li{display:flex;gap:8px;align-items:flex-start}.chart-legend svg{flex:none;margin-top:3px}
+.chart-clip{margin:8px 0;padding-left:20px;font-weight:600;font-size:.95rem}.chart-legend{list-style:none;padding:0;margin:10px 0;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85rem}.chart-help{margin-top:6px}.chart-help>summary{font-weight:500}.chart-legend-full{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));font-size:.95rem}.chart-legend li{display:flex;gap:8px;align-items:flex-start}.chart-legend svg{flex:none;margin-top:3px}
 .chart-legend line,.chart-legend path{fill:none}.chart-table th,.chart-table td{padding:6px 8px 6px 0;font-size:.9rem}.chart-table th,.chart-table td{overflow-wrap:normal;word-break:normal}.chart-table th{width:auto}.chart-table th[scope=row]{min-width:9em}.chart-table th[scope=col]{white-space:nowrap}.chart-table td:nth-child(2){min-width:12em}.chart-table td:nth-child(3){white-space:nowrap}.chart-scroll{overflow-x:auto}
 @media(forced-colors:active){.chart-frame .obs,.chart-frame .limit,.chart-frame .central,.chart-frame .lower,.chart-frame .higher,.chart-frame .budget,.chart-frame .reset,.chart-frame .query,.chart-frame .axis,.chart-frame .mark{stroke:CanvasText}.chart-frame circle.pt{fill:CanvasText;stroke:Canvas}.chart-frame polygon.over,.chart-frame .flag{fill:Canvas;stroke:Highlight}.chart-frame .env,.chart-frame .above{fill:Highlight;fill-opacity:.25}.chart-frame text{fill:CanvasText}}`;
 
@@ -144,6 +144,7 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
   flag(p.central, mid, 'Expected trajectory'); flag(p.higher, hi, 'Higher-usage scenario'); flag(p.lower, lo, 'Lower-usage scenario');
  }
 
+ if (p) { const sx = xt(p.from.at); out.push(`<line class="split" x1="${n(sx)}" y1="${T}" x2="${n(sx)}" y2="${H - B}"/>${sx - L >= 170 ? `<text class="zone" x="${n(sx - 5)}" y="${T + 10}" text-anchor="end">Observed</text>` : ''}<text class="zone" x="${n(sx + 5)}" y="${T + 10}">Forecast</text>`); }
  // Budget guide
  if (m.budget) out.push(`<line class="budget" stroke-dasharray="3 3" x1="${n(xt(m.budget.from.at))}" y1="${n(y(num(m.budget.from.usage)))}" x2="${n(xt(m.budget.to.at))}" y2="${n(y(num(m.budget.to.usage)))}"><title>Budget guide: even allocation of remaining reported capacity</title></line>`);
  // Reported limit segments (a changed limit starts a new segment)
@@ -156,10 +157,13 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  // Observed connectors, then points on top
  for (const [a, b] of m.connectors) out.push(`<line class="obs" x1="${n(xt(m.points[a].at))}" y1="${n(y(num(m.points[a].usage)))}" x2="${n(xt(m.points[b].at))}" y2="${n(y(num(m.points[b].usage)))}"><title>Comparable interval; timing within the interval was not observed</title></line>`);
  for (const e of m.events) out.push(`<path class="flag" d="M${n(xt(e.at))} ${H - B - 2} l-6 -11 h12 z"><title>${safe(eventLabels[e.kind] ?? 'Series broken')}</title></path>`);
- for (const pt of m.points) {
+ const connected = new Set(m.connectors.flat());
+ // Markers only where a line cannot carry the point: the ends, isolated updates and above-limit updates. Every update stays in the data table.
+ m.points.forEach((pt, i) => {
+  if (!(i === 0 || i === m.points.length - 1 || pt.aboveLimit || !connected.has(i))) return;
   const cx = xt(pt.at), cy = y(num(pt.usage)), title = `<title>${safe(pt.at)} · ${safe(pt.usage)} CREDIT${pt.aboveLimit ? ' · above reported limit' : ''}</title>`;
-  out.push(pt.aboveLimit ? `<polygon class="pt over" points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}">${title}</polygon>` : `<circle class="pt obs" cx="${n(cx)}" cy="${n(cy)}" r="4">${title}</circle>`);
- }
+  out.push(pt.aboveLimit ? `<polygon class="pt over" points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}">${title}</polygon>` : `<circle class="pt obs" cx="${n(cx)}" cy="${n(cy)}" r="3.5">${title}</circle>`);
+ });
  if (m.exhaustion?.approxAt) { const ex = xt(m.exhaustion.approxAt), ey = y(num(lastLimit.value)); out.push(`<path class="mark" d="M${n(ex - 6)} ${n(ey - 6)} l12 12 m0 -12 l-12 12"><title>Reported limit reached (conditional): UTC day ${safe(m.exhaustion.day)}</title></path>`); }
 
  const swatch = (inner: string) => `<svg width="36" height="14" viewBox="0 0 36 14" aria-hidden="true" class="chart-frame">${inner}</svg>`;
@@ -195,8 +199,9 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  const main = `<section id="usage-chart" aria-labelledby="chart-heading"><h2 id="chart-heading">Usage trajectory</h2>`
   + `<figure class="chart-frame"><svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc" xmlns="http://www.w3.org/2000/svg"><title id="chart-title">Observed credit usage and scenario trajectories until the billing reset</title><desc id="chart-desc">${safe(summary)}</desc>${out.join('')}</svg></figure>`
   + (clipNotes ? `<ul class="chart-clip">${clipNotes}</ul>` : '')
-  + `<ul class="chart-legend">${brief.join('')}</ul><p class="muted small">${safe(caption)} Full chart details are under Advanced details.</p></section>`;
- const advanced = `<div id="chart-details"><h3>Chart details</h3>${notes}<h4>Full legend</h4><ul class="chart-legend chart-legend-full">${legend.join('')}</ul><p id="chart-summary">${safe(summary)}</p>`
+  + `<ul class="chart-legend">${brief.join('')}</ul><p class="muted small">${safe(caption)}</p>`
+  + `<details class="chart-help"><summary>How to read this chart</summary>${notes}<h4>Chart key</h4><ul class="chart-legend chart-legend-full">${legend.join('')}</ul></details></section>`;
+ const advanced = `<div id="chart-details"><h3>Chart details</h3><p id="chart-summary">${safe(summary)}</p>`
   + `<details><summary>Chart data table</summary><div class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; credits are the CREDIT unit)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
  return { main, advanced };
 }
