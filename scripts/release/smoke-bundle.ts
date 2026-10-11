@@ -35,7 +35,7 @@ function stubVscode(sim: Simulation, settings: Record<string, string>, log: { st
    },
    createWebviewPanel() {
     let html = '';
-    return { webview: { get html() { return html; }, set html(v: string) { html = v; log.html.push(v); } }, reveal() {}, dispose() {}, onDidDispose: () => disposable };
+    return { webview: { get html() { return html; }, set html(v: string) { html = v; log.html.push(v); } }, reveal() {}, dispose() {}, onDidDispose: () => disposable, onDidChangeViewState: () => disposable };
    },
    showQuickPick: async () => undefined, showInputBox: async () => undefined,
    showInformationMessage: async (m: string) => { log.messages.push(m); }, showWarningMessage: async (m: string) => { log.messages.push(m); },
@@ -107,12 +107,12 @@ export async function smoke(file: string, simulate: Simulation = 'none'): Promis
   const refused = process.platform === 'win32';
   if (simulate === 'no-sqlite' || simulate === 'no-reviver') {
    check('runtime_unsupported_state_shown', /lacks a feature EasyKiroGauge needs/.test(detail));
-   check('no_budget_invented', !/Credits used<\/div><div class="value">\d/.test(detail));
+   check('no_budget_invented', !/Credits used<\/dt><dd>\d/.test(detail));
   } else if (refused) {
    check('windows_storage_refused_state_shown', /not supported on this platform yet/.test(detail));
   } else {
    check('detail_view_shows_budget', /Your credit budget/.test(detail) && /Credits used/.test(detail));
-   check('observed_usage_present', /Credits used<\/div><div class="value">\d+(?:\.\d+)? credits</.test(detail));
+   check('observed_usage_present', /Credits used<\/dt><dd>\d+(?:\.\d+)? credits</.test(detail));
    if (process.env.EKG_SMOKE_DEBUG) console.log('status:', log.status.at(-1));
    check('status_text_has_no_error_label', !/unavailable/i.test(log.status.at(-1) ?? ''));
   }

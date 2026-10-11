@@ -2,7 +2,21 @@ import { subtract, allocation } from './decimal.ts';
 import { history } from './history.ts';
 import { forecast } from './forecast.ts';
 import type { StoredSnapshot } from './store.ts';
-export function view(snapshots: StoredSnapshot[], now = new Date().toISOString(), maxAgeHours = 24) {
+// Observations dated slightly after "now" are ordinary clock skew (the log writer and this process use different
+// clocks). Beyond this tolerance they are not usable evidence; they are neither shown nor used as the latest update.
+const CLOCK_SKEW_MS = 120_000;
+export function view(allSnapshots: StoredSnapshot[], realNow = new Date().toISOString(), maxAgeHours = 24) {
+ let snapshots = allSnapshots, now = realNow;
+ const notes: string[] = [];
+ const nowMs = Date.parse(realNow);
+ if (Number.isFinite(nowMs)) {
+  const beyond = (s: StoredSnapshot) => Date.parse(s.observedAt) > nowMs + CLOCK_SKEW_MS;
+  const usable = allSnapshots.filter(s => !beyond(s));
+  // If nothing is usable the original set is kept, so the result stays fail-closed as future_observation.
+  if (usable.length && usable.length !== allSnapshots.length) { snapshots = usable; notes.push('future_records_ignored'); }
+  const newest = snapshots.reduce((m, s) => Math.max(m, Date.parse(s.observedAt)), -Infinity);
+  if (newest > nowMs && newest <= nowMs + CLOCK_SKEW_MS) { now = new Date(newest).toISOString(); notes.push('clock_skew_tolerated'); }
+ }
  const accountHistory = history(snapshots);
  const prediction = forecast(accountHistory, now, maxAgeHours);
  const result = { history: accountHistory, forecast: prediction, status: 'unavailable', source: 'GetUsageLimitsCommand', observedAt: null as string | null, observedText: null as string | null, sourceTimezone: null as string | null,
@@ -11,14 +25,16 @@ export function view(snapshots: StoredSnapshot[], now = new Date().toISOString()
   allocationBasis: 'remaining_base_credits / remaining_UTC_24_hour_days; truncated_to_6_decimals', totalAvailableCredits: null,
   dailyConsumption: null, flags: [] as string[], interval: { status: 'unknown', netChange: null as string | null, dailyConsumption: null } };
  if (!snapshots.length) return result;
- if (new Set(snapshots.map(s => s.partition)).size !== 1) { result.status = 'multiple_accounts'; return result; }
- if (snapshots.some(s => !s.associated)) { result.status = 'unknown_account'; return result; }
+ result.flags.push(...notes);
+ // Account checks use every stored record: ignoring future-dated records must never hide a second or unknown account.
+ if (new Set(allSnapshots.map(s => s.partition)).size !== 1) { result.status = 'multiple_accounts'; return result; }
+ if (allSnapshots.some(s => !s.associated)) { result.status = 'unknown_account'; return result; }
  const sorted = [...snapshots].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
  const latest = sorted.at(-1)!; const ties = sorted.filter(s => s.observedAt === latest.observedAt);
  const fields = (s: StoredSnapshot) => JSON.stringify([s.usage, s.limit, s.resetAt, s.overages, s.overageCap, s.flags.filter(f => f !== 'assumed_source_timezone')]);
  if (new Set(ties.map(fields)).size !== 1) { result.status = 'conflicting_snapshots'; return result; }
  Object.assign(result, { observedAt: latest.observedAt, observedText: latest.observedText, sourceTimezone: latest.sourceTimezone, usage: latest.usage, baseLimit: latest.limit,
-  resetAt: latest.resetAt, resetText: latest.resetText, flags: [...latest.flags] });
+  resetAt: latest.resetAt, resetText: latest.resetText, flags: [...new Set([...latest.flags, ...notes])] });
  const age = Date.parse(now) - Date.parse(latest.observedAt);
  result.status = age < 0 ? 'future_observation' : age > maxAgeHours * 3600000 ? 'stale' : 'observed';
  const reset = latest.resetAt ? Date.parse(latest.resetAt) : NaN;

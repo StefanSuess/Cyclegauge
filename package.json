@@ -28,19 +28,9 @@
         "title": "EasyKiroGauge: Show Diagnostics"
       },
       {
-        "command": "easykirogauge.configureCostOptimizer",
-        "title": "EasyKiroGauge: Configure Cost Optimizer",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "easykirogauge.editCostScenario",
-        "title": "EasyKiroGauge: Edit Cost Scenario",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "easykirogauge.clearCostInputs",
-        "title": "EasyKiroGauge: Clear Cost Inputs",
-        "icon": "$(clear-all)"
+        "command": "easykirogauge.costAdvisor",
+        "title": "EasyKiroGauge: Cost Advisor",
+        "icon": "$(lightbulb)"
       }
     ],
     "configuration": {
@@ -68,19 +58,9 @@
     "menus": {
       "editor/title": [
         {
-          "command": "easykirogauge.configureCostOptimizer",
+          "command": "easykirogauge.costAdvisor",
           "when": "activeWebviewPanelId == easykirogauge.usage",
-          "group": "navigation@1"
-        },
-        {
-          "command": "easykirogauge.editCostScenario",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
-          "group": "navigation@2"
-        },
-        {
-          "command": "easykirogauge.clearCostInputs",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
-          "group": "navigation@3"
+          "group": "navigation@0"
         }
       ]
     }

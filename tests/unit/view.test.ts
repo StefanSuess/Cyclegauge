@@ -51,3 +51,31 @@ test('billing-only view exposes history and qualified forecast without account/s
  const conflict=view([...points,{...points[7],usage:'71'}],'2030-06-08T00:00:00Z');
  assert.equal(conflict.forecast.status,'unavailable');
 });
+
+test('future-dated records are ignored with a flag, never shown as the latest update; all-future stays fail-closed', () => {
+ const old = snapshot({ observedAt: '2030-06-29T10:00:00.000Z', usage: '5' });
+ const future = snapshot({ observedAt: '2030-06-29T18:00:00.000Z', usage: '9' });
+ const r = view([old, future], now);
+ assert.equal(r.status, 'observed'); assert.equal(r.usage, '5'); assert.equal(r.observedAt, '2030-06-29T10:00:00.000Z');
+ assert.ok(r.flags.includes('future_records_ignored')); assert.equal(r.history.coverage.snapshotCount, 1);
+ assert.ok(!JSON.stringify(r).includes('2030-06-29T18'));
+ const onlyFuture = view([future], now);
+ assert.equal(onlyFuture.status, 'future_observation'); assert.equal(onlyFuture.remainingBaseCredits, null); assert.equal(onlyFuture.availablePerDay, null);
+ // The stored set is not modified by the view.
+ const input = [old, future]; view(input, now); assert.equal(input.length, 2);
+});
+test('small clock skew is tolerated and flagged; beyond the tolerance it is ignored', () => {
+ const skewed = snapshot({ observedAt: '2030-06-29T16:01:00.000Z', usage: '7' });
+ const r = view([skewed], now);
+ assert.equal(r.status, 'observed'); assert.ok(r.flags.includes('clock_skew_tolerated')); assert.equal(r.usage, '7');
+ const far = view([snapshot({ observedAt: '2030-06-29T16:03:00.000Z' })], now);
+ assert.equal(far.status, 'future_observation');
+});
+
+test('future-dated records never hide a second or unassociated account', () => {
+ const a = snapshot({ observedAt: '2030-06-29T10:00:00.000Z' });
+ const bFuture = snapshot({ partition: 'synthetic-other-partition', observedAt: '2030-06-29T20:00:00.000Z' });
+ assert.equal(view([a, bFuture], now).status, 'multiple_accounts');
+ const unknownFuture = snapshot({ associated: false, observedAt: '2030-06-29T20:00:00.000Z' });
+ assert.equal(view([a, unknownFuture], now).status, 'unknown_account');
+});

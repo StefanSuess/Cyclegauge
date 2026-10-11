@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultStorage, hostLogUri, resolveSourceRoot } from '../paths.ts';
 import { diagnostics } from '../diagnostics.ts';
-import {planNames} from './cost-inputs.ts';
-import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 
 let stop: (() => void) | undefined;
@@ -13,9 +11,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  item.command = 'easykirogauge.showUsage';
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
+ // The webview stays script-free and command-URI-free, so the Cost Advisor needs a native entry point that does not
+ // rely only on the easy-to-overlook editor title bar button: a status bar item shown while the panel is open.
+ const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+ advisorItem.name = 'EasyKiroGauge Cost Advisor';
+ advisorItem.text = '$(lightbulb) Cost Advisor';
+ advisorItem.tooltip = 'Confirm your plan and compare costs';
+ advisorItem.command = 'easykirogauge.costAdvisor';
  let panel: vscode.WebviewPanel | undefined;
  let detail = '';
- const disposables: vscode.Disposable[] = [item];
+ const disposables: vscode.Disposable[] = [item, advisorItem];
  const config = vscode.workspace.getConfiguration('easykirogauge');
  // Discovery order: explicit setting, the running IDE's own log directory, then the platform default.
  const discovered = resolveSourceRoot({ configured: config.get<string>('sourceRoot') || undefined, logUri: hostLogUri(vscode.env.appName, context.logUri?.fsPath) });
@@ -32,18 +37,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
    if (panel) panel.webview.html = detail;
   },
   showDetails(html) {
-   if (panel) { panel.reveal(); panel.webview.html = html; return; }
+   if (panel) { panel.reveal(); panel.webview.html = html; advisorItem.show(); return; }
    panel = vscode.window.createWebviewPanel('easykirogauge.usage', 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
    panel.webview.html = html;
-   disposables.push(panel.onDidDispose(() => { panel = undefined; }));
+   advisorItem.show();
+   disposables.push(panel.onDidChangeViewState(e => { if (e.webviewPanel.visible) advisorItem.show(); else advisorItem.hide(); }));
+   disposables.push(panel.onDidDispose(() => { panel = undefined; advisorItem.hide(); }));
   },
   costInput: {
    async pick(title,items) {const selected=await vscode.window.showQuickPick(items.map(i=>({label:i.label,description:i.description,id:i.id})),{title,ignoreFocusOut:true});return selected?.id;},
-   async input(title,value,validateInput) {return vscode.window.showInputBox({title,value,validateInput,ignoreFocusOut:true});},
-   async plans(title,selected) {const values=await vscode.window.showQuickPick(PLAN_IDS.map(id=>({label:planNames[id],id,picked:selected.includes(id)})),{title,canPickMany:true,ignoreFocusOut:true});return values?.map(i=>i.id);}
+   async input(title,value,validateInput) {return vscode.window.showInputBox({title,value,validateInput,ignoreFocusOut:true});}
   },
   onCostCommand(id,fn) {
-   const command={configure:'configureCostOptimizer',edit:'editCostScenario',clear:'clearCostInputs'}[id];
+   const command={advisor:'costAdvisor'}[id];
    disposables.push(vscode.commands.registerCommand('easykirogauge.'+command,fn));
   },
   onClick(fn) { disposables.push(vscode.commands.registerCommand('easykirogauge.showUsage', fn)); },
