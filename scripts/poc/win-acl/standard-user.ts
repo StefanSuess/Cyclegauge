@@ -37,13 +37,42 @@ export const CREATE_SCRIPT = [
  "Write-Output 'C|ok'",
 ].join('\n');
 
+// Only the exception type, the error id and the numeric HRESULT are printed: all fixed tokens, never the message.
 export const LAUNCH_SCRIPT = [
  "$ErrorActionPreference = 'Stop'",
- '$pw = ConvertTo-SecureString $env:EKG_PW -AsPlainText -Force',
- "$cred = New-Object System.Management.Automation.PSCredential('.\\' + $env:EKG_USER, $pw)",
- '$p = Start-Process -FilePath $env:EKG_NODE -ArgumentList $env:EKG_ARGS -Credential $cred -LoadUserProfile -WindowStyle Hidden -WorkingDirectory $env:EKG_STAGE -PassThru -Wait',
- "Write-Output ('X|' + $p.ExitCode)",
+ 'try {',
+ '  $pw = ConvertTo-SecureString $env:EKG_PW -AsPlainText -Force',
+ "  $cred = New-Object System.Management.Automation.PSCredential('.\\' + $env:EKG_USER, $pw)",
+ '  $p = Start-Process -FilePath $env:EKG_NODE -ArgumentList $env:EKG_ARGS -Credential $cred -LoadUserProfile -WindowStyle Hidden -WorkingDirectory $env:EKG_STAGE -PassThru -Wait',
+ "  Write-Output ('X|' + $p.ExitCode)",
+ "} catch { Write-Output ('E|' + $_.Exception.GetType().Name + '|' + $_.FullyQualifiedErrorId + '|' + $_.Exception.HResult) }",
 ].join('\n');
+
+// Fallback: a scheduled task registered for the account (limited run level), polled through the output file.
+export const TASK_SCRIPT = [
+ "$ErrorActionPreference = 'Stop'",
+ 'try {',
+ '  $a = New-ScheduledTaskAction -Execute $env:EKG_NODE -Argument $env:EKG_ARGS -WorkingDirectory $env:EKG_STAGE',
+ "  $pr = New-ScheduledTaskPrincipal -UserId ('.\\' + $env:EKG_USER) -LogonType Password -RunLevel Limited",
+ "  $t = New-ScheduledTask -Action $a -Principal $pr",
+ "  Register-ScheduledTask -TaskName 'synthetic-ekg-std-task' -InputObject $t -User ('.\\' + $env:EKG_USER) -Password $env:EKG_PW | Out-Null",
+ "  Start-ScheduledTask -TaskName 'synthetic-ekg-std-task'",
+ '  $end = (Get-Date).AddSeconds(150)',
+ "  while ((Get-Date) -lt $end -and (Get-ScheduledTask -TaskName 'synthetic-ekg-std-task').State -ne 'Ready') { Start-Sleep -Seconds 2 }",
+ "  Write-Output ('X|' + (Get-ScheduledTaskInfo -TaskName 'synthetic-ekg-std-task').LastTaskResult)",
+ "} catch { Write-Output ('E|' + $_.Exception.GetType().Name + '|' + $_.FullyQualifiedErrorId + '|' + $_.Exception.HResult) } finally {",
+ "  Unregister-ScheduledTask -TaskName 'synthetic-ekg-std-task' -Confirm:$false -ErrorAction SilentlyContinue",
+ '}',
+].join('\n');
+
+/** The launcher's fixed-token outcome line: `X|<exit>` or `E|<type>|<error id>|<hresult>`. */
+export function parseLaunch(stdout: string): string {
+ const line = stdout.split(/\r?\n/).find(l => /^[XE]\|/.test(l)) ?? '';
+ const x = /^X\|(-?\d{1,10})$/.exec(line.trim());
+ if (x) return `exit_${x[1]}`;
+ const e = /^E\|([A-Za-z0-9_.]{1,60})\|([A-Za-z0-9_.,]{1,160})\|(-?\d{1,11})$/.exec(line.trim());
+ return e ? `error_${e[1]}_${e[2]}_${e[3]}` : 'no_outcome_line';
+}
 
 export const REMOVE_SCRIPT = [
  "$ErrorActionPreference = 'SilentlyContinue'",
@@ -104,6 +133,8 @@ async function main(): Promise<number> {
  let report: unknown;
  let childSid: string | undefined;
  let stageCode = 'START';
+ let launchNote = 'none';
+ let method = 'start_process';
  try {
   if (launcher?.integrity !== 'high' && launcher?.integrity !== 'system') { stageCode = 'LAUNCHER_NOT_ELEVATED'; throw new Error(stageCode); }
   stage = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-ekg-std-')));
@@ -116,9 +147,17 @@ async function main(): Promise<number> {
   const out = join(stage, 'probe.json');
   const probe = join(here, 'privilege-probe.ts');
   const launchEnv = { ...env, EKG_NODE: process.execPath, EKG_ARGS: childArguments(probe, out, extra), EKG_STAGE: stage };
+  const readOut = () => { try { return JSON.parse(readFileSync(out, 'utf8').replace(/^\uFEFF/, '')) as unknown; } catch { return undefined; } };
   const l = await ps(LAUNCH_SCRIPT, launchEnv, 300_000);
-  stageCode = l.code === 'OK' ? 'LAUNCHED' : `LAUNCH_${l.code}`;
-  try { report = JSON.parse(readFileSync(out, 'utf8').replace(/^﻿/, '')); } catch { report = undefined; }
+  launchNote = `start_process:${l.code}:${l.code === 'OK' ? parseLaunch(l.stdout) : 'none'}`;
+  report = readOut();
+  if (report === undefined) {
+   method = 'scheduled_task';
+   const t = await ps(TASK_SCRIPT, launchEnv, 240_000);
+   launchNote += ` scheduled_task:${t.code}:${t.code === 'OK' ? parseLaunch(t.stdout) : 'none'}`;
+   report = readOut();
+  }
+  stageCode = report === undefined ? 'LAUNCH_NO_REPORT' : 'LAUNCHED';
   // The child's identity is compared privately here and never printed: the probe records no SID.
   const who = await ps(
    "$ErrorActionPreference='Stop'; $n = New-Object System.Security.Principal.NTAccount($env:EKG_USER); Write-Output ('S|' + $n.Translate([System.Security.Principal.SecurityIdentifier]).Value)",
@@ -136,11 +175,13 @@ async function main(): Promise<number> {
  console.log(`STANDARD_USER_RESULT=${c.verdict}`);
  console.log(`STANDARD_USER_REASON=${c.reason}`);
  console.log(`STANDARD_USER_STAGE=${stageCode}`);
+ console.log(`STANDARD_USER_LAUNCH_METHOD=${method}`);
+ console.log(`STANDARD_USER_LAUNCH_NOTE=${launchNote}`);
  console.log('EVIDENCE_SCOPE=github_hosted_runner_temporary_local_standard_account');
  if (r) console.log(JSON.stringify({ environment: r.environment, token: r.token, probes: r.probes }, null, 1));
  if (markdownFile) {
   const env2 = (r?.environment ?? {}) as Record<string, unknown>;
-  const head = `### Temporary standard user: ${c.verdict} (${c.reason}). arch=${String(env2.arch ?? 'unknown')}, product=${String(env2.product ?? 'unknown')}.\n\n`;
+  const head = `### Temporary standard user: ${c.verdict} (${c.reason}; method ${method}). arch=${String(env2.arch ?? 'unknown')}, product=${String(env2.product ?? 'unknown')}.\n\n`;
   const detail = r ? '```json\n' + JSON.stringify({ environment: r.environment, token: r.token, probes: r.probes }, null, 1) + '\n```\n\n' : '';
   const poc = r?.poc;
   appendFileSync(markdownFile, head + detail + (isUsableReport(poc) ? renderMarkdown(poc) : 'No usable PoC report was produced.\n'));

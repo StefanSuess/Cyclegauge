@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminGroupState, classifyPrivileges, parsePrivileges, parseRoleOutput, verdictOf, type Measured } from '../../scripts/poc/win-acl/privilege-probe.ts';
-import { ACCOUNT, argSafe, childArguments, classifyRun, generatePassword, hostedWindowsRunner } from '../../scripts/poc/win-acl/standard-user.ts';
+import { ACCOUNT, argSafe, childArguments, classifyRun, generatePassword, hostedWindowsRunner, parseLaunch } from '../../scripts/poc/win-acl/standard-user.ts';
 
 const standard: Measured = {
  integrity: 'medium', adminGroup: 'absent',
@@ -73,4 +73,11 @@ test('child arguments accept plain paths and flags only; the password is random 
  const a = generatePassword(), b = generatePassword();
  assert.notEqual(a, b);
  assert.match(a, /^Ekg-[A-Za-z0-9_-]{24}-9a!$/);
+});
+
+test('launcher output is reduced to fixed tokens', () => {
+ assert.equal(parseLaunch('X|0\r\n'), 'exit_0');
+ assert.equal(parseLaunch('E|InvalidOperationException|CouldNotStartProcess,Microsoft.PowerShell.Commands.StartProcessCommand|-2146233079'), 'error_InvalidOperationException_CouldNotStartProcess,Microsoft.PowerShell.Commands.StartProcessCommand_-2146233079');
+ assert.equal(parseLaunch('E|Bad Type with C:\\path|x|1'), 'no_outcome_line');
+ assert.equal(parseLaunch(''), 'no_outcome_line');
 });
