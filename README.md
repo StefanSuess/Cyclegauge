@@ -1,5 +1,53 @@
 # EasyKiroGauge
 
+> **Status:** pre-release, developed in the open. Unofficial community project, **not affiliated with,
+> endorsed by or sponsored by Amazon Web Services or Kiro**. "Kiro" is a trademark of its owner; the
+> project name may change before the first public release. EasyKiroGauge reads Kiro's existing local
+> usage logs **read-only**, stores derived numbers in its own private directory, and has no network
+> code and no telemetry. Platform support: macOS is the verified target; Windows, Ubuntu and RHEL
+> are unverified. See [CONTRIBUTING.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/CONTRIBUTING.md) and [SECURITY.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/SECURITY.md).
+
+## What it does
+
+EasyKiroGauge is a Kiro IDE extension (with a small command-line tool) that shows how many AI credits you have used, how many are left until the next reset, and what daily budget that leaves. It adds a status-bar item and a detail view with usage history, a usage trajectory chart and qualified forecasts.
+
+It works from files Kiro has already written on your machine. Nothing is requested from Kiro or from any server.
+
+## Privacy
+
+- **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
+- **Local only.** No network code and no telemetry. Derived numbers are kept in the extension's own private directory.
+- **Minimal data.** Only an allowlist of billing fields is read. Prompts, code, conversations, tool data, credentials and account identifiers are not stored or shown, and diagnostics contain only fixed codes and counts.
+
+Details: [Privacy, storage and reliability](#privacy-storage-and-reliability).
+
+## Install (pre-release)
+
+There is no marketplace listing yet. To try it, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
+
+```sh
+pnpm install --frozen-lockfile
+pnpm package:vsix
+```
+
+Then use **Extensions: Install from VSIX...** in Kiro and select the file in `dist/`.
+
+## Platform status
+
+macOS is the verified target (Kiro 1.2.56). Windows, Ubuntu and RHEL are **unverified**, and Windows storage is deliberately disabled for now. RHEL is a best-effort target, not an officially supported Kiro platform.
+
+## Contributing and security
+
+Please read [CONTRIBUTING.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/CONTRIBUTING.md) before opening an issue or pull request, and never post real Kiro data. Report vulnerabilities privately as described in [SECURITY.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/SECURITY.md).
+
+## License
+
+MIT, see [LICENSE](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/LICENSE).
+
+---
+
+## Technical reference and version history
+
 Version 0.5.1 simplifies the detail view (concise default reading flow, one collapsed "Advanced details" section; UI only, see docs/milestone-5-1-validation.md). Version 0.5.0 adds the Milestone 5 usage trajectory chart (below). Milestone 4B adds a local Cost Optimizer to the existing credit-budget detail view. The daily-budget status bar and forecast policy are preserved. Version 0.4.1 adds pooled multi-week forecasting that survives weekends and billing resets (see docs/milestone-4c-validation.md). It uses native Kiro inputs and a script-disabled view; no network requests, purchases or persistent manual profiles.
 
 ## Usage trajectory chart (0.5.0)

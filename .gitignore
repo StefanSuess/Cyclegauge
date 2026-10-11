@@ -3,3 +3,9 @@ node_modules/
 *.tsbuildinfo
 .pnpm-store/
 dist/
+
+# Local-only files that must never be committed
+.agents/
+.env
+.env.*
+*.vsix
