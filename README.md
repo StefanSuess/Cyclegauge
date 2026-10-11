@@ -1,5 +1,12 @@
 # EasyKiroGauge
 
+> **Status:** pre-release, developed in the open. Unofficial community project, **not affiliated with,
+> endorsed by or sponsored by Amazon Web Services or Kiro**. "Kiro" is a trademark of its owner; the
+> project name may change before the first public release. EasyKiroGauge reads Kiro's existing local
+> usage logs **read-only**, stores derived numbers in its own private directory, and has no network
+> code and no telemetry. Platform support: macOS is the verified target; Windows, Ubuntu and RHEL
+> are unverified. See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+
 Version 0.5.1 simplifies the detail view (concise default reading flow, one collapsed "Advanced details" section; UI only, see docs/milestone-5-1-validation.md). Version 0.5.0 adds the Milestone 5 usage trajectory chart (below). Milestone 4B adds a local Cost Optimizer to the existing credit-budget detail view. The daily-budget status bar and forecast policy are preserved. Version 0.4.1 adds pooled multi-week forecasting that survives weekends and billing resets (see docs/milestone-4c-validation.md). It uses native Kiro inputs and a script-disabled view; no network requests, purchases or persistent manual profiles.
 
 ## Usage trajectory chart (0.5.0)
