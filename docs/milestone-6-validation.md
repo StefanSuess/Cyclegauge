@@ -159,7 +159,7 @@ inspected directories changes; the script contains no mutating, privileged or ne
 --cat-config`, `ldd`, SELinux-labelled `ls -Z`). The CI container job exercises the script on RHEL 9
 userland and will show which Linux-only branches work, but that is not a RHEL host and has no SELinux.
 
-Nothing was run against any workplace machine or Kiro data. The survey, R1 and the later native
+Nothing was run against any machine outside the project owner's control or any real Kiro data. The survey, R1 and the later native
 phases are to be performed by the project owner on an authorised host.
 
 ## 5. Remaining risks
