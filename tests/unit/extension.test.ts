@@ -120,3 +120,11 @@ test('detail view progresses from limited-history provisional to regular and sta
   now='2030-06-09T00:00:00.001Z';await extension.refresh();assert.match(html,/Forecast paused — stale data/);
  } finally {extension?.dispose();await rm(base,{recursive:true,force:true});}
 });
+
+test('data and storage roots cannot be set from workspace settings', async () => {
+ const { readFile } = await import('node:fs/promises');
+ const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+ const props = manifest.contributes.configuration.properties;
+ assert.equal(props['easykirogauge.sourceRoot'].scope, 'machine');
+ assert.equal(props['easykirogauge.storageRoot'].scope, 'machine');
+});

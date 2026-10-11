@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { defaultSourceFor, defaultStorageFor, isWindowsNetworkPath, resolveSourceRoot, rootFromLogUri, samePath } from '../../src/paths.ts';
+import { defaultSourceFor, defaultStorageFor, hostLogUri, inside, isWindowsNetworkPath, resolveSourceRoot, rootFromLogUri, samePath } from '../../src/paths.ts';
 
 // All paths are invented. Functions are pure, so every platform is exercised on every host.
 const MAC = '/Users/synthetic-user';
@@ -74,6 +74,45 @@ test('review regressions: control characters, whitespace-only settings and the e
  assert.equal(rootFromLogUri('C:\\Synthetic\\Kiro\\logs\\r\\w\\exthost\\synthetic.extension\u0007', 'win32'), undefined);
  const base = { platform: 'linux' as const, env: {}, home: '/home/synthetic-user' };
  assert.equal(resolveSourceRoot({ ...base, configured: '   ' }).method, 'platform_default');
- assert.equal(resolveSourceRoot({ ...base, configured: ' /synthetic/space-prefixed' }).method, 'configured');
+ assert.equal(resolveSourceRoot({ ...base, configured: ' /synthetic/space-prefixed' }).method, 'platform_default');
+ assert.equal(resolveSourceRoot({ ...base, configured: 'relative/dir' }).method, 'platform_default');
+ assert.equal(resolveSourceRoot({ ...base, platform: 'win32', configured: 'Roaming\\Kiro', home: 'C:\\Users\\synthetic-user' }).method, 'platform_default');
  assert.equal(samePath('\\\\?\\UNC\\synthetic-host\\share\\Dir', '\\\\synthetic-host\\share\\dir', 'win32'), true);
+});
+
+test('Windows 8.3 aliases are equivalent to their long names, other differences are not', () => {
+ assert.equal(samePath('C:\\Users\\synthetic-profile\\AppData\\Local\\Temp\\run', 'C:\\Users\\SYNTHE~1\\AppData\\Local\\Temp\\run', 'win32'), true);
+ assert.equal(samePath('C:\\Program Files\\Synthetic', 'C:\\PROGRA~1\\Synthetic', 'win32'), true);
+ assert.equal(samePath('C:\\Users\\synthetic-profile\\x', 'C:\\Users\\SYNTHE~2\\x', 'win32'), true, 'any numeric tail is a valid alias form');
+ // An alias must share its prefix with the long name; unrelated names, other depths and other leaves differ.
+ assert.equal(samePath('C:\\Users\\other-profile\\x', 'C:\\Users\\SYNTHE~1\\x', 'win32'), false);
+ assert.equal(samePath('C:\\Users\\synthetic-profile\\x', 'C:\\Users\\SYNTHE~1\\y', 'win32'), false);
+ assert.equal(samePath('C:\\Users\\synthetic-profile\\x', 'C:\\Users\\SYNTHE~1', 'win32'), false);
+ assert.equal(samePath('C:\\Users\\synthetic~1\\x', 'C:\\Users\\other~1\\x', 'win32'), false);
+ assert.equal(samePath('/synthetic/long-name', '/synthetic/LONG-N~1', 'linux'), false);
+});
+
+test('review regressions: device and UNC namespaces, case folding in containment', () => {
+ for (const p of ['//?/UNC/synthetic-host/share/x', '\\\\.\\UNC\\synthetic-host\\share\\x', '//./UNC/synthetic-host/share/x', '\\\\.\\C:\\x', '\\\\?\\Volume{synthetic}\\x']) {
+  assert.equal(isWindowsNetworkPath(p), true, p);
+ }
+ assert.equal(isWindowsNetworkPath('\\\\?\\C:\\Synthetic\\x'), false);
+ assert.equal(inside('/Users/synthetic-user/KDATA/store', '/Users/synthetic-user/kdata', 'darwin'), true);
+ assert.equal(inside('/Users/synthetic-user/KDATA/store', '/Users/synthetic-user/kdata', 'linux'), false);
+ assert.equal(inside('/Users/synthetic-user/other', '/Users/synthetic-user/kdata', 'darwin'), false);
+});
+
+test('review regressions: lazy home, non-Kiro hosts, extended prefixes in containment, 8.3 punctuation', () => {
+ const throwing = () => { throw new Error('SYNTHETIC_NO_HOME'); };
+ assert.equal(defaultSourceFor('linux', { XDG_CONFIG_HOME: '/synthetic/cfg' }, throwing), '/synthetic/cfg/Kiro');
+ assert.equal(defaultStorageFor('linux', { XDG_DATA_HOME: '/synthetic/data' }, throwing), '/synthetic/data/EasyKiroGauge');
+ assert.equal(defaultSourceFor('win32', { APPDATA: 'D:\\Synthetic\\Roaming' }, throwing), 'D:\\Synthetic\\Roaming\\Kiro');
+ assert.throws(() => defaultSourceFor('linux', {}, throwing), /SYNTHETIC_NO_HOME/);
+ const log = '/synthetic/ide/logs/r/w/exthost/synthetic.extension';
+ assert.equal(hostLogUri('Kiro', log), log);
+ assert.equal(hostLogUri('kiro', log), log);
+ for (const other of ['Visual Studio Code', 'Cursor', 'Code - OSS', 'Kirokiro-fork', undefined]) assert.equal(hostLogUri(other, log), undefined, String(other));
+ assert.equal(inside('\\\\?\\C:\\Synthetic\\Kiro\\store', 'C:\\Synthetic\\Kiro', 'win32'), true);
+ assert.equal(inside('\\\\?\\UNC\\host\\share\\Kiro\\store', '\\\\host\\share\\Kiro', 'win32'), true);
+ assert.equal(samePath('C:\\Users\\ab+cdefgh\\x', 'C:\\Users\\AB_CDE~1\\x', 'win32'), true);
 });

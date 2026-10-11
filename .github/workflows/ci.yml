@@ -19,7 +19,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Runs on main are evidence and are never cancelled by a later push.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   PNPM_VERSION: '12.10.1'
@@ -47,11 +48,13 @@ jobs:
         run: npm install --global pnpm@${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - name: Baseline suite (184 tests on the 0.5.1 baseline)
+      - name: Unit suite (the 184 original baseline tests plus Milestone 6 additions)
         run: pnpm test
       - name: Milestone 6 proof-of-concept tests (pure SDDL, tool shim, survey script)
+        if: ${{ !cancelled() }}
         run: pnpm test:poc
       - name: Fixture contract validator
+        if: ${{ !cancelled() }}
         run: python3 tests/fixtures/kiro/validate.py
       - name: Record runtime
         run: node -p "process.version + ' ' + process.platform + ' ' + process.arch"
@@ -84,7 +87,7 @@ jobs:
       - run: pnpm typecheck
       - name: Verify checkout kept LF line endings
         run: |
-          if grep -rIl $'\r' tests/fixtures src tests/unit package.json | head -n 1 | grep -q .; then echo 'CRLF found in checkout'; exit 1; fi
+          if grep -rIq $'\r' tests/fixtures src tests/unit package.json; then echo 'CRLF found in checkout'; exit 1; fi
       - name: Milestone 6 proof-of-concept tests
         if: ${{ !cancelled() }}
         run: pnpm test:poc

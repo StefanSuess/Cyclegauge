@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { diagnostics } from '../../src/diagnostics.ts';
 
-const FIXED = /^[A-Za-z0-9_.:+-]{1,32}$/;
+const FIXED = /^[A-Za-z0-9_.+-]{1,32}$/;
 const walk = (v: unknown, out: string[] = []): string[] => {
  if (typeof v === 'string') out.push(v);
  else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.push(k); walk(x, out); }
@@ -38,6 +38,7 @@ test('an absent source is reported as zero files, not as an error or a path', as
  const f = synthetic();
  const report = await diagnostics({ root: join(f.base, 'missing'), method: 'platform_default' });
  assert.equal(report.sourceLogFiles, 0);
+ assert.deepEqual(report.sourceCodes, { source_unavailable: 1, no_source_logs: 1 });
  assert.equal(report.discovery, 'platform_default');
  assert.ok(!JSON.stringify(report).includes('synthetic-diag-private'));
  rmSync(f.base, { recursive: true });

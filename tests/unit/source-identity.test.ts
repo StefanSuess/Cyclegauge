@@ -23,13 +23,11 @@ test('a real file produces exactly the fingerprint 0.5.1 would have produced', a
  const base = mkdtempSync(join(realpathSync(tmpdir()), 'synthetic-identity-'));
  const file = join(base, 'q-client.log');
  writeFileSync(file, line);
- const st = statSync(file);
+ const st = statSync(file), id = statSync(file, { bigint: true });
  const r = await readLog(file, 'UTC');
  assert.equal(r.records.length, 1);
- if (Number.isSafeInteger(st.ino) && Number.isSafeInteger(st.dev)) {
-  const digest = createHash('sha256').update(line).digest('hex');
-  assert.equal(r.fingerprint, `${st.dev}:${st.ino}:${st.birthtimeMs}:${digest}`);
- }
+ const digest = createHash('sha256').update(line).digest('hex');
+ assert.equal(r.fingerprint, `${id.dev}:${id.ino}:${st.birthtimeMs}:${digest}`);
  assert.match(r.fingerprint!, /^\d+:\d+:\d+(\.\d+)?:[a-f0-9]{64}$/);
  rmSync(base, { recursive: true });
 });

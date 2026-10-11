@@ -31,7 +31,8 @@ export class UnsupportedGuard implements StorageGuard {
  verifyFile(_path: string): never { throw new Error('STORAGE_PERMISSIONS_UNSUPPORTED'); }
  verifySidecar(_path: string): never { throw new Error('STORAGE_PERMISSIONS_UNSUPPORTED'); }
 }
-export const guardKind = (platform: NodeJS.Platform): 'posix' | 'unsupported' => (platform === 'win32' ? 'unsupported' : 'posix');
+export type GuardKind = 'posix' | 'unsupported';
+export const guardKind = (platform: NodeJS.Platform): GuardKind => (platform === 'win32' ? 'unsupported' : 'posix');
 export function guardFor(platform: NodeJS.Platform = process.platform): StorageGuard {
  return guardKind(platform) === 'unsupported' ? new UnsupportedGuard() : new PosixGuard();
 }

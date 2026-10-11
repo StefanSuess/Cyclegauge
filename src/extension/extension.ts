@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { defaultStorage, resolveSourceRoot } from '../paths.ts';
+import { defaultStorage, hostLogUri, resolveSourceRoot } from '../paths.ts';
 import { diagnostics } from '../diagnostics.ts';
 import {planNames} from './cost-inputs.ts';
 import {PLAN_IDS} from '../cost/types.ts';
@@ -18,9 +18,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  const disposables: vscode.Disposable[] = [item];
  const config = vscode.workspace.getConfiguration('easykirogauge');
  // Discovery order: explicit setting, the running IDE's own log directory, then the platform default.
- const discovered = resolveSourceRoot({ configured: config.get<string>('sourceRoot') || undefined, logUri: context.logUri?.fsPath });
+ const discovered = resolveSourceRoot({ configured: config.get<string>('sourceRoot') || undefined, logUri: hostLogUri(vscode.env.appName, context.logUri?.fsPath) });
  const source = discovered.root;
- const storage = config.get<string>('storageRoot') || defaultStorage();
+ const configuredStorage = config.get<string>('storageRoot');
+ const storage = configuredStorage && configuredStorage.trim() !== '' ? configuredStorage : defaultStorage();
  const timezone = config.get<string>('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
  const ui: ExtensionUi = {
   setStatus(text, html, meta) {

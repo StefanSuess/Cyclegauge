@@ -49,12 +49,14 @@
         "easykirogauge.sourceRoot": {
           "type": "string",
           "default": "",
-          "description": "Kiro IDE data root; leave empty for the platform default."
+          "description": "Kiro IDE data root; leave empty for the platform default.",
+          "scope": "machine"
         },
         "easykirogauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private EasyKiroGauge storage root; leave empty for the platform default."
+          "description": "Private EasyKiroGauge storage root; leave empty for the platform default.",
+          "scope": "machine"
         },
         "easykirogauge.sourceTimezone": {
           "type": "string",

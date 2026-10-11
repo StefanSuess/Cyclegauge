@@ -52,8 +52,8 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     render();
    } catch (e) {
     inputs.observe(null,'unavailable');
-    // Only this one allowlisted failure is distinguished; every other failure stays generic.
-    observation=view([],now());codes=[(e as Error)?.message==='RUNTIME_UNSUPPORTED'?'runtime_unsupported':'unavailable'];render();
+    // Only these allowlisted failures are distinguished; every other failure stays generic.
+    observation=view([],now());const known:Record<string,string>={RUNTIME_UNSUPPORTED:'runtime_unsupported',STORAGE_PERMISSIONS_UNSUPPORTED:'storage_permissions_unsupported'},message=String((e as Error)?.message);codes=[Object.hasOwn(known,message)?known[message]:'unavailable'];render();
    }
   })();
   try { await running; } finally { running = undefined; }

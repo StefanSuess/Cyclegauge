@@ -7,6 +7,7 @@ const names: Record<string,string> = {
  extended_zero_net_period_in_window:'an extended unchanged period is in the 28-day window', recent_usage_higher:'recent usage is higher than the earlier weeks',
  recent_usage_lower:'recent usage is lower than the earlier weeks', zero_net_change_not_proof_of_inactivity:'an unchanged counter is not proof of inactivity',
  runtime_unsupported:'This Kiro runtime lacks a feature EasyKiroGauge needs (SQLite or exact-number parsing)',
+ storage_permissions_unsupported:'Private storage permissions are not supported on this platform yet, so no data is stored or shown',
  unobserved_periods_not_zero:'unobserved periods are not counted as zero', completed_break_excluded:'a completed break was excluded from the rate',
 };
 export const readable = (s: string) => names[s] ?? s.replaceAll('_',' ');

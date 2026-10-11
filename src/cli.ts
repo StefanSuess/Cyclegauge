@@ -30,6 +30,7 @@ try {
   const hours = Number(values['max-age-hours'] ?? '24');
   if (!Number.isFinite(hours) || hours <= 0 || hours > 8760 || values['source-root'] === '' || values['store-dir'] === '') throw new Error();
   if (values['source-timezone'] !== undefined) new Intl.DateTimeFormat('en', { timeZone: values['source-timezone'] }).format();
+  stage = 'STORAGE_UNAVAILABLE';
   const source = values['source-root'] ?? defaultSource();
   if (values.diagnostics) {
    console.log(JSON.stringify(await diagnostics({ root: source, method: values['source-root'] === undefined ? 'platform_default' : 'configured' }), null, 2));
@@ -52,5 +53,5 @@ try {
   }
   }
  }
-} catch { console.log(stage); process.exitCode = 1; }
+} catch (e) { console.log((e as Error)?.message === 'STORAGE_PERMISSIONS_UNSUPPORTED' ? 'STORAGE_PERMISSIONS_UNSUPPORTED' : stage); process.exitCode = 1; }
 finally { try { store?.close(); } catch { process.exitCode = 1; } }

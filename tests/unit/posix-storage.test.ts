@@ -57,7 +57,10 @@ test('the win32 guard stays fail-closed and creates nothing', () => {
  assert.throws(() => guardFor('win32').createDirectory(dir), /^Error: STORAGE_PERMISSIONS_UNSUPPORTED$/);
  assert.equal(existsSync(dir), false);
  assert.throws(() => guardFor('win32').verifyFile(join(base, 'x')), /^Error: STORAGE_PERMISSIONS_UNSUPPORTED$/);
- assert.throws(() => prepareStorage(dir, join(base, 'source'), 'win32'), /UNSAFE_STORAGE/);
+ assert.throws(() => prepareStorage(dir, join(base, 'source'), 'win32'), /^Error: STORAGE_PERMISSIONS_UNSUPPORTED$/);
+ // A repository directory is rejected by the ordinary check before the guard is consulted.
+ mkdirSync(join(base, 'repo', '.git'), { recursive: true });
+ assert.throws(() => prepareStorage(join(base, 'repo', 'gauge'), join(base, 'source'), 'win32'), /^Error: UNSAFE_STORAGE$/);
  assert.equal(existsSync(dir), false);
  rmSync(base, { recursive: true });
 });

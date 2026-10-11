@@ -205,3 +205,35 @@ restriction is unchanged** (`guardFor('win32')` refuses every operation and a te
 
 Open items: native confirmation that `context.logUri` has the assumed shape on each OS; Windows CI
 run of the new tests (pending); Tasks 4, 5 and 7 remain gated by SC1.
+
+## 8. Independent review passes over Tasks 2, 3 and 6 (2026-10-11)
+
+Three read-only review passes (security and privacy, cross-platform correctness, maintainability)
+were run over commit `e7e5703`. Every accepted finding was reproduced with a synthetic test before
+the fix. No finding was high or critical; none touched Windows enforcement.
+
+| Pass | Finding | Resolution |
+| --- | --- | --- |
+| CI | `source-identity` real-file test failed on Windows runners: `os.tmpdir()` is an 8.3 path, `fs/promises.realpath` expands it, `samePath` rejected it | `samePath` accepts a component that is the 8.3 alias of the long name (prefix-checked, `+ , ; = [ ]` mapped to `_`); the test keeps the 8.3 temp path on purpose |
+| Security | Device/UNC namespaces (`//?/UNC/`, `\\.\`) not recognised; check ran on the raw string only | any double-separator prefix except `\\?\C:\` is a network/device path; checked on raw and resolved path |
+| Security | Workspace settings could set `sourceRoot`/`storageRoot` | both settings are `scope: machine` (test pins it) |
+| Security | `inside()` case-sensitive on macOS now that the root can have any name | case folded on macOS/Windows (only rejects more); extended prefixes stripped on Windows |
+| Security | `prepareStorage(…, platform)` not fail-closed on a real Windows host | a real `win32` host always uses the refusing guard |
+| Security/Cross | Configured source root could be relative or padded | must be absolute and untrimmed, otherwise ignored |
+| Cross | `homedir()` evaluated eagerly (regression for hosts without a passwd entry) and CLI stage order changed | home is resolved lazily; CLI sets its stage before default resolution as in 0.5.1 |
+| Cross | `logUri` outranked the platform default in non-Kiro hosts (VS Code, Cursor) | `logUri` is used only when `vscode.env.appName` is Kiro (unverified label, see below) |
+| Maintain | Diagnostics collapsed every source code to `other_code` and overwrote counts | token alphabet includes `_`; counts are summed; test asserts the codes |
+| Maintain | `STORAGE_PERMISSIONS_UNSUPPORTED` could never be observed | single allowlisted pass-through to CLI and extension (own label); other failures stay generic |
+| Maintain | Vacuous or conditional tests; CI grep under `pipefail`; stale labels | tightened or fixed; verify job no longer skips PoC tests after a failure; main-branch runs not cancelled |
+
+Accepted, not changed:
+
+- **Fingerprint for inode >= 2^53.** 0.5.1 printed a rounded float; the exact `bigint` is printed
+  now, so such a file produces one `source_changed` after upgrade. Ordinary identities (macOS APFS,
+  NTFS ids seen on runners, 51 bit) are byte-identical.
+- **Guard seam for Task 5/7.** `Store` still creates files itself and the guard is synchronous;
+  `prepareStorage` owns the network-path check. A Windows guard will need `createFile` on the
+  interface and async tool calls. This is deliberately left for the gated tasks.
+- **Windows baseline.** The failing-test list is printed, not compared with an expected-failures file.
+- **Host label.** `vscode.env.appName` containing the word "Kiro" is assumed; it is not yet verified
+  on a native Kiro install.
