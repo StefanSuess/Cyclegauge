@@ -26,5 +26,3 @@ imports persistently, deduplicates restarts and never changes source metadata
 defers partial records, rejects malformed and oversized lines, detects truncation/rotation
 rejects symlink sources and storage, source overlap and repository storage
 ignores unrelated filenames and isolates two accounts and unknown identity
-controller activation, configuration, open-view edit, refresh and clear preserve budget without expensive analysis
-account ambiguity during an open native editor rejects its late completion
