@@ -102,10 +102,11 @@ jobs:
             /opt/node/bin/node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts
       - name: 'Survey of the XFS location (not a RHEL host: no SELinux, no systemd)'
         run: |
+          docker run --rm --user 1001:1001 --network none --read-only --cap-drop ALL -v "$PWD":/work:ro -v /mnt/xfs/work:/xfs \
+            -e HOME=/tmp -e EKG_SURVEY_EXTRA_DIR=/xfs -w /work "$UBI9" sh scripts/poc/rhel9-survey.sh | tee survey.txt
           {
             echo "### ubi9 survey with an XFS location on ${{ matrix.os }} (CI proxy, not evidence for a real host)"
             echo '```'
-            docker run --rm --user 1001:1001 --network none --read-only --cap-drop ALL -v "$PWD":/work:ro -v /mnt/xfs/work:/xfs \
-              -e HOME=/tmp -e EKG_SURVEY_EXTRA_DIR=/xfs -w /work "$UBI9" sh scripts/poc/rhel9-survey.sh
+            cat survey.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
