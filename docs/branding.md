@@ -1,6 +1,6 @@
 # Branding and icon assets
 
-Status: icon assets only. Technical identifiers (`easykirogauge` package name, publisher, commands, settings, storage directory) are unchanged here; renaming them is the separate extension-identity migration.
+Status: icon assets. Technical identifiers (package `cyclegauge`, `cyclegauge.*` commands and settings, provisional publisher, legacy storage directory `EasyKiroGauge`) are described in [identity-migration.md](identity-migration.md); the icon work does not change them.
 
 ## Canonical icon
 

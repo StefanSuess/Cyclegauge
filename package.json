@@ -1,5 +1,5 @@
 {
-  "name": "easykirogauge",
+  "name": "cyclegauge",
   "version": "0.5.1",
   "private": true,
   "license": "MIT",
@@ -40,21 +40,21 @@
   "contributes": {
     "commands": [
       {
-        "command": "easykirogauge.showUsage",
+        "command": "cyclegauge.showUsage",
         "title": "Cyclegauge: Show Account Credits"
       },
       {
-        "command": "easykirogauge.configureCostOptimizer",
+        "command": "cyclegauge.configureCostOptimizer",
         "title": "Cyclegauge: Configure Cost Optimizer",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "easykirogauge.editCostScenario",
+        "command": "cyclegauge.editCostScenario",
         "title": "Cyclegauge: Edit Cost Scenario",
         "icon": "$(edit)"
       },
       {
-        "command": "easykirogauge.clearCostInputs",
+        "command": "cyclegauge.clearCostInputs",
         "title": "Cyclegauge: Clear Cost Inputs",
         "icon": "$(clear-all)"
       }
@@ -62,38 +62,56 @@
     "configuration": {
       "title": "Cyclegauge",
       "properties": {
-        "easykirogauge.sourceRoot": {
+        "cyclegauge.sourceRoot": {
           "type": "string",
           "default": "",
           "description": "Kiro IDE data root; leave empty for the platform default."
         },
+        "cyclegauge.storageRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Private Cyclegauge storage root; leave empty for the platform default. The default folder keeps its legacy name EasyKiroGauge."
+        },
+        "cyclegauge.sourceTimezone": {
+          "type": "string",
+          "default": "",
+          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone."
+        },
+        "easykirogauge.sourceRoot": {
+          "type": "string",
+          "default": "",
+          "deprecationMessage": "Deprecated: use cyclegauge.sourceRoot. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.sourceRoot."
+        },
         "easykirogauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private Cyclegauge storage root; leave empty for the platform default."
+          "deprecationMessage": "Deprecated: use cyclegauge.storageRoot. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.storageRoot."
         },
         "easykirogauge.sourceTimezone": {
           "type": "string",
           "default": "",
-          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone."
+          "deprecationMessage": "Deprecated: use cyclegauge.sourceTimezone. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.sourceTimezone."
         }
       }
     },
     "menus": {
       "editor/title": [
         {
-          "command": "easykirogauge.configureCostOptimizer",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "command": "cyclegauge.configureCostOptimizer",
+          "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@1"
         },
         {
-          "command": "easykirogauge.editCostScenario",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "command": "cyclegauge.editCostScenario",
+          "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@2"
         },
         {
-          "command": "easykirogauge.clearCostInputs",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "command": "cyclegauge.clearCostInputs",
+          "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@3"
         }
       ]
@@ -104,7 +122,7 @@
     "typecheck": "tsc --noEmit",
     "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
     "build:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs",
-    "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/easykirogauge-0.5.1.vsix"
+    "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/cyclegauge-0.5.1.vsix"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

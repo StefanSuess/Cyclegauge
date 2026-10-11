@@ -3,22 +3,42 @@ import { defaultSource, defaultStorage } from '../paths.ts';
 import {planNames} from './cost-inputs.ts';
 import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
+import { LEGACY_BLOCKED_MESSAGE, LEGACY_EXTENSION_ID, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand, startUnlessLegacy } from './identity.ts';
 
 let stop: (() => void) | undefined;
+function pauseForLegacy(context: vscode.ExtensionContext): void {
+ const paused = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+ paused.name = 'Cyclegauge credit budget';
+ paused.text = '$(warning) Cyclegauge: paused';
+ paused.tooltip = LEGACY_BLOCKED_MESSAGE;
+ paused.command = commandId('showUsage');
+ paused.show();
+ const notice = () => { void vscode.window.showWarningMessage(LEGACY_BLOCKED_MESSAGE); };
+ const contributed: { command: string }[] = context.extension.packageJSON?.contributes?.commands ?? [];
+ context.subscriptions.push(paused, ...contributed.map(c => vscode.commands.registerCommand(c.command, notice)));
+ notice();
+}
+// A still-enabled legacy extension shares the same private storage folder: initialize nothing and write nothing until it is removed.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+ const legacyInstalled = vscode.extensions.getExtension(LEGACY_EXTENSION_ID) !== undefined;
+ const gate = await startUnlessLegacy(legacyInstalled, () => runCyclegauge(context));
+ if (gate.blocked) pauseForLegacy(context);
+}
+async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
  item.name = 'Cyclegauge credit budget';
- item.command = 'easykirogauge.showUsage';
+ item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
  let panel: vscode.WebviewPanel | undefined;
  let detail = '';
  const disposables: vscode.Disposable[] = [item];
- const config = vscode.workspace.getConfiguration('easykirogauge');
- const source = config.get<string>('sourceRoot') || defaultSource();
- const storage = config.get<string>('storageRoot') || defaultStorage();
- const timezone = config.get<string>('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ const setting = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
+ const source = setting('sourceRoot') || defaultSource();
+ const storage = setting('storageRoot') || defaultStorage();
+ const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ const register = (suffix: string, fn: () => unknown) => disposables.push(...registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
  const ui: ExtensionUi = {
   setStatus(text, html, meta) {
    item.text = text;
@@ -29,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   },
   showDetails(html) {
    if (panel) { panel.reveal(); panel.webview.html = html; return; }
-   panel = vscode.window.createWebviewPanel('easykirogauge.usage', 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
    panel.webview.html = html;
    disposables.push(panel.onDidDispose(() => { panel = undefined; }));
   },
@@ -40,9 +60,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   },
   onCostCommand(id,fn) {
    const command={configure:'configureCostOptimizer',edit:'editCostScenario',clear:'clearCostInputs'}[id];
-   disposables.push(vscode.commands.registerCommand('easykirogauge.'+command,fn));
+   register(command,fn);
   },
-  onClick(fn) { disposables.push(vscode.commands.registerCommand('easykirogauge.showUsage', fn)); },
+  onClick(fn) { register('showUsage', fn); },
   onChange(fn) {
    try {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(source), 'logs/**/exthost/kiro.kiroAgent/q-client.log*'));

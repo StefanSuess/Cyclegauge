@@ -1,6 +1,6 @@
 # Installing and using Cyclegauge for Kiro IDE
 
-> The technical identifiers (extension ID `easykirogauge.easykirogauge`, command IDs `easykirogauge.*`, settings keys `easykirogauge.*`, storage folder `EasyKiroGauge`) deliberately still carry the earlier project name so existing installations and stored data keep working. See [development.md](development.md#naming-and-identifiers).
+> Technical identity: extension `cyclegauge`, commands and settings `cyclegauge.*`. Old `easykirogauge.*` settings still work as a deprecated fallback and the v0.5.1 command IDs remain aliases for now. The storage folder is still named `EasyKiroGauge`. Moving from an installed EasyKiroGauge build is a manual step, see [identity-migration.md](identity-migration.md).
 
 ## Install a VSIX (pre-release)
 
@@ -11,9 +11,9 @@ pnpm install --frozen-lockfile
 pnpm package:vsix
 ```
 
-Then run **Extensions: Install from VSIX...** in Kiro and select the file in `dist/`. Reload the window if Kiro asks, then open **Cyclegauge: Show Account Credits** (command ID `easykirogauge.showUsage`) or click the status-bar item. This command only opens the local billing view.
+Then run **Extensions: Install from VSIX...** in Kiro and select the file in `dist/`. Reload the window if Kiro asks, then open **Cyclegauge: Show Account Credits** (command ID `cyclegauge.showUsage`) or click the status-bar item. This command only opens the local billing view.
 
-Settings: `easykirogauge.sourceRoot`, `easykirogauge.storageRoot`, and `easykirogauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
+Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone` (the old `easykirogauge.*` keys are read when the new one is empty). Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
 
 ## Requirements and command-line tool
 
@@ -49,7 +49,7 @@ The CLI prints observed usage, base limit, remaining base credits, reset UTC ins
 
 - **"Collecting data" for a long time.** The extension only reads usage that Kiro has already written to its logs. Wait for the next scan, which runs every minute and when log files change. A forecast additionally needs several observations over days; see [forecasting.md](forecasting.md).
 - **"Unavailable".** The logs could not be read or have an unsupported format, the storage location is not safe (for example on Windows, where storage is intentionally disabled, or a path containing a symlink), or several accounts were detected. No numbers are invented in these cases.
-- **Settings changes do not apply.** `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` and `easykirogauge.sourceTimezone` are read when the extension activates. Reload the window after changing them.
+- **Settings changes do not apply.** `cyclegauge.sourceRoot`, `cyclegauge.storageRoot` and `cyclegauge.sourceTimezone` are read when the extension activates. Reload the window after changing them.
 - **Node.js.** Node.js 24.13+ is required to build and for the CLI. The installed extension runs inside Kiro's own extension host; which Node features that host provides has only been observed on Kiro 1.2.56 (macOS), and no minimum Kiro version is established.
 - **Remote or SSH workspaces.** Not verified. The extension is declared as a UI extension that reads local files.
 - **Removing local data.** Delete the storage folder (still named `EasyKiroGauge`) listed under "Default owned storage" above. Kiro's own files are never touched.

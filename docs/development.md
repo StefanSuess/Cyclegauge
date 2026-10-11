@@ -11,7 +11,9 @@ git diff --check
 pnpm package:vsix
 ```
 
-Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/easykirogauge-0.5.1.vsix` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE` and `dist/extension.cjs`; `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
+Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/cyclegauge-0.5.1.vsix` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE`, `dist/extension.cjs` and `assets/branding/cyclegauge-icon-256.png` (the packaged extension icon); `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
+
+Packaging check after `pnpm package:vsix`: `unzip -l dist/cyclegauge-0.5.1.vsix` must list exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`, `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` plus the two VSIX manifest files (7 entries, no `src/`, tests, logs or stores), and `unzip -p dist/cyclegauge-0.5.1.vsix extension/LICENSE.txt | cmp - LICENSE` must report no difference. `tests/unit/identity.test.ts` also pins the `.vscodeignore` allowlist.
 
 ## Verification and remaining limits
 
@@ -27,8 +29,9 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 | --- | --- | --- |
 | Public repository | `StefanSuess/Cyclegauge` | The old `EasyKiroGauge` URL redirects. |
 | Brand / product display name | Cyclegauge / Cyclegauge for Kiro IDE | User-visible text only. |
-| npm package name, extension name, publisher | `easykirogauge` | Technical identifier, unchanged. |
-| Command IDs, settings keys, webview panel ID | `easykirogauge.*` | Unchanged; changing them breaks users' settings and keybindings. |
-| Storage folder | `EasyKiroGauge` under the platform data directory | Unchanged; renaming would orphan existing data without a migration. |
+| npm package / extension name | `cyclegauge` | Previously `easykirogauge`. A new extension ID is a distinct extension; see [identity-migration.md](identity-migration.md). |
+| Publisher | `easykirogauge` | **Provisional**; the final Open VSX namespace is not decided. |
+| Command IDs, settings keys, webview panel ID | `cyclegauge.*` | The four v0.5.1 command IDs keep `easykirogauge.*` aliases and the old settings keys remain a deprecated fallback. |
+| Storage folder | `EasyKiroGauge` under the platform data directory | Unchanged on purpose; no storage migration without a separate security review. |
 
-Changing technical identifiers needs a reviewed migration (publisher namespace, settings and storage migration, rollback) and is tracked separately, not part of branding work.
+The identifier table lives in code in `src/extension/identity.ts`; the technical identity design and its transition rules are in [identity-migration.md](identity-migration.md).
