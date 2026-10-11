@@ -10,4 +10,4 @@ Canonical Cyclegauge icon files. See [docs/branding.md](../../docs/branding.md) 
 | `cyclegauge-icon-256.png` | **Packaged extension icon** (`package.json` `icon`). |
 | `cyclegauge-icon-128.png` | README header and small listings. |
 | `cyclegauge-icon-32.png` | Favicon-size reference. |
-| `cyclegauge-github-social-preview-1280x640.png` | GitHub social preview (1280×640). Set manually, see docs/branding.md. Known flaw: the icon sits on an opaque black square. |
+| `cyclegauge-github-social-preview-1280x640.png` | GitHub social preview (1280×640). Set manually, see docs/branding.md. Regenerated from the transparent-corner icon (original opaque-square version replaced). |

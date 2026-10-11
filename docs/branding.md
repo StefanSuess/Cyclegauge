@@ -12,7 +12,7 @@ The icon stands for Cyclegauge only. Product branding stays "Cyclegauge for Kiro
 
 - Extension metadata: `package.json` `"icon"` points to `assets/branding/cyclegauge-icon-256.png`. Marketplaces need a PNG of at least 128×128; 256 keeps it sharp on high-DPI screens.
 - GitHub project branding (avatar): `cyclegauge-icon-1024.png`. Uploading it is a manual repository setting, not part of this change.
-- GitHub social preview: `cyclegauge-github-social-preview-1280x640.png`. It is not applied automatically; a repository admin sets it manually under GitHub repo **Settings > Social preview**. Known flaw: the icon sits on an opaque black square that does not match the navy background; it should be regenerated from the transparent-corner icon (`cyclegauge-icon-1024.png`) before upload.
+- GitHub social preview: `cyclegauge-github-social-preview-1280x640.png`. It is not applied automatically; a repository admin sets it manually under GitHub repo **Settings > Social preview**. The original upload had the icon on an opaque black square; this version composites the transparent-corner icon (`cyclegauge-icon-1024.png`) on the navy background.
 - README: see below.
 - First beta release materials: `cyclegauge-icon-512.png` or `-1024.png`.
 
