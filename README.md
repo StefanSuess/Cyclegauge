@@ -16,8 +16,8 @@ It works from files Kiro has already written on your machine. Nothing is request
 ## Privacy
 
 - **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
-- **Local only.** No network code and no telemetry. Derived numbers are kept in the extension's own private directory.
-- **Minimal data.** Only an allowlist of billing fields is read. Prompts, code, conversations, tool data, credentials and account identifiers are not stored or shown, and diagnostics contain only fixed codes and counts.
+- **Local only.** No telemetry and no network transmission: the extension contains no network code. Derived numbers are kept in the extension's own private directory.
+- **Minimal data.** Complete log lines are processed in memory while parsing, but only explicitly allowlisted billing fields are extracted and persisted. Raw account identifiers are not stored; pseudonymous identifiers derived with a device-local key (HMAC) are used locally to separate accounts. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown, and diagnostics contain only fixed codes and counts.
 
 Details: [Privacy, storage and reliability](#privacy-storage-and-reliability).
 
