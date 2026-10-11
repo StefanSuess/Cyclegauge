@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildVsix } from '../../scripts/release/build-vsix.ts';
@@ -69,4 +71,26 @@ test('argument parsing is strict', () => {
  assert.equal(parseArgs(['a.vsix', 'b.vsix']), undefined);
  assert.equal(parseArgs(['a.vsix', '--out']), undefined);
  assert.equal(parseArgs(['a.vsix', '--unknown']), undefined);
+});
+
+test('rejected entry names never leave the verifier result', () => {
+ const name = 'extension/synthetic-private-account/synthetic-private-workspace.log';
+ const result = verifyVsix(writeZip([{ name, data: Buffer.from('synthetic-content') }]));
+ assert.equal(result.ok, false);
+ assert.ok(result.problems.includes('UNEXPECTED_ENTRY'));
+ assert.deepEqual(result.files, []);
+ assert.equal(JSON.stringify(result).includes('synthetic-private'), false);
+});
+
+test('rejected entry names are absent from CLI diagnostics and output manifests', () => {
+ const archive = join(dir, 'synthetic-rejected.vsix');
+ const manifest = join(dir, 'synthetic-rejected.json');
+ writeFileSync(archive, writeZip([{ name: 'extension/synthetic-private-account.log', data: Buffer.from('synthetic-content') }]));
+ const run = spawnSync(process.execPath, [fileURLToPath(new URL('../../scripts/release/verify-vsix.ts', import.meta.url)), archive, '--out', manifest], { encoding: 'utf8' });
+ assert.equal(run.status, 1);
+ assert.ok(run.stdout.includes('PROBLEM UNEXPECTED_ENTRY'));
+ assert.equal(`${run.stdout}${run.stderr}`.includes('synthetic-private'), false);
+ const output = readFileSync(manifest, 'utf8');
+ assert.equal(output.includes('synthetic-private'), false);
+ assert.deepEqual(JSON.parse(output).files, []);
 });

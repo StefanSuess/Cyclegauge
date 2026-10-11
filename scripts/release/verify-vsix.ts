@@ -50,7 +50,8 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
  for (const name of names) if (!ALLOWLIST.includes(name)) problems.push('UNEXPECTED_ENTRY');
  for (const name of ALLOWLIST) if (!names.includes(name)) problems.push(`MISSING_ENTRY:${name}`);
  if (new Set(names).size !== names.length) problems.push('DUPLICATE_ENTRY');
- result.files = entries.map(e => ({ name: e.name, bytes: e.size, sha256: sha256(e.data) })).sort((a, b) => a.name.localeCompare(b.name));
+ // Rejected names may contain private metadata; keep them out of all exported diagnostics.
+ result.files = entries.filter(e => ALLOWLIST.includes(e.name)).map(e => ({ name: e.name, bytes: e.size, sha256: sha256(e.data) })).sort((a, b) => a.name.localeCompare(b.name));
  const get = (name: string) => entries.find(e => e.name === name)?.data;
 
  const manifestBytes = get('extension/package.json');
