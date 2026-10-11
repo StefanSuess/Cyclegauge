@@ -231,3 +231,32 @@ Node version: v24.x.y      Constrained Language Mode enforced by policy: yes | n
 Private-data review: contains no SID, user name or path.  yes
 Tested with: managed profile | space/non-ASCII profile name | OneDrive-redirected profile  (mark each)
 ```
+
+
+---
+
+## Release candidate verification (Task 9) — what each step proves
+
+| Step | Command | Proves | Does not prove |
+| --- | --- | --- | --- |
+| Build once | `pnpm release:build release/candidate.vsix` | the working tree packages | that anything runs |
+| Content | `pnpm release:verify release/candidate.vsix [--out manifest.json]` | exactly the allowlisted entries; sane manifest and bundle; per-file SHA-256 | behaviour |
+| Reproducibility | `pnpm release:verify other.vsix --compare manifest.json` | payload file hashes equal (ZIP bytes ignored) | a clean toolchain |
+| Smoke | `pnpm release:smoke release/candidate.vsix [--simulate no-sqlite\|no-reviver\|no-watcher]` | the shipped bundle activates, shows the budget, degrades safely and prints a path-free diagnostics report against a stub host | native Kiro behaviour, real log shapes, `context.logUri`, `vscode.env.appName` |
+
+Native acceptance runs must install **the same file** and record its SHA-256. For phase A of the
+RHEL/Windows/macOS acceptance runs, `node scripts/release/synthetic-root.ts <empty-directory>` creates
+an invented log tree whose observations end "now" with a billing reset 20 days later.
+
+## Windows non-elevated attempt (Workstream B)
+
+CI job `windows-acl-poc-nonelevated` prints `NONELEVATED_RESULT=obtained|already|not_obtained` and
+`MEASURED_INTEGRITY=<level>`. Only `obtained` and `already` are non-elevated evidence, and only for a
+Windows Server runner. On a native Windows 11 machine, run the same tool from a standard account:
+
+```bash
+node scripts/poc/win-acl/nonelevated.ts
+```
+
+If the account is already a standard user the PoC runs directly; the report's `integrity_level`
+decides, never the intention.

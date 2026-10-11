@@ -11,8 +11,8 @@
 // private values before anything is printed.
 import { appendFileSync, linkSync, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { arch, homedir, release, tmpdir, userInfo } from 'node:os';
-import { join, resolve, win32 } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, win32 } from 'node:path';
+import { isMain } from '../../is-main.ts';
 import { noSymlinks, inside } from '../../../src/paths.ts';
 import {
  SID_ADMINISTRATORS, SID_SYSTEM, canonical, category, evaluateAncestor, evaluateDirectory, evaluateFile, isTrusted, tryParse,
@@ -494,6 +494,6 @@ async function main(): Promise<number> {
  }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
  process.exitCode = await main();
 }

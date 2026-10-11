@@ -74,7 +74,8 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  };
  for(const command of ['configure','edit','clear'] as const)ui.onCostCommand?.(command,()=>edit(command));
  ui.onClick(() => ui.showDetails(detail));
- ui.onChange(() => { void refresh(); });
+ // A watcher that cannot be registered must never stop activation; minute polling stays authoritative.
+ try { ui.onChange(() => { void refresh(); }); } catch { /* polling continues */ }
  ui.everyMinute(() => { void refresh(); });
  await refresh();
  return { refresh, dispose() { if (disposed) return; disposed = true; inputs.clear(); store?.close(); ui.dispose(); } };

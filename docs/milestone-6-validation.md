@@ -262,3 +262,79 @@ store opened by this code and the reverse with identical import results and 0700
 
 Evidence still outstanding: native Windows 11 standard-user ACL run, RHEL 9 R0/R1 survey, and a
 native Kiro run to confirm `context.logUri` shape and `vscode.env.appName` on each OS.
+
+## 10. Task 8 regression tests, release tooling and the non-elevated launcher (uncommitted work)
+
+Status of this section: **local verification only** (macOS arm64, Node 26.11.1 and 24.13.0). None of
+the new CI jobs below has run on GitHub Actions yet; they are written, YAML-validated and reviewed,
+not observed.
+
+### 10.1 Task 8: rotation, concurrency and watcher failure
+
+New files: `tests/unit/resilience.test.ts` (collector and store), `tests/unit/resilience-extension.test.ts`
+(controller), `tests/unit/no-symlinks.test.ts`. All synthetic. Storage-dependent tests are skipped on
+Windows while storage there stays refused.
+
+| Scenario | Evidence |
+| --- | --- |
+| Rotation (`.log` to `.1` to `.2`), replacement by rename, truncation and regrowth, partial then completed record, CRLF | observations are never re-imported or lost; stored history is never zeroed |
+| Removed file, vanished source root, directory/FIFO named like a log, oversize and observation limits | fixed codes, no blocking, stored observations kept, no zero usage invented |
+| Three windows, three store connections, five rounds; four simultaneous CLI processes on a new store | one deduplicated history; every unique observation imported exactly once |
+| Watcher that throws or never fires, event storm, disposal during a refresh, source appearing late | polling alone recovers; no throw; no update after disposal |
+
+Defects found by these tests and fixed (each reproduced first):
+
+1. **Empty `device.key` read.** A second window starting while the first was still writing the new key
+   failed with `STORAGE_UNAVAILABLE` (3 in 480 simultaneous initialisations). `Store` now waits up to
+   200 ms for the other writer; it never replaces the key and still rejects a key that stays short.
+2. **`noSymlinks` check-then-use race.** An `existsSync` followed by `lstat` threw `ENOENT` when another
+   window removed the file in between (a SQLite journal). It is now a single `lstat` per component.
+3. **Watcher registration failure** could abort activation; the controller now tolerates it and
+   polling stays authoritative.
+4. **Journal deleted by another window.** The sidecar check could see a SQLite `-journal` with zero
+   links while another window removed it (about 1 in 2,000 simultaneous initialisations on macOS) and
+   refused the store with `UNSAFE_STORAGE`. A sidecar with zero links is now treated as absent; the key
+   and database are never given that allowance, and every other anomaly is still refused. After the
+   four fixes, 11,520 simultaneous initialisations (24 rounds of 8 processes) produced no failure.
+
+The tests deliberately do not pin `source_changed` except in one labelled characterisation test, because
+that code fires on every append (the stored fingerprint includes the whole-file digest). That is
+existing behaviour and was not changed.
+
+### 10.2 Release verification tooling (Task 9, partial)
+
+`scripts/release/`: `zip.ts` (defensive reader, no extraction), `verify-vsix.ts` (exact content
+allowlist, manifest and bundle checks, per-file SHA-256, payload comparison), `build-vsix.ts` (staged
+build that never touches `dist/`), `smoke-bundle.ts` (shipped bundle against a stub host, with
+`no-sqlite`, `no-reviver` and `no-watcher` simulations), `synthetic-root.ts` (invented log trees for
+acceptance runs). Tests: `tests/release/*` (19). Run with `pnpm test:release`.
+
+Not done and not claimed: native Kiro installation or activation, a Kiro-hosted extension host, any
+real account data. A passing smoke test means the bundle loads and degrades safely against a stub.
+
+### 10.3 Non-elevated Windows evidence (Workstream B)
+
+`scripts/poc/win-acl/nonelevated.ts` re-runs the existing proof-of-concept under a Safer "Basic
+User" token (`runas /trustlevel:0x20000`: privileges are removed from a copy of the caller's own
+token; no account is created and no setting is changed). The verdict is computed only from the
+integrity level the child measured about itself (`obtained` for medium or low, otherwise
+`not_obtained`; an elevated run is never labelled non-elevated). CI job
+`windows-acl-poc-nonelevated` runs it on Server 2022 and 2025.
+
+Feasibility is **unknown until the job runs**: if `runas /trustlevel` does not reduce the token on a
+hosted runner the job reports `not_obtained` and a warning annotation. Any result is Windows Server
+evidence, not Windows 11 client evidence and not a managed-profile result.
+
+### 10.4 Independent review of this round
+
+Two read-only review passes (test quality; release tooling and launcher) produced the following
+accepted fixes: vacuous polling tests now wait for the poll trigger; cleanup runs on failure;
+the ZIP reader reconciles the directory with the end record (hidden entries, trailing data,
+comments); entry-point detection resolves symlinks (a gate could previously exit 0 without running);
+missing CLI values are usage errors; leak patterns cover hidden directories and more credential
+shapes; the launcher cannot derive `already` without a measured level and no longer fails on a
+failure report; CI compares the downloaded candidate's SHA-256 and emits warnings for non-obtained
+or differing results.
+
+Accepted risk: the key wait blocks the extension host thread for at most 200 ms per attempt, and
+repeats on each poll while a key stays permanently short (for example after a crashed first writer).

@@ -23,6 +23,12 @@ export class Store {
    return path;
   };
   const key = secureFile('device.key', randomBytes(32)); this.secret = readFileSync(key);
+  // Another window may have created the file but not yet written it. Wait briefly for that writer;
+  // never replace the key (tokens depend on it) and never accept a short one.
+  for (let attempt = 0; this.secret.length !== 32 && attempt < 10; attempt++) {
+   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+   this.secret = readFileSync(key);
+  }
   if (this.secret.length !== 32) throw new Error('STORAGE_UNAVAILABLE');
   const dbPath = secureFile('usage.sqlite', Buffer.alloc(0));
   for (const suffix of ['-journal', '-wal', '-shm']) {

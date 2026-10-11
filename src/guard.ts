@@ -9,18 +9,23 @@ export interface StorageGuard {
  verifySidecar(path: string): void;
 }
 export class PosixGuard implements StorageGuard {
+ private readonly stat: typeof lstatSync;
+ constructor(stat: typeof lstatSync = lstatSync) { this.stat = stat; }
  createDirectory(path: string): void { mkdirSync(path, { recursive: true, mode: 0o700 }); }
  verifyDirectory(path: string): void {
-  const stat = lstatSync(path);
+  const stat = this.stat(path);
   if (!stat.isDirectory() || (stat.mode & 0o777) !== 0o700 || stat.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
  }
  verifyFile(path: string): void {
-  const s = lstatSync(path);
+  const s = this.stat(path);
   if (!s.isFile() || s.nlink !== 1 || (s.mode & 0o777) !== 0o600 || s.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
  }
  verifySidecar(path: string): void {
   try {
-   const s = lstatSync(path);
+   const s = this.stat(path);
+   // Another window's SQLite deletes its journal at the end of a transaction. A path that resolved a
+   // moment ago can report zero links: it is gone, exactly like ENOENT, and nothing can be read through it.
+   if (s.nlink === 0) return;
    if (!s.isFile() || s.nlink !== 1 || s.uid !== process.getuid!() || (s.mode & 0o077)) throw new Error('UNSAFE_STORAGE');
   } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('UNSAFE_STORAGE'); }
  }

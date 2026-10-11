@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, linkSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { chmodSync, linkSync, type lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { guardFor, PosixGuard } from '../../src/guard.ts';
@@ -67,4 +67,14 @@ test('the win32 guard stays fail-closed and creates nothing', () => {
 
 test('every non-Windows platform selects the POSIX guard', () => {
  for (const p of ['darwin', 'linux', 'freebsd', 'openbsd', 'aix'] as const) assert.ok(guardFor(p) instanceof PosixGuard, p);
+});
+
+test('a sidecar that is being deleted by another window is treated as absent, other anomalies are not', () => {
+ const stats = (over: Record<string, unknown>) => (() => ({ isFile: () => true, nlink: 1, uid: process.getuid!(), mode: 0o100600, ...over })) as unknown as typeof lstatSync;
+ new PosixGuard(stats({ nlink: 0 })).verifySidecar('/synthetic/usage.sqlite-journal');
+ for (const over of [{ nlink: 2 }, { mode: 0o100644 }, { isFile: () => false }, { uid: process.getuid!() + 1 }]) {
+  assert.throws(() => new PosixGuard(stats(over)).verifySidecar('/synthetic/usage.sqlite-journal'), /^Error: UNSAFE_STORAGE$/);
+ }
+ // The key and database are never deleted by anyone: zero links is still refused for them.
+ assert.throws(() => new PosixGuard(stats({ nlink: 0 })).verifyFile('/synthetic/device.key'), /^Error: UNSAFE_STORAGE$/);
 });

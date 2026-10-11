@@ -13,8 +13,8 @@ export function inside(child: string, parent: string, platform: NodeJS.Platform 
 export function noSymlinks(path: string): void {
  let p = resolve(path);
  for (;;) {
-  if (existsSync(p) && lstatSync(p).isSymbolicLink()) throw new Error('UNSAFE_PATH');
-  // lstat also catches dangling links.
+  // One lstat per component (it also catches dangling links); a component another window removes
+  // between a probe and this call is simply absent, not an error.
   try { if (lstatSync(p).isSymbolicLink()) throw new Error('UNSAFE_PATH'); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
   const next = dirname(p); if (p === next) break; p = next;
  }
