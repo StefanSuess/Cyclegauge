@@ -82,6 +82,16 @@ test('limit changes are counted per account and cycle, in time order',async()=>{
  const u=await tree(record({limit:1125,usage:1,ts:'2030-01-02 00:00:00.000'})+record({limit:1000,usage:1,ts:'2030-01-01 00:00:00.000'}));
  try{const j=JSON.parse(run(u.root));assert.equal(j.limit_changes_within_cycle_count,1);assert.equal(j.cycles_seen,1);}finally{await rm(u.base,{recursive:true,force:true});}
 });
+test('records dated ahead of this clock are bucketed, never printed',async()=>{
+ const pad=(n:number)=>String(n).padStart(2,'0');
+ const stamp=(ms:number)=>{const d=new Date(ms);return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}.000`;};
+ const t0=Date.now();
+ const t=await tree(record({limit:1000,usage:1,ts:stamp(t0-3600000)})+record({limit:1000,usage:2,ts:stamp(t0+30*60000)})+record({limit:1000,usage:3,ts:stamp(t0+7200000)}));
+ try{
+  const j=JSON.parse(run(t.root,['--source-timezone','UTC']));
+  assert.deepEqual(j.records_dated_after_now_by_bucket,{le_2m:0,le_1h:1,le_14h:1,gt_14h:0});
+ }finally{await rm(t.base,{recursive:true,force:true});}
+});
 test('framing: invalid UTF-8, over-long and unterminated lines are counted, not parsed',async()=>{
  const good=record({limit:1000,usage:1,ts:'2030-01-01 00:00:00.000'});
  const t=await tree('');

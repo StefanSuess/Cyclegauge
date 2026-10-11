@@ -91,6 +91,13 @@ are limited to 256 KiB in bytes (`records_too_long`), and an unterminated final 
 source text needed for exact decimals is unavailable. Records at equal instants keep file order, which comes from the
 directory listing, so flapping between equal-instant records is possible and is not evidence of a change.
 
+### 5.0 Records dated in the future
+
+`records_dated_after_now_by_bucket` counts accepted records ahead of this computer's clock in four closed buckets
+(`le_2m`, `le_1h`, `le_14h`, `gt_14h`). A cluster near the zone difference suggests a time-zone mismatch; a few seconds
+suggests clock skew. The application ignores records beyond a 2-minute tolerance (flag `future_records_ignored`) and
+fails closed only when no usable record remains.
+
 ### 5.1 Time zone of the log timestamps
 
 Kiro's account-log timestamps have no UTC offset. The collector interprets them in `easykirogauge.sourceTimezone`

@@ -153,6 +153,12 @@ for(const r of records.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)){
  const seq=perAccount.get(r.cycle)??[];if(seq.at(-1)!==r.limit)seq.push(r.limit);perAccount.set(r.cycle,seq);cycles.add(r.cycle);
 }
 let changes=0;for(const perAccount of groups.values())for(const seq of perAccount.values())changes+=Math.max(0,seq.length-1);
+// How far ahead of this computer's clock accepted records are, in closed buckets (counts only). A constant offset
+// equal to the zone difference points to a time-zone mismatch; a few seconds to ordinary clock skew.
+const ahead={le_2m:0,le_1h:0,le_14h:0,gt_14h:0};{
+ const t=Date.now();
+ for(const rec of records){const d=Date.parse(rec.at)-t;if(d<=0)continue;ahead[d<=120000?'le_2m':d<=3600000?'le_1h':d<=50400000?'le_14h':'gt_14h']++;}
+}
 const sorted=s=>[...s].sort();
 const nominal=sorted(limitTokens).filter(t=>t.startsWith('nominal_')).map(t=>t.slice(8));
 const planTokens=new Set([...subTokens,...titleTokens].filter(t=>t!=='other'));
@@ -165,6 +171,7 @@ process.stdout.write(JSON.stringify({
  distinct_accounts_seen:accounts.size,
  limit_distinct_count:limitSet.size,limit_tokens:sorted(limitTokens),limit_non_integer_seen:nonInteger,
  limit_changes_within_cycle_count:changes,cycles_seen:cycles.size,
+ records_dated_after_now_by_bucket:ahead,
  records_without_cycle:unknownCycle,records_without_account:noAccount,
  usage_above_limit_seen:usageAbove,reduced_precision_seen:reduced,missing_limit_seen:missingLimit,
  unsupported_extra_credits_seen:extra,conflicting_reset_metadata_seen:conflictingReset,assumed_source_timezone_seen:assumedZone,source_timezone_origin:requestedZone===undefined?'device':'argument',
