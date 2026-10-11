@@ -237,3 +237,28 @@ Accepted, not changed:
 - **Windows baseline.** The failing-test list is printed, not compared with an expected-failures file.
 - **Host label.** `vscode.env.appName` containing the word "Kiro" is assumed; it is not yet verified
   on a native Kiro install.
+
+## 9. CI outcomes for Tasks 2, 3 and 6 and the review fixes
+
+| Commit | Run | Result | Windows Server unit suite (2022 and 2025, identical) |
+| --- | --- | --- | --- |
+| `e7e5703` Tasks 2/3/6 | `38098345669` | 11 of 11 jobs green | 209 tests, 183 pass, 23 fail: the 22 Store-using tests plus `source-identity` (8.3 temp path, fixed in `88f6ea2`) |
+| `88f6ea2` review fixes | `38098859626` | 11 of 11 jobs green | 213 tests, 187 pass, 23 fail: the 22 Store-using tests plus `invalid/unsafe store emits only fixed CLI failure codes` |
+
+The last Windows-only difference is intended. That original baseline test builds a 0755 directory and
+expects `STORAGE_UNAVAILABLE`; on Windows the CLI now reports the allowlisted
+`STORAGE_PERMISSIONS_UNSUPPORTED` instead, because the refusing guard is reached first. It is still
+fail-closed and creates nothing. The test is POSIX-specific; it should be split when Task 5 lands.
+
+Per platform (all `88f6ea2`, Node 24.13.0 and 24.x where stated): macOS, Ubuntu 24.04 and 22.04 run
+typecheck, the full unit suite, the PoC suite and the fixture validator; the UBI 9 container runs
+the unit and PoC suites as a non-root user (no SELinux, no Kiro); both Windows Server runners pass
+typecheck, PoC tests and the validator, and execute the unchanged ACL proof-of-concept with the
+same outcomes as run `38095926725`.
+
+Local (macOS arm64, Node 26.11.1 and 24.13.0): typecheck, 213 unit and 37 PoC tests, fixture
+validator, bundle build with no local path in the output, unchanged VSIX file list, and a 0.5.1
+store opened by this code and the reverse with identical import results and 0700/0600 modes.
+
+Evidence still outstanding: native Windows 11 standard-user ACL run, RHEL 9 R0/R1 survey, and a
+native Kiro run to confirm `context.logUri` shape and `vscode.env.appName` on each OS.
