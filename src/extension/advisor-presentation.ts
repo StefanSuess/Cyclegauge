@@ -1,7 +1,7 @@
 import type {CostOptimization} from '../cost/types.ts';
 import type {Advice,AdviceKind,AdvisorContext,PlanHint} from '../cost/advisor.ts';
 import {planNames,type CostHorizon} from './cost-inputs.ts';
-import {winnerText} from './cost-presentation.ts';
+import {winnerText,reasonText} from './cost-presentation.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
 
 const safe=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]!);
@@ -12,6 +12,9 @@ const assumptionText:Record<string,string>={
  add_ons_assumed_none:'No purchased add-on credits are assumed. Existing add-on credits would lower any purchase cost.',
  add_on_balance_unverified:'Remaining add-on credits were entered by you and are not verified.',
  limit_semantics_unverified:'Kiro may include purchased add-on credits in the reported limit; this has not been verified.',
+ usage_exceeds_reported_limit:'Observed usage is above the reported limit, so the plan remainder is unknown (this can happen with overages or purchased credits).',
+ limit_differs_from_plan_credits:'The reported limit differs from the chosen plan\'s nominal credits, so it may include other credits and the plan remainder is unknown.',
+ enterprise_inputs_unconfirmed:'Enterprise prepaid add-ons, overage permission and headroom are not entered yet; comparisons stay unavailable or conditional.',
 };
 const summary=(h:CostHorizon,a:Advice)=>{
  const label=adviceLabels[a.kind];
@@ -30,6 +33,8 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
   :context.planSource==='hint'?`${safe(planNames[context.plan!])} — hint only: matches the reported ${safe(o.limit??'')} credits, not confirmed`
   :'Unknown — the reported credit limit matches no catalog plan, or is unavailable';
  const assumptions=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions])].map(c=>assumptionText[c]).filter(Boolean);
+ const engineReasons=[...new Set(advice.flatMap(a=>a.reasons).filter(c=>!(c in assumptionText)))];
+ const confidence=context.planSource==='hint'?` Hint confidence: ${hint.confidence} (exact match with the plan's nominal credits only).`:'';
  const rows=horizons.map((h,i)=>summary(h,advice[i])).join('');
  const catalog=reviewedCatalog;
  const first=horizons[0]?.result??null;
@@ -38,8 +43,8 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
   +`<p><span class="badge">${headline}</span></p>`
   +(o.failed?'<p>The Cost Advisor is unavailable; your budget and forecast remain usable.</p>':rows?`<ul>${rows}</ul>`:'<p>A qualified forecast is needed before costs can be compared. Keep using Kiro; this updates automatically.</p>')
   +(advice[0]?.kind==='potential_savings'?`<p>${savings(first).trim()}</p>`:'')
-  +`<p class="small"><strong>Plan:</strong> ${plan}.</p>`
-  +(assumptions.length?`<ul class="small">${assumptions.map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
+  +`<p class="small"><strong>Plan:</strong> ${plan}.${safe(confidence)}</p>`
+  +(assumptions.length||engineReasons.length?`<p class="small"><strong>Conditions that apply:</strong></p><ul class="small">${[...assumptions,...engineReasons.map(reasonText)].map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
   +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p>`
   +`<p class="small">To change the plan or answer the questions above, use the <strong>Cost Advisor</strong> button (light-bulb) in this panel's title bar, or the Command Palette entry <strong>EasyKiroGauge: Cost Advisor</strong>.${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
   +`</section>`;

@@ -2,6 +2,7 @@
 // catalog, the demand builder or the optimizer; it only builds their inputs and labels their outputs.
 import {compare,subtract} from '../decimal.ts';
 import {PLAN_IDS,type BillingProfile,type CostOptimization,type PlanId,type PricingCatalog} from './types.ts';
+import {reviewedCatalog} from './catalog.ts';
 
 export type PlanSource='confirmed'|'hint'|'unknown';
 /** A hint is never a confirmed plan: the reported limit may include purchased add-on credits. */
@@ -43,27 +44,42 @@ const validAnswers=(a:AdvisorAnswers)=>!!a&&(a.plan===null||PLAN_IDS.includes(a.
  * the only hypothetical is "no purchased add-ons" when the user is not sure, and it is returned as an assumption so
  * the result can never be presented as savings or as "no action needed".
  */
-export function advisorProfile(o:AdvisorObservation,answers:AdvisorAnswers,hint:PlanHint):{profile:BillingProfile|null;context:AdvisorContext} {
+export function advisorProfile(o:AdvisorObservation,answers:AdvisorAnswers,hint:PlanHint,catalog:PricingCatalog=reviewedCatalog):{profile:BillingProfile|null;context:AdvisorContext} {
  const assumptions:string[]=[];
- const planSource:PlanSource=answers.plan?'confirmed':hint.plan?'hint':'unknown';
- const plan=answers.plan??hint.plan;
- if(planSource==='hint')assumptions.push('plan_is_hint');
  const billingConfirmed=answers.billing!==null;
- if(!billingConfirmed)assumptions.push('billing_assumed_consumer');
  const system=answers.billing??'consumer_prepaid';
+ if(!billingConfirmed)assumptions.push('billing_assumed_consumer');
+ // Free does not exist on Enterprise: such a plan or hint is dropped rather than priced.
+ const enterpriseFree=system==='enterprise_postpaid';
+ const explicit=answers.plan!==null&&!(enterpriseFree&&answers.plan==='free')?answers.plan:null;
+ const hinted=hint.plan!==null&&!(enterpriseFree&&hint.plan==='free')?hint.plan:null;
+ const planSource:PlanSource=explicit?'confirmed':hinted?'hint':'unknown';
+ const plan=explicit??hinted;
+ if(planSource==='hint')assumptions.push('plan_is_hint');
  let addOns:AdvisorContext['addOns']='unknown';
- if(answers.addOns==='none')addOns='none';
+ if(system==='enterprise_postpaid'){assumptions.push('enterprise_inputs_unconfirmed');}
+ else if(answers.addOns==='none')addOns='none';
  else if(answers.addOns==='some')addOns='some';
  else {addOns='assumed_none';assumptions.push('add_ons_assumed_none');}
  const context:AdvisorContext={planSource,plan,billingConfirmed,addOns,assumptions};
  if(!validAnswers(answers)||o.asOf===null||o.resetAt===null)return {profile:null,context};
+ // Reported remaining credits are the plan remainder only when nothing else can be inside the reported limit:
+ // add-ons confirmed or assumed absent, usage within the limit, and a limit equal to the plan's nominal credits.
  let remaining:string|null=null;
- if(addOns!=='some'&&o.limit!==null&&o.usage!==null){
-  try{const r=subtract(o.limit,o.usage);remaining=compare(r,'0')<0?'0':r;}catch{remaining=null;}
+ if((addOns==='none'||addOns==='assumed_none')&&o.limit!==null&&o.usage!==null){
+  try{
+   const r=subtract(o.limit,o.usage);
+   if(compare(r,'0')<0)assumptions.push('usage_exceeds_reported_limit');
+   else {
+    const nominal=plan?catalog.plans.find(p=>p.id===plan)?.credits:undefined;
+    if(nominal!==undefined&&compare(nominal,o.limit)!==0)assumptions.push('limit_differs_from_plan_credits');
+    else remaining=r;
+   }
+  }catch{remaining=null;}
  }
  const purchased:BillingProfile['purchased']=addOns==='some'
   ?(answers.addOnCredits!==null?{kind:'known',value:[{remainingCredits:answers.addOnCredits,expiresAt:null,expiryPrecision:'unknown'}]}:{kind:'unknown'})
-  :{kind:'known',value:[]};
+  :addOns==='unknown'?{kind:'unknown'}:{kind:'known',value:[]};
  const profile:BillingProfile={
   provenance:'manual',confirmedAt:o.asOf,billingSystem:system,market:'commercial',currentPlan:plan,
   allowedPlans:system==='enterprise_postpaid'?PLAN_IDS.filter(id=>id!=='free'):[...PLAN_IDS],

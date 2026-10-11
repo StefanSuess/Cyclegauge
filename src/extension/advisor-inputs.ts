@@ -52,6 +52,6 @@ export async function reviewAdvisor(ui:NativeCostInput,hint:PlanHint,current:Adv
  }
  const chosen=plan.startsWith(PLAN_PICK_PREFIX)?plan.slice(PLAN_PICK_PREFIX.length) as PlanId:null;
  if(chosen!==null&&!PLAN_IDS.includes(chosen))return null;
- if(billing==='enterprise_postpaid'&&chosen==='free')return null;
- return {plan:chosen,billing:billing==='unsure'?null:billing as AdvisorAnswers['billing'],addOns,addOnCredits};
+ // Free does not exist on Enterprise; the plan stays unknown instead of silently cancelling.
+ return {plan:billing==='enterprise_postpaid'&&chosen==='free'?null:chosen,billing:billing==='unsure'?null:billing as AdvisorAnswers['billing'],addOns,addOnCredits};
 }

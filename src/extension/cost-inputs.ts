@@ -74,7 +74,7 @@ export async function editCostInputs(ui:NativeCostInput,current:CostInput,now:st
  else if(field==='balances'){
   const at=await ui.input('Balance as-of instant with UTC offset',p.confirmedAt,v=>validInstant(v)&&Date.parse(v)<=Date.parse(now)?undefined:'Enter a valid instant, no later than now.');if(at===undefined||!validInstant(at)||Date.parse(at)>Date.parse(now))return null;
   const reset=await ui.input('Next reset instant — UTC calendar-month boundary',p.resetAt??'',v=>validInstant(v)&&utcMonthBoundary(v)&&Date.parse(v)>=Date.parse(now)?undefined:'Enter the next UTC calendar-month boundary.');if(reset===undefined||!validInstant(reset)||!utcMonthBoundary(reset)||Date.parse(reset)<Date.parse(now))return null;
-  const remaining=await number('Remaining plan credits (base only)',p.planRemaining);if(!remaining)return null;
+  const remaining=await number('Remaining plan credits (excluding purchased add-ons)',p.planRemaining);if(!remaining)return null;
   const used=await number('Total cycle credits used for upgrade rerating',p.cycleUsageForRerating);if(!used)return null;
   p.confirmedAt=at;p.resetAt=reset;p.planRemaining=remaining;p.cycleUsageForRerating=used;
  }

@@ -28,7 +28,7 @@ const reasons:Record<string,string>={
  scenario_limit_exceeded:'The scenario exceeds the supported event bound.',mid_cycle_price_change_unresolved:'Mid-cycle price-change accounting is unsupported.',
  invalid_cost_input:'The billing inputs are invalid or unsupported.',invalid_manual_demand:'Enter a valid non-negative monthly credit requirement.',cost_optimizer_unavailable:'The Cost Optimizer is unavailable; the budget view remains usable.'
 };
-const reasonText=(code:string)=>reasons[code]??'Additional billing evidence is required for this calculation.';
+export const reasonText=(code:string)=>reasons[code]??'Additional billing evidence is required for this calculation.';
 const notes=(codes:string[])=>[...new Set(codes)].map(c=>`<li>${safe(reasonText(c))}</li>`).join('');
 const strategy=(o:CostOptimization,id:string|null,demand='base')=>o.scenarios.find(s=>s.strategy.id===id&&s.demandId===demand);
 export function winnerText(o:CostOptimization,demand='base'){

@@ -19,6 +19,12 @@ budget" view shows a *Cost Advisor* card with one of four outcomes per planning 
 A conditional comparison never uses the word "saving" as a conclusion and never tells the user to buy. Savings and
 "no action" cannot be reached while any assumption is open.
 
+**Reachability today (verified by test):** the cost engine marks every priced comparison `conditional` (constant-rate
+demand, unverified purchase rules, unknown cohort and promotion). Phase A therefore surfaces only *conditional
+comparison* and *insufficient information* in production. *No action needed* and *potential savings* are defined and
+unit-tested at the classifier, and become reachable only when a future, separately approved change lifts the engine's
+conditionality (Phase C: cohort, promotion and purchase facts). Until then the card never claims either outcome.
+
 ## 2. Plan inference (hint, not identification)
 
 The reported credit limit (`usageLimitWithPrecision`) is **not verified** to be base-only. Kiro's documentation says the
@@ -68,9 +74,11 @@ reads only `q-client.log*` files under `<source-root>/logs/*/*/exthost/kiro.kiro
 counts, booleans and tokens from closed lists (no paths, values, timestamps, titles, identifiers or raw lines).
 
 Interpretation of `limit_tokens`: `nominal_<plan>` (limit equals that plan's nominal credits),
-`consistent_with_<plan>_plus_addons` (limit exceeds a plan's credits by an amount a purchase set could explain) and
-`no_catalog_explanation`. `limit_changes_within_cycle_count > 0` is evidence that the limit moves inside a cycle, which
-supports the combined-capacity reading; `bonuses_nonempty_seen` and `overage_credits_nonempty_seen` show whether those
+`exceeds_<plan>_within_addon_range` (limit exceeds the nearest lower plan's credits by an amount a purchase set could
+explain; other combinations could explain it equally, so it is not an identification) and
+`no_catalog_explanation`. `limit_changes_within_cycle_count > 0` (counted per account and cycle, in log-time order, using only records that pass
+the collector's checks) shows that the limit moved inside a cycle. It is necessary but not sufficient evidence for the
+combined-capacity reading: a plain mid-cycle plan change also moves it; `bonuses_nonempty_seen` and `overage_credits_nonempty_seen` show whether those
 schemas have ever been populated. `plan_token_agrees_with_nominal_limit` compares the classified
 `subscriptionInfo` type/title with the nominal match. The extraction allowlist is not changed by this script.
 
@@ -89,3 +97,9 @@ Forecast-derived demand (the only automatic demand source) was rejected by the o
 (`long_history_future_rate` and `short_window_long_horizon` were produced by the demand builder but not accepted by
 `validDemand`), so every forecast-demand comparison was `invalid_cost_input`. The two codes were added to the
 allowlist; no algorithm changed. A regression test covers it.
+
+## 8. Terminology kept for compatibility
+
+The CLI/`--json` keys `baseLimit` and `remainingBaseCredits`, and the forecast assumption code `base_credits_only`, are
+public or pinned contracts and keep their names. They mean the *reported* limit and *reported* remaining credits; the
+limit is not verified to be base-only. Human-readable text uses "reported".

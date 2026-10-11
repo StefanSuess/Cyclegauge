@@ -8,7 +8,8 @@ import {AdvisorInputs,reviewAdvisor} from '../../src/extension/advisor-inputs.ts
 import {presentAdvisor} from '../../src/extension/advisor-presentation.ts';
 import {startExtension} from '../../src/extension/controller.ts';
 import {reviewedCatalog} from '../../src/cost/catalog.ts';
-import {forecastEvidence,syntheticCatalog} from './cost-synthetic.ts';
+import {forecastEvidence,syntheticCatalog,request} from './cost-synthetic.ts';
+import {optimizeCosts} from '../../src/cost/optimize.ts';
 import type {CostOptimization} from '../../src/cost/types.ts';
 
 const now='2030-01-04T00:00:00Z';
@@ -82,13 +83,54 @@ test('forecast-derived demand reaches the optimizer (regression: assumption code
  const horizons=calculateCosts({mode:'personalized',profile:built.profile!,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},f,h,now,syntheticCatalog());
  assert.ok(horizons.every(x=>x.result!==null),JSON.stringify(horizons.map(x=>x.reasons)));
  assert.ok(horizons[0].result!.scenarios.length>0);
- // The provisional forecast is limited history, so even fully explicit answers stay conditional.
+ // Fully explicit answers still yield only a conditional comparison: the engine labels every priced result conditional.
  const advice=horizons.map(x=>classifyAdvice(x.result,built.context));
  assert.ok(advice.every(a=>a.kind==='conditional_comparison'),JSON.stringify(advice));
  // With unknown add-ons the same inputs may never produce savings or "no action".
  const hypothetical=advisorProfile(obs,noAnswers,planHint('1000',syntheticCatalog()));
  const h2=calculateCosts({mode:'personalized',profile:hypothetical.profile!,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},f,h,now,syntheticCatalog());
  assert.ok(h2.map(x=>classifyAdvice(x.result,hypothetical.context).kind).every(k=>k==='conditional_comparison'||k==='insufficient_information'));
+});
+test('real optimizer results never reach the positive outcomes today (engine marks every comparison conditional)',()=>{
+ for(const credits of ['100','900','1050','1800','4000'])for(const horizon of [1,3] as const){
+  const result=optimizeCosts(request(credits,horizon));
+  assert.equal(result.status,'conditional');
+  const kind=classifyAdvice(result,ctx()).kind;
+  assert.equal(kind,'conditional_comparison',`${credits}/${horizon}`);
+ }
+});
+test('ambiguous limits make the plan remainder unknown and add visible conditions',()=>{
+ const base={asOf:'2030-01-04T00:00:00.000Z',resetAt:'2030-02-01T00:00:00Z'};
+ const answers:AdvisorAnswers={plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:null};
+ const over=advisorProfile({...base,limit:'1000',usage:'1200'},answers,planHint('1000',catalog));
+ assert.deepEqual(over.profile?.planRemaining,{kind:'unknown'});assert.ok(over.context.assumptions.includes('usage_exceeds_reported_limit'));
+ const differs=advisorProfile({...base,limit:'2000',usage:'10'},answers,planHint('2000',catalog));
+ assert.deepEqual(differs.profile?.planRemaining,{kind:'unknown'});assert.ok(differs.context.assumptions.includes('limit_differs_from_plan_credits'));
+ assert.equal(differs.context.plan,'pro');
+ const fine=advisorProfile({...base,limit:'1000',usage:'10'},answers,planHint('1000',catalog));
+ assert.deepEqual(fine.profile?.planRemaining,{kind:'known',value:'990'});assert.deepEqual(fine.context.assumptions,[]);
+ // Both cases force a conditional outcome even on an otherwise perfect optimizer result.
+ assert.equal(classifyAdvice(optimization(),differs.context).kind,'conditional_comparison');
+ assert.equal(classifyAdvice(optimization(),over.context).kind,'conditional_comparison');
+});
+test('Enterprise keeps prepaid add-ons unknown, drops an impossible Free plan and never assumes zero add-ons',()=>{
+ const obs={limit:'50',usage:'1',asOf:'2030-01-04T00:00:00.000Z',resetAt:'2030-02-01T00:00:00Z'};
+ const e=advisorProfile(obs,{plan:null,billing:'enterprise_postpaid',addOns:null,addOnCredits:null},planHint('50',catalog));
+ assert.equal(e.context.planSource,'unknown');assert.equal(e.profile?.currentPlan,null);
+ assert.deepEqual(e.profile?.purchased,{kind:'unknown'});assert.ok(e.context.assumptions.includes('enterprise_inputs_unconfirmed'));
+ assert.ok(!e.context.assumptions.includes('add_ons_assumed_none'));assert.ok(!e.profile!.allowedPlans.includes('free'));
+ const chosen=advisorProfile(obs,{plan:'free',billing:'enterprise_postpaid',addOns:null,addOnCredits:null},planHint('50',catalog));
+ assert.equal(chosen.profile?.currentPlan,null);
+});
+test('engine conditions are shown to the user, not hidden behind the strategy name',()=>{
+ const o=optimizeCosts(request('1800',1));
+ const horizons=[{months:1 as const,result:o,reasons:[]}];
+ const context=ctx();const advice=horizons.map(h=>classifyAdvice(h.result,context));
+ assert.ok(advice[0].reasons.length>0);
+ const html=presentAdvisor({hint:planHint('1000',catalog),context,horizons,advice,singleAccount:true,limit:'1000'});
+ assert.ok(html.includes('Conditions that apply'));assert.ok(html.includes('Different demand levels favor different strategies'));
+ const hinted=presentAdvisor({hint:planHint('1000',catalog),context:ctx({planSource:'hint',assumptions:['plan_is_hint']}),horizons:[],advice:[],singleAccount:true,limit:'1000'});
+ assert.ok(hinted.includes('Hint confidence: moderate'));
 });
 test('native questions are minimal, cancellable and keep unknown as unknown',async()=>{
  const native=(answers:(string|undefined)[])=>({async pick(){return answers.shift();},async input(){return answers.shift();},async plans(){return undefined;}});
@@ -102,7 +144,7 @@ test('native questions are minimal, cancellable and keep unknown as unknown',asy
  assert.equal(asked.length,2);
  assert.equal(await reviewAdvisor(native([undefined]),hint,noAnswers),null);
  assert.equal(await reviewAdvisor(native(['plan:pro','consumer_prepaid',undefined]),hint,noAnswers),null);
- assert.equal(await reviewAdvisor(native(['plan:free','enterprise_postpaid']),hint,noAnswers),null);
+ assert.deepEqual(await reviewAdvisor(native(['plan:free','enterprise_postpaid']),hint,noAnswers),{plan:null,billing:'enterprise_postpaid',addOns:null,addOnCredits:null});
  assert.equal(await reviewAdvisor(native(['plan:pro','consumer_prepaid','some','synthetic-private-text']),hint,noAnswers),null);
 });
 test('answers cannot cross accounts, ambiguity or stale editor tickets',()=>{
@@ -148,7 +190,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
   const budget=status;
   answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
   assert.ok(html.includes('confirmed by you'));assert.equal(status,budget);
-  assert.ok(!/Potential savings|No action needed/.test(html),'provisional history must stay conditional');
+  assert.ok(!/Potential savings|No action needed/.test(html),'the engine marks every priced comparison conditional');
   await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
   assert.ok(!html.includes('confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   controller.dispose();

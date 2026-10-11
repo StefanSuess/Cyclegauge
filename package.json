@@ -44,7 +44,7 @@
       },
       {
         "command": "easykirogauge.clearCostInputs",
-        "title": "EasyKiroGauge: Clear Cost Inputs",
+        "title": "EasyKiroGauge: Clear Cost Inputs and Advisor Answers",
         "icon": "$(clear-all)"
       }
     ],
