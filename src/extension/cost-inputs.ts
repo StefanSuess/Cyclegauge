@@ -13,7 +13,6 @@ export interface CostInput {mode:'independent'|'personalized'; profile:BillingPr
 export interface NativeCostInput {
  pick(title:string,items:{id:string;label:string;description?:string}[]):Promise<string|undefined>;
  input(title:string,value?:string,validate?:(text:string)=>string|undefined):Promise<string|undefined>;
- plans(title:string,selected:string[]):Promise<string[]|undefined>;
 }
 export interface CostHorizon {months:1|3|6; result:CostOptimization|null; reasons:string[]}
 export function parseAmount(text:string):string|null {try{const n=decimal(text);return validAmount(n)?n:null;}catch{return null;}}

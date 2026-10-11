@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
 import { defaultStorage, hostLogUri, resolveSourceRoot } from '../paths.ts';
 import { diagnostics } from '../diagnostics.ts';
-import {planNames} from './cost-inputs.ts';
-import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 
 let stop: (() => void) | undefined;
@@ -39,8 +37,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   },
   costInput: {
    async pick(title,items) {const selected=await vscode.window.showQuickPick(items.map(i=>({label:i.label,description:i.description,id:i.id})),{title,ignoreFocusOut:true});return selected?.id;},
-   async input(title,value,validateInput) {return vscode.window.showInputBox({title,value,validateInput,ignoreFocusOut:true});},
-   async plans(title,selected) {const values=await vscode.window.showQuickPick(PLAN_IDS.map(id=>({label:planNames[id],id,picked:selected.includes(id)})),{title,canPickMany:true,ignoreFocusOut:true});return values?.map(i=>i.id);}
+   async input(title,value,validateInput) {return vscode.window.showInputBox({title,value,validateInput,ignoreFocusOut:true});}
   },
   onCostCommand(id,fn) {
    const command={advisor:'costAdvisor'}[id];
