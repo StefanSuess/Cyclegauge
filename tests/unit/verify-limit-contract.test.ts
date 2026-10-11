@@ -43,6 +43,21 @@ test('limit changes are counted per account and cycle, in time order, and unknow
  const noCycle=await tree(record({limit:1000,usage:1,reset:undefined as unknown as string}).replace('"nextDateReset":"2030-02-01T00:00:00Z",','').replace(/,"bonuses"/,',"bonuses"'));
  try{const j=JSON.parse(run(noCycle.root));assert.equal(j.records_without_cycle,1);assert.equal(j.limit_changes_within_cycle_count,0);}finally{await rm(noCycle.base,{recursive:true,force:true});}
 });
+test('records need the collector\'s prefix; conflicting resets, unknown accounts and odd cycle spellings are handled apart',async()=>{
+ const good=record({limit:1000,usage:1,ts:'2030-01-01 00:00:00.000',reset:'2030-02-01T00:00:00Z'});
+ const spelled=record({limit:1125,usage:1,ts:'2030-01-02 00:00:00.000',reset:'2030-02-01T00:00:00.000Z'});
+ const noPrefix=good.replace('2030-01-01 00:00:00.000 [info] ','garbage ');
+ const conflict=JSON.parse(good.slice(good.indexOf('{')));conflict.output.usageBreakdownList[0].nextDateReset='2030-03-01T00:00:00Z';
+ const conflictLine='2030-01-03 00:00:00.000 [info] synthetic-envelope '+JSON.stringify(conflict)+'\n';
+ const anon=JSON.parse(good.slice(good.indexOf('{')));delete anon.output.userInfo;
+ const anonLine='2030-01-04 00:00:00.000 [info] synthetic-envelope '+JSON.stringify(anon)+'\n';
+ const t=await tree(good+spelled+noPrefix+conflictLine+anonLine);
+ try{
+  const j=JSON.parse(run(t.root));
+  assert.equal(j.records_parsed,3);assert.equal(j.records_skipped,2);
+  assert.equal(j.limit_changes_within_cycle_count,1);assert.equal(j.cycles_seen,1);assert.equal(j.records_without_account,1);
+ }finally{await rm(t.base,{recursive:true,force:true});}
+});
 test('invalid or empty roots give fixed codes and symlinked logs are skipped',async()=>{
  const missing=spawnSync('node',[script,'--source-root','/nonexistent-synthetic-root'],{encoding:'utf8'});
  assert.equal(missing.status,1);assert.equal(JSON.parse(missing.stdout).error,'SOURCE_ROOT_INVALID');assert.equal(missing.stderr,'');

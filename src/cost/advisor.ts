@@ -53,6 +53,7 @@ export function advisorProfile(o:AdvisorObservation,answers:AdvisorAnswers,hint:
  const enterpriseFree=system==='enterprise_postpaid';
  const explicit=answers.plan!==null&&!(enterpriseFree&&answers.plan==='free')?answers.plan:null;
  const hinted=hint.plan!==null&&!(enterpriseFree&&hint.plan==='free')?hint.plan:null;
+ if(enterpriseFree&&(answers.plan==='free'||hint.plan==='free'))assumptions.push('free_not_available_on_enterprise');
  const planSource:PlanSource=explicit?'confirmed':hinted?'hint':'unknown';
  const plan=explicit??hinted;
  if(planSource==='hint')assumptions.push('plan_is_hint');
@@ -100,6 +101,10 @@ export function classifyAdvice(result:CostOptimization|null,context:AdvisorConte
  if(!result||result.status==='unavailable'||!result.baselineStrategyId||!result.alternatives.some(a=>a.strategyId!==null))
   return {kind:'insufficient_information',reasons:result?.reasons??['cost_advisor_unavailable']};
  const open=[...context.assumptions];
+ // Defence in depth: the context fields themselves must also be explicit, not only the assumption list.
+ if(context.planSource!=='confirmed'&&!open.includes('plan_is_hint'))open.push('plan_not_confirmed');
+ if(!context.billingConfirmed&&!open.includes('billing_assumed_consumer'))open.push('billing_assumed_consumer');
+ if(context.addOns!=='none'&&context.addOns!=='some'&&!open.some(c=>c==='add_ons_assumed_none'||c==='enterprise_inputs_unconfirmed'))open.push('add_ons_assumed_none');
  if(context.addOns==='some'&&!open.includes('add_on_balance_unverified'))open.push('add_on_balance_unverified');
  const conditional=open.length>0||result.status==='conditional'||result.recommendation===null||result.recommendation.kind!=='supported_comparison'||result.reasons.length>0;
  if(conditional)return {kind:'conditional_comparison',reasons:[...open,...result.reasons]};

@@ -132,6 +132,17 @@ test('engine conditions are shown to the user, not hidden behind the strategy na
  const hinted=presentAdvisor({hint:planHint('1000',catalog),context:ctx({planSource:'hint',assumptions:['plan_is_hint']}),horizons:[],advice:[],singleAccount:true,limit:'1000'});
  assert.ok(hinted.includes('Hint confidence: moderate'));
 });
+test('add-on balance caveat and hand-built inconsistent contexts are surfaced and never positive',()=>{
+ const horizons=[{months:1 as const,result:optimization(),reasons:[]}];
+ const some=ctx({addOns:'some'});const advice=horizons.map(h=>classifyAdvice(h.result,some));
+ assert.equal(advice[0].kind,'conditional_comparison');
+ const html=presentAdvisor({hint:planHint('1000',catalog),context:some,horizons,advice,singleAccount:true,limit:'1000'});
+ assert.ok(html.includes('entered by you and are not verified'));
+ for(const bad of [{planSource:'hint' as const},{billingConfirmed:false},{addOns:'unknown' as const},{addOns:'assumed_none' as const}])
+  assert.equal(classifyAdvice(optimization(),ctx(bad)).kind,'conditional_comparison',JSON.stringify(bad));
+ const better=optimization({recommendation:{strategyId:'pro_plus_next_reset_as_needed',demandIds:['base'],kind:'supported_comparison'},savingsRange:{minimum:{currency:'USD',amount:'4'},maximum:{currency:'USD',amount:'9'}}});
+ assert.equal(classifyAdvice(better,ctx({planSource:'unknown',plan:null})).kind,'conditional_comparison');
+});
 test('native questions are minimal, cancellable and keep unknown as unknown',async()=>{
  const native=(answers:(string|undefined)[])=>({async pick(){return answers.shift();},async input(){return answers.shift();},async plans(){return undefined;}});
  const hint=planHint('1000',catalog);
@@ -186,13 +197,13 @@ test('detail view shows the advisor first, answers are applied through the nativ
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('aria-label="Cost Optimizer"'));
-  assert.ok(html.includes('hint only'));assert.ok(!html.includes('confirmed by you'));assert.ok(commands.has('advisor'));
+  assert.ok(html.includes('hint only'));assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(commands.has('advisor'));
   const budget=status;
   answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
-  assert.ok(html.includes('confirmed by you'));assert.equal(status,budget);
+  assert.ok(html.includes('Pro — confirmed by you'));assert.equal(status,budget);
   assert.ok(!/Potential savings|No action needed/.test(html),'the engine marks every priced comparison conditional');
   await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
-  assert.ok(!html.includes('confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
+  assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   controller.dispose();
  }finally{await rm(env.base,{recursive:true,force:true});}
 });

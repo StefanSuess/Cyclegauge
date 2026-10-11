@@ -70,7 +70,9 @@ implies a remaining balance.
 
 `scripts/verify-limit-contract.mjs` is a small, auditable, read-only script the **owner** runs on their own machine. It
 reads only `q-client.log*` files under `<source-root>/logs/*/*/exthost/kiro.kiroAgent/`, only lines containing
-`GetUsageLimitsCommand`, skips symbolic links, writes nothing, opens no network connection and prints one JSON object of
+`GetUsageLimitsCommand`, skips symbolic links (every directory on the path is lstat-checked, files are opened with
+`O_NOFOLLOW|O_NONBLOCK`), applies the collector's record checks, keeps `output.userInfo.userId` in memory only to count
+and separate accounts (it is never printed), writes nothing, opens no network connection and prints one JSON object of
 counts, booleans and tokens from closed lists (no paths, values, timestamps, titles, identifiers or raw lines).
 
 Interpretation of `limit_tokens`: `nominal_<plan>` (limit equals that plan's nominal credits),

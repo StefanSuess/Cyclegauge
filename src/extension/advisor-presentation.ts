@@ -8,6 +8,8 @@ const safe=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt
 export const adviceLabels:Record<AdviceKind,string>={no_action:'No action needed',potential_savings:'Potential savings',conditional_comparison:'Conditional comparison',insufficient_information:'Insufficient information'};
 const assumptionText:Record<string,string>={
  plan_is_hint:'Your plan is a hint from the reported credit limit and is not confirmed.',
+ plan_not_confirmed:'Your plan is not confirmed.',
+ free_not_available_on_enterprise:'Free is not an Enterprise plan, so it was ignored.',
  billing_assumed_consumer:'Personal (consumer) billing is assumed. Enterprise accounts are priced differently.',
  add_ons_assumed_none:'No purchased add-on credits are assumed. Existing add-on credits would lower any purchase cost.',
  add_on_balance_unverified:'Remaining add-on credits were entered by you and are not verified.',
@@ -31,9 +33,10 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
  const {hint,context,horizons,advice}=o;
  const plan=context.planSource==='confirmed'?`${safe(planNames[context.plan!])} — confirmed by you`
   :context.planSource==='hint'?`${safe(planNames[context.plan!])} — hint only: matches the reported ${safe(o.limit??'')} credits, not confirmed`
-  :'Unknown — the reported credit limit matches no catalog plan, or is unavailable';
- const assumptions=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions])].map(c=>assumptionText[c]).filter(Boolean);
- const engineReasons=[...new Set(advice.flatMap(a=>a.reasons).filter(c=>!(c in assumptionText)))];
+  :'Unknown — not confirmed by you, and the reported credit limit is unavailable or matches no catalog plan';
+ const codes=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions,...advice.flatMap(a=>a.reasons)])];
+ const assumptions=codes.filter(c=>c in assumptionText).map(c=>assumptionText[c]);
+ const engineReasons=codes.filter(c=>!(c in assumptionText));
  const confidence=context.planSource==='hint'?` Hint confidence: ${hint.confidence} (exact match with the plan's nominal credits only).`:'';
  const rows=horizons.map((h,i)=>summary(h,advice[i])).join('');
  const catalog=reviewedCatalog;
