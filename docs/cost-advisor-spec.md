@@ -156,3 +156,9 @@ The card leads with the next-cycle figure, its period (UTC, start date and lengt
 "modelled list-price difference, not a guarantee, not realised, not an invoice" note. 1-, 3- and 6-cycle lines, the
 75/100/125% sensitivity, conditions and full calculations are under expandable details. When the lowest-cost plan changes
 with usage the card says so. The inferred plan is offered first ("Yes, I'm on X") in the native picker.
+
+Headline wording: when the lowest-cost plan changes with usage or any usage level (75/100/125%) has an unpriced option,
+the figure reads "USD N under your current forecast" (never "up to", because no upper bound is known) with one short
+limit line; the calculated range is only in the details, marked "not a complete bound". Reasons, assumptions and the
+fit of the forecast within the plan's credits sit under "Why this figure and its limits". The confirm-or-correct plan
+instruction appears once.

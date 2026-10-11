@@ -35,6 +35,7 @@ export interface SavingsEstimate {
  base:DemandEstimate|null;
  range:{minimum:Decimal;maximum:Decimal}|null;
  preferredChanges:boolean;              // the lowest calculable plan differs between demand levels
+ stable:boolean;                        // all three demand levels priced, same preferred plan: the difference does not depend on usage
  conditions:string[];                   // fixed codes only
 }
 
@@ -46,7 +47,7 @@ const HARMLESS=new Set(['cohort_or_promotion_conditional','sustained_usage_scena
 const BLOCKING_CONTEXT=['usage_exceeds_reported_limit','limit_differs_from_plan_credits'];
 const LEVELS=['low','base','high'] as const;
 
-export const insufficientEstimate=(months:number,conditions:string[]=[]):SavingsEstimate=>({tier:'insufficient',outcome:'none',months,currency:'USD',window:null,baselinePlan:null,levels:[],base:null,range:null,preferredChanges:false,conditions});
+export const insufficientEstimate=(months:number,conditions:string[]=[]):SavingsEstimate=>({tier:'insufficient',outcome:'none',months,currency:'USD',window:null,baselinePlan:null,levels:[],base:null,range:null,preferredChanges:false,stable:false,conditions});
 
 // Opening purchased lots would be valued at zero and consumed unevenly between options, so such figures are not comparable.
 const noOpeningLots=(s:CostScenario)=>{const o=s.future.openingPurchasedCredits;return o===null||o===undefined||compare(o,'0')===0;};
@@ -113,16 +114,17 @@ export function estimateSavings(result:CostOptimization|null,context:AdvisorCont
   if(!range)conditions.add('sensitivity_partly_unpriced');
   const bests=new Set(levels.flatMap(l=>l.best?[l.best.plan]:[]));
   const preferredChanges=bests.size>1;
+  const stable=!preferredChanges&&range!==null&&levels.every(l=>l.unpriced===0);
   if(preferredChanges)conditions.add('sensitivity_changes_preferred_plan');
   if(base.saving===null){
    conditions.add('baseline_cost_unavailable');
-   return {tier:'comparison_only',outcome:'costs_only',months,currency:'USD',window:{from:bestScenario.future.from,to:bestScenario.future.to},baselinePlan:null,levels,base,range:null,preferredChanges,conditions:[...conditions]};
+   return {tier:'comparison_only',outcome:'costs_only',months,currency:'USD',window:{from:bestScenario.future.from,to:bestScenario.future.to},baselinePlan:null,levels,base,range:null,preferredChanges,stable:false,conditions:[...conditions]};
   }
   const saving=compare(base.saving,'0')>0;
   // "Supported" additionally needs the engine's own classification: every input explicit, no engine condition left.
   // A move to Free carries unverified terms, so it is never presented as supported.
   const supported=!conditions.has('free_plan_terms_unverified')&&(saving?advice.kind==='potential_savings':advice.kind==='no_action');
-  return {tier:supported?'supported':'modelled',outcome:saving?'saving':'no_cheaper',months,currency:'USD',window,baselinePlan,levels,base,range,preferredChanges,conditions:[...conditions]};
+  return {tier:supported?'supported':'modelled',outcome:saving?'saving':'no_cheaper',months,currency:'USD',window,baselinePlan,levels,base,range,preferredChanges,stable,conditions:[...conditions]};
  }catch{return insufficientEstimate(months);}
 }
 

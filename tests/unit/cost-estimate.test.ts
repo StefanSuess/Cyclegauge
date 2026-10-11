@@ -82,9 +82,9 @@ test('confirmed plan and billing details are shown as confirmed; the figure stay
  assert.ok(html.includes('Confirmed by you'));assert.ok(html.includes('Your plan'));assert.ok(!html.includes('Unconfirmed'));
  assert.match(html,/you are on Pro\+ \(confirmed by you\)/);
  assert.ok(!html.includes('personal (consumer) billing'));assert.ok(!html.includes('no purchased add-on credits'));
- assert.match(html,/Changing from Pro\+ to Pro at your next billing reset would cost USD 20 instead of USD 40/);
- assert.match(html,/USD 20<\/strong> <span>modelled potential saving per billing cycle/);
- assert.match(html,/from 2030-01-01 UTC, 1 month/);assert.match(html,/fits within Pro's 1000 credits/);
+ assert.match(html,/Pro\+ to Pro at your next billing reset: USD 40 becomes USD 20/);
+ assert.match(html,/USD 20 under your current forecast<\/strong> <span>modelled saving per billing cycle/);
+ assert.match(html,/from 2030-01-01 UTC, 1 month/);assert.match(html,/<li>Your forecast of about 900 credits per cycle fits within Pro's 1000 credits\.<\/li>/);
  assert.match(html,/Change your plan or answers/);
 });
 
@@ -94,7 +94,7 @@ test('supported tier needs the engine to agree: only an unconditional engine ver
  const advice=classifyAdvice(clean,ctx());assert.equal(advice.kind,'potential_savings');
  const supported=estimateSavings(clean,ctx(),advice,1);assert.equal(supported.tier,'supported');assert.equal(supported.outcome,'saving');
  const html=presentAdvisor({hint:planHint('2000',reviewedCatalog),context:ctx(),horizons:[{months:1,result:clean,reasons:[]}],advice:[advice],singleAccount:true,limit:'2000'});
- assert.ok(html.includes('Supported estimate'));assert.match(html,/potential saving per billing cycle/);assert.ok(!html.includes('modelled potential saving'));
+ assert.ok(html.includes('Supported estimate'));assert.match(html,/<span>potential saving per billing cycle/);assert.ok(!html.includes('modelled saving'));
  // Any open assumption drops it back to modelled even on the same engine result.
  const hinted=ctx({planSource:'hint',assumptions:['plan_is_hint']});
  assert.equal(estimateSavings(clean,hinted,classifyAdvice(clean,hinted),1).tier,'modelled');
@@ -160,8 +160,9 @@ test('demand sensitivity: when the preferred plan changes the range and the reas
  assert.deepEqual(e.est.range,{minimum:'0',maximum:'20'});
  assert.ok(e.est.conditions.includes('sensitivity_changes_preferred_plan'));
  const html=present(e);
- assert.match(html,/At 125% of forecast usage the lowest calculable option is Pro\+ \(difference USD 0\); extra credits on smaller plans cannot be priced\. The modelled difference is therefore not stable \(USD 0 to USD 20 across 75% to 125%\)/);
- assert.match(html,/125% of forecast usage:<\/strong> lowest calculable Pro\+ USD 40; current plan Pro\+ USD 40; no cheaper option/);
+ assert.match(html,/The USD 20 applies to your forecast \(100%\) only\. At 125% the lowest calculable option is Pro\+ \(difference USD 0\)\./);
+ assert.match(html,/Costs at 125% of forecast usage could not be fully calculated \(1 option unpriced\), so the calculated range of USD 0 to USD 20 is not a complete bound\./);
+ assert.match(html,/125% of forecast usage:<\/strong> lowest calculable Pro\+ USD 40; current plan Pro\+ USD 40; no cheaper option \(difference USD 0\); 1 option could not be priced, so this is not a complete comparison/);
  // A stable preference has no such caveat.
  const stable=estimate('300');
  assert.equal(stable.est.preferredChanges,false);assert.ok(!stable.est.conditions.includes('sensitivity_changes_preferred_plan'));
@@ -248,8 +249,9 @@ test('a move to Free is never supported, is caveated in the card and a tiny fore
 test('an unconfirmed plan qualifies the figure itself and puts the confirmation next to it',()=>{
  const e=estimate('900');
  const html=present(e,{planSource:'hint',assumptions:['plan_is_hint']});
- assert.match(html,/modelled potential saving per billing cycle, if you are on Pro\+ \(unconfirmed\)/);
- assert.ok(html.indexOf('Not your plan? Confirm or correct it')<html.indexOf('class="verdict"'));
+ assert.match(html,/Assumes Pro\+ \(unconfirmed\)\./);assert.match(html,/Not your plan\? Confirm or correct it/);
+ // The instruction appears exactly once in the unconfirmed view.
+ assert.equal(html.split('Confirm or correct it').length-1,1);assert.ok(!html.includes('Change your plan or answers'));
  assert.ok(!html.includes('aria-label="Savings estimate"'));
 });
 
@@ -268,4 +270,47 @@ test('review findings: Free at any demand level is caveated, opening lots and ch
  assert.equal(e.tier,'modelled');assert.equal(e.outcome,'no_cheaper');assert.ok(e.conditions.includes('mid_cycle_upgrade_cheaper'));
  const html=presentAdvisor({hint:planHint('1000',reviewedCatalog),context:ctx({plan:'pro'}),horizons:[{months:1,result:r,reasons:[]}],advice:[{kind:'conditional_comparison',reasons:[]}],singleAccount:true,limit:'1000'});
  assert.match(html,/No cheaper change at the next reset found/);assert.ok(!html.includes('No cheaper plan found'));
+});
+
+test('final headline wording: a usage-dependent saving is a point estimate, never a stable or complete bound',()=>{
+ const html=present(estimate('900'));
+ const card=html.slice(html.indexOf('<div class="estimate'),html.indexOf('</div>',html.indexOf('<div class="estimate')));
+ // Concise, qualified headline; "Up to" is never used because the unpriced level means no bound is known.
+ assert.match(card,/<strong>USD 20 under your current forecast<\/strong> <span>modelled saving per billing cycle<\/span>/);
+ assert.ok(!/Up to USD/i.test(html));
+ assert.match(card,/Higher usage may remove it: at 125% of forecast usage extra credits on smaller plans cannot be priced\./);
+ assert.ok(!/ranges? from|stable range|guaranteed saving/i.test(card));
+ // Secondary explanation lives in the expandable details, not in the headline.
+ assert.ok(!card.includes('fits within'));assert.ok(!card.includes('Assumes:'));assert.ok(!card.includes('not a complete bound'));
+ const details=html.slice(html.indexOf('<details><summary>Why, assumptions and comparison'));
+ for(const text of ['Why this figure and its limits','fits within Pro','is not a complete bound','Assumes: you are on Pro+ (confirmed by you)'])assert.ok(details.includes(text),text);
+ assert.ok(card.length<1100,`headline card stays compact (${card.length})`);
+});
+
+test('regression: unpriced high-demand scenarios never become a "0 to 20" bound or a bare saving',()=>{
+ const e=estimate('900');
+ assert.equal(e.est.stable,false);assert.equal(e.est.levels[2].unpriced,1);
+ const html=present(e);
+ assert.ok(!/<strong>USD 20<\/strong>/.test(html));
+ // The calculated 0..20 appears only in the details, always marked as not complete.
+ for(const m of html.matchAll(/USD 0 to USD 20/g)){const around=html.slice(m.index,m.index!+160);assert.match(around,/not a complete bound/);}
+ // A unit-for-unit stable case keeps the plain figure: every level priced and the same preferred plan.
+ const stable=estimate('300');
+ assert.equal(stable.est.stable,true);
+ const plain=present(stable);
+ assert.match(plain,/<strong>USD 20<\/strong> <span>modelled saving per billing cycle<\/span>/);
+ assert.ok(!plain.includes('under your current forecast'));assert.ok(!plain.includes('Higher usage may remove it'));
+ // A usage-dependent preference without any unpriced option is still qualified, with the other plan named.
+ const free=estimate('60');
+ assert.equal(free.est.stable,false);assert.match(present(free),/under your current forecast/);
+});
+
+test('unpriced low or high levels are named in the details and the headline stays qualified for 3 and 6 cycles',()=>{
+ for(const months of [3,6] as const){
+  const e=estimate('900',undefined,{},months);
+  assert.equal(e.est.stable,false);
+  const html=presentAdvisor({hint:planHint('2000',reviewedCatalog),context:ctx(),horizons:[{months,result:e.result,reasons:[]}],advice:[e.advice],singleAccount:true,limit:'2000'});
+  assert.match(html,new RegExp(`USD ${months===3?60:120} under your current forecast</strong> <span>modelled saving over ${months} billing cycles`));
+  assert.match(html,/1 option could not be priced, so this is not a complete comparison/);
+ }
 });
