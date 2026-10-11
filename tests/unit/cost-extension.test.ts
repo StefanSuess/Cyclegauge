@@ -113,7 +113,7 @@ test('guided native lot entry preserves expiry precision without asking for JSON
 test('panel title actions use the supported native editor title context',async()=>{
  const p=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  const menu=p.contributes.menus['editor/title'];assert.equal(menu?.length,3);
- assert.ok(menu.every((entry:any)=>entry.when==='activeWebviewPanelId == easykirogauge.usage'));
+ assert.ok(menu.every((entry:any)=>entry.when==='activeWebviewPanelId == cyclegauge.usage'));
 });
 
 test('optimizer section has a local jump link and appears before the collapsed advanced details',async()=>{

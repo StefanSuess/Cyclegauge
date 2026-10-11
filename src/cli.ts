@@ -3,7 +3,7 @@ import { Store } from './store.ts';
 import { collect } from './collector.ts';
 import { view } from './view.ts';
 import { defaultSource, defaultStorage } from './paths.ts';
-const help = `EasyKiroGauge — local observed CREDIT usage (Node.js 24.13+)
+const help = `Cyclegauge for Kiro IDE — local observed CREDIT usage (Node.js 24.13+)
 Usage: node --disable-warning=ExperimentalWarning src/cli.ts [options]
   --source-root <directory>     Kiro IDE data root; reads allowlisted logs only
   --source-timezone <IANA>      Required for offset-free log timestamps

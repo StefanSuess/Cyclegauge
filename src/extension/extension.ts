@@ -3,22 +3,27 @@ import { defaultSource, defaultStorage } from '../paths.ts';
 import {planNames} from './cost-inputs.ts';
 import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
+import { LEGACY_EXTENSION_ID, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand } from './identity.ts';
 
 let stop: (() => void) | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
- item.name = 'EasyKiroGauge credit budget';
- item.command = 'easykirogauge.showUsage';
+ item.name = 'Cyclegauge credit budget';
+ item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
  let panel: vscode.WebviewPanel | undefined;
  let detail = '';
  const disposables: vscode.Disposable[] = [item];
- const config = vscode.workspace.getConfiguration('easykirogauge');
- const source = config.get<string>('sourceRoot') || defaultSource();
- const storage = config.get<string>('storageRoot') || defaultStorage();
- const timezone = config.get<string>('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ const setting = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
+ const source = setting('sourceRoot') || defaultSource();
+ const storage = setting('storageRoot') || defaultStorage();
+ const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ // A still-installed legacy extension owns the legacy command IDs and shares the same private storage folder.
+ const legacyInstalled = vscode.extensions.getExtension(LEGACY_EXTENSION_ID) !== undefined;
+ if (legacyInstalled) void vscode.window.showWarningMessage('Cyclegauge: the legacy EasyKiroGauge extension is still installed. Disable or uninstall it so only one extension uses the shared usage storage.');
+ const register = (suffix: string, fn: () => unknown) => disposables.push(...registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn, !legacyInstalled));
  const ui: ExtensionUi = {
   setStatus(text, html, meta) {
    item.text = text;
@@ -29,7 +34,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   },
   showDetails(html) {
    if (panel) { panel.reveal(); panel.webview.html = html; return; }
-   panel = vscode.window.createWebviewPanel('easykirogauge.usage', 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
    panel.webview.html = html;
    disposables.push(panel.onDidDispose(() => { panel = undefined; }));
   },
@@ -40,9 +45,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   },
   onCostCommand(id,fn) {
    const command={configure:'configureCostOptimizer',edit:'editCostScenario',clear:'clearCostInputs'}[id];
-   disposables.push(vscode.commands.registerCommand('easykirogauge.'+command,fn));
+   register(command,fn);
   },
-  onClick(fn) { disposables.push(vscode.commands.registerCommand('easykirogauge.showUsage', fn)); },
+  onClick(fn) { register('showUsage', fn); },
   onChange(fn) {
    try {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(source), 'logs/**/exthost/kiro.kiroAgent/q-client.log*'));
