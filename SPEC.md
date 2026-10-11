@@ -1,6 +1,6 @@
 # EasyKiroGauge specification
 
-Status: version 0.5.0. Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, local Cost Optimizer, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
+Status: version 0.5.0. Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, cost engine behind the Cost Advisor, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
 
 ## Purpose
 

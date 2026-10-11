@@ -6,6 +6,7 @@ import {planHint,advisorProfile,classifyAdvice,noAnswers,type AdvisorAnswers,typ
 import {calculateCosts} from '../../src/extension/cost-inputs.ts';
 import {AdvisorInputs,reviewAdvisor} from '../../src/extension/advisor-inputs.ts';
 import {presentAdvisor} from '../../src/extension/advisor-presentation.ts';
+import {presentCost} from '../../src/extension/cost-presentation.ts';
 import {startExtension} from '../../src/extension/controller.ts';
 import {reviewedCatalog} from '../../src/cost/catalog.ts';
 import {forecastEvidence,syntheticCatalog,request} from './cost-synthetic.ts';
@@ -142,6 +143,15 @@ test('add-on balance caveat and hand-built inconsistent contexts are surfaced an
   assert.equal(classifyAdvice(optimization(),ctx(bad)).kind,'conditional_comparison',JSON.stringify(bad));
  const better=optimization({recommendation:{strategyId:'pro_plus_next_reset_as_needed',demandIds:['base'],kind:'supported_comparison'},savingsRange:{minimum:{currency:'USD',amount:'4'},maximum:{currency:'USD',amount:'9'}}});
  assert.equal(classifyAdvice(better,ctx({planSource:'unknown',plan:null})).kind,'conditional_comparison');
+});
+test('saving figures are hidden in the details unless the outcome is potential savings',()=>{
+ const o=optimizeCosts(request('4000',3));
+ const hidden=presentCost(o,false),shown=presentCost(o,true);
+ assert.ok(!/Before-reset savings|Future-cycle savings|Matched total savings range/.test(hidden));
+ assert.ok(/Before-reset savings|Future-cycle savings/.test(shown));
+ const horizons=[{months:3 as const,result:o,reasons:[]}];
+ const html=presentAdvisor({hint:planHint('1000',catalog),context:ctx({planSource:'hint',assumptions:['plan_is_hint']}),horizons,advice:[{kind:'conditional_comparison',reasons:['plan_is_hint']}],singleAccount:true,limit:'1000'});
+ assert.ok(!/Before-reset savings|Future-cycle savings|Matched total savings range/.test(html));
 });
 test('native questions are minimal, cancellable and keep unknown as unknown',async()=>{
  const native=(answers:(string|undefined)[])=>({async pick(){return answers.shift();},async input(){return answers.shift();},async plans(){return undefined;}});

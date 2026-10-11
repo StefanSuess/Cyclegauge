@@ -26,7 +26,9 @@ test('demo month is synthetic, parses with the production parser, spans two cycl
   const weekdays=new Set(snaps.map(s=>new Date(s.observedAt).getUTCDay()));assert.ok(weekdays.has(0)||weekdays.has(6));
   assert.ok(text.includes('synthetic-demo-user-not-real'));assert.ok(!/@|\/Users\//.test(text));
   assert.ok((await readFile(join(out,'README-SYNTHETIC-DEMO.txt'),'utf8')).includes('SYNTHETIC DEMO DATA'));
-  // deterministic, and refuses to write into a non-empty directory
+  // refuses a non-empty directory, a flag used as a path and an invalid zone
+  assert.equal(spawnSync(process.execPath,[script,'--out','--zone','UTC'],{encoding:'utf8'}).stdout.trim(),'OUT_INVALID');
+  assert.equal(spawnSync(process.execPath,[script,'--out',join(base,'other'),'--zone','Bad/Zone'],{encoding:'utf8'}).stdout.trim(),'ZONE_INVALID');
   const again=spawnSync(process.execPath,[script,'--out',out],{encoding:'utf8'});
   assert.equal(again.status,1);assert.equal(again.stdout.trim(),'OUT_NOT_EMPTY');
  }finally{await rm(base,{recursive:true,force:true});}

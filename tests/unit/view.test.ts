@@ -71,3 +71,11 @@ test('small clock skew is tolerated and flagged; beyond the tolerance it is igno
  const far = view([snapshot({ observedAt: '2030-06-29T16:03:00.000Z' })], now);
  assert.equal(far.status, 'future_observation');
 });
+
+test('future-dated records never hide a second or unassociated account', () => {
+ const a = snapshot({ observedAt: '2030-06-29T10:00:00.000Z' });
+ const bFuture = snapshot({ partition: 'synthetic-other-partition', observedAt: '2030-06-29T20:00:00.000Z' });
+ assert.equal(view([a, bFuture], now).status, 'multiple_accounts');
+ const unknownFuture = snapshot({ associated: false, observedAt: '2030-06-29T20:00:00.000Z' });
+ assert.equal(view([a, unknownFuture], now).status, 'unknown_account');
+});

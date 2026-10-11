@@ -3,7 +3,7 @@ import {PLAN_IDS,type PlanId} from '../cost/types.ts';
 import {noAnswers,type AdvisorAnswers,type PlanHint} from '../cost/advisor.ts';
 
 /**
- * Session-only, account-scoped answers. Like CostInputs, the identity stays private to this object, a change of
+ * Session-only, account-scoped answers. Like the earlier manual Cost Optimizer state, the identity stays private to this object, a change of
  * account context clears everything, and only a monotonically changing editor ticket escapes. Persistence is a
  * separate, separately approved step (SC5) and is deliberately not implemented here.
  */

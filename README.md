@@ -1,6 +1,6 @@
 # EasyKiroGauge
 
-Version 0.5.1 simplifies the detail view (concise default reading flow, one collapsed "Advanced details" section; UI only, see docs/milestone-5-1-validation.md). Version 0.5.0 adds the Milestone 5 usage trajectory chart (below). Milestone 4B adds a local Cost Optimizer to the existing credit-budget detail view. The daily-budget status bar and forecast policy are preserved. Version 0.4.1 adds pooled multi-week forecasting that survives weekends and billing resets (see docs/milestone-4c-validation.md). It uses native Kiro inputs and a script-disabled view; no network requests, purchases or persistent manual profiles.
+Version 0.5.1 simplifies the detail view (concise default reading flow, one collapsed "Advanced details" section; UI only, see docs/milestone-5-1-validation.md). Version 0.5.0 adds the Milestone 5 usage trajectory chart (below). Milestone 4B added the cost engine, which now backs the Cost Advisor card in the detail view (the standalone Cost Optimizer UI was removed). The daily-budget status bar and forecast policy are preserved. Version 0.4.1 adds pooled multi-week forecasting that survives weekends and billing resets (see docs/milestone-4c-validation.md). It uses native Kiro inputs and a script-disabled view; no network requests, purchases or persistent manual profiles.
 
 ## Usage trajectory chart (0.5.0)
 
@@ -89,7 +89,7 @@ git diff --check
 
 The unit/integration suite uses invented records and temporary synthetic sources only, including the existing invented account log fixture. It checks precision, privacy sentinels, DST, source scope and symlinks, read-only file/directory behavior, concurrent source mutation, transactions, restart/deduplication, same-size replacement, corruption, account isolation, conflicts, freshness and cycle transitions.
 
-Verified here: synthetic tests on macOS and live VSIX installation, activation, status bar and detail view in Kiro 1.2.56. The collector was previously reported live-tested by the user. Windows, Ubuntu and RHEL are **unverified targets**, not compatibility claims. Windows is additionally blocked by ACL support. Live SQLite/WAL safety for Kiro's own cache remains unproven, so that adapter is disabled and explicitly unavailable. Format stability, service latency, nonnumeric rotation naming, unknown populated bonuses and historical source timezone changes remain limitations. No session aggregation, statistical probability estimates, cost optimizer or daemon is implemented.
+Verified here: synthetic tests on macOS and live VSIX installation, activation, status bar and detail view in Kiro 1.2.56 (earlier versions; not yet re-verified for the Cost Advisor changes). The collector was previously reported live-tested by the user. Windows, Ubuntu and RHEL are **unverified targets**, not compatibility claims. Windows is additionally blocked by ACL support. Live SQLite/WAL safety for Kiro's own cache remains unproven, so that adapter is disabled and explicitly unavailable. Format stability, service latency, nonnumeric rotation naming, unknown populated bonuses and historical source timezone changes remain limitations. No session aggregation, statistical probability estimates, cost optimizer or daemon is implemented.
 
 ## Milestone 3: credit history and qualified forecasts (historical baseline)
 

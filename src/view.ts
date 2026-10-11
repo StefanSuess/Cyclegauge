@@ -26,8 +26,9 @@ export function view(allSnapshots: StoredSnapshot[], realNow = new Date().toISOS
   dailyConsumption: null, flags: [] as string[], interval: { status: 'unknown', netChange: null as string | null, dailyConsumption: null } };
  if (!snapshots.length) return result;
  result.flags.push(...notes);
- if (new Set(snapshots.map(s => s.partition)).size !== 1) { result.status = 'multiple_accounts'; return result; }
- if (snapshots.some(s => !s.associated)) { result.status = 'unknown_account'; return result; }
+ // Account checks use every stored record: ignoring future-dated records must never hide a second or unknown account.
+ if (new Set(allSnapshots.map(s => s.partition)).size !== 1) { result.status = 'multiple_accounts'; return result; }
+ if (allSnapshots.some(s => !s.associated)) { result.status = 'unknown_account'; return result; }
  const sorted = [...snapshots].sort((a, b) => a.observedAt.localeCompare(b.observedAt));
  const latest = sorted.at(-1)!; const ties = sorted.filter(s => s.observedAt === latest.observedAt);
  const fields = (s: StoredSnapshot) => JSON.stringify([s.usage, s.limit, s.resetAt, s.overages, s.overageCap, s.flags.filter(f => f !== 'assumed_source_timezone')]);

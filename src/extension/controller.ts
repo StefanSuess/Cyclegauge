@@ -34,7 +34,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   try{
    const hint=planHint(observation.baseLimit,reviewedCatalog);
    const built=advisorProfile({limit:observation.baseLimit,usage:observation.usage,asOf:observation.forecast.asOf??null,resetAt:observation.forecast.resetAt??null},advisor.value,hint);
-   const horizons=built.profile?calculateCosts({mode:'personalized',profile:built.profile,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},observation.forecast,observation.history,now()):[];
+   const horizons=built.profile?calculateCosts({mode:'personalized',profile:built.profile,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},observation.forecast,observation.history,observation.flags.includes('clock_skew_tolerated')&&observation.observedAt&&Date.parse(observation.observedAt)>Date.parse(now())?observation.observedAt:now()):[];
    advisorHtml=presentAdvisor({hint,context:built.context,horizons,advice:horizons.map(h=>classifyAdvice(h.result,built.context)),singleAccount:advisor.isSingleAccount,limit:observation.baseLimit});
   }catch{
    advisorHtml=presentAdvisor({hint:{plan:null,confidence:'none',reasons:[]},context:{planSource:'unknown',plan:null,billingConfirmed:false,addOns:'unknown',assumptions:[]},horizons:[],advice:[],singleAccount:advisor.isSingleAccount,failed:true,limit:null});

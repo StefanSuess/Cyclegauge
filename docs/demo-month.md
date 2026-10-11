@@ -25,10 +25,10 @@ HOME=$D/home /Applications/Kiro.app/Contents/MacOS/Kiro --user-data-dir $D/user-
 ```
 
 The last snapshot is generated ten minutes before the generator ran, so the data goes stale after 24 hours; re-run the
-generator into a new empty directory (and point `sourceRoot` at it) to refresh. Data is the same shape every time for a
-given `--seed`, relative to the day it is generated.
+generator into a new empty directory (and point `sourceRoot` at it) to refresh. The data is relative to the day it is generated, so it is not identical across days; the same `--seed` gives the same
+shape on the same day.
 
-## What the headless check observed (current code, real ingestion path)
+## What a headless check observed (real ingestion path; **not** a native UI check)
 
 Status `Tight • ~31.7/day`, Regular forecast, usage chart present, Cost Advisor *Conditional comparison* with the plan
 shown as an unconfirmed hint "Pro", no future-dated notice. This is a synthetic observation only.

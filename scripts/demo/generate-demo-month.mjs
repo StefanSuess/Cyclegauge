@@ -6,14 +6,17 @@
 //
 // usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone Europe/Berlin] [--seed 7]
 // Output: <out>/logs/synthetic-demo-run/synthetic-demo-window/exthost/kiro.kiroAgent/q-client.log
-import {mkdirSync,writeFileSync,existsSync,readdirSync} from 'node:fs';
+import {mkdirSync,writeFileSync,existsSync,readdirSync,statSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 
 const args=process.argv.slice(2);
 const flag=n=>{const i=args.indexOf(n);return i<0?undefined:args[i+1];};
 if(!flag('--out')){process.stdout.write('usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone <IANA zone>] [--seed <n>]\n');process.exit(1);}
+if(args.includes('--out')&&String(flag('--out')).startsWith('--')){process.stdout.write('OUT_INVALID\n');process.exit(1);}
 const out=resolve(flag('--out')),zone=flag('--zone')??'Europe/Berlin';
+try{new Intl.DateTimeFormat('en',{timeZone:zone}).format();}catch{process.stdout.write('ZONE_INVALID\n');process.exit(1);}
 let seed=Number(flag('--seed')??7)>>>0;
+if(existsSync(out)&&!statSync(out).isDirectory()){process.stdout.write('OUT_INVALID\n');process.exit(1);}
 if(existsSync(out)&&readdirSync(out).length){process.stdout.write('OUT_NOT_EMPTY\n');process.exit(1);}
 // Small deterministic PRNG (mulberry32) so the demo is reproducible.
 const rand=()=>{seed=(seed+0x6D2B79F5)>>>0;let t=seed;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
@@ -27,6 +30,7 @@ const LIMIT=1000;
 
 const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
 const wall=ms=>{const p=Object.fromEntries(fmt.formatToParts(new Date(ms)).map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.000`;};
+const offsetHours=ms=>{const p=Object.fromEntries(fmt.formatToParts(new Date(ms+43200000)).map(x=>[x.type,x.value]));return (Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute,+p.second)-(ms+43200000))/3600000;};
 const dow=ms=>new Date(ms).getUTCDay();
 
 // Daily consumption plan: weekdays vary, two heavy agent days per cycle, quiet weekends, a couple of days off.
@@ -55,7 +59,8 @@ function cycle(start,stop,scale){
  const reset=new Date(Date.UTC(new Date(start).getUTCFullYear(),new Date(start).getUTCMonth()+1,1)).toISOString().replace('.000Z','Z');
  let used=0,last=0; // the cumulative counter never decreases inside a cycle
  const days=plan(start,stop);
- record(start+Math.floor(between(8,12)*3600000),0.3,reset); // first look in the new cycle
+ const first=start+Math.floor(between(8,12)*3600000);
+ if(first<=end)record(first,0.3,reset); // first look in the new cycle, never in the future
  for(const {day,credits} of days){
   const target=credits*scale;
   if(day>=end)break;
@@ -64,7 +69,7 @@ function cycle(start,stop,scale){
   let spent=0;
   for(let i=0;i<n;i++){
    const hour=9+(10*(i+1)/n)+between(-0.4,0.4); // local hours 9..19, in UTC approximation by zone offset below
-   const ms=day+Math.floor((hour-2)*3600000);   // Europe/Berlin summer time is UTC+2; the log is written in zone wall time
+   const ms=day+Math.floor((hour-offsetHours(day))*3600000); // place local working hours using the zone's UTC offset that day
    if(ms>end||ms<start)continue;
    spent=target*((i+1)/n)*between(0.9,1.05);
    last=Math.max(last+0.01,Math.min(used+spent,LIMIT*1.15));
