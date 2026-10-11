@@ -3,9 +3,27 @@
   "version": "0.5.1",
   "private": true,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StefanSuess/Cyclegauge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StefanSuess/Cyclegauge/issues"
+  },
+  "homepage": "https://github.com/StefanSuess/Cyclegauge#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "kiro",
+    "credits",
+    "usage",
+    "forecast",
+    "budget"
+  ],
   "type": "module",
-  "displayName": "EasyKiroGauge",
-  "description": "Local account credit usage in Kiro IDE",
+  "displayName": "Cyclegauge for Kiro IDE",
+  "description": "Credit usage & forecasting for Kiro IDE. Unofficial; not affiliated with AWS or Kiro.",
   "publisher": "easykirogauge",
   "main": "./dist/extension.cjs",
   "engines": {
@@ -22,26 +40,26 @@
     "commands": [
       {
         "command": "easykirogauge.showUsage",
-        "title": "EasyKiroGauge: Show Account Credits"
+        "title": "Cyclegauge: Show Account Credits"
       },
       {
         "command": "easykirogauge.configureCostOptimizer",
-        "title": "EasyKiroGauge: Configure Cost Optimizer",
+        "title": "Cyclegauge: Configure Cost Optimizer",
         "icon": "$(settings-gear)"
       },
       {
         "command": "easykirogauge.editCostScenario",
-        "title": "EasyKiroGauge: Edit Cost Scenario",
+        "title": "Cyclegauge: Edit Cost Scenario",
         "icon": "$(edit)"
       },
       {
         "command": "easykirogauge.clearCostInputs",
-        "title": "EasyKiroGauge: Clear Cost Inputs",
+        "title": "Cyclegauge: Clear Cost Inputs",
         "icon": "$(clear-all)"
       }
     ],
     "configuration": {
-      "title": "EasyKiroGauge",
+      "title": "Cyclegauge",
       "properties": {
         "easykirogauge.sourceRoot": {
           "type": "string",
@@ -51,7 +69,7 @@
         "easykirogauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private EasyKiroGauge storage root; leave empty for the platform default."
+          "description": "Private Cyclegauge storage root; leave empty for the platform default."
         },
         "easykirogauge.sourceTimezone": {
           "type": "string",

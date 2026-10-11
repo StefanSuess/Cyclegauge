@@ -1,6 +1,6 @@
-# EasyKiroGauge specification
+# Cyclegauge specification
 
-Status: version 0.5.0. Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, local Cost Optimizer, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
+Status: version 0.5.1. Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, local Cost Optimizer, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Provide local credit tracking and qualified forecasts that distinguish account-w
 - Select the `CREDIT` resource and prefer `*WithPrecision` fields. Preserve decimal values without rounding until presentation. Do not confuse `INVOCATIONS`, token counts, or context percentages with billing units.
 - Attribute accepted local turn summaries to their completion day in the configured IANA timezone; default to the device timezone, initially Europe/Berlin. Label this as completion-time attribution, not exact within-turn consumption timing.
 - Keep billing boundaries in UTC. Prefer explicit reset timestamps over a computed calendar assumption.
-- Persist observations in EasyKiroGauge-owned storage so future coverage can improve. Track observation time separately from ingestion time; re-reading an old cache must not make it fresh.
+- Persist observations in Cyclegauge-owned storage so future coverage can improve. Track observation time separately from ingestion time; re-reading an old cache must not make it fresh.
 - Treat positive same-cycle snapshot differences as observed **net counter changes** over an interval. Daily consumption within an interval spanning days remains unknown. Do not interpolate by default or fill uncovered days with zero.
 - Treat advancing reset dates as cycle-change evidence. A counter decrease alone is an anomaly, not proof of reset. Preserve adjustments, plan/account changes, and reset ambiguity.
 - Keep plans, base credits, overages, bonuses, and add-on credits distinct. Unknown bonus schemas must not be folded into a fabricated remaining-credit balance.
@@ -41,7 +41,7 @@ The installed macOS Kiro 1.2.56 app declares Electron 44.4.3, whose documented N
 
 ## Current acceptance boundary
 
-Milestone 1 implements the log-only account collector, local SQLite persistence and CLI described in [README.md](README.md). Milestone 2 adds the IDE extension and local UI. Milestone 3 adds account history and qualified forecasts. Session attribution, daemon and Kiro SQLite access remain deferred. TypeScript is bundled to JavaScript for VSIX; runtime has no external dependencies.
+Milestone 1 implements the log-only account collector, local SQLite persistence and CLI described in [docs/usage.md](docs/usage.md). Milestone 2 adds the IDE extension and local UI. Milestone 3 adds account history and qualified forecasts. Session attribution, daemon and Kiro SQLite access remain deferred. TypeScript is bundled to JavaScript for VSIX; runtime has no external dependencies.
 
 The CLI base-credit allocation divides observed remaining base credits by remaining UTC 24-hour days until explicit reset. It is a budget allocation, not statistical forecasting or known daily consumption. Its freshness threshold defaults to 24 hours and is configurable. Multiple/unknown account partitions and equal-time billing conflicts withhold the selected account view. Unsupported bonuses do not establish total availability. Windows storage fails closed pending ACL implementation; Windows, Ubuntu and RHEL remain unverified.
 
