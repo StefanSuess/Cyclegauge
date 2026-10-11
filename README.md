@@ -42,7 +42,7 @@ It shows "Collecting data" until Kiro has written account usage to its logs and 
 
 - **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
 - **Local only.** No telemetry and no network code. Derived numbers are kept in the extension's own private directory.
-- **Minimal data.** Only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
+- **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
 - **Script-free view.** The detail view runs no scripts.
 
 Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md). Never post real Kiro data in issues or pull requests.

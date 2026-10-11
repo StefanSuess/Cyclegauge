@@ -1,6 +1,6 @@
 # Cost Optimizer (v0.5.1)
 
-Describes the Cost Optimizer **as released in v0.5.1 on `main`**. It is session-only and driven by the commands in the table of [usage.md](usage.md). Unmerged work on a successor design (the automatic "Cost Advisor") is not described here.
+Describes the Cost Optimizer as released in v0.5.1. It is session-only and driven by three commands: **Cyclegauge: Configure Cost Optimizer**, **Edit Cost Scenario** and **Clear Cost Inputs** (also available from the detail view title bar).
 
 Click the budget status bar, then its **Cost Optimizer** jump link. Use the panel title gear (Configure), pencil (Edit) or clear action; the same commands are available in the Command Palette.
 

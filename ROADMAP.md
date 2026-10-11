@@ -17,7 +17,7 @@ Deliverables:
 
 - Platform-aware source discovery and explicit root override; no Kiro commands, credentials, authenticated requests, or changes to Kiro settings.
 - Allowlisted `CREDIT` snapshot extraction with decimal preservation, reset timestamp, source as-of time, reduced-precision/unsupported status, and safe account partitioning.
-- An Cyclegauge-owned SQLite store for normalized snapshots, import cursors, deduplication, and quality evidence. No raw logs, sessions, identifiers, or private paths persisted.
+- A Cyclegauge-owned SQLite store for normalized snapshots, import cursors, deduplication, and quality evidence. No raw logs, sessions, identifiers, or private paths persisted.
 - Restart-safe ingestion with rotation/truncation detection, partial-record handling, freshness, conflicts, and out-of-order observations. Persist gaps as unknown.
 - A local query/export contract containing billing fields and quality only; no application UI or forecast required for this milestone.
 

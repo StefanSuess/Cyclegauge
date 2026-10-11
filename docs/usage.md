@@ -13,9 +13,7 @@ pnpm package:vsix
 
 Then run **Extensions: Install from VSIX...** in Kiro and select the file in `dist/`. Reload the window if Kiro asks, then open **Cyclegauge: Show Account Credits** (command ID `easykirogauge.showUsage`) or click the status-bar item. This command only opens the local billing view.
 
-Settings: `easykirogauge.sourceRoot`, `easykirogauge.storageRoot`, and `easykirogauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation remain outside this milestone. Milestone 2 status/details were previously verified in macOS Kiro 1.2.56. The earlier Milestone 3 VSIX 0.3.0 was installed and its history, coverage, forecast labels and insufficient-coverage explanation verified in a clean local Kiro window on 2026-10-10. The progressive-forecast update, VSIX 0.3.1, was installed, restarted and its policy v2/unavailable detail rendering verified locally on the same date. Eligible provisional/regular rendering is covered synthetically; live predictive accuracy remains unverified. Windows, Ubuntu and RHEL remain unverified.
-
-Milestone 1: a local, read-only `GetUsageLimitsCommand` CREDIT collector with persistent observations and a CLI. It reads existing Kiro IDE account-response logs; it never starts Kiro, calls its services, reads credentials, or accesses its SQLite cache or sessions.
+Settings: `easykirogauge.sourceRoot`, `easykirogauge.storageRoot`, and `easykirogauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
 
 ## Requirements and command-line tool
 
