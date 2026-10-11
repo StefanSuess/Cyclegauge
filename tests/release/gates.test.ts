@@ -59,6 +59,28 @@ test('SC3: the CI workflow keeps a read-only token, no secrets, SHA-pinned actio
  assert.deepEqual(checkWorkflow(workflow), []);
 });
 
+test('SC3: secret and token references are caught in every expression form, not only `secrets.NAME`', () => {
+ const anchor = "          node-version: '24.13.0'\n";
+ assert.ok(workflow.includes(anchor));
+ // Invented names only. Each of these passed the first version of the check.
+ const references = [
+  "${{ secrets['SYNTHETIC_NAME'] }}", '${{ secrets["SYNTHETIC_NAME"] }}', "${{ secrets[ 'SYNTHETIC_NAME' ] }}",
+  "${{ github['token'] }}", '${{ github["token"] }}', '${{ github[ "token" ] }}',
+  "${{ format('{0}', secrets.SYNTHETIC_NAME) }}", '${{ toJSON(secrets) }}', '${{ secrets . SYNTHETIC_NAME }}',
+  '${{ Secrets.SYNTHETIC_NAME }}', '${{ GITHUB.TOKEN }}', "${{ GitHub['Token'] }}", '${{ github . token }}',
+  "${{ fromJSON(toJSON(github))['token'] }}", '${{ toJSON(github) }}',
+ ];
+ for (const reference of references) {
+  assert.ok(checkWorkflow(workflow.replace(anchor, `${anchor}          token: ${reference}\n`)).includes('SECRET_REFERENCE'), reference);
+ }
+ // A multi-line expression and a reusable-workflow `secrets:` key are references too.
+ assert.ok(checkWorkflow(workflow.replace(anchor, `${anchor}          token: \${{\n            secrets['SYNTHETIC_NAME'] }}\n`)).includes('SECRET_REFERENCE'));
+ assert.ok(checkWorkflow(workflow.replace(anchor, `${anchor}    secrets: inherit\n`)).includes('SECRET_REFERENCE'));
+ // Other `github` properties stay allowed: the workflow uses github.ref.
+ assert.ok(/\$\{\{ github\.ref/.test(workflow));
+ assert.deepEqual(checkWorkflow(workflow), []);
+});
+
 test('SC3: the workflow policy rejects each widening it exists to catch', () => {
  const cases: [string, string, string][] = [
   ['contents: read', 'contents: write', 'PERMISSIONS_NOT_READ_ONLY'],

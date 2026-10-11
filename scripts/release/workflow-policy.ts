@@ -28,8 +28,14 @@ export function checkWorkflow(text: string): string[] {
 
  // Triggers that run with a privileged token or on untrusted heads are not used here.
  if (/^\s*(?:pull_request_target|workflow_run)\s*:/m.test(text)) problems.add('PRIVILEGED_TRIGGER');
- // No secrets of any kind, including the implicit token passed explicitly.
- if (/\$\{\{\s*secrets\.|\bgithub\.token\b/.test(text)) problems.add('SECRET_REFERENCE');
+ // No secrets of any kind, including the implicit token passed explicitly. Every `${{ }}` expression is
+ // searched, because the context can be reached by dot or bracket syntax, inside a function call
+ // (`format(…, secrets.X)`, `toJSON(secrets)`, `toJSON(github)` which carries the token), with spaces, and in any letter case. A `secrets:` key passes
+ // secrets to a called workflow (`secrets: inherit`). Fails closed: the word in a string literal counts too.
+ for (const [, expression] of text.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) {
+  if (/\bsecrets\b/i.test(expression) || /\bgithub\s*(?:\.\s*token\b|\[\s*['"]token['"]\s*\])|\btoJSON\s*\(\s*github\s*\)/i.test(expression)) problems.add('SECRET_REFERENCE');
+ }
+ if (/^\s*secrets\s*:/im.test(lines.map(code).join('\n'))) problems.add('SECRET_REFERENCE');
 
  // Actions: owner/repo[/path]@<40-hex commit SHA> with a version comment; no local or docker actions.
  let checkouts = 0;
