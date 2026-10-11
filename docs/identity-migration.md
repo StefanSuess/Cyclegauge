@@ -1,6 +1,6 @@
 # Technical identity migration: EasyKiroGauge to Cyclegauge (design and review)
 
-Status: implemented in a draft PR for review (synchronized with main after PR #8). Nothing is merged, tagged or published. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
+Status: implemented in a draft PR for review (synchronized with main after PR #8 and PR #12). Nothing is merged, tagged or published. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
 
 ## Decisions (approved in principle by the maintainer, 2026-10-11)
 
@@ -45,7 +45,7 @@ Changing the package name (and later the publisher) produces a new extension ID.
 
 ## Packaging
 
-The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`) and `extension/dist/extension.cjs` plus the two VSIX manifest files (6 entries). Check commands are in [development.md](development.md).
+The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`) and `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` (package `icon`) plus the two VSIX manifest files (7 entries). Check commands are in [development.md](development.md).
 
 ## Publisher / Open VSX namespace: open decision
 
@@ -69,6 +69,6 @@ Expected textual conflicts are limited to `package.json` command/menu blocks and
 ## Verification
 
 - `pnpm typecheck`, `pnpm test` (including `tests/unit/identity.test.ts`), `python3 tests/fixtures/kiro/validate.py`, `git diff --check`.
-- `pnpm package:vsix` builds `cyclegauge-0.5.1.vsix` with the same five-file allowlist.
+- `pnpm package:vsix` builds `cyclegauge-0.5.1.vsix` with the seven-entry allowlist (manifest, readme, `LICENSE.txt`, bundle, icon and the two VSIX manifest files).
 - Unit tests cover settings precedence, command compatibility and aliases, the manifest identity, the legacy-extension gate and the VSIX allowlist.
 - Not verified: behaviour inside a real Kiro IDE (side-by-side pause, alias registration, settings fallback). That needs a native check on a synthetic Kiro profile and is outside this cloud change.

@@ -11,9 +11,9 @@ git diff --check
 pnpm package:vsix
 ```
 
-Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/cyclegauge-0.5.1.vsix` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE` and `dist/extension.cjs`; `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
+Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/cyclegauge-0.5.1.vsix` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE`, `dist/extension.cjs` and `assets/branding/cyclegauge-icon-256.png` (the packaged extension icon); `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
 
-Packaging check after `pnpm package:vsix`: `unzip -l dist/cyclegauge-0.5.1.vsix` must list exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`, `extension/dist/extension.cjs` plus the two VSIX manifest files (6 entries, no `src/`, tests, logs or stores), and `unzip -p dist/cyclegauge-0.5.1.vsix extension/LICENSE.txt | cmp - LICENSE` must report no difference. `tests/unit/identity.test.ts` also pins the `.vscodeignore` allowlist.
+Packaging check after `pnpm package:vsix`: `unzip -l dist/cyclegauge-0.5.1.vsix` must list exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`, `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` plus the two VSIX manifest files (7 entries, no `src/`, tests, logs or stores), and `unzip -p dist/cyclegauge-0.5.1.vsix extension/LICENSE.txt | cmp - LICENSE` must report no difference. `tests/unit/identity.test.ts` also pins the `.vscodeignore` allowlist.
 
 ## Verification and remaining limits
 
