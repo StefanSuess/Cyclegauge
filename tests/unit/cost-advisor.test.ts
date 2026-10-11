@@ -197,13 +197,22 @@ test('detail view shows the advisor first, answers are applied through the nativ
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('aria-label="Cost Optimizer"'));
-  assert.ok(html.includes('hint only'));assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(commands.has('advisor'));
-  const budget=status;
-  answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
-  assert.ok(html.includes('Pro — confirmed by you'));assert.equal(status,budget);
-  assert.ok(!/Potential savings|No action needed/.test(html),'the engine marks every priced comparison conditional');
-  await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
-  assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
+  assert.ok(commands.has('advisor'));assert.ok(!html.includes('Pro — confirmed by you'));
+  if(process.platform==='win32'){
+   // Windows storage stays fail-closed: no store opens, so there are no observations. The advisor must still render,
+   // say that nothing can be compared, and must not pretend an answer was applied.
+   assert.ok(html.includes('Insufficient information'));
+   answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
+   assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!/Potential savings|No action needed/.test(html));
+  }else{
+   assert.ok(html.includes('hint only'));
+   const budget=status;
+   answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
+   assert.ok(html.includes('Pro — confirmed by you'));assert.equal(status,budget);
+   assert.ok(!/Potential savings|No action needed/.test(html),'the engine marks every priced comparison conditional');
+   await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
+   assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
+  }
   controller.dispose();
  }finally{await rm(env.base,{recursive:true,force:true});}
 });
