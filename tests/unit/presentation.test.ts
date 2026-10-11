@@ -125,8 +125,9 @@ test('uncertain states are never styled as on track and keep their warning in th
 test('chart key and caveats are one click away, collapsed, and only one top-level advanced section exists',()=>{
  const {primary}=split(render(10).html);
  assert.match(primary,/<details class="chart-help">/);assert.ok(!/<details[^>]*\bopen\b/.test(primary));
- assert.match(primary,/class="zone"[^>]*>Forecast<\/text>/);
  assert.match(primary,/class="split"/);
+ const late=split(render(10,'1000',20).html).primary;assert.match(late,/>Observed<\/text>/);assert.match(late,/>Forecast<\/text>/);
+ assert.ok(!/class="zone"/.test(primary),'zone labels are omitted when they would collide with the limit label');
  assert.equal((render(10).html.match(/<h1>/g)??[]).length,1);
 });
 

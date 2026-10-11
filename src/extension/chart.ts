@@ -144,7 +144,7 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
   flag(p.central, mid, 'Expected trajectory'); flag(p.higher, hi, 'Higher-usage scenario'); flag(p.lower, lo, 'Lower-usage scenario');
  }
 
- if (p) { const sx = xt(p.from.at); out.push(`<line class="split" x1="${n(sx)}" y1="${T}" x2="${n(sx)}" y2="${H - B}"/>${sx - L >= 170 ? `<text class="zone" x="${n(sx - 5)}" y="${T + 10}" text-anchor="end">Observed</text>` : ''}<text class="zone" x="${n(sx + 5)}" y="${T + 10}">Forecast</text>`); }
+ if (p) { const sx = xt(p.from.at), room = sx - L >= 150 && W - R - sx >= 70; out.push(`<line class="split" x1="${n(sx)}" y1="${T}" x2="${n(sx)}" y2="${H - B}"/>${room ? `<text class="zone" x="${n(sx - 5)}" y="${T + 10}" text-anchor="end">Observed</text>` : ''}${room ? `<text class="zone" x="${n(sx + 5)}" y="${T + 10}">Forecast</text>` : ''}`); }
  // Budget guide
  if (m.budget) out.push(`<line class="budget" stroke-dasharray="3 3" x1="${n(xt(m.budget.from.at))}" y1="${n(y(num(m.budget.from.usage)))}" x2="${n(xt(m.budget.to.at))}" y2="${n(y(num(m.budget.to.usage)))}"><title>Budget guide: even allocation of remaining reported capacity</title></line>`);
  // Reported limit segments (a changed limit starts a new segment)
