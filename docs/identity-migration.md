@@ -8,7 +8,7 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 | --- | --- | --- |
 | Display name | EasyKiroGauge | Cyclegauge for Kiro IDE |
 | Package name | `easykirogauge` | `cyclegauge` |
-| Publisher | `easykirogauge` | **unchanged, provisional**: no Open VSX namespace is chosen yet |
+| Publisher | `easykirogauge` | `StefanSuess` (0.5.2); namespace not yet created or verified |
 | Commands | `easykirogauge.*` | `cyclegauge.*`; the four v0.5.1 IDs stay as runtime aliases (`easykirogauge.showUsage` is kept) |
 | Settings | `easykirogauge.sourceRoot`, `storageRoot`, `sourceTimezone` | `cyclegauge.*`; old keys still read as fallback |
 | Webview panel type | `easykirogauge.usage` | `cyclegauge.usage` |
@@ -20,7 +20,7 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 - `src/extension/identity.ts` holds every identifier, the alias list, and the two helpers (`registerCommand`, `readSetting`). It has no `vscode` import and is unit tested (`tests/unit/identity.test.ts`).
 - Commands: each command is registered as `cyclegauge.<name>`. Only the four commands that shipped in v0.5.1 (`showUsage`, `configureCostOptimizer`, `editCostScenario`, `clearCostInputs`) also get an `easykirogauge.<name>` alias, registered at runtime and **not** contributed in `package.json`, so the command palette shows one entry per command. Existing keybindings and tasks keep working. Commands added later never get an alias.
 - Settings: both prefixes are declared in `contributes.configuration`; the legacy keys carry a `deprecationMessage`. Resolution order: `cyclegauge.*` if non-empty, else `easykirogauge.*` if non-empty, else the platform default. Values are read once at activation, as before.
-- The status bar item, command titles, CLI help text and VSIX file name (`cyclegauge-0.5.1.vsix`) use the new name.
+- The status bar item, command titles, CLI help text and VSIX file name (`cyclegauge-<version>.vsix`) use the new name.
 
 ## Storage: deliberately untouched
 
@@ -45,11 +45,11 @@ Changing the package name (and later the publisher) produces a new extension ID.
 
 ## Packaging
 
-The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`) and `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` (package `icon`) plus the two VSIX manifest files (7 entries). Check commands are in [development.md](development.md).
+The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`), `extension/changelog.md` and `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` (package `icon`) plus the two VSIX manifest files (8 entries). Check commands are in [development.md](development.md).
 
-## Publisher / Open VSX namespace: open decision
+## Publisher / Open VSX namespace
 
-`package.json` still says `publisher: easykirogauge` because `vsce` requires a value and no verified namespace exists. This is a provisional, unclaimed string; the resulting ID (`easykirogauge.cyclegauge`) is not final. Before the first marketplace beta the maintainer must claim a namespace, after which one `publisher` line and `LEGACY_EXTENSION_ID` stay as they are (it identifies the old build). Not selected here by design.
+From 0.5.2 `package.json` says `publisher: StefanSuess`, so the intended extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11, provided the namespace is available). The namespace is **not yet created or verified**; if it cannot be obtained, `package.json`, the release verifier and the docs change together. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the new ID.
 
 ## Where this change should land, and conflicts
 
@@ -69,6 +69,6 @@ Expected textual conflicts are limited to `package.json` command/menu blocks and
 ## Verification
 
 - `pnpm typecheck`, `pnpm test` (including `tests/unit/identity.test.ts`), `python3 tests/fixtures/kiro/validate.py`, `git diff --check`.
-- `pnpm package:vsix` builds `cyclegauge-0.5.1.vsix` with the seven-entry allowlist (manifest, readme, `LICENSE.txt`, bundle, icon and the two VSIX manifest files).
+- `pnpm package:vsix` builds `cyclegauge-<version>.vsix` with the eight-entry allowlist (manifest, readme, `LICENSE.txt`, `changelog.md`, bundle, icon and the two VSIX manifest files).
 - Unit tests cover settings precedence, command compatibility and aliases, the manifest identity, the legacy-extension gate and the VSIX allowlist.
 - Not verified: behaviour inside a real Kiro IDE (side-by-side pause, alias registration, settings fallback). That needs a native check on a synthetic Kiro profile and is outside this cloud change.

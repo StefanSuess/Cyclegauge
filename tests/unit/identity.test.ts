@@ -25,6 +25,12 @@ test('settings are declared under both prefixes and the legacy keys are deprecat
  assert.equal(Object.keys(props).length, SETTING_KEYS.length * 2);
 });
 
+test('the intended Open VSX ID is StefanSuess.cyclegauge and differs from the legacy ID', () => {
+ assert.equal(`${manifest.publisher}.${manifest.name}`, 'StefanSuess.cyclegauge');
+ assert.equal(LEGACY_EXTENSION_ID, 'easykirogauge.easykirogauge');
+ assert.notEqual(`${manifest.publisher}.${manifest.name}`.toLowerCase(), LEGACY_EXTENSION_ID.toLowerCase());
+});
+
 test('legacy aliases exist only for commands that shipped in v0.5.1', () => {
  const log: string[] = [];
  assert.equal(registerCommand(stub(log), 'showUsage', () => {}).length, 2);
@@ -77,10 +83,13 @@ test('extension entry point gates everything behind the legacy check and keeps t
  assert.ok(!source.slice(source.indexOf('function pauseForLegacy'), source.indexOf('export async function activate')).match(/startExtension|defaultStorage|getConfiguration/));
 });
 
-test('VSIX allowlist ships exactly manifest, readme, license, bundle and icon', async () => {
+test('VSIX allowlist ships exactly manifest, readme, license, changelog, bundle and icon', async () => {
  const ignore = (await readFile(new URL('../../.vscodeignore', import.meta.url), 'utf8')).split('\n').map(l => l.trim()).filter(Boolean);
- assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!LICENSE', '!dist/extension.cjs', '!assets/branding/cyclegauge-icon-256.png']);
+ assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!LICENSE', '!CHANGELOG.md', '!dist/extension.cjs', '!assets/branding/cyclegauge-icon-256.png']);
  assert.equal(manifest.license, 'MIT');
+ assert.equal(manifest.preview, true);
+ // Workspace settings must not be able to redirect where Cyclegauge reads or writes.
+ for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, 'machine', key);
  assert.equal(manifest.icon, 'assets/branding/cyclegauge-icon-256.png');
  assert.ok((await readFile(new URL(`../../${manifest.icon}`, import.meta.url))).length > 0);
  assert.match(await readFile(new URL('../../LICENSE', import.meta.url), 'utf8'), /MIT License/);
