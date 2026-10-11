@@ -5,7 +5,7 @@
 **Credit usage & forecasting for Kiro IDE**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
-![Version 0.5.1 pre-release](https://img.shields.io/badge/version-0.5.1%20pre--release-orange)
+![Version 0.5.2 beta](https://img.shields.io/badge/version-0.5.2%20beta-orange)
 ![Verified on macOS](https://img.shields.io/badge/verified-macOS-lightgrey)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
@@ -23,22 +23,19 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the us
 - **Cost Optimizer:** an optional, session-only comparison of plan and credit-pack costs from assumptions you enter.
 - **Command-line tool:** print the same figures in a terminal, optionally as JSON.
 
-## Quick start
+## Install
 
-Cyclegauge is pre-release and not yet on a marketplace. You need Kiro IDE, Node.js 24.13 or newer and [pnpm](https://pnpm.io) to build it.
+Cyclegauge is a **macOS beta**. Kiro installs extensions from [Open VSX](https://open-vsx.org).
 
-```sh
-git clone https://github.com/StefanSuess/Cyclegauge.git
-cd Cyclegauge
-pnpm install --frozen-lockfile
-pnpm package:vsix
-```
-
-1. In Kiro, run **Extensions: Install from VSIX...** and select the file in `dist/`.
+1. In Kiro, open the Extensions view and search for **Cyclegauge**, or run **Extensions: Install from VSIX...** with a downloaded `.vsix` file.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
-It shows "Collecting data" until Kiro has written account usage to its logs and a few observations have been recorded. Settings, the CLI and troubleshooting notes are in the [usage guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md).
+It shows "Collecting data" until Kiro has written account usage to its logs and a few observations have been recorded. Your daily budget is available from the first fresh account update in the tooltip and the detail view. Settings, the CLI and troubleshooting notes are in the [usage guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md).
+
+**Coming from EasyKiroGauge?** Cyclegauge is a different extension, so Kiro does not upgrade the old one. Install Cyclegauge, then disable or uninstall EasyKiroGauge and reload. While both are enabled, Cyclegauge pauses itself. Your history stays in place. Details: [identity migration](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/identity-migration.md).
+
+To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io): `pnpm install --frozen-lockfile && pnpm package:vsix`, then install the file from `dist/`.
 
 ## Privacy
 
@@ -53,7 +50,7 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 
 | Platform | Status |
 | --- | --- |
-| macOS | Verified (Kiro 1.2.56) |
+| macOS | Beta, verified (Kiro 1.2.56) |
 | Ubuntu | Unverified |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
 | Windows | Unverified; storage is deliberately disabled for now |
@@ -64,6 +61,7 @@ Figures are the last values Kiro logged, shown with an as-of time. They are not 
 
 - [Documentation index](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/README.md): usage, calculations, forecasting, chart, privacy, architecture
 - [Contributing](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CONTRIBUTING.md) and [security policy](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/SECURITY.md)
+- [Changelog](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CHANGELOG.md)
 - [Roadmap](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/ROADMAP.md) and [version history](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/version-history.md)
 
 ## License
