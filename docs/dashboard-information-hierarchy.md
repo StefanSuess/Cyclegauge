@@ -11,3 +11,5 @@ Presentation only: no change to collection, Store, forecasting, billing semantic
 Status meanings: **At risk** = the observed pace is within 10% of the daily budget but no exhaustion before reset is projected; **Likely to exceed** = the reported limit would be reached before reset at the observed pace. Provisional estimates keep the "Provisional estimate – limited history" label.
 
 The Cost Advisor verdict only states a saving when the engine classifies it as potential savings (every input confirmed); otherwise it says that no saving can be confirmed.
+
+A numerical difference is shown only as a labelled *modelled* (or, when every input is confirmed, *supported*) estimate; see docs/cost-advisor-spec.md section 8.

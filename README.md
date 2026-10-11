@@ -22,6 +22,9 @@ information*. Nothing is purchased, sent or fetched.
 - **Plan:** an exact match between the reported credit limit and a bundled plan's nominal credits is shown only as an
   unconfirmed hint, because the reported limit is not verified to be base-only and may include purchased add-on credits.
   Your explicit choice always wins.
+- **Estimates:** when the current plan and an alternative can both be priced for your forecast, the card shows a
+  *modelled* USD difference per billing cycle with its period and assumptions (list prices before tax). It is not a
+  guarantee, not a realised saving and not an invoice, and it is never shown when add-ons, balances or prices are unknown.
 - **Questions (optional):** click the light-bulb **Cost Advisor** item in the status bar (shown while the view is open; also a title-bar button where the editor renders it, or the Command Palette entry
   `EasyKiroGauge: Cost Advisor`) to confirm the plan, billing system and whether you have purchased add-on credits.
   "Not sure" keeps results conditional; "Clear my answers" forgets them. Answers last for the session and are cleared

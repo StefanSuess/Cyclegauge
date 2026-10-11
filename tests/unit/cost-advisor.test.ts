@@ -232,7 +232,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
    // The engine marks every priced comparison conditional, so any figure is a labelled model, never a supported claim.
    assert.ok(!/Potential saving|No cheaper option|Supported estimate/.test(html));
    assert.ok(html.includes('Modelled estimate'));assert.match(html,/No cheaper plan found/);assert.ok(!/class="figure"><strong>USD/.test(html));
-   assert.match(html,/not a guarantee, not a saving you have realised and not an invoice/);
+   assert.match(html,/Not a guarantee and not an invoice/);
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
    assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   }
@@ -268,7 +268,7 @@ test('advisor names the blocking condition in the headline and lists every assum
  const html=render(['limit_differs_from_plan_credits']);
  assert.equal(verdict(html),"Your reported limit (1000) doesn't match Pro Max (5000). Check your plan or add-on credits. Not enough confirmed information to compare plans yet. No savings are claimed.");
  assert.ok(!/Potential saving/.test(html));
- assert.ok(!/Used for the comparison below/.test(html));
+ assert.ok(!/Used for the estimate/.test(html));
  assert.match(html,/The reported limit differs from the chosen plan/);
  assert.match(verdict(render(['usage_exceeds_reported_limit'])),/^Observed usage is above the reported limit/);
  assert.match(verdict(render([],{addOns:'some'})),/^You have add-on credits/);
@@ -278,5 +278,5 @@ test('advisor names the blocking condition in the headline and lists every assum
  assert.ok(!/Command Palette|title bar/.test(html));
  const some=render([],{addOns:'some'});assert.match(some,/Remaining add-on credits were entered by you/);
  const withResult=presentAdvisor({hint,context:ctx({planSource:'confirmed',plan:'pro',billingConfirmed:true,addOns:'none',assumptions:[]}),horizons:[{months:1,reasons:[],result:{status:'supported',reasons:[],scenarios:[],alternatives:[],savings:[],breakEven:{points:[],reasons:[]}} as any}],advice:[{kind:'no_action',reasons:[]} as any],singleAccount:true,limit:'1000'});
- assert.match(withResult,/Used for the comparison below/);
+ assert.match(withResult,/Used for the estimate/);
 });

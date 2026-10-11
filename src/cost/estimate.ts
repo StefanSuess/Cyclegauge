@@ -48,7 +48,9 @@ const LEVELS=['low','base','high'] as const;
 
 export const insufficientEstimate=(months:number,conditions:string[]=[]):SavingsEstimate=>({tier:'insufficient',outcome:'none',months,currency:'USD',window:null,baselinePlan:null,levels:[],base:null,range:null,preferredChanges:false,conditions});
 
-const usable=(s:CostScenario|undefined):s is CostScenario=>!!s&&s.status!=='unavailable'&&s.future.feasible===true&&s.reasons.every(r=>HARMLESS.has(r))&&s.future.totalNewExpenditure?.currency==='USD';
+// Opening purchased lots would be valued at zero and consumed unevenly between options, so such figures are not comparable.
+const noOpeningLots=(s:CostScenario)=>{const o=s.future.openingPurchasedCredits;return o===null||o===undefined||compare(o,'0')===0;};
+const usable=(s:CostScenario|undefined):s is CostScenario=>!!s&&s.status!=='unavailable'&&s.future.feasible===true&&s.reasons.every(r=>HARMLESS.has(r))&&s.future.totalNewExpenditure?.currency==='USD'&&noOpeningLots(s);
 const cost=(s:CostScenario):Decimal=>decimal(s.future.totalNewExpenditure!.amount);
 
 function level(result:CostOptimization,demandId:DemandEstimate['demandId']):DemandEstimate {
@@ -75,6 +77,14 @@ function level(result:CostOptimization,demandId:DemandEstimate['demandId']):Dema
  return {demandId,baseline,priced,best,saving,unpriced,unsuitable,forecastCredits};
 }
 
+/** Upgrading immediately is outside this comparison; flag it when the engine itself prices it lower than keeping. */
+function midCycleCheaper(result:CostOptimization,baseline:CostScenario|undefined):boolean {
+ const total=(s:CostScenario)=>s.bridge.feasible===true&&s.future.feasible===true&&s.bridge.totalNewExpenditure&&s.future.totalNewExpenditure
+  ?subtract(decimal(s.bridge.totalNewExpenditure.amount),subtract('0',decimal(s.future.totalNewExpenditure.amount))):null;
+ const base=baseline?total(baseline):null;if(base===null)return false;
+ return result.scenarios.some(s=>s.demandId==='base'&&(s.strategy.timing==='now'||s.strategy.timing==='now_then_revert_at_reset')&&s.status!=='unavailable'&&(()=>{const t=total(s);return t!==null&&compare(t,base)<0;})());
+}
+
 /**
  * Turns one horizon's optimizer result into a numerical estimate with an explicit trust tier. A difference is only
  * produced when the current plan's cost and an alternative's cost were both actually calculated over the same full
@@ -92,11 +102,12 @@ export function estimateSavings(result:CostOptimization|null,context:AdvisorCont
   const best=base.best;
   const bestScenario=result.scenarios.find(s=>s.demandId==='base'&&s.strategy.id===best.strategyId)!;
   const conditions=new Set<string>(context.assumptions);
-  const conditionsFrom=(s:CostScenario|undefined)=>{for(const r of s?.reasons??[])if(HARMLESS.has(r))conditions.add(r);for(const a of s?.assumptions??[])if(a==='limited_history'||a==='short_window_long_horizon')conditions.add(a);};
+  const conditionsFrom=(s:CostScenario|undefined)=>{for(const r of s?.reasons??[])if(HARMLESS.has(r))conditions.add(r);for(const a of s?.assumptions??[])if(a==='limited_history'||a==='short_window_long_horizon'||a==='net_changes_not_gross_billable_usage')conditions.add(a);};
   conditionsFrom(baselineScenario);conditionsFrom(bestScenario);
   conditions.add('list_prices_pre_tax');conditions.add('forecast_not_guaranteed');conditions.add('only_next_reset_changes_compared');
   if(base.unpriced>0)conditions.add('overall_cheapest_unknown');
-  if(best.plan==='free'&&!best.keep)conditions.add('free_plan_terms_unverified');
+  if(levels.some(l=>l.best?.plan==='free'&&!l.best.keep))conditions.add('free_plan_terms_unverified');
+  if(midCycleCheaper(result,baselineScenario))conditions.add('mid_cycle_upgrade_cheaper');
   const savings=levels.map(l=>l.saving);
   const range=savings.every(s=>s!==null)?(()=>{const sorted=[...savings as string[]].sort(compare);return {minimum:sorted[0],maximum:sorted.at(-1)!};})():null;
   if(!range)conditions.add('sensitivity_partly_unpriced');
@@ -109,7 +120,8 @@ export function estimateSavings(result:CostOptimization|null,context:AdvisorCont
   }
   const saving=compare(base.saving,'0')>0;
   // "Supported" additionally needs the engine's own classification: every input explicit, no engine condition left.
-  const supported=saving?advice.kind==='potential_savings':advice.kind==='no_action';
+  // A move to Free carries unverified terms, so it is never presented as supported.
+  const supported=!conditions.has('free_plan_terms_unverified')&&(saving?advice.kind==='potential_savings':advice.kind==='no_action');
   return {tier:supported?'supported':'modelled',outcome:saving?'saving':'no_cheaper',months,currency:'USD',window,baselinePlan,levels,base,range,preferredChanges,conditions:[...conditions]};
  }catch{return insufficientEstimate(months);}
 }

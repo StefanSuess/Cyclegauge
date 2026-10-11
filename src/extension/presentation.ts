@@ -96,7 +96,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  summary{cursor:pointer;margin:10px 0;font-weight:500}details>summary{list-style-position:inside}.advanced>summary{font-size:1.05rem;font-weight:600;margin:0}.advanced[open]>summary{margin-bottom:12px}.advanced h3{margin:20px 0 8px;font-size:1.05rem;border-top:1px solid var(--vscode-panel-border);padding-top:14px}
  .estimate{border:1px solid var(--vscode-panel-border);border-left:5px solid var(--neutral);border-radius:8px;padding:12px 16px;margin:12px 0}.estimate-supported{border-left-color:var(--ok)}.estimate-modelled{border-left-color:var(--warn)}.estimate-comparison_only{border-left-color:var(--neutral)}.estimate p{margin:6px 0}.estimate .tier{margin-top:0}.estimate .figure{font-size:1rem}.estimate .figure strong{font-size:1.6rem;margin-right:6px}.estimate .verdict{font-size:1rem;font-weight:500}
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
- @media(max-width:540px){body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
+ @media(max-width:540px){.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
  @media(forced-colors:active){.hero{border-left-color:Highlight}.bar>span{background:Highlight}}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>

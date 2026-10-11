@@ -84,7 +84,7 @@ test('confirmed plan and billing details are shown as confirmed; the figure stay
  assert.ok(!html.includes('personal (consumer) billing'));assert.ok(!html.includes('no purchased add-on credits'));
  assert.match(html,/Changing from Pro\+ to Pro at your next billing reset would cost USD 20 instead of USD 40/);
  assert.match(html,/USD 20<\/strong> <span>modelled potential saving per billing cycle/);
- assert.match(html,/2030-01-01 to 2030-02-01, UTC/);assert.match(html,/fits within Pro's 1000 credits/);
+ assert.match(html,/from 2030-01-01 UTC, 1 month/);assert.match(html,/fits within Pro's 1000 credits/);
  assert.match(html,/Change your plan or answers/);
 });
 
@@ -160,7 +160,7 @@ test('demand sensitivity: when the preferred plan changes the range and the reas
  assert.deepEqual(e.est.range,{minimum:'0',maximum:'20'});
  assert.ok(e.est.conditions.includes('sensitivity_changes_preferred_plan'));
  const html=present(e);
- assert.match(html,/Which plan is cheapest depends on usage: the modelled difference ranges from USD 0 to USD 20 between 75% and 125% of forecast usage/);
+ assert.match(html,/At 125% of forecast usage the lowest calculable option is Pro\+ \(difference USD 0\); extra credits on smaller plans cannot be priced\. The modelled difference is therefore not stable \(USD 0 to USD 20 across 75% to 125%\)/);
  assert.match(html,/125% of forecast usage:<\/strong> lowest calculable Pro\+ USD 40; current plan Pro\+ USD 40; no cheaper option/);
  // A stable preference has no such caveat.
  const stable=estimate('300');
@@ -205,7 +205,7 @@ test('horizon lines carry their tier, billing period and currency',()=>{
  const horizons=calculateCosts({mode:'personalized',profile:built.profile!,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},f,h,'2030-01-04T00:00:00Z',fresh());
  const html=presentAdvisor({hint:planHint('1000',reviewedCatalog),context:built.context,horizons,advice:horizons.map(x=>classifyAdvice(x.result,built.context)),singleAccount:true,limit:'1000'});
  for(const n of ['1 full billing cycle','3 full billing cycles','6 full billing cycles'])assert.ok(html.includes(`<strong>${n} (`),n);
- assert.match(html,/\(2030-02-01 to 2030-03-01 UTC\): Modelled estimate/);assert.match(html,/USD 0/);
+ assert.match(html,/\(from 2030-02-01 UTC\): Modelled estimate/);assert.match(html,/USD 0/);
 });
 
 test('formatUsd rounds savings down and costs up',()=>{
@@ -232,4 +232,40 @@ test('the estimate layer is offline, storage-free and does not touch the engine'
  const text=await readFile(new URL('../../src/cost/estimate.ts',import.meta.url),'utf8');
  for(const forbidden of ['vscode','node:fs','node:net','node:http','node:child_process','fetch(','globalState','workspaceState','process.env','optimizeCosts','simulateStrategy'])assert.ok(!text.includes(forbidden),forbidden);
  void syntheticCatalog;
+});
+
+test('a move to Free is never supported, is caveated in the card and a tiny forecast is not shown as "about 0"',()=>{
+ const result=optimize('0.4',profile({currentPlan:'pro'}));
+ const context=ctx({plan:'pro'});
+ const clean:CostOptimization={...result,status:'available',reasons:[],recommendation:{strategyId:'free_next_reset_as_needed',demandIds:['low','base','high'],kind:'supported_comparison'},savingsRange:{minimum:{currency:'USD',amount:'20'},maximum:{currency:'USD',amount:'20'}}};
+ const advice=classifyAdvice(clean,context);assert.equal(advice.kind,'potential_savings');
+ const est=estimateSavings(clean,context,advice,1);
+ assert.equal(est.base?.best?.plan,'free');assert.equal(est.tier,'modelled');assert.ok(est.conditions.includes('free_plan_terms_unverified'));
+ const html=presentAdvisor({hint:planHint('1000',reviewedCatalog),context,horizons:[{months:1,result:clean,reasons:[]}],advice:[advice],singleAccount:true,limit:'1000'});
+ assert.ok(!html.includes('Supported estimate'));assert.match(html,/Moving to Free means cancelling the paid plan/);assert.match(html,/under 1 credit per cycle/);
+});
+
+test('an unconfirmed plan qualifies the figure itself and puts the confirmation next to it',()=>{
+ const e=estimate('900');
+ const html=present(e,{planSource:'hint',assumptions:['plan_is_hint']});
+ assert.match(html,/modelled potential saving per billing cycle, if you are on Pro\+ \(unconfirmed\)/);
+ assert.ok(html.indexOf('Not your plan? Confirm or correct it')<html.indexOf('class="verdict"'));
+ assert.ok(!html.includes('aria-label="Savings estimate"'));
+});
+
+test('review findings: Free at any demand level is caveated, opening lots and cheaper immediate upgrades are not hidden',()=>{
+ // Low level picks Free while base does not: the caveat still applies.
+ const low=estimate('60');
+ assert.equal(low.est.base?.best?.plan,'pro');assert.equal(low.est.levels[0].best?.plan,'free');assert.ok(low.est.conditions.includes('free_plan_terms_unverified'));
+ // Known opening purchased lots make figures not comparable, so nothing is produced.
+ const lots=optimize('900',profile({currentPlan:'pro_plus',purchased:{kind:'known',value:[{remainingCredits:'400',expiresAt:'2031-01-01T00:00:00Z',expiryPrecision:'instant'}]}}),1,(()=>{const c=fresh();c.consumer.purchaseStepCredits='1';c.consumer.moneyRounding='exact';return c;})());
+ assert.equal(estimateSavings(lots,ctx(),{kind:'conditional_comparison',reasons:[]},1).tier,'insufficient');
+ // A calculable immediate upgrade that is cheaper than keeping is flagged instead of "no cheaper".
+ const cheap=(()=>{const c=fresh();c.consumer.purchaseStepCredits='1';c.consumer.moneyRounding='exact';return c;})();
+ const q=build('1500',profile({currentPlan:'pro',resetAt:'2030-02-01T00:00:00Z',planRemaining:{kind:'known',value:'100'},cycleUsageForRerating:{kind:'known',value:'900'}}),1,cheap);
+ const r=optimizeCosts({...q,demands:q.demands.map(d=>({...d,beforeReset:{kind:'known' as const,value:{numerator:3000n,denominator:1n}}}))});
+ const e=estimateSavings(r,ctx({plan:'pro'}),{kind:'conditional_comparison',reasons:[]},1);
+ assert.equal(e.tier,'modelled');assert.equal(e.outcome,'no_cheaper');assert.ok(e.conditions.includes('mid_cycle_upgrade_cheaper'));
+ const html=presentAdvisor({hint:planHint('1000',reviewedCatalog),context:ctx({plan:'pro'}),horizons:[{months:1,result:r,reasons:[]}],advice:[{kind:'conditional_comparison',reasons:[]}],singleAccount:true,limit:'1000'});
+ assert.match(html,/No cheaper change at the next reset found/);assert.ok(!html.includes('No cheaper plan found'));
 });
