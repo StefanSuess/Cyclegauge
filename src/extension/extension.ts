@@ -12,7 +12,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
  // The webview stays script-free and command-URI-free, so the Cost Advisor needs a native entry point that does not
- // depend on the editor title bar (not rendered in every Kiro build): a status bar item shown while the panel is open.
+ // rely only on the easy-to-overlook editor title bar button: a status bar item shown while the panel is open.
  const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
  advisorItem.name = 'EasyKiroGauge Cost Advisor';
  advisorItem.text = '$(lightbulb) Cost Advisor';
