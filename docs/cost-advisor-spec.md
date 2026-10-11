@@ -136,3 +136,29 @@ allowlist; no algorithm changed. A regression test covers it.
 The CLI/`--json` keys `baseLimit` and `remainingBaseCredits`, and the forecast assumption code `base_credits_only`, are
 public or pinned contracts and keep their names. They mean the *reported* limit and *reported* remaining credits; the
 limit is not verified to be base-only. Human-readable text uses "reported".
+
+## 8. Numerical estimates (modelled savings)
+
+Added on top of Phase A without changing the catalog, demand builder, simulator or optimizer. `src/cost/estimate.ts`
+reads the optimizer result per horizon and assigns one of four tiers:
+
+| Tier | Meaning |
+|---|---|
+| **Supported estimate** | Every input explicit and the engine's own classification is *potential savings* / *no action*. Not reachable in production today; never used for a move to Free. |
+| **Modelled estimate** | The current plan and an alternative are both calculable over the same full billing cycles. Unconfirmed assumptions (hinted plan, assumed billing, assumed "no add-ons", unknown cohort/promotion) are listed beside the figure. |
+| **Cost comparison only** | Alternatives can be priced but the current plan cannot, so no difference is computed. |
+| **Insufficient information** | Nothing can be priced, or the inputs are unusable (add-ons present or unknown, Enterprise, usage above the reported limit, a limit that differs from the plan, stale or mismatched balances, hypothetical catalog, opening purchased lots). |
+
+Rules: only *keep the plan* and *change plan at the next UTC reset* are compared (they share the same partial cycle, so
+only full future cycles differ). The figure is the lowest **calculable** option, never a global optimum; unpriced options
+and a cheaper immediate upgrade are flagged. A tie prefers the current plan. Differences round down and costs round up.
+The card leads with the next-cycle figure, its period (UTC, start date and length), USD, the assumptions and the
+"modelled list-price difference, not a guarantee, not realised, not an invoice" note. 1-, 3- and 6-cycle lines, the
+75/100/125% sensitivity, conditions and full calculations are under expandable details. When the lowest-cost plan changes
+with usage the card says so. The inferred plan is offered first ("Yes, I'm on X") in the native picker.
+
+Headline wording: when the lowest-cost plan changes with usage or any usage level (75/100/125%) has an unpriced option,
+the figure reads "USD N under your current forecast" (never "up to", because no upper bound is known) with one short
+limit line; the calculated range is only in the details, marked "not a complete bound". Reasons, assumptions and the
+fit of the forecast within the plan's credits sit under "Why this figure and its limits". The confirm-or-correct plan
+instruction appears once.

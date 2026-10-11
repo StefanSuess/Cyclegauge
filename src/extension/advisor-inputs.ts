@@ -25,10 +25,13 @@ const PLAN_PICK_PREFIX='plan:';
  * point returns null and changes nothing.
  */
 export async function reviewAdvisor(ui:NativeCostInput,hint:PlanHint,current:AdvisorAnswers):Promise<AdvisorAnswers|null> {
+ // The inferred plan comes first so that confirming a correct hint is a single click; every other plan stays one pick away.
+ const planItem=(id:PlanId)=>({id:PLAN_PICK_PREFIX+id,label:hint.plan===id?`Yes, I'm on ${planNames[id]}`:planNames[id],description:hint.plan===id?'Matches your reported credits. Confirm this as my current plan':'Confirm this as my current plan'});
  const planItems=[
-  {id:'reset',label:'Clear my answers',description:'Forget what you told the Cost Advisor in this session'},
+  ...(hint.plan?[planItem(hint.plan)]:[]),
   {id:'unsure',label:'Not sure',description:hint.plan?`Keep the unconfirmed hint (${planNames[hint.plan]}); results stay conditional`:'Plan stays unknown; results stay conditional'},
-  ...PLAN_IDS.map(id=>({id:PLAN_PICK_PREFIX+id,label:`${planNames[id]}${hint.plan===id?' (matches reported credits)':''}`,description:'Confirm this as my current plan'})),
+  ...PLAN_IDS.filter(id=>id!==hint.plan).map(planItem),
+  {id:'reset',label:'Clear my answers',description:'Forget what you told the Cost Advisor in this session'},
  ];
  const plan=await ui.pick('Cost Advisor — which plan are you on?',planItems);if(!plan)return null;
  if(plan==='reset')return {...noAnswers};

@@ -4,14 +4,14 @@
 // and the current partial cycle) so the real collector, store, projection, forecast and Cost Advisor can be viewed.
 // Nothing is inserted into any store or database: the application ingests the log like any other source.
 //
-// usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone Europe/Berlin] [--seed 7]
+// usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone Europe/Berlin] [--seed 7] [--limit 1000]
 // Output: <out>/logs/synthetic-demo-run/synthetic-demo-window/exthost/kiro.kiroAgent/q-client.log
 import {mkdirSync,writeFileSync,existsSync,readdirSync,statSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 
 const args=process.argv.slice(2);
 const flag=n=>{const i=args.indexOf(n);return i<0?undefined:args[i+1];};
-if(!flag('--out')){process.stdout.write('usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone <IANA zone>] [--seed <n>]\n');process.exit(1);}
+if(!flag('--out')){process.stdout.write('usage: node scripts/demo/generate-demo-month.mjs --out <empty directory> [--zone <IANA zone>] [--seed <n>] [--limit <credits>]\n');process.exit(1);}
 if(args.includes('--out')&&String(flag('--out')).startsWith('--')){process.stdout.write('OUT_INVALID\n');process.exit(1);}
 const out=resolve(flag('--out')),zone=flag('--zone')??'Europe/Berlin';
 try{new Intl.DateTimeFormat('en',{timeZone:zone}).format();}catch{process.stdout.write('ZONE_INVALID\n');process.exit(1);}
@@ -26,7 +26,9 @@ const now=Date.now(),end=now-10*60000; // last snapshot ten minutes ago, never i
 const nowDate=new Date(now);
 const cycleStart=Date.UTC(nowDate.getUTCFullYear(),nowDate.getUTCMonth(),1); // current cycle begins on the 1st, 00:00Z
 const prevStart=Date.UTC(nowDate.getUTCFullYear(),nowDate.getUTCMonth()-1,1);
-const LIMIT=1000;
+const LIMITS=['50','1000','2000','5000','10000'];
+if(flag('--limit')!==undefined&&!LIMITS.includes(String(flag('--limit')))){process.stdout.write('LIMIT_INVALID\n');process.exit(1);}
+const LIMIT=Number(flag('--limit')??1000); // reported credit limit; the invented consumption does not depend on it
 
 const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
 const wall=ms=>{const p=Object.fromEntries(fmt.formatToParts(new Date(ms)).map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}.000`;};

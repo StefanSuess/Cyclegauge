@@ -32,3 +32,16 @@ shape on the same day.
 
 Status `At risk • ~31.7/day`, Regular forecast, usage chart present, Cost Advisor *Conditional comparison* with the plan
 shown as an unconfirmed hint "Pro", no future-dated notice. This is a synthetic observation only.
+
+## Savings estimate example
+
+`--limit 2000` makes the synthetic account report 2000 credits (a Pro+ hint) while the invented usage stays near 900
+credits per cycle:
+
+```sh
+node scripts/demo/generate-demo-month.mjs --out <empty directory> --zone UTC --seed 7 --limit 2000
+```
+
+The Cost Advisor then shows a *Modelled estimate*: about USD 20 per billing cycle by changing from Pro+ to Pro at the
+next reset, labelled unconfirmed until the plan is confirmed, with the 125% usage case (where Pro is exceeded and its
+extra credits cannot be priced) stated next to it. Allowed limits: 50, 1000, 2000, 5000, 10000.
