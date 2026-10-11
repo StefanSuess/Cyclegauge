@@ -35,7 +35,7 @@ function stubVscode(sim: Simulation, settings: Record<string, string>, log: { st
    },
    createWebviewPanel() {
     let html = '';
-    return { webview: { get html() { return html; }, set html(v: string) { html = v; log.html.push(v); } }, reveal() {}, dispose() {}, onDidDispose: () => disposable };
+    return { webview: { get html() { return html; }, set html(v: string) { html = v; log.html.push(v); } }, reveal() {}, dispose() {}, onDidDispose: () => disposable, onDidChangeViewState: () => disposable };
    },
    showQuickPick: async () => undefined, showInputBox: async () => undefined,
    showInformationMessage: async (m: string) => { log.messages.push(m); }, showWarningMessage: async (m: string) => { log.messages.push(m); },
