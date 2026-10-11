@@ -112,7 +112,7 @@ test('guided native lot entry preserves expiry precision without asking for JSON
 
 test('panel title actions use the supported native editor title context',async()=>{
  const p=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
- const menu=p.contributes.menus['editor/title'];assert.equal(menu?.length,3);
+ const menu=p.contributes.menus['editor/title'];assert.equal(menu?.length,4);assert.equal(menu[0].command,"easykirogauge.costAdvisor");
  assert.ok(menu.every((entry:any)=>entry.when==='activeWebviewPanelId == easykirogauge.usage'));
 });
 

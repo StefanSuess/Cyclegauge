@@ -31,7 +31,7 @@ const reasons:Record<string,string>={
 const reasonText=(code:string)=>reasons[code]??'Additional billing evidence is required for this calculation.';
 const notes=(codes:string[])=>[...new Set(codes)].map(c=>`<li>${safe(reasonText(c))}</li>`).join('');
 const strategy=(o:CostOptimization,id:string|null,demand='base')=>o.scenarios.find(s=>s.strategy.id===id&&s.demandId===demand);
-function winnerText(o:CostOptimization,demand='base'){
+export function winnerText(o:CostOptimization,demand='base'){
  const alt=o.alternatives.find(a=>a.demandId===demand),s=strategy(o,alt?.strategyId??null,demand);
  if(!s)return 'No supported priced strategy';
  return `${o.reasons.includes('competitor_cost_unknown')?'Lowest calculable option (overall cheapest unknown)':o.scenarios.some(s=>s.assumptions.includes('standalone_comparison'))?'Lowest priced hypothetical option':'Cheapest supported strategy under stated assumptions'}: ${name(s)}${alt?.status==='conditional'?' — conditional':''}`;

@@ -28,6 +28,11 @@
         "title": "EasyKiroGauge: Show Diagnostics"
       },
       {
+        "command": "easykirogauge.costAdvisor",
+        "title": "EasyKiroGauge: Cost Advisor",
+        "icon": "$(lightbulb)"
+      },
+      {
         "command": "easykirogauge.configureCostOptimizer",
         "title": "EasyKiroGauge: Configure Cost Optimizer",
         "icon": "$(settings-gear)"
@@ -67,6 +72,11 @@
     },
     "menus": {
       "editor/title": [
+        {
+          "command": "easykirogauge.costAdvisor",
+          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "group": "navigation@0"
+        },
         {
           "command": "easykirogauge.configureCostOptimizer",
           "when": "activeWebviewPanelId == easykirogauge.usage",
