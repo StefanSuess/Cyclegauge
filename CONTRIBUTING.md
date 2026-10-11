@@ -18,9 +18,10 @@ The full rules are in [AGENTS.md](AGENTS.md), [SPEC.md](SPEC.md) and [ARCHITECTU
 
 ## Reporting a bug
 
-Use the issue form. Include version, OS and Kiro version, what you expected and what happened. The
-extension's **Show Diagnostics** command (or the CLI's `--diagnostics`) prints only fixed codes,
-counts and version/platform metadata and is safe to paste. Security problems go to
+Use the issue form. Include version, OS and Kiro version, what you expected and what happened. Versions
+that have the **Show Diagnostics** command (or the CLI's `--diagnostics`; planned for 0.6.0) print only
+fixed codes, counts and version/platform metadata, which is safe to paste. Older versions have no
+diagnostics output: describe the problem in words and do not paste logs. Security problems go to
 [SECURITY.md](SECURITY.md), not to a public issue.
 
 ## Proposing a change

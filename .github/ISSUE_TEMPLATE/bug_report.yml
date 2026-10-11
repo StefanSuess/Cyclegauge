@@ -35,6 +35,6 @@ body:
   - type: textarea
     id: diagnostics
     attributes:
-      label: Diagnostics output (optional)
-      description: Output of "Show Diagnostics". Review it before pasting.
+      label: Diagnostics output (optional, only if your version has it)
+      description: Output of "Show Diagnostics" or `--diagnostics` (fixed codes and counts only). Review it before pasting.
       render: text
