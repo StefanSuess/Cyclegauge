@@ -40,7 +40,7 @@ async function setup(){
 }
 test('native security and comparison wiring exclude command URI bridges, persistence and exact analysis',async()=>{
  const nativeSource=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
- assert.match(nativeSource,/enableScripts: false/);assert.match(nativeSource,/enableCommandUris: false/);
+ assert.match(nativeSource,/enableScripts: false/);assert.match(nativeSource,/enableCommandUris: false/);assert.match(nativeSource,/advisorItem\.command = 'easykirogauge\.costAdvisor'/);assert.match(nativeSource,/advisorItem\.show\(\)/);
  assert.match(nativeSource,/showQuickPick/);assert.match(nativeSource,/showInputBox/);
  const source=await readFile(new URL('../../src/extension/cost-inputs.ts',import.meta.url),'utf8');
  assert.ok(!source.includes('findBreakEven('));assert.ok(!source.includes('globalState'));assert.ok(!source.includes('workspaceState'));

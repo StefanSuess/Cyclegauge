@@ -61,6 +61,6 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
  return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
   +`<p class="plan-row"><span class="label">Likely plan</span> ${planText} ${planLine}</p><p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`
   +`<p class="verdict">${verdict}</p>`
-  +`<p class="action small"><strong>Confirm or change your plan:</strong> use the <strong>Cost Advisor</strong> light-bulb button in this panel's title bar, or run <strong>EasyKiroGauge: Cost Advisor</strong> from the Command Palette (it also clears your answers).${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
+  +`<p class="action small"><strong>Confirm or change your plan:</strong> click the light-bulb <strong>Cost Advisor</strong> item in the status bar (shown while this view is open). It is also available as a light-bulb button in the panel's title bar where your editor shows it, and as <strong>EasyKiroGauge: Cost Advisor</strong> in the Command Palette. It also lets you clear your answers.${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
   +detail+`</section>`;
 }
