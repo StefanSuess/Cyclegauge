@@ -1,0 +1,111 @@
+# Platform-verification feasibility proof of concept (separate from ci.yml on purpose).
+#
+# What this adds beyond ci.yml:
+#   * windows-standard-user: the Windows ACL proof-of-concept under a genuinely separate, temporary local
+#     STANDARD account (not a reduced copy of the administrator token), on Windows 11 ARM64 (client) and
+#     on Windows Server x64. The child measures its own integrity level, Administrators group state,
+#     privileges and denied writes; the account is created only on GitHub-hosted runners and is removed.
+#   * rhel9-container-hardened: the existing UBI 9 checks on x86_64 and aarch64 with a read-only root,
+#     all capabilities dropped and no-new-privileges, plus an XFS loopback location (RHEL's default file
+#     system) classified by the survey script.
+#
+# None of this is native Windows 11 x64 (no such hosted runner exists) or native RHEL 9 evidence: no
+# SELinux, no systemd, no Kiro. Windows storage stays disabled; nothing here weakens SC1.
+#
+# Rules: read-only token, no secrets, third-party actions pinned by commit SHA, synthetic data only,
+# GitHub-hosted runners only.
+name: platform-poc
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/platform-poc.yml'
+      - 'scripts/poc/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-poc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-standard-user:
+    name: standard user PoC (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # windows-11-arm is the only hosted Windows 11 image; the x64 images are Windows Server.
+        os: [windows-11-arm, windows-2025, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.13.0'
+      - name: Pure tests for the probe and the launcher logic
+        run: node --disable-warning=ExperimentalWarning --test tests/poc/standard-user.test.ts
+      - name: Run the PoC under a temporary local standard account
+        run: |
+          node --disable-warning=ExperimentalWarning scripts/poc/win-acl/standard-user.ts \
+            --i-understand-this-creates-a-local-account --markdown-file "$GITHUB_STEP_SUMMARY" | tee standard-user.txt
+          if ! grep -Eq '^STANDARD_USER_RESULT=obtained$' standard-user.txt; then
+            echo '::warning::no standard-user token was obtained on this runner; the report is NOT standard-user evidence'
+          fi
+      - name: The temporary account is gone
+        run: |
+          if powershell -NoProfile -Command "Get-LocalUser -Name 'synthetic-ekg-std'" >/dev/null 2>&1; then echo 'account left behind'; exit 1; fi
+          echo 'account removed'
+
+  rhel9-container-hardened:
+    name: ubi9 container, hardened (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+    env:
+      UBI9: registry.access.redhat.com/ubi9/ubi@sha256:5858f9ace07316e3b12caab62f6c2481a5030bb6bafdca5a9ea324c321ef36df
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24.13.0'
+      - name: Suites as non-root with a read-only root file system and no capabilities
+        run: |
+          NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          docker run --rm --user 1001:1001 --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,mode=1777 -v "$PWD":/work -v "$NODE_ROOT":/opt/node:ro \
+            -e HOME=/tmp -e TMPDIR=/tmp -w /work "$UBI9" \
+            /opt/node/bin/node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts tests/poc/*.test.ts
+      - name: Suites on an XFS loopback file system (the RHEL default)
+        run: |
+          sudo apt-get install -y --no-install-recommends xfsprogs >/dev/null
+          truncate -s 1G "$RUNNER_TEMP/xfs.img"
+          sudo mkfs.xfs -q "$RUNNER_TEMP/xfs.img"
+          sudo mkdir /mnt/xfs && sudo mount -o loop "$RUNNER_TEMP/xfs.img" /mnt/xfs
+          sudo install -d -o 1001 -g 1001 -m 0700 /mnt/xfs/work
+          NODE_ROOT="$(dirname "$(dirname "$(command -v node)")")"
+          docker run --rm --user 1001:1001 --network none --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /tmp:rw,mode=1777 -v "$PWD":/work -v "$NODE_ROOT":/opt/node:ro -v /mnt/xfs/work:/xfs \
+            -e HOME=/tmp -e TMPDIR=/xfs -w /work "$UBI9" \
+            /opt/node/bin/node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts
+      - name: 'Survey of the XFS location (not a RHEL host: no SELinux, no systemd)'
+        run: |
+          {
+            echo "### ubi9 survey with an XFS location on ${{ matrix.os }} (CI proxy, not evidence for a real host)"
+            echo '```'
+            docker run --rm --user 1001:1001 --network none --read-only --cap-drop ALL -v "$PWD":/work:ro -v /mnt/xfs/work:/xfs \
+              -e HOME=/tmp -e EKG_SURVEY_EXTRA_DIR=/xfs -w /work "$UBI9" sh scripts/poc/rhel9-survey.sh
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
