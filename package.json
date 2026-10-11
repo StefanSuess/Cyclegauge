@@ -25,6 +25,7 @@
   "displayName": "Cyclegauge for Kiro IDE",
   "description": "Credit usage & forecasting for Kiro IDE. Unofficial; not affiliated with AWS or Kiro.",
   "publisher": "easykirogauge",
+  "icon": "assets/branding/cyclegauge-icon-256.png",
   "main": "./dist/extension.cjs",
   "engines": {
     "vscode": "^1.90.0",
