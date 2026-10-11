@@ -111,7 +111,13 @@ test('offset-free timestamps need a valid IANA zone; bad arguments give fixed ou
  try{
   const given=JSON.parse(run(t.root,['--source-timezone','Europe/Berlin']));
   assert.equal(given.assumed_source_timezone_seen,true);assert.equal(given.source_timezone_origin,'argument');
-  const defaulted=JSON.parse(run(t.root));assert.equal(defaulted.source_timezone_origin,'device');
+  // The device zone is environment-dependent: some runners resolve it to a name Intl rejects ("Etc/Unknown"), which the
+  // script must report as a fixed TIMEZONE_INVALID instead of guessing. Assert whichever outcome this host must produce.
+  const hostZone=Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const hostZoneValid=(()=>{try{new Intl.DateTimeFormat('en',{timeZone:hostZone}).format();return true;}catch{return false;}})();
+  const defaulted=spawn(['--source-root',t.root]);
+  if(hostZoneValid){assert.equal(defaulted.status,0);assert.equal(JSON.parse(defaulted.stdout).source_timezone_origin,'device');}
+  else{assert.equal(defaulted.status,1);assert.equal(JSON.parse(defaulted.stdout).error,'TIMEZONE_INVALID');}
   const bad=spawn(['--source-root',t.root,'--source-timezone','Not/AZone']);
   assert.equal(bad.status,1);assert.equal(JSON.parse(bad.stdout).error,'TIMEZONE_INVALID');
   const unknown=spawn(['--source-root',t.root,'--surprise','x']);
