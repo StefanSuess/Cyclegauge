@@ -1,4 +1,5 @@
 import type {Advice,AdviceKind,AdvisorContext,PlanHint} from '../cost/advisor.ts';
+import {compare} from '../decimal.ts';
 import {estimateSavings,formatUsd,type DemandEstimate,type SavingsEstimate} from '../cost/estimate.ts';
 import {planNames,type CostHorizon} from './cost-inputs.ts';
 import {winnerText,reasonText,presentCost} from './cost-presentation.ts';
@@ -81,12 +82,16 @@ function estimateCard(e:SavingsEstimate,context:AdvisorContext,limit:string|null
  const label={low:'75%',base:'100%',high:'125%'};
  // A figure that depends on usage, or whose neighbours could not be priced, is a point estimate, never a stable or complete bound.
  const qualified=e.outcome==='saving'&&!e.stable;
- const other=e.levels.find(l=>l.best&&b.best&&l.best.plan!==b.best.plan);
+ // The scenario that differs from the 100% forecast: unpriced, another plan, or the same plan with another saving (exact comparison).
+ const other=e.levels.find(l=>l.demandId!=='base'&&(l.unpriced>0||!l.best||l.best.plan!==best.plan||l.saving===null||b.saving===null||compare(l.saving,b.saving)!==0));
  const unpriced=e.levels.filter(l=>l.unpriced>0||!l.best);
- const limitLine=qualified
-  ?(other?.best&&other.unpriced>0?`Higher usage may remove it: at ${label[other.demandId]} of forecast usage extra credits on smaller plans cannot be priced.`
-   :other?.best?`It depends on usage: at ${label[other.demandId]} of forecast usage ${safe(planNames[other.best.plan])} is the lowest calculable option.`
-   :'It depends on usage: at some usage levels the cost could not be calculated.'):'';
+ const limitLine=qualified&&other?(()=>{
+  const higher=other.demandId==='high',pct=label[other.demandId];
+  const lost=other.saving===null||compare(other.saving,'0')===0||!other.best||other.best.keep;
+  if(other.unpriced>0||!other.best)return higher?`Higher usage may remove it: at ${pct} of forecast usage extra credits on smaller plans cannot be priced.`:`Lower usage changes it: at ${pct} of forecast usage some options could not be priced.`;
+  const detail=other.saving!==null?`the modelled saving is ${usdSaving(other.saving)}`:`${safe(planNames[other.best.plan])} is the lowest calculable option`;
+  return higher&&lost?`Higher usage may remove it: at ${pct} of forecast usage ${detail}.`:`It depends on usage: at ${pct} of forecast usage ${detail}.`;
+ })():qualified?'It depends on usage: at some usage levels the cost could not be calculated.':'';
  let figure='',verdict='';
  if(e.outcome==='saving'&&b.saving!==null&&b.baseline!==null){
   const kind=e.tier==='supported'?'potential saving':'modelled saving';

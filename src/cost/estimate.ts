@@ -114,7 +114,8 @@ export function estimateSavings(result:CostOptimization|null,context:AdvisorCont
   if(!range)conditions.add('sensitivity_partly_unpriced');
   const bests=new Set(levels.flatMap(l=>l.best?[l.best.plan]:[]));
   const preferredChanges=bests.size>1;
-  const stable=!preferredChanges&&range!==null&&levels.every(l=>l.unpriced===0);
+  // Exact decimal comparison: the same plan with a different saving is still usage-dependent.
+  const stable=!preferredChanges&&range!==null&&levels.every(l=>l.unpriced===0&&l.saving!==null&&compare(l.saving,levels[1].saving!)===0);
   if(preferredChanges)conditions.add('sensitivity_changes_preferred_plan');
   if(base.saving===null){
    conditions.add('baseline_cost_unavailable');

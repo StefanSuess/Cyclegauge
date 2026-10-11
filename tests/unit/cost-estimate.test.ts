@@ -314,3 +314,37 @@ test('unpriced low or high levels are named in the details and the headline stay
   assert.match(html,/1 option could not be priced, so this is not a complete comparison/);
  }
 });
+
+test('regression: the same cheapest plan with different savings per usage level is not stable',()=>{
+ const priced=fresh();priced.consumer.purchaseStepCredits='1';priced.consumer.moneyRounding='exact';
+ const result=optimize('2500',profile({currentPlan:'pro_max'}),1,priced);
+ const context=ctx({plan:'pro_max'});
+ const advice=classifyAdvice(result,context);
+ const est=estimateSavings(result,context,advice,1);
+ // Pro+ is cheapest at 75%, 100% and 125% usage, but the saving differs because the current plan's extras grow (exact decimals).
+ assert.deepEqual(est.levels.map(l=>l.best?.plan),['pro_plus','pro_plus','pro_plus']);
+ assert.deepEqual(est.levels.map(l=>l.unpriced),[0,0,0]);
+ assert.deepEqual(est.levels.map(l=>l.saving),['60','40','15']);
+ assert.equal(est.preferredChanges,false);assert.notEqual(est.range,null);
+ assert.equal(est.stable,false);assert.ok(!est.conditions.includes('sensitivity_changes_preferred_plan'));
+ const html=presentAdvisor({hint:planHint('5000',reviewedCatalog),context,horizons:[{months:1,result,reasons:[]}],advice:[advice],singleAccount:true,limit:'5000'});
+ assert.match(html,/<strong>USD 40 under your current forecast<\/strong> <span>modelled saving per billing cycle<\/span>/);
+ // The differing levels are 75% (higher saving) and 125% (lower saving, but not zero): neither is "may remove it".
+ assert.match(html,/It depends on usage: at 75% of forecast usage the modelled saving is USD 60\./);
+ assert.ok(!html.includes('Higher usage may remove it'));
+ // Exact decimal comparison: a one-cent difference also breaks stability.
+ const cent=fresh();cent.consumer.purchaseStepCredits='1';cent.consumer.moneyRounding='exact';cent.consumer.pricePerCredit='0.04001';
+ const sensitive=estimateSavings(optimize('2500',profile({currentPlan:'pro_max'}),1,cent),context,advice,1);
+ assert.equal(sensitive.stable,false);
+ // Identical savings at every level (and nothing unpriced) stay stable and unqualified.
+ assert.equal(estimate('300').est.stable,true);
+});
+
+test('"Higher usage may remove it" is only used when the differing scenario is the higher-usage one',()=>{
+ const only=(html:string)=>html.includes('Higher usage may remove it');
+ // 125% unpriced: higher usage.
+ assert.ok(only(present(estimate('900'))));
+ // 75% differs (Free is cheapest at low usage): never "Higher usage".
+ const low=present(estimate('60'));
+ assert.ok(!only(low));assert.match(low,/It depends on usage: at 75% of forecast usage the modelled saving is USD 40\./);
+});
