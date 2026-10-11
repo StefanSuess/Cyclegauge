@@ -195,6 +195,11 @@ async function main(): Promise<number> {
  console.log(`STANDARD_USER_LAUNCH_NOTE=${launchNote}`);
  console.log('EVIDENCE_SCOPE=github_hosted_runner_temporary_local_standard_account');
  if (r) console.log(JSON.stringify({ environment: r.environment, token: r.token, probes: r.probes }, null, 1));
+ // The PoC's own report is already restricted to fixed tokens, counts and booleans (see poc.ts); print its items for the job log.
+ if (isUsableReport(r?.poc)) {
+  console.log(`POC_ENVIRONMENT=${JSON.stringify(r.poc.environment)}`);
+  for (const [name, item] of Object.entries(r.poc.items)) console.log(`POC_ITEM ${name} ${item.status} ${item.code} ${JSON.stringify(item.data)}`);
+ }
  if (markdownFile) {
   const env2 = (r?.environment ?? {}) as Record<string, unknown>;
   const head = `### Temporary standard user: ${c.verdict} (${c.reason}; method ${method}). arch=${String(env2.arch ?? 'unknown')}, product=${String(env2.product ?? 'unknown')}.\n\n`;
