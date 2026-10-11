@@ -51,6 +51,18 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 
+test('the verifier rejects a wrong publisher and the legacy extension ID', async () => {
+ const entries = readZip(await build('id.vsix', true));
+ const withPublisher = (publisher: string) => verifyVsix(writeZip(entries.map(e => {
+  if (e.name !== 'extension/package.json') return { name: e.name, data: e.data };
+  const m = JSON.parse(e.data.toString('utf8')); m.publisher = publisher;
+  return { name: e.name, data: Buffer.from(JSON.stringify(m)) };
+ })), { expectPreRelease: true });
+ assert.ok(withPublisher('someone-else').problems.includes('MANIFEST_EXTENSION_ID'));
+ assert.ok(withPublisher('easykirogauge').problems.includes('MANIFEST_EXTENSION_ID'));
+ assert.equal(withPublisher('StefanSuess').problems.includes('MANIFEST_EXTENSION_ID'), false);
+});
+
 test('argument parsing is strict', () => {
  assert.deepEqual(parseArgs(['a.vsix', '--pre-release']), { file: 'a.vsix', out: undefined, compare: undefined, preRelease: true });
  assert.equal(parseArgs([]), undefined);

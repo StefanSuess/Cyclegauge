@@ -23,6 +23,9 @@ export const ALLOWLIST = [
 ];
 /** Files whose bytes must be identical across independent builds of the same commit. */
 export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
+/** Intended Open VSX identity. The legacy build's ID is a different extension and must never be reused. */
+export const EXPECTED_ID = 'StefanSuess.cyclegauge';
+export const LEGACY_ID = 'easykirogauge.easykirogauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
 
 export interface FileHash { name: string; bytes: number; sha256: string }
@@ -56,6 +59,8 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
    const manifest = JSON.parse(manifestBytes.toString('utf8'));
    result.version = typeof manifest.version === 'string' && /^\d+\.\d+\.\d+$/.test(manifest.version) ? manifest.version : 'unknown';
    if (manifest.name !== 'cyclegauge') problems.push('MANIFEST_NAME');
+   if (`${manifest.publisher}.${manifest.name}` !== EXPECTED_ID) problems.push('MANIFEST_EXTENSION_ID');
+   if (`${manifest.publisher}.${manifest.name}`.toLowerCase() === LEGACY_ID) problems.push('MANIFEST_EXTENSION_ID');
    if (manifest.license !== 'MIT') problems.push('MANIFEST_LICENSE');
    if (manifest.main !== './dist/extension.cjs') problems.push('MANIFEST_MAIN');
    if (manifest.dependencies && Object.keys(manifest.dependencies).length) problems.push('MANIFEST_RUNTIME_DEPENDENCIES');
@@ -71,6 +76,7 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
  const vsixManifest = get('extension.vsixmanifest')?.toString('utf8');
  if (vsixManifest) {
   if (result.version !== 'unknown' && !new RegExp(`<Identity\\b[^>]*\\sVersion="${result.version.replaceAll('.', '\\.')}"`).test(vsixManifest)) problems.push('VSIXMANIFEST_VERSION');
+  if (!new RegExp(`<Identity\\b[^>]*\\sPublisher="StefanSuess"`).test(vsixManifest) || !/<Identity\b[^>]*\sId="cyclegauge"/.test(vsixManifest)) problems.push('VSIXMANIFEST_IDENTITY');
   const flagged = /Microsoft\.VisualStudio\.Code\.PreRelease"\s+Value="true"/.test(vsixManifest);
   if (options.expectPreRelease && !flagged) problems.push('VSIXMANIFEST_NOT_PRERELEASE');
  }

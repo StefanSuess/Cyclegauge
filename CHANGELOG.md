@@ -4,7 +4,7 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 ## 0.5.2 (beta, macOS)
 
-First public beta under the new extension identity **Cyclegauge for Kiro IDE** (extension `cyclegauge`).
+First public beta under the new extension identity **Cyclegauge for Kiro IDE** (extension ID `StefanSuess.cyclegauge`).
 
 ### Important if you used EasyKiroGauge
 

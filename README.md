@@ -25,9 +25,9 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the us
 
 ## Install
 
-Cyclegauge is a **macOS beta**. Kiro installs extensions from [Open VSX](https://open-vsx.org).
+Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
 
-1. In Kiro, open the Extensions view and search for **Cyclegauge**, or run **Extensions: Install from VSIX...** with a downloaded `.vsix` file.
+1. In Kiro, run **Extensions: Install from VSIX...** and select a Cyclegauge `.vsix` file. (If Cyclegauge appears in Kiro's Extensions view, which uses Open VSX, you can install it there instead; see the changelog for the current distribution channel.)
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 

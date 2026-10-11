@@ -25,6 +25,12 @@ test('settings are declared under both prefixes and the legacy keys are deprecat
  assert.equal(Object.keys(props).length, SETTING_KEYS.length * 2);
 });
 
+test('the intended Open VSX ID is StefanSuess.cyclegauge and differs from the legacy ID', () => {
+ assert.equal(`${manifest.publisher}.${manifest.name}`, 'StefanSuess.cyclegauge');
+ assert.equal(LEGACY_EXTENSION_ID, 'easykirogauge.easykirogauge');
+ assert.notEqual(`${manifest.publisher}.${manifest.name}`.toLowerCase(), LEGACY_EXTENSION_ID.toLowerCase());
+});
+
 test('legacy aliases exist only for commands that shipped in v0.5.1', () => {
  const log: string[] = [];
  assert.equal(registerCommand(stub(log), 'showUsage', () => {}).length, 2);

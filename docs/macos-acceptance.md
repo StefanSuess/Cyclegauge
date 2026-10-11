@@ -32,7 +32,7 @@ Fill `$D/source` with the synthetic data generator or fixture described in `docs
 
 | # | Check | Expected |
 |---|---|---|
-| A1 | Extensions: Install from VSIX, pick `candidate.vsix` | Installs as **Cyclegauge for Kiro IDE**, ID `<publisher>.cyclegauge`, flagged pre-release; icon shows |
+| A1 | Extensions: Install from VSIX, pick `candidate.vsix` | Installs as **Cyclegauge for Kiro IDE**, ID `StefanSuess.cyclegauge`, flagged pre-release; icon shows |
 | A2 | Reload window | Status bar item `Kiro: …` appears (not "paused"); no error toast |
 | A3 | Click it | A tab "Your credit budget" opens; hero, metrics, usage bar, chart with accessible text; tooltip is short and contains no path |
 | A4 | Command Palette, type "Cyclegauge" | Entries start with "Cyclegauge:"; no "EasyKiroGauge:" entries, no duplicates |

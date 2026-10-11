@@ -8,7 +8,7 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 | --- | --- | --- |
 | Display name | EasyKiroGauge | Cyclegauge for Kiro IDE |
 | Package name | `easykirogauge` | `cyclegauge` |
-| Publisher | `easykirogauge` | **unchanged, provisional**: no Open VSX namespace is chosen yet |
+| Publisher | `easykirogauge` | `StefanSuess` (0.5.2); namespace not yet created or verified |
 | Commands | `easykirogauge.*` | `cyclegauge.*`; the four v0.5.1 IDs stay as runtime aliases (`easykirogauge.showUsage` is kept) |
 | Settings | `easykirogauge.sourceRoot`, `storageRoot`, `sourceTimezone` | `cyclegauge.*`; old keys still read as fallback |
 | Webview panel type | `easykirogauge.usage` | `cyclegauge.usage` |
@@ -47,9 +47,9 @@ Changing the package name (and later the publisher) produces a new extension ID.
 
 The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`), `extension/changelog.md` and `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` (package `icon`) plus the two VSIX manifest files (8 entries). Check commands are in [development.md](development.md).
 
-## Publisher / Open VSX namespace: open decision
+## Publisher / Open VSX namespace
 
-`package.json` still says `publisher: easykirogauge` because `vsce` requires a value and no verified namespace exists. This is a provisional, unclaimed string; the resulting ID (`easykirogauge.cyclegauge`) is not final. Before the first marketplace beta the maintainer must claim a namespace, after which one `publisher` line and `LEGACY_EXTENSION_ID` stay as they are (it identifies the old build). Not selected here by design.
+From 0.5.2 `package.json` says `publisher: StefanSuess`, so the intended extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11, provided the namespace is available). The namespace is **not yet created or verified**; if it cannot be obtained, `package.json`, the release verifier and the docs change together. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the new ID.
 
 ## Where this change should land, and conflicts
 

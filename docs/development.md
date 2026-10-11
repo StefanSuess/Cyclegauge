@@ -30,7 +30,7 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 | Public repository | `StefanSuess/Cyclegauge` | The old `EasyKiroGauge` URL redirects. |
 | Brand / product display name | Cyclegauge / Cyclegauge for Kiro IDE | User-visible text only. |
 | npm package / extension name | `cyclegauge` | Previously `easykirogauge`. A new extension ID is a distinct extension; see [identity-migration.md](identity-migration.md). |
-| Publisher | `easykirogauge` | **Provisional**; the final Open VSX namespace is not decided. |
+| Publisher | `StefanSuess` | Chosen by the maintainer; the Open VSX namespace is not yet created or verified. Extension ID `StefanSuess.cyclegauge`. |
 | Command IDs, settings keys, webview panel ID | `cyclegauge.*` | The four v0.5.1 command IDs keep `easykirogauge.*` aliases and the old settings keys remain a deprecated fallback. |
 | Storage folder | `EasyKiroGauge` under the platform data directory | Unchanged on purpose; no storage migration without a separate security review. |
 
