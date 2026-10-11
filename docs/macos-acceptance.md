@@ -17,16 +17,16 @@ Record: macOS version and architecture, Kiro version (About), SHA-256, run id. S
 
 ## 1. Isolated instance
 
+Run the exact [synthetic setup and CLI preflight in development.md](development.md#reproducible-synthetic-native-acceptance-setup), in the same shell. It defines `$D`, creates 36 invented daily account-response envelopes ending at the current UTC time, and configures both settings prefixes in user settings. Do not use a static 2030 fixture or copy real logs. The preflight must print `SYNTHETIC_PREFLIGHT_PASS`.
+
+Quit any previous isolated instance for that profile; this must print zero:
+
 ```sh
-D=$HOME/.cg-iso            # any new empty directory
-mkdir -p $D/home $D/user-data/User $D/extensions $D/workspace $D/source
-# point the instance at synthetic data only; the settings are machine-scoped, so they belong in user settings
-cat > $D/user-data/User/settings.json <<EOF
-{ "cyclegauge.sourceRoot": "$D/source", "cyclegauge.storageRoot": "$D/storage" }
-EOF
+pgrep -f -- "--user-data-dir $D/user-data" | wc -l
+HOME="$D/home" /Applications/Kiro.app/Contents/MacOS/Kiro --user-data-dir "$D/user-data" --extensions-dir "$D/extensions" --new-window "$D/workspace"
 ```
 
-Fill `$D/source` with the synthetic data generator or fixture described in `docs/development.md` (invented values only). Quit any other isolated instance first (`pgrep -f -- "--user-data-dir $D/user-data" | wc -l` prints 0). Launch with `HOME=$D/home /Applications/Kiro.app/Contents/MacOS/Kiro --user-data-dir $D/user-data --extensions-dir $D/extensions --new-window $D/workspace`.
+Do not sign in or use Kiro's agent. Install the exact candidate VSIX in this instance. Synthetic freshness is relative to setup time; create a new profile if more than 24 hours pass. The current-date setup spans UTC cycles, preserves counter resets, and uses explicit UTC settings and timestamp offsets.
 
 ## A. Fresh install (record pass / fail / blocked)
 
@@ -49,7 +49,7 @@ Fill `$D/source` with the synthetic data generator or fixture described in `docs
 
 ## C. Coming from EasyKiroGauge (migration, not an upgrade)
 
-Use a **separate** isolated profile with the legacy VSIX (`easykirogauge-0.5.1`, built from tag `v0.5.1`) installed first and synthetic data collected.
+Create a **second new** isolated profile using the same development setup block (a new `$D`). Install the legacy VSIX (`easykirogauge-0.5.1`, built from tag `v0.5.1`) first, then reload and open its usage view so it collects the 36 invented observations. Both prefixes point at the same profile-local source and `home/Library/Application Support/EasyKiroGauge` store. Keep this profile for C1–C6; do not copy a real store, and do not seed its native store with the current CLI. The development guide includes a separate temporary legacy build command.
 
 | # | Check | Expected |
 |---|---|---|
@@ -79,7 +79,7 @@ Use a **separate** isolated profile with the legacy VSIX (`easykirogauge-0.5.1`,
 
 ## F. Cost Advisor on this exact candidate (required before publication)
 
-Use only invented account responses as described in [development.md](development.md). The donor branch's demo and owner-run scripts are not included. Create several comparable observations over at least 48 hours, with a fresh last observation, matching reported limit and UTC reset; use synthetic Pro Max (5000 credits) with low usage to exercise a modelled next-reset comparison.
+Use the exact current-date [development setup](development.md#reproducible-synthetic-native-acceptance-setup) and its preflight, not an unspecified generator. Run the candidate in the fresh profile after ensuring the legacy extension is absent/disabled. In the Advisor choose **Pro Max → Personal subscription (consumer) → No purchased add-on credits**. The 5000-credit reported limit, fresh pooled forecast and 20 invented credits/day exercise a modelled next-reset difference. Record the exact candidate SHA-256 and setup UTC anchor with F1–F6 results.
 
 | # | Check | Expected |
 |---|---|---|

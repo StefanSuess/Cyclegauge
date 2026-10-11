@@ -19,3 +19,11 @@ Synthetic local checks on macOS: current-main baseline 194 unit tests and 8 rele
 A release candidate is built with `release:build --pre-release`, checked by the unchanged verifier and independently rebuilt for payload comparison. Its exact file checksum is delivered with the candidate, outside the repository. CI must also pass on the final PR commit.
 
 Independent review and native acceptance are separate gates. Independent read-only review found no critical or important issues and two minor clarity findings. Both are addressed: future-cycle pooled-history basis is disclosed (new regression test failed before the fix and passed after it), and the spec distinguishes classifier verdicts from conditional numerical differences. The reviewer independently ran 42 focused tests. Native macOS acceptance remains pending and must use the exact final candidate under [the revised checklist](macos-acceptance.md), including section F. No merge, publish, tag or GitHub release is performed by this integration task.
+
+## Final release-readiness documentation
+
+PR #17 now specifies a fully invented, current-date UTC setup (36 daily observations across cycles), a CLI preflight, and isolated legacy-first migration steps. Publishing explicitly requires acceptance section F. Namespace existence and verification are distinct from maintainer publishing access. The GitHub bot request did not execute: its reply requires a Codex environment for this repository. Only the local independent review is complete; no GitHub bot review is claimed.
+
+Documentation setup verification: the exact Python block parses as 36 accepted invented records. Current-date, UTC month-start and year-start runs each yield a regular `history_28_day` forecast and a modelled next-cycle difference. CLI preflight observes all 36 invented records. These are collector/engine checks, not native Kiro acceptance.
+
+The documented legacy-tag packaging command built the 0.5.1 VSIX. A generated migration store populated by the legacy CLI retained all 36 invented observations when opened by the current CLI (0 new imports, 36 duplicates, unchanged observed usage). This checks data reuse only; side-by-side activation still requires native checklist C.
