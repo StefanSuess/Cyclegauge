@@ -1,4 +1,4 @@
-# EasyKiroGauge contributor rules
+# Cyclegauge contributor rules
 
 ## Scope and authority
 
@@ -26,7 +26,7 @@
 - Kiro-owned files and databases must remain strictly read-only: no migrations, repairs, checkpoints, journal-mode changes, permission changes, sidecar creation, settings changes, session exports, or writes of any kind.
 - Use explicit read-only handles and allowlisted paths. Do not recursively import snapshots, source trees, or unrelated directories; reject symlink escapes from configured source roots.
 - SQLite `query_only` alone is insufficient. A future reader must prove it cannot create or modify sidecars. `immutable=1` is not a generally correct reader for live databases or WAL content. Unsupported/concurrently changing database states must produce a safe unavailable status, never fabricated current data.
-- Write only to EasyKiroGauge-owned storage. Do not put extracted real billing data in the repository. Never use production Kiro data for automated tests or CI.
+- Write only to Cyclegauge-owned storage. Do not put extracted real billing data in the repository. Never use production Kiro data for automated tests or CI.
 
 ## Evidence and validation
 

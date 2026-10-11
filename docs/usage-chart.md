@@ -1,0 +1,11 @@
+# Usage trajectory chart
+
+Part of the detail view since 0.5.0. Kept here in full; the README only summarizes it.
+
+The budget detail view now shows a script-free **Usage trajectory** chart (inline SVG, no chart library, no new permission) above the Forecast section. It plots the observed cumulative account counter at the actual snapshot times, thin connectors only between comparable intervals of at most 36 hours, hatched unknown periods (never zero-filled), the reported credit limit, the billing reset, and — only for a fresh qualified forecast — the expected trajectory plus lower (75%) and higher (125%) scenarios, an even-allocation budget guide and a conditional limit-reached marker. The scenario range is a declared assumption, not a statistical confidence interval.
+
+- **Reported credit limit.** The observed CREDIT limit is not verified as base-only or total available capacity; for individual accounts it may include purchased add-on credits, while Enterprise overages can allow usage beyond the subscription quota. Usage above the reported limit (for example `2100 / 2000`) is shown as observed with a distinct marker and tinted region. The counter alone does not establish overage charges, purchased balance or billing eligibility. Remaining-capacity and budget figures are presentation of the existing calculation (`reported limit − usage`, floored at zero); the forecast algorithms are unchanged.
+- **Clipped projections.** If a trajectory leaves the visible range it is clipped with a marker and a visible note; the full numeric endpoint is in the text summary and data table.
+- **Data parity.** The text summary and the *Chart data table* list every plotted observed point, limit segment, unknown period, event, scenario endpoint, budget-guide endpoint, reset, evaluation time and conditional exhaustion day. At most 96 observed points are plotted; thinning keeps the first, last and every update beside an unknown period or event, and the omitted count is stated.
+
+Details and validation: `docs/milestone-5-validation.md`.

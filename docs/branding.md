@@ -18,7 +18,7 @@ The icon stands for Cyclegauge only. Product branding stays "Cyclegauge for Kiro
 
 ## README
 
-The README does not reference the icon yet. The branding rewrite in the pending README PR rewrites the same header, and a VSIX README needs absolute `https://` image URLs that only resolve once the file is on the default branch. Add a small header image (`cyclegauge-icon-128.png`, absolute URL) in a follow-up after that PR merges. A product screenshot is not required for the icon; screenshots are a separate task once the dashboard is final.
+The README header shows `cyclegauge-icon-128.png` through an absolute `raw.githubusercontent.com` URL (a VSIX README cannot use relative image paths). The image only resolves once this file is on the default branch. A product screenshot is a separate task once the dashboard is final.
 
 ## Packaging impact
 
@@ -28,6 +28,8 @@ The README does not reference the icon yet. The branding rewrite in the pending 
 | --- | --- | --- |
 | Before | 5 | 62.1 KB |
 | After | 6 | 128.2 KB |
+
+(Measured on the 0.5.1 baseline before the license entry landed; with `LICENSE` the VSIX has 7 entries.)
 
 The icon adds about 66 KB (lossless RGBA). If size matters more later, the 128 px file is about 20 KB, and an 8-bit palette-quantized 256 px version is about 8 KB with slight dithering in the dark background. The source, larger derivatives and the social preview are never packaged.
 
