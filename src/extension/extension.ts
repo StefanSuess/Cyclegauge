@@ -8,7 +8,7 @@ let stop: (() => void) | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
- item.name = 'EasyKiroGauge credit budget';
+ item.name = 'Cyclegauge credit budget';
  item.command = 'easykirogauge.showUsage';
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
