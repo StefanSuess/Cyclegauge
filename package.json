@@ -7,6 +7,7 @@
   "displayName": "EasyKiroGauge",
   "description": "Local account credit usage in Kiro IDE",
   "publisher": "easykirogauge",
+  "icon": "assets/branding/cyclegauge-icon-256.png",
   "main": "./dist/extension.cjs",
   "engines": {
     "vscode": "^1.90.0",
