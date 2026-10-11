@@ -15,7 +15,7 @@ Usage: node --disable-warning=ExperimentalWarning src/cli.ts [options]
   --diagnostics                Fixed-code platform, runtime and source report; creates nothing
   --help
 No Kiro commands, authenticated requests, session aggregation or cache reads.
-Remaining base credits are observed limit minus observed usage, clamped at zero.
+Reported remaining credits are the reported credit limit minus observed usage, clamped at zero. The limit may include purchased add-on credits; this is not verified.
 Per-day allocation uses UTC 24-hour days until reset; it is not a forecast.
 Windows storage permissions are unsupported; Windows/Ubuntu/RHEL are unverified.`;
 let store: Store | undefined;
@@ -49,7 +49,7 @@ try {
   if (values.json) console.log(JSON.stringify(output, null, 2));
   else {
    const value = (v: string | null) => v ?? 'unknown/unavailable';
-   console.log(`Status: ${observation.status}\nObserved at: ${value(observation.observedAt)}\nSource: GetUsageLimitsCommand\nObserved usage: ${value(observation.usage)} CREDIT\nBase limit: ${value(observation.baseLimit)} CREDIT\nRemaining base credits (as observed): ${value(observation.remainingBaseCredits)}\nReset (UTC): ${value(observation.resetAt)}\nAvailable base credits per remaining UTC 24-hour day: ${value(observation.availablePerDay)}\nAllocation only; truncated to six decimals. Total including extra credits: unknown.\nInterval: ${observation.interval.status}\nQuality: ${observation.flags.join(', ') || 'none'}\nImport: ${imported.imported} accepted, ${imported.duplicates} duplicates\nDiagnostics: ${Object.entries(imported.codes).map(([code, count]) => `${code}=${count}`).join(', ') || 'none'}\nCache: ${output.cache}\nPlatform verification: ${output.platformVerification}`);
+   console.log(`Status: ${observation.status}\nObserved at: ${value(observation.observedAt)}\nSource: GetUsageLimitsCommand\nObserved usage: ${value(observation.usage)} CREDIT\nReported credit limit: ${value(observation.baseLimit)} CREDIT\nReported remaining credits (as observed): ${value(observation.remainingBaseCredits)}\nReset (UTC): ${value(observation.resetAt)}\nReported remaining credits per remaining UTC 24-hour day: ${value(observation.availablePerDay)}\nAllocation only; truncated to six decimals. Total including extra credits: unknown.\nInterval: ${observation.interval.status}\nQuality: ${observation.flags.join(', ') || 'none'}\nImport: ${imported.imported} accepted, ${imported.duplicates} duplicates\nDiagnostics: ${Object.entries(imported.codes).map(([code, count]) => `${code}=${count}`).join(', ') || 'none'}\nCache: ${output.cache}\nPlatform verification: ${output.platformVerification}`);
   }
   }
  }
