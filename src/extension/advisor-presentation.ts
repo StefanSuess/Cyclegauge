@@ -1,11 +1,12 @@
-import type {CostOptimization} from '../cost/types.ts';
 import type {Advice,AdviceKind,AdvisorContext,PlanHint} from '../cost/advisor.ts';
+import {estimateSavings,formatUsd,type DemandEstimate,type SavingsEstimate} from '../cost/estimate.ts';
 import {planNames,type CostHorizon} from './cost-inputs.ts';
 import {winnerText,reasonText,presentCost} from './cost-presentation.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
 
 const safe=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]!);
 export const adviceLabels:Record<AdviceKind,string>={no_action:'No action needed',potential_savings:'Potential savings',conditional_comparison:'Conditional comparison',insufficient_information:'Insufficient information'};
+export const tierLabels:Record<SavingsEstimate['tier'],string>={supported:'Supported estimate',modelled:'Modelled estimate',comparison_only:'Cost comparison only',insufficient:'Insufficient information'};
 const assumptionText:Record<string,string>={
  plan_is_hint:'Your plan is a hint from the reported credit limit and is not confirmed.',
  plan_not_confirmed:'Your plan is not confirmed.',
@@ -17,7 +18,22 @@ const assumptionText:Record<string,string>={
  usage_exceeds_reported_limit:'Observed usage is above the reported limit, so the plan remainder is unknown (this can happen with overages or purchased credits).',
  limit_differs_from_plan_credits:'The reported limit differs from the chosen plan\'s nominal credits, so it may include other credits and the plan remainder is unknown.',
  enterprise_inputs_unconfirmed:'Enterprise prepaid add-ons, overage permission and headroom are not entered yet; comparisons stay unavailable or conditional.',
+ list_prices_pre_tax:'Amounts are bundled list prices before tax. Promotions are excluded. They are not invoices.',
+ forecast_not_guaranteed:'The figures assume your usage continues at the forecast. Real usage can differ, so nothing is guaranteed.',
+ only_next_reset_changes_compared:'Only keeping your plan or changing plan at the next billing reset is compared. Mid-cycle upgrades are not priced.',
+ overall_cheapest_unknown:'Some options could not be priced, so a cheaper option than the lowest calculable one may exist.',
+ sensitivity_changes_preferred_plan:'The lowest-cost plan changes with usage (see the sensitivity list).',
+ sensitivity_partly_unpriced:'At some usage levels the cost could not be calculated, for example when extra credit purchases cannot be priced yet.',
+ free_plan_terms_unverified:'Moving to Free means cancelling the paid plan. Free plan terms for your account were not verified.',
+ baseline_cost_unavailable:'The cost of staying on your current plan could not be calculated, so no difference is shown.',
+ limited_history:'The forecast is based on limited history.',
+ short_window_long_horizon:'Multi-cycle figures extend a short observation window.',
+ sustained_usage_scenario:'Multi-cycle figures repeat the forecast and are sustained-usage scenarios, not predictions.',
 };
+const usdCost=(d:string)=>`USD ${safe(formatUsd(d,'up'))}`;
+const usdSaving=(d:string)=>`USD ${safe(formatUsd(d,'down'))}`;
+const cycles=(n:number)=>`${n} full billing ${n===1?'cycle':'cycles'}`;
+const day=(iso:string)=>safe(iso.slice(0,10));
 const summary=(h:CostHorizon,a:Advice)=>{
  const label=adviceLabels[a.kind];
  const body=h.result&&a.kind!=='insufficient_information'
@@ -25,22 +41,85 @@ const summary=(h:CostHorizon,a:Advice)=>{
   :'Not enough confirmed information for a comparison.';
  return `<li><strong>${h.months} full billing ${h.months===1?'cycle':'cycles'}: ${safe(label)}</strong> — ${safe(body)}</li>`;
 };
-function savings(o:CostOptimization|null){
- const r=o?.savingsRange;return r?` Modelled saving range: USD ${safe(r.minimum.amount)} to USD ${safe(r.maximum.amount)} over the period (list prices, pre-tax).`:'';
+/** One line per horizon, always labelled with its tier so a modelled difference is never read as a confirmed saving. */
+function horizonLine(e:SavingsEstimate,fallback:string):string {
+ const head=`<strong>${cycles(e.months)}${e.window?` (${day(e.window.from)} to ${day(e.window.to)} UTC)`:''}: ${safe(tierLabels[e.tier])}</strong>`;
+ const b=e.base;
+ if(e.tier==='insufficient'||!b||!b.best)return `<li>${head} — ${safe(fallback)}</li>`;
+ const now=b.baseline!==null&&e.baselinePlan?`${safe(planNames[e.baselinePlan])} ${usdCost(b.baseline)}`:'current plan not priced';
+ const alt=`${safe(planNames[b.best.plan])} ${usdCost(b.best.cost)}`;
+ const diff=b.saving===null?'no difference calculated'
+  :e.outcome==='saving'?`modelled difference ${usdSaving(b.saving)}`:'no cheaper option found (difference USD 0)';
+ return `<li>${head} — ${b.best.keep?'staying on':'lowest calculable:'} ${alt}; current plan: ${now}; ${diff}</li>`;
 }
+function sensitivityLines(e:SavingsEstimate):string {
+ const label={low:'75%',base:'100%',high:'125%'};
+ const line=(l:DemandEstimate)=>{
+  if(!l.best)return `<li><strong>${label[l.demandId]} of forecast usage:</strong> costs could not be calculated at this level.</li>`;
+  const now=l.baseline!==null&&e.baselinePlan?`; current plan ${safe(planNames[e.baselinePlan])} ${usdCost(l.baseline)}`:'';
+  const diff=l.saving===null?'':l.saving==='0'?'; no cheaper option (difference USD 0)':`; modelled difference ${usdSaving(l.saving)}`;
+  return `<li><strong>${label[l.demandId]} of forecast usage:</strong> lowest calculable ${safe(planNames[l.best.plan])} ${usdCost(l.best.cost)}${now}${diff}</li>`;
+ };
+ return `<ul class="small">${e.levels.map(line).join('')}</ul><p class="muted small">These are demand alternatives, not statistical confidence intervals.</p>`;
+}
+/** Most useful near-term estimate: the first horizon (next full cycle) that has any calculable figure. */
+const headlineOf=(estimates:SavingsEstimate[])=>estimates.find(e=>e.tier!=='insufficient')??null;
+
+function estimateCard(e:SavingsEstimate,context:AdvisorContext,limit:string|null):{verdict:string;html:string} {
+ const b=e.base!;const best=b.best!;
+ const cur=e.baselinePlan?safe(planNames[e.baselinePlan]):null;
+ const target=safe(planNames[best.plan]);
+ const period=e.window?`${day(e.window.from)} to ${day(e.window.to)}, UTC`:'';
+ const span=e.months===1?'the next full billing cycle':`the next ${e.months} full billing cycles`;
+ const per=e.months===1?'per billing cycle':`over ${e.months} billing cycles`;
+ const tierText=e.tier==='supported'?'Supported by your confirmed details':e.tier==='modelled'?'Modelled — assumptions below':'Costs only — no saving calculated';
+ let figure='',verdict='';
+ if(e.outcome==='saving'&&b.saving!==null&&b.baseline!==null){
+  figure=`<p class="figure"><strong>${usdSaving(b.saving)}</strong> <span>${e.tier==='supported'?'potential saving':'modelled potential saving'} ${per}</span></p>`;
+  verdict=`Changing from ${cur} to ${target} at your next billing reset would cost ${usdCost(best.cost)} instead of ${usdCost(b.baseline)} in ${span} (${period}).`;
+ }else if(e.outcome==='no_cheaper'&&b.baseline!==null){
+  figure=`<p class="figure"><strong>No cheaper plan found</strong> <span>among the options that could be priced</span></p>`;
+  verdict=`${cur} is the lowest-cost option that could be priced for your forecast: ${usdCost(b.baseline)} in ${span} (${period}).`;
+ }else{
+  figure=`<p class="figure"><strong>No saving calculated</strong> <span>the cost of your current plan is unknown</span></p>`;
+  verdict=`For your forecast the lowest calculable option is ${target} at ${usdCost(best.cost)} in ${span} (${period}). The cost of staying on your current plan could not be calculated, so no saving is shown.`;
+ }
+ const credits=PLAN_CREDITS[best.plan];
+ const fc=b.forecastCredits!==null?Math.round(Number(b.forecastCredits)/e.months):null;
+ const fits=fc!==null&&credits!==undefined&&Number.isFinite(fc)?`Your forecast of about ${fc} credits per cycle${e.months>1?' (average)':''} fits within ${target}'s ${safe(credits)} credits.`:'';
+ const changes=e.preferredChanges?` Which plan is cheapest depends on usage${e.range?`: the modelled difference ranges from ${usdSaving(e.range.minimum)} to ${usdSaving(e.range.maximum)} between 75% and 125% of forecast usage`:''} (see the sensitivity list).`:'';
+ const assumes:string[]=[];
+ if(cur){
+  assumes.push(context.planSource==='confirmed'?`you are on ${cur} (confirmed by you)`:`you are on ${cur} (inferred${limit!==null?` from your reported ${safe(limit)}-credit limit`:''}, not confirmed)`);
+ }
+ if(!context.billingConfirmed)assumes.push('personal (consumer) billing');
+ if(context.addOns==='assumed_none')assumes.push('no purchased add-on credits');
+ if(context.addOns==='some')assumes.push('add-on credits as you entered them (unverified)');
+ assumes.push('your usage continues at the forecast','list prices before tax, no promotions');
+ const html=`<div class="estimate estimate-${e.tier}" role="group" aria-label="Savings estimate"><p class="tier"><span class="badge">${safe(tierLabels[e.tier])}</span> <span class="muted small">${safe(tierText)}</span></p>${figure}`
+  +`<p class="verdict">${verdict}</p>`
+  +(fits||changes?`<p class="small">${fits}${changes}</p>`:'')
+  +`<p class="small"><strong>Assumes:</strong> ${assumes.join('; ')}.</p>`
+  +`<p class="muted small">A modelled difference in list prices. It is not a guarantee, not a saving you have realised and not an invoice.</p></div>`;
+ return {verdict,html};
+}
+const PLAN_CREDITS:Record<string,string>=Object.fromEntries(reviewedCatalog.plans.map(p=>[p.id,p.credits]));
+
 /** Compact verdict first; assumptions, per-horizon comparisons and the full cost tables stay behind one disclosure. Script-free, no links with commands. */
 export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:CostHorizon[];advice:Advice[];singleAccount:boolean;failed?:boolean;limit:string|null}):string {
  const {hint,context,horizons,advice}=o;
  const planName=context.plan?safe(planNames[context.plan]):null;
+ const estimates=o.failed?[]:horizons.map((h,i)=>estimateSavings(h.result,context,advice[i]??{kind:'insufficient_information',reasons:[]},h.months));
+ const headline=headlineOf(estimates);
  const fromContext=[...(context.planSource==='hint'?['plan_is_hint']:context.planSource==='unknown'?['plan_not_confirmed']:[]),...(context.billingConfirmed?[]:['billing_assumed_consumer']),...(context.addOns==='some'?['add_on_balance_unverified']:context.addOns==='assumed_none'||context.addOns==='unknown'?['add_ons_assumed_none']:[])];
- const codes=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions,...fromContext,...advice.flatMap(a=>a.reasons)])];
+ const codes=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions,...fromContext,...advice.flatMap(a=>a.reasons),...estimates.flatMap(e=>e.conditions)])];
  const assumptions=codes.filter(c=>c in assumptionText).map(c=>assumptionText[c]);
  const engineReasons=codes.filter(c=>!(c in assumptionText));
  const conditions=[...assumptions,...engineReasons.map(reasonText)];
  const catalog=reviewedCatalog;
  const first=horizons[0]?.result??null;
  const kind=advice[0]?.kind??'insufficient_information';
- // The verdict never states a saving unless the engine classified it as potential_savings (every input confirmed).
+ // Without a numerical estimate the verdict never states a saving unless the engine classified it as potential_savings.
  const verdict=o.failed?'The Cost Advisor is unavailable; your budget and forecast remain usable.'
   :kind==='potential_savings'?`Potential saving${first?.savingsRange?`: USD ${safe(first.savingsRange.minimum.amount)} to USD ${safe(first.savingsRange.maximum.amount)} over ${horizons[0].months} full billing ${horizons[0].months===1?'cycle':'cycles'} (list prices, pre-tax)`:''}. ${first?safe(winnerText(first)):''}`
   :kind==='no_action'?'No cheaper option found for your forecast usage. Keep your current plan.'
@@ -48,28 +127,40 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
   :horizons.length?'Not enough confirmed information to compare plans yet. No savings are claimed.':'A qualified forecast is needed before costs can be compared. Keep using Kiro; this updates automatically.';
  // Name the visible blocking condition when the plan remainder is unknown; still fail-closed, no figures are derived from it.
  const nominal=context.plan?reviewedCatalog.plans.find(p=>p.id===context.plan)?.credits:undefined;
- const blocker=kind==='potential_savings'||kind==='no_action'?null
+ const blocker=headline!==null||kind==='potential_savings'||kind==='no_action'?null
   :codes.includes('limit_differs_from_plan_credits')&&nominal!==undefined&&o.limit!==null?`Your reported limit (${safe(o.limit)}) doesn't match ${planName} (${safe(nominal)}). Check your plan or add-on credits.`
   :codes.includes('usage_exceeds_reported_limit')?'Observed usage is above the reported limit, so the remaining plan credits are unknown.'
   :context.addOns==='some'?'You have add-on credits, so your remaining plan credits cannot be separated from the reported limit.'
   :null;
- const verdictText=blocker?`${blocker} ${verdict}`:verdict;
+ const card=headline?estimateCard(headline,context,o.limit):null;
+ const verdictBlock=card?card.html:`<p class="verdict">${blocker?`${blocker} ${verdict}`:verdict}</p>`;
  const planLine=context.planSource==='confirmed'?`<span class="badge">Confirmed by you</span>`
   :context.planSource==='hint'?`<span class="badge">Unconfirmed</span>`:'';
  const planText=planName?`<strong>${planName}</strong>`:'<strong>Plan unknown</strong>';
  const planNote=context.planSource==='hint'?`Inferred from the reported ${safe(o.limit??'')} credits; this may include purchased credits, so it is only a hint.`
   :context.planSource==='confirmed'?(kind==='insufficient_information'||!horizons.some(h=>h.result)?'':'Used for the comparison below.'):'Not confirmed, and the reported credit limit is unavailable or matches no catalog plan.';
- const rows=horizons.map((h,i)=>summary(h,advice[i])).join('');
- const detail=(rows||conditions.length||horizons.some(h=>h.result))
+ const rows=estimates.some(e=>e.tier!=='insufficient')
+  ?estimates.map((e,i)=>horizonLine(e,summaryFallback(horizons[i],advice[i]))).join('')
+  :horizons.map((h,i)=>summary(h,advice[i])).join('');
+ const anyCosts=horizons.some(h=>h.result);
+ const detail=(rows||conditions.length||anyCosts)
   ?`<details><summary>Why, assumptions and comparison</summary>`
    +(conditions.length?`<p class="small"><strong>Conditions that apply:</strong></p><ul class="small">${conditions.map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
-   +(rows?`<p class="small"><strong>By horizon</strong></p><ul class="small">${rows}</ul>`:'')
-   +(horizons.some(h=>h.result)?`<details class="small"><summary>Full cost comparison and sensitivity</summary><p class="muted small">Saving figures are hidden unless every input is confirmed; differences here are costs under the conditions above, not savings.</p>${horizons.filter(h=>h.result).map(h=>`<h4>${h.months} full billing ${h.months===1?'cycle':'cycles'}</h4>${presentCost(h.result!,advice[horizons.indexOf(h)]?.kind==='potential_savings')}`).join('')}</details>`:'')
+   +(rows?`<details class="small" open><summary>1, 3 and 6 billing cycles</summary><ul class="small">${rows}</ul><p class="muted small">Multi-cycle figures repeat the same forecast. They are scenarios, not predictions.</p></details>`:'')
+   +(headline?`<details class="small"><summary>Sensitivity — 75% / 100% / 125% of forecast usage</summary>${sensitivityLines(headline)}</details>`:'')
+   +(anyCosts?`<details class="small"><summary>Full cost comparison and calculations</summary><p class="muted small">Costs are modelled new expenditure under the conditions above, not invoices. Per-strategy saving figures stay hidden unless every input is confirmed.</p>${horizons.filter(h=>h.result).map(h=>`<h4>${h.months} full billing ${h.months===1?'cycle':'cycles'}</h4>${presentCost(h.result!,advice[horizons.indexOf(h)]?.kind==='potential_savings')}`).join('')}</details>`:'')
    +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p></details>`
   :'';
+ const action=context.planSource==='confirmed'
+  ?`<strong>Change your plan or answers:</strong> use the light-bulb <strong>Cost Advisor</strong> item in the status bar.`
+  :`<strong>Not your plan? Confirm or correct it:</strong> use the light-bulb <strong>Cost Advisor</strong> item in the status bar and pick your plan. The figures above update immediately.`;
  return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
   +`<p class="plan-row"><span class="label">${context.planSource==='confirmed'?'Your plan':'Likely plan'}</span> ${planText} ${planLine}</p>${planNote?`<p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`:''}`
-  +`<p class="verdict">${verdictText}</p>`
-  +`<p class="action small"><strong>Confirm or change your plan:</strong> use the light-bulb <strong>Cost Advisor</strong> item in the status bar.${o.singleAccount?'':' Unavailable until a single account context is established.'}</p>`
+  +verdictBlock
+  +`<p class="action small">${action}${o.singleAccount?'':' Unavailable until a single account context is established.'}</p>`
   +detail+`</section>`;
+}
+function summaryFallback(h:CostHorizon|undefined,a:Advice|undefined):string {
+ if(!h||!a||!h.result)return 'Not enough confirmed information for a comparison.';
+ return `No numerical estimate is justified (${adviceLabels[a.kind].toLowerCase()}).`;
 }

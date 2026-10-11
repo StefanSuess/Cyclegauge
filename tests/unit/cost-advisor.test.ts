@@ -229,7 +229,10 @@ test('detail view shows the advisor first, answers are applied through the nativ
    const budget=status;
    answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
    assert.ok(html.includes('Confirmed by you'));assert.equal(status,budget);
-   assert.ok(!/Potential saving|No cheaper option/.test(html),'the engine marks every priced comparison conditional');
+   // The engine marks every priced comparison conditional, so any figure is a labelled model, never a supported claim.
+   assert.ok(!/Potential saving|No cheaper option|Supported estimate/.test(html));
+   assert.ok(html.includes('Modelled estimate'));assert.match(html,/No cheaper plan found/);assert.ok(!/class="figure"><strong>USD/.test(html));
+   assert.match(html,/not a guarantee, not a saving you have realised and not an invoice/);
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
    assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   }

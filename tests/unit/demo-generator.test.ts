@@ -33,3 +33,15 @@ test('demo month is synthetic, parses with the production parser, spans two cycl
   assert.equal(again.status,1);assert.equal(again.stdout.trim(),'OUT_NOT_EMPTY');
  }finally{await rm(base,{recursive:true,force:true});}
 });
+
+test('demo reported limit can be chosen from the plan credits only',async()=>{
+ const base=await realpath(await mkdtemp(join(tmpdir(),'synthetic-demo-limit-')));
+ try{
+  const out=join(base,'src');
+  execFileSync(process.execPath,[script,'--out',out,'--zone','UTC','--seed','3','--limit','2000'],{encoding:'utf8'});
+  const text=await readFile(join(out,'logs','synthetic-demo-run','synthetic-demo-window','exthost','kiro.kiroAgent','q-client.log'),'utf8');
+  const snaps=text.trim().split('\n').map(l=>parseLine(l,'UTC').snapshot!);
+  assert.ok(snaps.length>60);assert.ok(snaps.every(s=>s.limit==='2000'));
+  assert.equal(spawnSync(process.execPath,[script,'--out',join(base,'other'),'--limit','1234'],{encoding:'utf8'}).stdout.trim(),'LIMIT_INVALID');
+ }finally{await rm(base,{recursive:true,force:true});}
+});
