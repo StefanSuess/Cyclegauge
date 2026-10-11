@@ -280,3 +280,18 @@ test('advisor names the blocking condition in the headline and lists every assum
  const withResult=presentAdvisor({hint,context:ctx({planSource:'confirmed',plan:'pro',billingConfirmed:true,addOns:'none',assumptions:[]}),horizons:[{months:1,reasons:[],result:{status:'supported',reasons:[],scenarios:[],alternatives:[],savings:[],breakEven:{points:[],reasons:[]}} as any}],advice:[{kind:'no_action',reasons:[]} as any],singleAccount:true,limit:'1000'});
  assert.match(withResult,/Used for the estimate/);
 });
+
+test('Enterprise unknown add-ons are disclosed as unknown, never assumed absent',()=>{
+ const hint=planHint('5000',catalog);
+ const built=advisorProfile({limit:'5000',usage:'100',asOf:now,resetAt:'2030-02-01T00:00:00Z'},
+  {plan:'pro_max',billing:'enterprise_postpaid',addOns:null,addOnCredits:null},hint);
+ assert.equal(built.context.addOns,'unknown');
+ assert.deepEqual(built.profile?.purchased,{kind:'unknown'});
+ const html=presentAdvisor({hint,context:built.context,horizons:[],advice:[],singleAccount:true,limit:'5000'});
+ assert.ok(html.includes('Purchased add-on credits are unknown or have not been entered.'));
+ assert.ok(html.includes('Enterprise prepaid add-ons, overage permission and headroom are not entered yet'));
+ assert.ok(!html.includes('No purchased add-on credits are assumed'));
+ assert.ok(!html.includes('Modelled estimate'));
+ const assumed=presentAdvisor({hint,context:ctx({addOns:'assumed_none',assumptions:[]}),horizons:[],advice:[],singleAccount:true,limit:'5000'});
+ assert.ok(assumed.includes('No purchased add-on credits are assumed'));
+});

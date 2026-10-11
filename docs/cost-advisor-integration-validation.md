@@ -22,8 +22,14 @@ Independent review and native acceptance are separate gates. Independent read-on
 
 ## Final release-readiness documentation
 
-PR #17 now specifies a fully invented, current-date UTC setup (36 daily observations across cycles), a CLI preflight, and isolated legacy-first migration steps. Publishing explicitly requires acceptance section F. Namespace existence and verification are distinct from maintainer publishing access. The GitHub bot request did not execute: its reply requires a Codex environment for this repository. Only the local independent review is complete; no GitHub bot review is claimed.
+PR #17 now specifies a fully invented, current-date UTC setup (36 daily observations across cycles), a CLI preflight, and isolated legacy-first migration steps. Publishing explicitly requires acceptance section F. Namespace existence and verification are distinct from maintainer publishing access. The GitHub connector initially requested a Codex environment, then completed a review of `92c398d` with one P2 Enterprise disclosure finding. That finding is addressed below; review coverage remains commit-specific.
 
 Documentation setup verification: the exact Python block parses as 36 accepted invented records. Current-date, UTC month-start and year-start runs each yield a regular `history_28_day` forecast and a modelled next-cycle difference. CLI preflight observes all 36 invented records. These are collector/engine checks, not native Kiro acceptance.
 
 The documented legacy-tag packaging command built the 0.5.1 VSIX. A generated migration store populated by the legacy CLI retained all 36 invented observations when opened by the current CLI (0 new imports, 36 duplicates, unchanged observed usage). This checks data reuse only; side-by-side activation still requires native checklist C.
+
+## GitHub Codex review follow-up
+
+Codex completed its review of `92c398d` and reported that Enterprise's unknown purchased add-on state was disclosed as a hypothetical absence. The renderer now emits `add_ons_unknown` only for unknown/unentered inventory and reserves `add_ons_assumed_none` for the hypothetical state. The real Enterprise profile remains unknown and fails closed; pricing, storage and calculations are unchanged. A regression test failed before the presentation fix and passed after it, also confirming that the consumer hypothetical wording is retained. A new final candidate is required because the shipped presentation changed.
+
+After the GitHub review fix, full local validation passed: type checking, 232 unit tests, 9 release tests, the synthetic fixture validator and whitespace checks.

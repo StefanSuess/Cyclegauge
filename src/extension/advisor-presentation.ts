@@ -13,6 +13,7 @@ const assumptionText:Record<string,string>={
  plan_not_confirmed:'Your plan is not confirmed.',
  free_not_available_on_enterprise:'Free is not an Enterprise plan, so it was ignored.',
  billing_assumed_consumer:'Personal (consumer) billing is assumed. Enterprise accounts are priced differently.',
+ add_ons_unknown:'Purchased add-on credits are unknown or have not been entered.',
  add_ons_assumed_none:'No purchased add-on credits are assumed. Existing add-on credits would lower any purchase cost.',
  add_on_balance_unverified:'Remaining add-on credits were entered by you and are not verified.',
  limit_semantics_unverified:'Kiro may include purchased add-on credits in the reported limit; this has not been verified.',
@@ -143,7 +144,7 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
  const planName=context.plan?safe(planNames[context.plan]):null;
  const estimates=o.failed?[]:horizons.map((h,i)=>estimateSavings(h.result,context,advice[i]??{kind:'insufficient_information',reasons:[]},h.months));
  const headline=headlineOf(estimates);
- const fromContext=[...(context.planSource==='hint'?['plan_is_hint']:context.planSource==='unknown'?['plan_not_confirmed']:[]),...(context.billingConfirmed?[]:['billing_assumed_consumer']),...(context.addOns==='some'?['add_on_balance_unverified']:context.addOns==='assumed_none'||context.addOns==='unknown'?['add_ons_assumed_none']:[])];
+ const fromContext=[...(context.planSource==='hint'?['plan_is_hint']:context.planSource==='unknown'?['plan_not_confirmed']:[]),...(context.billingConfirmed?[]:['billing_assumed_consumer']),...(context.addOns==='some'?['add_on_balance_unverified']:context.addOns==='assumed_none'?['add_ons_assumed_none']:context.addOns==='unknown'?['add_ons_unknown']:[])];
  const codes=[...new Set([...hint.reasons.filter(r=>r==='limit_semantics_unverified'),...context.assumptions,...fromContext,...advice.flatMap(a=>a.reasons),...estimates.flatMap(e=>e.conditions)])];
  const assumptions=codes.filter(c=>c in assumptionText).map(c=>assumptionText[c]);
  const engineReasons=codes.filter(c=>!(c in assumptionText)&&!(headline&&c==='sensitivity_changes_winner'));
