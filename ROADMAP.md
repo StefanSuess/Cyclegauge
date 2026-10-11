@@ -102,3 +102,7 @@ The user approved Task 5 after accepting M4A, subject to resolving the synchrono
 Approved 2026-10-10 with refinements: observed zero net change is distinguished from proven inactivity and missing snapshots are never zero; pooled windows require independent comparable observations; heuristics are enabled only on walk-forward backtest evidence; availability, comparable-date error, underprediction risk and stability are reported separately with held-out scenarios; the release is 0.4.1 and 0.5.0 stays reserved for the dashboard.
 
 Delivered: 85-day billing-only cross-cycle evidence in `history()`, the zero-net gap rule, pooled `history_7/14/28/84_day` methods (forecast schema/policy 3, existing three methods unchanged), the completed-break exclusion (enabled), sustained-change selection (implemented, off by evidence), exact Cost Optimizer rate reuse with long-window future cycles, presentation text only. No charts, Store/collector/projection changes, session or CLI sources. See the [plan](docs/superpowers/plans/2026-10-10-milestone-4c.md) and [validation](docs/milestone-4c-validation.md); live forecast accuracy remains unestablished.
+
+## 0.5.2 macOS beta integration
+
+Completed Cost Advisor Phase A and numerical modelled estimates are integrated without PR #1 storage/platform changes. Native acceptance of the exact final candidate remains required before publication. SC1 and SC5 remain open; persistence, owner-run limit verification, platform PoCs and future-record handling are outside this integration.

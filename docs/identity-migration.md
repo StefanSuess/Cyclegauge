@@ -18,7 +18,7 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 ## What changes in code
 
 - `src/extension/identity.ts` holds every identifier, the alias list, and the two helpers (`registerCommand`, `readSetting`). It has no `vscode` import and is unit tested (`tests/unit/identity.test.ts`).
-- Commands: each command is registered as `cyclegauge.<name>`. Only the four commands that shipped in v0.5.1 (`showUsage`, `configureCostOptimizer`, `editCostScenario`, `clearCostInputs`) also get an `easykirogauge.<name>` alias, registered at runtime and **not** contributed in `package.json`, so the command palette shows one entry per command. Existing keybindings and tasks keep working. Commands added later never get an alias.
+- Commands use `cyclegauge.*`. Only `easykirogauge.showUsage` remains as an alias. The three old Optimizer commands are removed under both prefixes; use `cyclegauge.costAdvisor` in new bindings. No legacy alias is added for the Advisor.
 - Settings: both prefixes are declared in `contributes.configuration`; the legacy keys carry a `deprecationMessage`. Resolution order: `cyclegauge.*` if non-empty, else `easykirogauge.*` if non-empty, else the platform default. Values are read once at activation, as before.
 - The status bar item, command titles, CLI help text and VSIX file name (`cyclegauge-<version>.vsix`) use the new name.
 
@@ -41,7 +41,7 @@ Changing the package name (and later the publisher) produces a new extension ID.
 
 ## Custom keybindings and the three Cost Optimizer commands
 
-`configureCostOptimizer`, `editCostScenario` and `clearCostInputs` exist only in the v0.5.1 line. When the Cost Advisor (PR #3) replaces them, those three IDs are **removed, not redirected** to different functionality: drop them from `LEGACY_COMMAND_SUFFIXES` and the manifest. Only `easykirogauge.showUsage` stays as an alias. A user keybinding or task that still points to a removed ID will show VS Code's normal "command not found". Release notes for that version must say: replace those bindings with `cyclegauge.showUsage` / the new Cost Advisor command, or remove them.
+`configureCostOptimizer`, `editCostScenario` and `clearCostInputs` exist only in the v0.5.1 line. The Cost Advisor in 0.5.2 replaces them. Those three IDs are **removed, not redirected** to different functionality, from `LEGACY_COMMAND_SUFFIXES` and the manifest. Only `easykirogauge.showUsage` stays as an alias. A user keybinding or task that still points to a removed ID will show VS Code's normal "command not found". Release notes for that version must say: replace those bindings with `cyclegauge.showUsage` / the new Cost Advisor command, or remove them.
 
 ## Packaging
 

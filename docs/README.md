@@ -10,7 +10,7 @@ Start with the [project README](../README.md). Everything below is the detail be
 | [how-values-are-calculated.md](how-values-are-calculated.md) | What "used", "remaining" and "available per day" mean, and what stays unknown |
 | [forecasting.md](forecasting.md) | History, provisional and regular forecasts, status-bar wording |
 | [usage-chart.md](usage-chart.md) | The usage trajectory chart and its accessibility text |
-| [cost-optimizer.md](cost-optimizer.md) | The session-only Cost Optimizer in v0.5.1 |
+| [cost-optimizer.md](cost-optimizer.md) | The session-only Cost Advisor in 0.5.2 and its cost engine |
 | [privacy-and-storage.md](privacy-and-storage.md) | What is read, what is stored, permissions, limits |
 | [platform-support.md](platform-support.md) | Verified and unverified platforms, known limitations |
 

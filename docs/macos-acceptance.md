@@ -36,7 +36,7 @@ Fill `$D/source` with the synthetic data generator or fixture described in `docs
 | A2 | Reload window | Status bar item `Kiro: …` appears (not "paused"); no error toast |
 | A3 | Click it | A tab "Your credit budget" opens; hero, metrics, usage bar, chart with accessible text; tooltip is short and contains no path |
 | A4 | Command Palette, type "Cyclegauge" | Entries start with "Cyclegauge:"; no "EasyKiroGauge:" entries, no duplicates |
-| A5 | Cost Optimizer commands (gear icon in the tab title bar) | Quick-picks work with invented values; Clear Cost Inputs resets; cancelling changes nothing |
+| A5 | Cost Advisor via Command Palette, lightbulb title action and panel-visible status item | All open the native questions; Clear my answers resets; cancelling changes nothing. No old Optimizer commands |
 | A6 | Settings UI, search "cyclegauge" | Three settings, each shown as a user-level setting; the legacy `easykirogauge.*` keys show a deprecation message |
 | A7 | Cmd+Q, relaunch | Extension activates again; history from the first run is still reflected |
 
@@ -77,6 +77,19 @@ Use a **separate** isolated profile with the legacy VSIX (`easykirogauge-0.5.1`,
 | E3 | Collecting data, stale (24 h+), unavailable states | Each shows its own label and colour; nothing implies certainty it does not have |
 | E4 | Keyboard and screen reader | Tab reaches the collapsible sections; heading is read first |
 
-## F. Shut down and record
+## F. Cost Advisor on this exact candidate (required before publication)
 
-Cmd+Q, `pgrep` prints 0, nothing was written outside `$D` (and `/tmp` for B1 only if B1 failed). Record pass / fail / blocked per row, versions, SHA-256 and date in the release notes. A fail in A, B, C1 to C3 or D blocks the release; E failures are fixed or documented as known issues by the maintainer.
+Use only invented account responses as described in [development.md](development.md). The donor branch's demo and owner-run scripts are not included. Create several comparable observations over at least 48 hours, with a fresh last observation, matching reported limit and UTC reset; use synthetic Pro Max (5000 credits) with low usage to exercise a modelled next-reset comparison.
+
+| # | Check | Expected |
+|---|---|---|
+| F1 | Advisor before answering, then explicit plan/billing/no-add-ons answers | Hint stays labelled unconfirmed until selected; explicit plan wins, even after a reported limit change |
+| F2 | Low-usage synthetic paid plan with qualified forecast | Modelled pre-tax USD figure, UTC period and caveats; no supported/guaranteed savings claim; expandable 1/3/6-cycle and 75/100/125% details |
+| F3 | Unknown plan, not-sure add-ons, entered add-ons, Enterprise, changed limit, stale/no forecast | Assumptions are explicit; unsupported inputs withhold figures, never become zero; no purchases or online calls |
+| F4 | Cancel each question, clear answers, reload, account change/ambiguity | Cancellation preserves prior answers; clear/reload/account changes remove them; no answer file or values in diagnostics |
+| F5 | Hide/reveal/dispose budget panel | Advisor status item appears only while visible; budget item remains; no duplicate commands/items after reload |
+| F6 | Keyboard, narrow panel, light/dark/High Contrast | Advisor figures, uncertainty and details are readable and reachable; webview stays script-free and command-URI-free |
+
+## G. Shut down and record
+
+Cmd+Q, `pgrep` prints 0, nothing was written outside `$D` (and `/tmp` for B1 only if B1 failed). Record pass / fail / blocked per row, versions, SHA-256 and date in the release notes. A fail in A, B, C1 to C3, F or D blocks the release; E failures are fixed or documented as known issues by the maintainer.

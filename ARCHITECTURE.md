@@ -114,3 +114,7 @@ M4A was accepted; Task 5 and responsive ordinary comparisons are approved and im
 ## Milestone 4C data flow
 
 `Store.snapshots()` (unchanged; all retained snapshots per account partition) → `history()` groups equal-time observations, keeps the existing current-cycle view and adds `evidence` (cross-cycle, billing-only, trailing 85 UTC days, regime stops and local exclusions) → `forecast()` computes the three existing methods unchanged plus exposure-weighted pooled `history_*` estimates and qualifiers → presentation text and `buildDemand()`, which re-runs `forecast()` with the policy's heuristic switches and compares the exact evidence before using it. No new persistence, schema migration, source or authenticated call is introduced. `tests/unit/baseline/` holds a frozen v0.4.0 copy used only by the walk-forward backtest.
+
+## 0.5.2 Advisor presentation boundary
+
+`src/cost/advisor.ts` builds conditional engine inputs; `src/cost/estimate.ts` reads exact engine results over matched full cycles. Neither accesses storage, VS Code or networks. `AdvisorInputs` binds session-only answers to the existing private account partition, clearing on account change or ambiguity and rejecting late editors. Native commands invoke the script-free renderer; there is no command-URI bridge or persistence (SC5 open).

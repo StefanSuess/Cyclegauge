@@ -12,7 +12,7 @@ const sum=(xs:Rational[])=>xs.reduce(add,ZERO);
 const ms=(at:string)=>rational(BigInt(Date.parse(at)));
 const iso=(t:Rational)=>new Date(Number(t.numerator/t.denominator)).toISOString();
 const positive=(x:Rational)=>cmp(x,ZERO)>0;
-const codes = new Set(['constant_within_cycle_demand','prices_assumed_unchanged','sensitivity_not_confidence','manual_hypothetical_demand','repeat_manual_cycle_total','standalone_comparison','standalone_consumer_prepaid','standalone_enterprise_postpaid','standalone_zero_opening_inventory','promotions_excluded','standalone_utc_calendar_schedule','constant_future_net_rate','net_changes_not_gross_billable_usage','limited_history','forecast_balance_anchor_differs','inventory_anchor_mismatch','inventory_stale','standalone_hypothetical']);
+const codes = new Set(['constant_within_cycle_demand','prices_assumed_unchanged','sensitivity_not_confidence','manual_hypothetical_demand','repeat_manual_cycle_total','standalone_comparison','standalone_consumer_prepaid','standalone_enterprise_postpaid','standalone_zero_opening_inventory','promotions_excluded','standalone_utc_calendar_schedule','constant_future_net_rate','net_changes_not_gross_billable_usage','limited_history','long_history_future_rate','short_window_long_horizon','forecast_balance_anchor_differs','inventory_anchor_mismatch','inventory_stale','standalone_hypothetical']);
 export function validDemand(d:DemandScenario,horizon:number):boolean {
  try {
   const nonnegative=(x:Rational)=>cmp(x,ZERO)>=0;
