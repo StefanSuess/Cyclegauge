@@ -257,3 +257,23 @@ test('advisor verdict wording per outcome never claims a saving unless potential
  assert.match(verdict('insufficient_information'),/No savings are claimed/);
  for(const k of ['no_action','conditional_comparison','insufficient_information'])assert.ok(!/Potential saving/.test(verdict(k)));
 });
+
+test('advisor names the blocking condition in the headline and lists every assumption',()=>{
+ const hint=planHint('1000',catalog);
+ const render=(assumptions:string[],o:any={})=>presentAdvisor({hint,context:ctx({planSource:'confirmed',plan:'pro_max',billingConfirmed:true,addOns:'none',assumptions,...o}),horizons:[{months:1,result:null} as any],advice:[{kind:'insufficient_information',reasons:[]} as any],singleAccount:true,limit:'1000'});
+ const verdict=(h:string)=>/class="verdict">([^<]*)</.exec(h)![1];
+ const html=render(['limit_differs_from_plan_credits']);
+ assert.equal(verdict(html),"Your reported limit (1000) doesn't match Pro Max (5000). Check your plan or add-on credits. Not enough confirmed information to compare plans yet. No savings are claimed.");
+ assert.ok(!/Potential saving/.test(html));
+ assert.ok(!/Used for the comparison below/.test(html));
+ assert.match(html,/The reported limit differs from the chosen plan/);
+ assert.match(verdict(render(['usage_exceeds_reported_limit'])),/^Observed usage is above the reported limit/);
+ assert.match(verdict(render([],{addOns:'some'})),/^You have add-on credits/);
+ const open=render([],{billingConfirmed:false,addOns:'assumed_none'});
+ assert.match(open,/Personal \(consumer\) billing is assumed/);assert.match(open,/No purchased add-on credits are assumed/);
+ assert.ok(!/^Your reported limit/.test(verdict(render([]))));
+ assert.ok(!/Command Palette|title bar/.test(html));
+ const some=render([],{addOns:'some'});assert.match(some,/Remaining add-on credits were entered by you/);
+ const withResult=presentAdvisor({hint,context:ctx({planSource:'confirmed',plan:'pro',billingConfirmed:true,addOns:'none',assumptions:[]}),horizons:[{months:1,reasons:[],result:{status:'supported',reasons:[],scenarios:[],alternatives:[],savings:[],breakEven:{points:[],reasons:[]}} as any}],advice:[{kind:'no_action',reasons:[]} as any],singleAccount:true,limit:'1000'});
+ assert.match(withResult,/Used for the comparison below/);
+});
