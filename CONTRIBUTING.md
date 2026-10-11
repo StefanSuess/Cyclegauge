@@ -53,5 +53,5 @@ disabled; macOS observations do not verify Windows, Ubuntu or RHEL.
 
 ## License
 
-By contributing you agree that your contribution is licensed under the project's license (see
-`LICENSE` once it is added).
+By contributing you agree that your contribution is licensed under the project's MIT license (see
+[LICENSE](LICENSE)).

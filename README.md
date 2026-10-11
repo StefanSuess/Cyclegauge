@@ -40,6 +40,10 @@ macOS is the verified target (Kiro 1.2.56). Windows, Ubuntu and RHEL are **unver
 
 Please read [CONTRIBUTING.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/CONTRIBUTING.md) before opening an issue or pull request, and never post real Kiro data. Report vulnerabilities privately as described in [SECURITY.md](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/SECURITY.md).
 
+## License
+
+MIT, see [LICENSE](https://github.com/StefanSuess/EasyKiroGauge/blob/HEAD/LICENSE).
+
 ---
 
 ## Technical reference and version history
