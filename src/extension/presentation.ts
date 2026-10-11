@@ -48,12 +48,15 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const warning=stale || over || tight || (!eligible && !collecting);
  const resetMs=o.resetAt ? Date.parse(o.resetAt) : NaN, evalMs=f.evaluatedAt ? Date.parse(f.evaluatedAt) : NaN;
  const daysLeft=Number.isFinite(resetMs) && Number.isFinite(evalMs) ? Math.ceil((resetMs-evalMs)/86400000) : null;
- const resetIn=daysLeft===null ? '' : daysLeft<=0 ? 'today' : daysLeft===1 ? 'in 1 day' : `in ${daysLeft} days`;
+ const resetIn=daysLeft===null ? '' : daysLeft<0 ? 'passed' : daysLeft===0 ? 'today' : daysLeft===1 ? 'in 1 day' : `in ${daysLeft} days`;
  const whole=(s:string)=>{const v=Number(s);return Number.isFinite(v) ? String(Math.round(v)) : s;};
  const resetDate=o.resetAt ? date(o.resetAt) : null;
  const lastsLine=eligible && selected.projectedUsageAtReset!==null && o.baseLimit!==null && !exhausted && !exhaustion ? `At the observed pace you will use about ${whole(selected.projectedUsageAtReset)} of ${whole(o.baseLimit)} reported credits by the reset${resetDate ? ` on ${resetDate}` : ''}.` : '';
  const explanation=eligible ? exhausted ? above ? 'Observed usage was above the reported credit limit at the last account update. The counter alone does not establish overage charges, purchased balance or billing eligibility.' : 'Observed usage had reached the reported credit limit at the last account update.' : exhaustion ? `Estimated to run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}, if the observed rate continues.` : selected.exhaustionStatus==='zero_observed_rate' ? 'No exhaustion date at the observed zero rate. Future usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then if the observed rate continues.')+'' : 'Your reported credits are not projected to run out before reset if the observed rate continues.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
- const tone=stale || (!eligible && !collecting) ? 'warn' : !eligible ? 'neutral' : exhausted || over ? 'bad' : tight ? 'warn' : 'ok';
+ // A provisional estimate is never styled or headlined as reassuringly as a regular forecast.
+ const early=eligible && f.tier==='provisional' && outlook==='On track';
+ const heading=early ? 'Looks on track so far' : outlook;
+ const tone=stale || (!eligible && !collecting) ? 'warn' : !eligible || early ? 'neutral' : exhausted || over ? 'bad' : tight ? 'warn' : 'ok';
  const icon={ok:'✓',warn:'!',bad:'✕',neutral:'…'}[tone];
  const usedPct=o.usage!==null && o.baseLimit!==null && compare(o.baseLimit,'0')>0 ? Math.max(0,Math.min(100,Math.round(Number(o.usage)/Number(o.baseLimit)*100))) : null;
  const limitations=eligible && f.tier==='provisional' ? 'This limited window may not represent future usage. A regular forecast needs at least 7 days and 8 comparable updates.' : '';
@@ -96,7 +99,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  @media(forced-colors:active){.hero{border-left-color:Highlight}.bar>span{background:Highlight}}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
- <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(outlook)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
+ <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
  <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${o.flags.includes('future_records_ignored') ? `<p class="small">${safe(readable('future_records_ignored'))}</p>` : ''}
  ${usedPct===null ? '' : `<div class="bar" role="img" aria-label="${usedPct}% of the reported credit limit used"><span style="width:${usedPct}%"></span></div>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>

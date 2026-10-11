@@ -30,5 +30,5 @@ shape on the same day.
 
 ## What a headless check observed (real ingestion path; **not** a native UI check)
 
-Status `Tight • ~31.7/day`, Regular forecast, usage chart present, Cost Advisor *Conditional comparison* with the plan
+Status `At risk • ~31.7/day`, Regular forecast, usage chart present, Cost Advisor *Conditional comparison* with the plan
 shown as an unconfirmed hint "Pro", no future-dated notice. This is a synthetic observation only.

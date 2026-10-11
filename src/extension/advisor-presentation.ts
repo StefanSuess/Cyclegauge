@@ -41,9 +41,9 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
  const kind=advice[0]?.kind??'insufficient_information';
  // The verdict never states a saving unless the engine classified it as potential_savings (every input confirmed).
  const verdict=o.failed?'The Cost Advisor is unavailable; your budget and forecast remain usable.'
-  :kind==='potential_savings'?`Potential saving${first?.savingsRange?`: USD ${safe(first.savingsRange.minimum.amount)} to USD ${safe(first.savingsRange.maximum.amount)} over one billing cycle (list prices, pre-tax)`:''}. ${first?safe(winnerText(first)):''}`
+  :kind==='potential_savings'?`Potential saving${first?.savingsRange?`: USD ${safe(first.savingsRange.minimum.amount)} to USD ${safe(first.savingsRange.maximum.amount)} over ${horizons[0].months} full billing ${horizons[0].months===1?'cycle':'cycles'} (list prices, pre-tax)`:''}. ${first?safe(winnerText(first)):''}`
   :kind==='no_action'?'No cheaper option found for your forecast usage. Keep your current plan.'
-  :kind==='conditional_comparison'?'No saving can be confirmed yet. A comparison exists, but it depends on details you have not confirmed (see below). No savings are claimed.'
+  :kind==='conditional_comparison'?(advice[0]?.reasons.includes('savings_not_established')?'No saving is established with the details you confirmed. No savings are claimed.':'No saving can be confirmed yet. A comparison exists, but it depends on details you have not confirmed (see below). No savings are claimed.')
   :horizons.length?'Not enough confirmed information to compare plans yet. No savings are claimed.':'A qualified forecast is needed before costs can be compared. Keep using Kiro; this updates automatically.';
  const planLine=context.planSource==='confirmed'?`<span class="badge">Confirmed by you</span>`
   :context.planSource==='hint'?`<span class="badge">Unconfirmed</span>`:'';
@@ -59,7 +59,7 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
    +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p></details>`
   :'';
  return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
-  +`<p class="plan-row"><span class="label">Likely plan</span> ${planText} ${planLine}</p><p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`
+  +`<p class="plan-row"><span class="label">${context.planSource==='confirmed'?'Your plan':'Likely plan'}</span> ${planText} ${planLine}</p><p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`
   +`<p class="verdict">${verdict}</p>`
   +`<p class="action small"><strong>Confirm or change your plan:</strong> click the light-bulb <strong>Cost Advisor</strong> item in the status bar (shown while this view is open). It is also available as a light-bulb button in the panel's title bar where your editor shows it, and as <strong>EasyKiroGauge: Cost Advisor</strong> in the Command Palette. It also lets you clear your answers.${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
   +detail+`</section>`;

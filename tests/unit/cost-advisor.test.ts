@@ -247,3 +247,13 @@ test('manifest exposes the advisor as the first panel title action',async()=>{
  assert.ok(!JSON.stringify(p.contributes).includes('Cost Optimizer'));
  assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: false/);
 });
+
+test('advisor verdict wording per outcome never claims a saving unless potential_savings',()=>{
+ const hint=planHint('1000',catalog);
+ const verdict=(kind:string,reasons:string[]=[])=>{const html=presentAdvisor({hint,context:ctx({planSource:'confirmed',plan:'pro',billingConfirmed:true,addOns:'none',assumptions:[]}),horizons:[{months:1,result:null} as any],advice:[{kind,reasons} as any],singleAccount:true,limit:'1000'});return /class="verdict">([^<]*)</.exec(html)![1];};
+ assert.match(verdict('no_action'),/No cheaper option found/);
+ assert.match(verdict('conditional_comparison',['plan_is_hint']),/No savings are claimed/);
+ assert.match(verdict('conditional_comparison',['savings_not_established']),/No saving is established with the details you confirmed/);
+ assert.match(verdict('insufficient_information'),/No savings are claimed/);
+ for(const k of ['no_action','conditional_comparison','insufficient_information'])assert.ok(!/Potential saving/.test(verdict(k)));
+});

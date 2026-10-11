@@ -116,7 +116,7 @@ test('hero answers used, remaining and reset first and labels the forecast statu
 });
 test('uncertain states are never styled as on track and keep their warning in the hero',()=>{
  for(const [r,label] of [[render(10,'1000',8,'2030-06-09T00:00:00.001Z'),'Stale data'],[render(10,'1000',1),'Collecting data'],[render(10,'1000',3),'Provisional estimate – limited history']] as const){
-  const h=hero(r.html);assert.match(visible(h),new RegExp(label));assert.ok(!/class="hero ok"/.test(h)||label.startsWith('Provisional'));
+  const h=hero(r.html);assert.match(visible(h),new RegExp(label));assert.ok(!/class="hero ok"/.test(h));
  }
  assert.match(hero(render(10,'1000',8,'2030-06-09T00:00:00.001Z').html),/class="hero warn"/);
  assert.match(hero(render(10,'1000',3).html),/may not represent future usage/);
@@ -128,4 +128,13 @@ test('chart key and caveats are one click away, collapsed, and only one top-leve
  assert.match(primary,/class="zone"[^>]*>Forecast<\/text>/);
  assert.match(primary,/class="split"/);
  assert.equal((render(10).html.match(/<h1>/g)??[]).length,1);
+});
+
+test('provisional on-track forecasts are neutral, passed resets are labelled, usage bar is clamped',()=>{
+ const prov=hero(render(10,'1000',3).html);
+ assert.match(prov,/class="hero neutral"/);assert.match(visible(prov),/Looks on track so far/);assert.ok(!/On track/.test(visible(prov)));
+ assert.ok(!/class="status-icon"[^>]*>✓/.test(hero(render(10,'1000',1).html)));
+ assert.match(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html),/class="hero warn"/);
+ assert.ok(!/class="hero ok"/.test(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html)));
+ assert.match(hero(render(10,'60').html),/aria-label="100% of the reported credit limit used"/);
 });
