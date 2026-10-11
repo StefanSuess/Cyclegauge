@@ -11,7 +11,8 @@ The icon stands for Cyclegauge only. Product branding stays "Cyclegauge for Kiro
 ## Where each size is used
 
 - Extension metadata: `package.json` `"icon"` points to `assets/branding/cyclegauge-icon-256.png`. Marketplaces need a PNG of at least 128×128; 256 keeps it sharp on high-DPI screens.
-- GitHub project branding (social preview, avatar): `cyclegauge-icon-1024.png`. Uploading these is a manual repository setting, not part of this change.
+- GitHub project branding (avatar): `cyclegauge-icon-1024.png`. Uploading it is a manual repository setting, not part of this change.
+- GitHub social preview: `cyclegauge-github-social-preview-1280x640.png`. It is not applied automatically; a repository admin sets it manually under GitHub repo **Settings > Social preview**. Known flaw: the icon sits on an opaque black square that does not match the navy background; it should be regenerated from the transparent-corner icon (`cyclegauge-icon-1024.png`) before upload.
 - README: see below.
 - First beta release materials: `cyclegauge-icon-512.png` or `-1024.png`.
 
@@ -28,6 +29,6 @@ The README does not reference the icon yet. The branding rewrite in the pending 
 | Before | 5 | 62.1 KB |
 | After | 6 | 128.2 KB |
 
-The icon adds about 66 KB (lossless RGBA). If size matters more later, the 128 px file is about 20 KB, and an 8-bit palette-quantized 256 px version is about 8 KB with slight dithering in the dark background. The source and larger derivatives are never packaged.
+The icon adds about 66 KB (lossless RGBA). If size matters more later, the 128 px file is about 20 KB, and an 8-bit palette-quantized 256 px version is about 8 KB with slight dithering in the dark background. The source, larger derivatives and the social preview are never packaged.
 
 Any release check that asserts an exact VSIX file list must include `extension/assets/branding/cyclegauge-icon-256.png`.
