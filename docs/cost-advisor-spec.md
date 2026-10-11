@@ -42,7 +42,7 @@ to Free until expiry. Therefore:
 
 ## 3. Minimal questions (native, no scripts)
 
-Reached from the panel's title-bar light-bulb button, the in-view text and the Command Palette entry
+Reached from the light-bulb status bar item shown while the view is open (native Kiro 1.2.x did not render the editor title-bar button in the owner's native test), the title-bar button where rendered, the in-view text and the Command Palette entry
 `EasyKiroGauge: Cost Advisor`. At most four questions, each with *Not sure*, which keeps results conditional:
 
 1. Plan (confirm one of the five, or not sure).
