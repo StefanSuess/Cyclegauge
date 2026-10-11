@@ -7,6 +7,7 @@ import { readZip, safeEntryName, writeZip, ZipError } from '../../scripts/releas
 const manifest = (extra: Record<string, unknown> = {}) => Buffer.from(JSON.stringify({
  name: 'synthetic', version: '1.2.3', main: './dist/extension.cjs', engines: { vscode: '^1.90.0' },
  contributes: { configuration: { properties: {
+  'cyclegauge.sourceRoot': { type: 'string', scope: 'machine' }, 'cyclegauge.storageRoot': { type: 'string', scope: 'machine' },
   'easykirogauge.sourceRoot': { type: 'string', scope: 'machine' }, 'easykirogauge.storageRoot': { type: 'string', scope: 'machine' } } } }, ...extra }));
 const BUNDLE = 'const vscode=require("vscode");exports.activate=function activate(){};exports.deactivate=function deactivate(){};';
 const files = (over: Record<string, Buffer | null> = {}) => {
@@ -16,6 +17,8 @@ const files = (over: Record<string, Buffer | null> = {}) => {
   'extension/dist/extension.cjs': Buffer.from(BUNDLE),
   'extension/package.json': manifest(),
   'extension/readme.md': Buffer.from('# synthetic'),
+  'extension/LICENSE.txt': Buffer.from('MIT synthetic'),
+  'extension/assets/branding/cyclegauge-icon-256.png': Buffer.from('synthetic-icon'),
  };
  for (const [k, v] of Object.entries(over)) { if (v === null) delete base[k]; else base[k] = v; }
  return Object.entries(base).map(([name, data]) => ({ name, data }));
@@ -114,7 +117,7 @@ test('the directory must match the end record exactly: no hidden entries, traili
 });
 
 test('payload comparison treats a missing side as a difference, never as equal', () => {
- assert.deepEqual(comparePayload([], []), ['extension/dist/extension.cjs', 'extension/package.json', 'extension/readme.md']);
+ assert.deepEqual(comparePayload([], []), ['extension/dist/extension.cjs', 'extension/package.json', 'extension/readme.md', 'extension/LICENSE.txt', 'extension/assets/branding/cyclegauge-icon-256.png']);
 });
 
 test('command line parsing rejects missing values and extra arguments instead of skipping checks', () => {

@@ -8,7 +8,7 @@ const names: Record<string,string> = {
  recent_usage_lower:'recent usage is lower than the earlier weeks', zero_net_change_not_proof_of_inactivity:'an unchanged counter is not proof of inactivity',
  future_records_ignored:'Some account updates are dated in the future and were ignored. Check the device clock and the source time zone setting.',
  clock_skew_tolerated:'The latest account update is dated slightly ahead of this device clock; it is treated as current.',
- runtime_unsupported:'This Kiro runtime lacks a feature EasyKiroGauge needs (SQLite or exact-number parsing)',
+ runtime_unsupported:'This Kiro runtime lacks a feature Cyclegauge needs (SQLite or exact-number parsing)',
  storage_permissions_unsupported:'Private storage permissions are not supported on this platform yet, so no data is stored or shown',
  unobserved_periods_not_zero:'unobserved periods are not counted as zero', completed_break_excluded:'a completed break was excluded from the rate',
 };

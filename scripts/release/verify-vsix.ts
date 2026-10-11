@@ -13,12 +13,14 @@ import { readZip, ZipError } from './zip.ts';
 export const ALLOWLIST = [
  '[Content_Types].xml',
  'extension.vsixmanifest',
+ 'extension/LICENSE.txt',
+ 'extension/assets/branding/cyclegauge-icon-256.png',
  'extension/dist/extension.cjs',
  'extension/package.json',
  'extension/readme.md',
 ] as const;
 /** Files whose bytes must be identical across independent builds of the same commit. */
-export const PAYLOAD = ['extension/dist/extension.cjs', 'extension/package.json', 'extension/readme.md'] as const;
+export const PAYLOAD = ['extension/dist/extension.cjs', 'extension/package.json', 'extension/readme.md', 'extension/LICENSE.txt', 'extension/assets/branding/cyclegauge-icon-256.png'] as const;
 
 export interface FileHash { name: string; bytes: number; sha256: string }
 export interface VerifyResult { ok: boolean; problems: string[]; files: FileHash[]; version: string }
@@ -53,7 +55,7 @@ export function verifyVsix(archive: Buffer): VerifyResult {
    if (manifest.dependencies && Object.keys(manifest.dependencies).length) problems.push('MANIFEST_RUNTIME_DEPENDENCIES');
    if (!manifest.engines?.vscode) problems.push('MANIFEST_ENGINE');
    const props = manifest.contributes?.configuration?.properties ?? {};
-   for (const key of ['easykirogauge.sourceRoot', 'easykirogauge.storageRoot']) {
+   for (const key of ['cyclegauge.sourceRoot', 'cyclegauge.storageRoot', 'easykirogauge.sourceRoot', 'easykirogauge.storageRoot']) {
     if (props[key]?.scope !== 'machine') problems.push('MANIFEST_ROOT_SETTING_SCOPE');
    }
   } catch { problems.push('MANIFEST_JSON'); }

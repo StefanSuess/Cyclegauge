@@ -27,6 +27,7 @@ function stubVscode(sim: Simulation, settings: Record<string, string>, log: { st
   Uri: { file: (fsPath: string) => ({ fsPath }) },
   RelativePattern: class { base: unknown; pattern: string; constructor(base: unknown, pattern: string) { this.base = base; this.pattern = pattern; } },
   env: { appName: 'Kiro' },
+  extensions: { getExtension: () => undefined },
   window: {
    createStatusBarItem() {
     const item = { name: '', command: '', tooltip: '', backgroundColor: undefined as unknown, _text: '',
@@ -98,15 +99,15 @@ export async function smoke(file: string, simulate: Simulation = 'none'): Promis
   live = subscriptions;
   extensionModule = extension;
   await extension.activate({ subscriptions, logUri: { fsPath: join(root, 'logs', 'synthetic-run', 'synthetic-window-1', 'exthost', 'synthetic.extension') } });
-  check('registers_usage_command', log.commands.has('easykirogauge.showUsage'));
-  check('registers_diagnostics_command', log.commands.has('easykirogauge.showDiagnostics'));
+  check('registers_usage_command', log.commands.has('cyclegauge.showUsage'));
+  check('registers_diagnostics_command', log.commands.has('cyclegauge.showDiagnostics'));
   check('status_item_updated', log.status.length > 0);
 
-  await log.commands.get('easykirogauge.showUsage')?.();
+  await log.commands.get('cyclegauge.showUsage')?.();
   const detail = log.html.at(-1) ?? '';
   const refused = process.platform === 'win32';
   if (simulate === 'no-sqlite' || simulate === 'no-reviver') {
-   check('runtime_unsupported_state_shown', /lacks a feature EasyKiroGauge needs/.test(detail));
+   check('runtime_unsupported_state_shown', /lacks a feature Cyclegauge needs/.test(detail));
    check('no_budget_invented', !/Credits used<\/dt><dd>\d/.test(detail));
   } else if (refused) {
    check('windows_storage_refused_state_shown', /not supported on this platform yet/.test(detail));
@@ -119,7 +120,7 @@ export async function smoke(file: string, simulate: Simulation = 'none'): Promis
   check('detail_has_no_account_marker', !detail.includes(SYNTHETIC_ACCOUNT));
   check('detail_has_no_paths', !detail.includes(work));
 
-  await log.commands.get('easykirogauge.showDiagnostics')?.();
+  await log.commands.get('cyclegauge.showDiagnostics')?.();
   const message = log.messages.at(-1) ?? '';
   const json = message.slice(message.indexOf('{'));
   let report: Record<string, unknown> = {};

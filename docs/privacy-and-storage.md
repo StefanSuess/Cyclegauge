@@ -1,0 +1,21 @@
+# Privacy, storage and reliability
+
+The short version is in the README. This page keeps the full detail.
+
+## Principles
+
+- **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
+- **Local only.** No telemetry and no network transmission: the extension contains no network code. Derived numbers are kept in the extension's own private directory.
+- **Minimal data.** Complete log lines are processed in memory while parsing, but only explicitly allowlisted billing fields are extracted and persisted. Raw account identifiers are not stored; pseudonymous identifiers derived with a device-local key (HMAC) are used locally to separate accounts. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown, and diagnostics contain only fixed codes and counts.
+
+## Storage and reliability
+
+The adapter temporarily parses a bounded complete log envelope, projects only validated billing fields and a narrowly scoped `output.userInfo.userId` for in-memory continuity, then drops the envelope. Identity is HMAC-partitioned with a device-local 32-byte key; raw identity is never persisted. Private source/deduplication tokens stay in owned SQLite and are absent from CLI output. Device key and database use mode 0600; the dedicated directory uses 0700. Unknown fields, raw records, error representations, prompts and source paths are never written to the store or diagnostics. There is no telemetry or network code.
+
+Full bounded rescans plus durable deduplication protect restarts, rotation, truncation and same-size replacement. Content/identity fingerprints and source lengths remain private. `source_changed` means content/identity changed or length shrank, including ordinary append; it does not prove lost usage. Partial trailing lines are deferred until a complete newline. A changing source read is discarded. Each stable source import is transactional; concurrent store connections serialize via SQLite transactions. A failed later file can leave earlier successful file transactions durable and safe to re-import.
+
+Bounds: 256 KiB per line, 64 MiB per file, 10,000 accepted records per file, at most 1,000 discovered files and 1,000 run/window entries per level. Oversized files, too many records, and malformed/unsupported records produce fixed codes. These are conservative operational limits, not verified Kiro limits. The extension adds a watcher and polling fallback; retention pruning and automatic migration remain deferred. SQLite schema version 1 supports this collector only. Keep `device.key` and `usage.sqlite` together; loss or corruption fails unavailable rather than inventing a balance. Local snapshots contain private billing amounts: keep them local and do not attach the store to bug reports.
+
+## What is read, honestly
+
+The files the extension opens (`q-client.log` and rotations under Kiro's `logs/` folder) can contain more than billing data, including content Kiro logged. The extension parses each complete log line in memory, keeps only allowlisted billing fields and a narrowly scoped user identifier used for in-memory continuity, and discards the rest. That identifier is stored only as a device-local HMAC (a pseudonymous partition key), never in raw form. It is still derived from account identity, so treat the storage folder as private and never attach it to bug reports. The detail view runs no scripts and has no command links.

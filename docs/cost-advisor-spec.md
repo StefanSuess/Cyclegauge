@@ -43,7 +43,7 @@ to Free until expiry. Therefore:
 ## 3. Minimal questions (native, no scripts)
 
 Reached from the light-bulb status bar item shown while the view is open (the title-bar button does render in Kiro but was easy to overlook in the owner's native test), the title-bar button where rendered, the in-view text and the Command Palette entry
-`EasyKiroGauge: Cost Advisor`. At most four questions, each with *Not sure*, which keeps results conditional:
+`Cyclegauge: Cost Advisor`. At most four questions, each with *Not sure*, which keeps results conditional:
 
 1. Plan (confirm one of the five, or not sure).
 2. Billing system (personal, Enterprise, not sure). Enterprise skips consumer add-on questions: prepaid add-ons and
@@ -100,7 +100,7 @@ fails closed only when no usable record remains.
 
 ### 5.1 Time zone of the log timestamps
 
-Kiro's account-log timestamps have no UTC offset. The collector interprets them in `easykirogauge.sourceTimezone`
+Kiro's account-log timestamps have no UTC offset. The collector interprets them in `cyclegauge.sourceTimezone` (or the deprecated `easykirogauge.sourceTimezone`)
 (empty = this computer's zone). The script does the same: **default = this computer's zone**; pass
 `--source-timezone <IANA zone>` only if you changed that setting or Kiro ran in another zone. The zone affects only
 record ordering and the resolution of wall-clock times; ambiguous or non-existent daylight-saving times are rejected by

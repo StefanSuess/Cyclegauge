@@ -125,6 +125,8 @@ test('data and storage roots cannot be set from workspace settings', async () =>
  const { readFile } = await import('node:fs/promises');
  const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
  const props = manifest.contributes.configuration.properties;
- assert.equal(props['easykirogauge.sourceRoot'].scope, 'machine');
- assert.equal(props['easykirogauge.storageRoot'].scope, 'machine');
+ for (const prefix of ['cyclegauge', 'easykirogauge']) {
+  assert.equal(props[`${prefix}.sourceRoot`].scope, 'machine');
+  assert.equal(props[`${prefix}.storageRoot`].scope, 'machine');
+ }
 });

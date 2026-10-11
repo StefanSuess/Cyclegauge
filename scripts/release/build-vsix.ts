@@ -15,7 +15,10 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 export async function buildVsix(output: string): Promise<void> {
  const stage = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-vsix-stage-')));
  try {
-  for (const file of ['package.json', 'README.md', '.vscodeignore']) copyFileSync(join(root, file), join(stage, file));
+  for (const file of ['package.json', 'README.md', 'LICENSE', '.vscodeignore']) copyFileSync(join(root, file), join(stage, file));
+  const icon = join('assets', 'branding', 'cyclegauge-icon-256.png');
+  mkdirSync(dirname(join(stage, icon)), { recursive: true });
+  copyFileSync(join(root, icon), join(stage, icon));
   mkdirSync(join(stage, 'dist'));
   const { build } = await import('esbuild');
   await build({

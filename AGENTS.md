@@ -1,4 +1,4 @@
-# EasyKiroGauge contributor rules
+# Cyclegauge contributor rules
 
 ## Scope and authority
 
@@ -10,6 +10,11 @@
 - Account snapshots are authoritative for current **observed account usage**, with an explicit as-of time and freshness status. Session metering provides **observed local daily attribution**, never a replacement account balance.
 - Unknown consumption across observation gaps is unknown, not zero. Do not invent daily allocations or sum account snapshots with session totals.
 - CLI metering entries must be checked for additive versus cumulative semantics before aggregation. Do not infer semantics from a field name, increasing values, or one sample.
+
+## Public GitHub content
+
+- Do not put Claude Code session URLs (`claude.ai/code/session_...`) or links to private project threads in PR descriptions, PR or issue comments, or commit messages. `.claude/settings.json` sets `attribution.sessionUrl` to `false` to stop Claude Code adding them automatically.
+- Normal attribution stays: the "Generated with Claude Code" line and `Co-Authored-By` trailers are fine. AI-assisted development is not hidden.
 
 ## Strict privacy rules
 
@@ -26,7 +31,7 @@
 - Kiro-owned files and databases must remain strictly read-only: no migrations, repairs, checkpoints, journal-mode changes, permission changes, sidecar creation, settings changes, session exports, or writes of any kind.
 - Use explicit read-only handles and allowlisted paths. Do not recursively import snapshots, source trees, or unrelated directories; reject symlink escapes from configured source roots.
 - SQLite `query_only` alone is insufficient. A future reader must prove it cannot create or modify sidecars. `immutable=1` is not a generally correct reader for live databases or WAL content. Unsupported/concurrently changing database states must produce a safe unavailable status, never fabricated current data.
-- Write only to EasyKiroGauge-owned storage. Do not put extracted real billing data in the repository. Never use production Kiro data for automated tests or CI.
+- Write only to Cyclegauge-owned storage. Do not put extracted real billing data in the repository. Never use production Kiro data for automated tests or CI.
 
 ## Evidence and validation
 

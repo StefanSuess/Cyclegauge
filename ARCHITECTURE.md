@@ -1,6 +1,6 @@
-# EasyKiroGauge architecture
+# Cyclegauge architecture
 
-Status: version 0.5.0. Milestones 1–3, 4A–4C and 5 are implemented; the IDE extension reuses the log-only core and pure account history/forecast, cost and chart modules. Session aggregation, Crew integration and Kiro SQLite access remain deferred. [SPEC.md](SPEC.md) defines authority; [data findings](docs/kiro-data-format.md) distinguish evidence from assumptions.
+Status: version 0.5.1. Milestones 1–3, 4A–4C and 5 are implemented; the IDE extension reuses the log-only core and pure account history/forecast, cost and chart modules. Session aggregation, Crew integration and Kiro SQLite access remain deferred. [SPEC.md](SPEC.md) defines authority; [data findings](docs/kiro-data-format.md) distinguish evidence from assumptions.
 
 ## IDE extension boundary
 
@@ -17,7 +17,7 @@ flowchart LR
   R --> P[Allowlisted billing projection]
   P --> A[Account snapshots]
   P --> E[Observed local events]
-  A --> D[EasyKiroGauge-owned local store]
+  A --> D[Cyclegauge-owned local store]
   E --> D
   D --> V[Account view and local attribution with coverage]
 ```
@@ -31,9 +31,9 @@ Account snapshots determine current observed account usage. Local events explain
 - **AccountSnapshot:** device-local opaque account partition when continuity can be established, source kind, observed-at time with timestamp confidence, ingested-at time, resource type, precise usage/limit and supported overage fields, reset-at UTC, provenance, and quality flags. No raw envelope, identity, request data, or unknown arrays are retained.
 - **LocalUsageEvent:** opaque local deduplication key, source/format, completion timestamp, credit amount only when interpretation is supported, and interpretation/coverage flags. Account association may be unknown; do not silently attach historical sessions to the currently logged-in account.
 - **CoverageEvidence:** source availability, imported intervals, stale/ambiguous/conflicting data, missing metering, clock confidence, and reset evidence. No imported files does not mean zero usage.
-- **Persistence:** an EasyKiroGauge-owned SQLite database in the OS application-data directory, outside Kiro and the repository. Store normalized billing observations, private opaque partition/deduplication keys, safe provenance tokens, and import cursors. Apply restrictive owner access/Windows ACLs; no raw records or private source paths. Keep any keyed pseudonymization secret device-local and outside diagnostics.
+- **Persistence:** a Cyclegauge-owned SQLite database in the OS application-data directory, outside Kiro and the repository. Store normalized billing observations, private opaque partition/deduplication keys, safe provenance tokens, and import cursors. Apply restrictive owner access/Windows ACLs; no raw records or private source paths. Keep any keyed pseudonymization secret device-local and outside diagnostics.
 
-The implemented billing-only query is `view()` in `src/view.ts` and CLI `--json`; private `Store.snapshots()` is internal and must not be logged/exported. SQLite schema version 1 stores normalized account observations, private deduplication/account/source tokens and fixed-code import evidence. Local event/cache contracts remain proposed. See README.md for runtime commands and bounds.
+The implemented billing-only query is `view()` in `src/view.ts` and CLI `--json`; private `Store.snapshots()` is internal and must not be logged/exported. SQLite schema version 1 stores normalized account observations, private deduplication/account/source tokens and fixed-code import evidence. Local event/cache contracts remain proposed. See docs/usage.md and docs/privacy-and-storage.md for runtime commands and bounds.
 
 ## Account snapshot collection and reconciliation
 

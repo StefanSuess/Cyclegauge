@@ -1,11 +1,31 @@
 {
-  "name": "easykirogauge",
+  "name": "cyclegauge",
   "version": "0.5.1",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StefanSuess/Cyclegauge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StefanSuess/Cyclegauge/issues"
+  },
+  "homepage": "https://github.com/StefanSuess/Cyclegauge#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "kiro",
+    "credits",
+    "usage",
+    "forecast",
+    "budget"
+  ],
   "type": "module",
-  "displayName": "EasyKiroGauge",
-  "description": "Local account credit usage in Kiro IDE",
+  "displayName": "Cyclegauge for Kiro IDE",
+  "description": "Credit usage & forecasting for Kiro IDE. Unofficial; not affiliated with AWS or Kiro.",
   "publisher": "easykirogauge",
+  "icon": "assets/branding/cyclegauge-icon-256.png",
   "main": "./dist/extension.cjs",
   "engines": {
     "vscode": "^1.90.0",
@@ -20,46 +40,68 @@
   "contributes": {
     "commands": [
       {
-        "command": "easykirogauge.showUsage",
-        "title": "EasyKiroGauge: Show Account Credits"
+        "command": "cyclegauge.showUsage",
+        "title": "Cyclegauge: Show Account Credits"
       },
       {
-        "command": "easykirogauge.showDiagnostics",
-        "title": "EasyKiroGauge: Show Diagnostics"
+        "command": "cyclegauge.showDiagnostics",
+        "title": "Cyclegauge: Show Diagnostics"
       },
       {
-        "command": "easykirogauge.costAdvisor",
-        "title": "EasyKiroGauge: Cost Advisor",
+        "command": "cyclegauge.costAdvisor",
+        "title": "Cyclegauge: Cost Advisor",
         "icon": "$(lightbulb)"
       }
     ],
     "configuration": {
-      "title": "EasyKiroGauge",
+      "title": "Cyclegauge",
       "properties": {
-        "easykirogauge.sourceRoot": {
+        "cyclegauge.sourceRoot": {
           "type": "string",
           "default": "",
           "description": "Kiro IDE data root; leave empty for the platform default.",
           "scope": "machine"
         },
+        "cyclegauge.storageRoot": {
+          "type": "string",
+          "default": "",
+          "description": "Private Cyclegauge storage root; leave empty for the platform default. The default folder keeps its legacy name EasyKiroGauge.",
+          "scope": "machine"
+        },
+        "cyclegauge.sourceTimezone": {
+          "type": "string",
+          "default": "",
+          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone.",
+          "scope": "machine"
+        },
+        "easykirogauge.sourceRoot": {
+          "type": "string",
+          "default": "",
+          "deprecationMessage": "Deprecated: use cyclegauge.sourceRoot. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.sourceRoot.",
+          "scope": "machine"
+        },
         "easykirogauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private EasyKiroGauge storage root; leave empty for the platform default.",
+          "deprecationMessage": "Deprecated: use cyclegauge.storageRoot. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.storageRoot.",
           "scope": "machine"
         },
         "easykirogauge.sourceTimezone": {
           "type": "string",
           "default": "",
-          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone."
+          "deprecationMessage": "Deprecated: use cyclegauge.sourceTimezone. Still read when the new setting is empty.",
+          "description": "Deprecated legacy key for cyclegauge.sourceTimezone.",
+          "scope": "machine"
         }
       }
     },
     "menus": {
       "editor/title": [
         {
-          "command": "easykirogauge.costAdvisor",
-          "when": "activeWebviewPanelId == easykirogauge.usage",
+          "command": "cyclegauge.costAdvisor",
+          "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@0"
         }
       ]
@@ -67,16 +109,16 @@
   },
   "scripts": {
     "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
+    "build:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs",
+    "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/cyclegauge-0.5.1.vsix",
     "test:poc": "node --disable-warning=ExperimentalWarning --test tests/poc/*.test.ts",
     "poc:win-acl": "node --disable-warning=ExperimentalWarning scripts/poc/win-acl/poc.ts",
     "test:release": "node --disable-warning=ExperimentalWarning --test tests/release/*.test.ts",
     "release:build": "node --disable-warning=ExperimentalWarning scripts/release/build-vsix.ts",
     "release:verify": "node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts",
-    "release:smoke": "node --disable-warning=ExperimentalWarning scripts/release/smoke-bundle.ts",
-    "typecheck": "tsc --noEmit",
-    "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
-    "build:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs",
-    "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/easykirogauge-0.5.1.vsix"
+    "release:smoke": "node --disable-warning=ExperimentalWarning scripts/release/smoke-bundle.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
