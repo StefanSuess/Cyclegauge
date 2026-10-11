@@ -4,9 +4,10 @@
 // PURPOSE  Answer, on YOUR machine, whether the limit in Kiro's usage responses looks like a plain plan
 //          allocation or like a combined capacity (plan credits plus purchased add-ons).
 // PARSER   Records are accepted or rejected by the application's own production parser (src/projection.ts with
-//          src/decimal.ts and src/time.ts), so numeric precision (exact decimal text, exponents), timestamp
-//          acceptance, command and HTTP checks, the single-CREDIT rule and reset-conflict handling are identical
-//          to the collector. Nothing in this script re-implements them.
+//          src/decimal.ts and src/time.ts): numeric precision (exact decimal text, exponents), timestamp
+//          acceptance, command and HTTP checks, the single-CREDIT rule and reset-conflict handling are the same
+//          code as the collector's. Only the file framing is separate: lines are split on bytes, must be valid
+//          UTF-8 and at most 256 KiB, and a final line without a newline is counted as partial, not parsed.
 // READS    Directory names are enumerated (never printed) under <source-root>/logs/<run>/<window>/exthost/kiro.kiroAgent/ .
 //          Every directory on that path is checked with lstat and skipped if it is a symbolic link. Only regular
 //          files named q-client.log or q-client.log.<n> are opened, read-only, without following a link
@@ -20,7 +21,13 @@
 //          path, a raw line, an identifier, a timestamp, a limit value, a usage value, a title or any free text.
 // WRITES   Nothing. No files, no temp files, no logs, no network, no child processes, no environment access.
 // USAGE    node --disable-warning=ExperimentalWarning scripts/verify-limit-contract.mjs --source-root "<Kiro data dir>"
-//                 [--source-timezone <IANA zone>]      (only needed to order offset-free log timestamps; default UTC)
+//                 [--source-timezone <IANA zone>]
+//          Kiro's account log timestamps carry no UTC offset; they are wall-clock times in the zone Kiro wrote them in
+//          (normally this computer's zone). The default is this computer's zone, exactly like the extension's
+//          easykirogauge.sourceTimezone setting when it is empty. Pass --source-timezone only if you changed that
+//          setting or ran Kiro in another zone (for example a remote or container session). The zone only orders
+//          records and resolves wall-clock times; wall-clock times that are ambiguous or do not exist because of a
+//          daylight-saving change are rejected by the production parser and counted as such.
 //          Review this file before running it. Do not paste anything except its JSON output.
 import {readdirSync,lstatSync,openSync,readSync,closeSync,fstatSync,constants} from 'node:fs';
 import {join,resolve} from 'node:path';
@@ -41,7 +48,8 @@ const known=args.filter(a=>a.startsWith('--')).every(a=>a==='--source-root'||a==
 if(args.includes('--help')||!known||!flag('--source-root')||args.length!==2*['--source-root','--source-timezone'].filter(f=>args.includes(f)).length){
  process.stdout.write('usage: node --disable-warning=ExperimentalWarning scripts/verify-limit-contract.mjs --source-root <directory> [--source-timezone <IANA zone>]\n');process.exit(args.includes('--help')?0:1);
 }
-const zone=flag('--source-timezone')??'UTC';
+const requestedZone=flag('--source-timezone');
+const zone=requestedZone??Intl.DateTimeFormat().resolvedOptions().timeZone;
 try{new Intl.DateTimeFormat('en',{timeZone:zone}).format();}catch{fail('TIMEZONE_INVALID');}
 const isRealDir=p=>{try{const s=lstatSync(p);return s.isDirectory()&&!s.isSymbolicLink();}catch{return false;}};
 let root;
@@ -73,8 +81,10 @@ const planToken=text=>{ // closed vocabulary only
  if(/pro/.test(t))return 'pro';
  return 'other';
 };
+// Exact decimals need JSON.parse reviver source text (Node 24.13+); without it every record would look invalid.
+{let seenSource;JSON.parse('[1.50]',(k,v,c)=>{if(typeof v==='number')seenSource=c&&c.source;return v;});if(seenSource!=='1.50')fail('RUNTIME_UNSUPPORTED');}
 const FLAGS=constants.O_RDONLY|(constants.O_NOFOLLOW??0)|(constants.O_NONBLOCK??0);
-let seen=0,accepted=0,filesRead=0,tooLong=0,capped=false,usageAbove=false,extra=false,reduced=false,missingLimit=false,conflictingReset=false,assumedZone=false;
+let partial=0,seen=0,accepted=0,filesRead=0,tooLong=0,capped=false,usageAbove=false,extra=false,reduced=false,missingLimit=false,conflictingReset=false,assumedZone=false;
 const rejected=new Map(),records=[],accounts=new Set(),subTokens=new Set(),titleTokens=new Set(),overage=new Set();
 const bump=(m,k)=>m.set(k,(m.get(k)??0)+1);
 
@@ -85,11 +95,17 @@ for(const file of files){
   if(!st.isFile()||st.size>MAX_FILE){closeSync(fd);filesSkipped++;continue;}
   const buf=Buffer.alloc(st.size);let off=0;while(off<st.size){const n=readSync(fd,buf,off,st.size-off,off);if(n<=0)break;off+=n;}
   closeSync(fd);filesRead++;
-  for(const line of buf.toString('utf8').split('\n')){
-   if(!line.includes('GetUsageLimitsCommand'))continue;
+  const decoder=new TextDecoder('utf-8',{fatal:true});
+  for(let start=0;start<buf.length;){
+   const nl=buf.indexOf(10,start);
+   const end=nl<0?buf.length:nl,bytes=buf.subarray(start,end);start=end+1;
+   const complete=nl>=0;
+   if(bytes.indexOf('GetUsageLimitsCommand')<0)continue;
    if(seen>=MAX_RECORDS){capped=true;break;}
    seen++;
-   if(line.length>MAX_LINE){tooLong++;continue;}
+   if(!complete){partial++;continue;}
+   if(bytes.length>MAX_LINE){tooLong++;continue;}
+   let line;try{line=decoder.decode(bytes);}catch{bump(rejected,'malformed_record');continue;}
    const p=parseLine(line.replace(/\r$/,''),zone);
    if(p.status!=='accepted'||!p.snapshot){bump(rejected,STATUSES.has(p.status)?p.status:'other');continue;}
    accepted++;
@@ -128,15 +144,15 @@ for(const limit of limitSet){
 }
 // Limit changes inside one billing cycle, per account, in observation order. Records without a reset instant or
 // an account are counted apart and excluded from the change count.
-const groups=new Map();let unknownCycle=0,noAccount=0;
+const groups=new Map(),cycles=new Set();let unknownCycle=0,noAccount=0;
 for(const r of records.sort((a,b)=>a.at<b.at?-1:a.at>b.at?1:0)){
  if(r.limit===null)continue;
  if(r.cycle===null){unknownCycle++;continue;}
  if(r.account===null){noAccount++;continue;}
- const key=r.account+'\u0000'+r.cycle;
- const seq=groups.get(key)??[];if(seq.at(-1)!==r.limit)seq.push(r.limit);groups.set(key,seq);
+ const perAccount=groups.get(r.account)??new Map();groups.set(r.account,perAccount);
+ const seq=perAccount.get(r.cycle)??[];if(seq.at(-1)!==r.limit)seq.push(r.limit);perAccount.set(r.cycle,seq);cycles.add(r.cycle);
 }
-let changes=0;for(const seq of groups.values())changes+=Math.max(0,seq.length-1);
+let changes=0;for(const perAccount of groups.values())for(const seq of perAccount.values())changes+=Math.max(0,seq.length-1);
 const sorted=s=>[...s].sort();
 const nominal=sorted(limitTokens).filter(t=>t.startsWith('nominal_')).map(t=>t.slice(8));
 const planTokens=new Set([...subTokens,...titleTokens].filter(t=>t!=='other'));
@@ -145,13 +161,13 @@ const rejectedCounts=Object.fromEntries(sorted(rejected.keys()).map(k=>[k,reject
 process.stdout.write(JSON.stringify({
  schema:'ekg-limit-contract.1',
  files_read:filesRead,files_skipped:filesSkipped,records_seen:seen,records_accepted:accepted,
- records_rejected_by_status:rejectedCounts,records_too_long:tooLong,record_cap_reached:capped,
+ records_rejected_by_status:rejectedCounts,records_too_long:tooLong,records_partial_unterminated:partial,record_cap_reached:capped,
  distinct_accounts_seen:accounts.size,
  limit_distinct_count:limitSet.size,limit_tokens:sorted(limitTokens),limit_non_integer_seen:nonInteger,
- limit_changes_within_cycle_count:changes,cycles_seen:new Set([...groups.keys()].map(k=>k.split('\u0000')[1])).size,
+ limit_changes_within_cycle_count:changes,cycles_seen:cycles.size,
  records_without_cycle:unknownCycle,records_without_account:noAccount,
  usage_above_limit_seen:usageAbove,reduced_precision_seen:reduced,missing_limit_seen:missingLimit,
- unsupported_extra_credits_seen:extra,conflicting_reset_metadata_seen:conflictingReset,assumed_source_timezone_seen:assumedZone,
+ unsupported_extra_credits_seen:extra,conflicting_reset_metadata_seen:conflictingReset,assumed_source_timezone_seen:assumedZone,source_timezone_origin:requestedZone===undefined?'device':'argument',
  subscription_type_tokens:sorted(subTokens),subscription_title_tokens:sorted(titleTokens),
  plan_token_agrees_with_nominal_limit:agrees,overage_status_tokens:sorted(overage),
 },null,1)+'\n');

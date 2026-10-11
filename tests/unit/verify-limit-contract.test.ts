@@ -82,10 +82,26 @@ test('limit changes are counted per account and cycle, in time order',async()=>{
  const u=await tree(record({limit:1125,usage:1,ts:'2030-01-02 00:00:00.000'})+record({limit:1000,usage:1,ts:'2030-01-01 00:00:00.000'}));
  try{const j=JSON.parse(run(u.root));assert.equal(j.limit_changes_within_cycle_count,1);assert.equal(j.cycles_seen,1);}finally{await rm(u.base,{recursive:true,force:true});}
 });
+test('framing: invalid UTF-8, over-long and unterminated lines are counted, not parsed',async()=>{
+ const good=record({limit:1000,usage:1,ts:'2030-01-01 00:00:00.000'});
+ const t=await tree('');
+ try{
+  const file=join(t.dir,'q-client.log');
+  const invalid=Buffer.concat([Buffer.from(record({limit:1001,usage:1,ts:'2030-01-02 00:00:00.000'}).trimEnd().replace('synthetic-envelope','synthetic-\u00e9')),Buffer.from([0xff])]);
+  const long='2030-01-03 00:00:00.000 [info] GetUsageLimitsCommand '+'x'.repeat(300*1024)+'\n';
+  const unterminated=record({limit:1002,usage:1,ts:'2030-01-04 00:00:00.000'}).trimEnd();
+  await writeFile(file,Buffer.concat([Buffer.from(good),Buffer.from(invalid),Buffer.from('\n'),Buffer.from(long),Buffer.from(unterminated)]));
+  const j=JSON.parse(run(t.root));
+  assert.equal(j.records_accepted,1);assert.equal(j.records_too_long,1);assert.equal(j.records_partial_unterminated,1);
+  assert.deepEqual(j.records_rejected_by_status,{malformed_record:1});
+ }finally{await rm(t.base,{recursive:true,force:true});}
+});
 test('offset-free timestamps need a valid IANA zone; bad arguments give fixed output',async()=>{
  const t=await tree(record({limit:1000,usage:1}));
  try{
-  assert.equal(JSON.parse(run(t.root,['--source-timezone','Europe/Berlin'])).assumed_source_timezone_seen,true);
+  const given=JSON.parse(run(t.root,['--source-timezone','Europe/Berlin']));
+  assert.equal(given.assumed_source_timezone_seen,true);assert.equal(given.source_timezone_origin,'argument');
+  const defaulted=JSON.parse(run(t.root));assert.equal(defaulted.source_timezone_origin,'device');
   const bad=spawn(['--source-root',t.root,'--source-timezone','Not/AZone']);
   assert.equal(bad.status,1);assert.equal(JSON.parse(bad.stdout).error,'TIMEZONE_INVALID');
   const unknown=spawn(['--source-root',t.root,'--surprise','x']);
@@ -117,4 +133,5 @@ test('script is read-only, offline and consistent with the bundled catalog',asyn
  assert.ok(text.includes(`ADD_ON_MAX='${Number(reviewedCatalog.consumer.maximumCredits)*reviewedCatalog.consumer.maximumPacks}'`));
  // Only the production parser and decimal helpers may be imported from the application.
  assert.deepEqual([...text.matchAll(/from '(\.\.\/src\/[^']+)'/g)].map(m=>m[1]),['../src/projection.ts','../src/decimal.ts']);
+ assert.ok(text.includes("fail('RUNTIME_UNSUPPORTED')"));
 });

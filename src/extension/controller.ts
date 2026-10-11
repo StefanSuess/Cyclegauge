@@ -45,7 +45,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   }catch{
    advisorHtml=presentAdvisor({hint:{plan:null,confidence:'none',reasons:[]},context:{planSource:'unknown',plan:null,billingConfirmed:false,addOns:'unknown',assumptions:[]},horizons:[],advice:[],singleAccount:advisor.isSingleAccount,failed:true,limit:null});
   }
-  const presentation=present(observation,codes,advisorHtml+costHtml);
+  const presentation=present(observation,codes,costHtml,advisorHtml);
   detail=presentation.html;
   if(!disposed)ui.setStatus(presentation.text,detail,presentation);
  };

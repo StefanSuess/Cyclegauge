@@ -84,6 +84,22 @@ combined-capacity reading: a plain mid-cycle plan change also moves it; `bonuses
 schemas have ever been populated. `plan_token_agrees_with_nominal_limit` compares the classified
 `subscriptionInfo` type/title with the nominal match. The extraction allowlist is not changed by this script.
 
+Parity statement: record acceptance is the collector's own parser (`src/projection.ts`). File framing is separate and
+slightly different by design: lines are split on bytes, must be valid UTF-8 (otherwise counted as `malformed_record`),
+are limited to 256 KiB in bytes (`records_too_long`), and an unterminated final line is counted
+(`records_partial_unterminated`) and not parsed. The script exits with `RUNTIME_UNSUPPORTED` when the JSON reviver
+source text needed for exact decimals is unavailable. Records at equal instants keep file order, which comes from the
+directory listing, so flapping between equal-instant records is possible and is not evidence of a change.
+
+### 5.1 Time zone of the log timestamps
+
+Kiro's account-log timestamps have no UTC offset. The collector interprets them in `easykirogauge.sourceTimezone`
+(empty = this computer's zone). The script does the same: **default = this computer's zone**; pass
+`--source-timezone <IANA zone>` only if you changed that setting or Kiro ran in another zone. The zone affects only
+record ordering and the resolution of wall-clock times; ambiguous or non-existent daylight-saving times are rejected by
+the production parser and counted in `records_rejected_by_status`. Output reports `source_timezone_origin`
+(`device` or `argument`) and `assumed_source_timezone_seen`, never the zone name.
+
 ## 6. Phased plan
 
 | Phase | Content | Gate |

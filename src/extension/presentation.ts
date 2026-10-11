@@ -28,7 +28,7 @@ const explanations: Record<string,string> = {
 };
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '') {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '') {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -77,6 +77,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1><p class="subtitle">Your remaining credits until the next billing reset. <a href="#cost-advisor">Cost Advisor</a> · <a href="#cost-optimizer">Cost Optimizer</a></p><div class="summary">${card('Credits used',o.usage===null ? null : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${card('Remaining reported capacity',o.remainingBaseCredits===null ? null : `${o.remainingBaseCredits} credits`)}${card('Daily credit budget until reset',budget===null ? null : `${compact(budget)} credits / day`)}</div>
  <section class="outlook"><h2>Current status</h2><span class="badge">${safe(outlook)}</span>${tierLine ? `<span class="muted tier">${safe(tierLine)}</span>` : ''}<p>${safe(explanation)}</p>${limitations ? `<p>${safe(limitations)}</p>` : ''}<table class="status-table">${row('Next billing reset',o.resetAt ? `${date(o.resetAt,true)} (UTC)` : null)}${row('Last account update',o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : null)}</table><p class="muted small">Amounts are as of the last update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
+ ${advisorHtml}
  ${chart.main}
  ${costHtml}
  <section id="advanced-details" aria-label="Advanced details"><details class="advanced"><summary>Advanced details</summary><p class="muted small">Forecast methods and evidence, coverage, exact UTC timestamps, qualifiers, chart data and billing assumptions.</p>

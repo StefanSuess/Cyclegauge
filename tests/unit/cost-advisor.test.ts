@@ -197,11 +197,15 @@ test('detail view shows the advisor first, answers are applied through the nativ
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('aria-label="Cost Optimizer"'));
+  // Recommendation at a glance: directly after the current status and before the chart and advanced details.
+  assert.ok(html.indexOf('class="outlook"')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
+  if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
   assert.ok(commands.has('advisor'));assert.ok(!html.includes('Pro — confirmed by you'));
   if(process.platform==='win32'){
    // Windows storage stays fail-closed: no store opens, so there are no observations. The advisor must still render,
    // say that nothing can be compared, and must not pretend an answer was applied.
    assert.ok(html.includes('Insufficient information'));
+   assert.ok(html.includes('storage')||html.includes('Storage'),'the fail-closed storage reason must be visible, not just an empty log');
    answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
    assert.ok(!html.includes('Pro — confirmed by you'));assert.ok(!/Potential savings|No action needed/.test(html));
   }else{
