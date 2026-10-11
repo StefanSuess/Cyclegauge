@@ -149,12 +149,26 @@ export async function smoke(file: string, simulate: Simulation = 'none'): Promis
 import { createRequire } from 'node:module';
 const createRequireFor = (path: string) => createRequire(path);
 
+const SIMULATIONS: readonly Simulation[] = ['none', 'no-sqlite', 'no-reviver', 'no-watcher'];
+/** Strict: an unknown flag, a repeated option or a second file is a usage error, never a different run. */
+export function parseArgs(argv: string[]): { file: string; simulate: Simulation } | undefined {
+ let file: string | undefined, simulate: Simulation | undefined;
+ for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === '--simulate') {
+   const value = argv[++i];
+   if (simulate !== undefined || !(SIMULATIONS as readonly string[]).includes(value)) return undefined;
+   simulate = value as Simulation;
+  } else if (a.startsWith('--') || file !== undefined) return undefined;
+  else file = a;
+ }
+ return file === undefined ? undefined : { file, simulate: simulate ?? 'none' };
+}
+
 async function main(): Promise<number> {
- const argv = process.argv.slice(2);
- const file = argv.find(a => !a.startsWith('--') && argv[argv.indexOf(a) - 1] !== '--simulate');
- const simIndex = argv.indexOf('--simulate');
- const simulate = (simIndex >= 0 ? argv[simIndex + 1] : 'none') as Simulation;
- if (!file || !['none', 'no-sqlite', 'no-reviver', 'no-watcher'].includes(simulate)) { console.log('USAGE'); return 2; }
+ const args = parseArgs(process.argv.slice(2));
+ if (!args) { console.log('USAGE'); return 2; }
+ const { file, simulate } = args;
  const result = await smoke(file, simulate);
  console.log(`BUNDLE_SMOKE ${result.ok ? 'PASS' : 'FAIL'} simulate=${simulate} platform=${process.platform}`);
  for (const [name, ok] of Object.entries(result.checks)) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name}`);

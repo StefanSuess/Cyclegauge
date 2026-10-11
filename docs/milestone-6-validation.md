@@ -263,11 +263,12 @@ store opened by this code and the reverse with identical import results and 0700
 Evidence still outstanding: native Windows 11 standard-user ACL run, RHEL 9 R0/R1 survey, and a
 native Kiro run to confirm `context.logUri` shape and `vscode.env.appName` on each OS.
 
-## 10. Task 8 regression tests, release tooling and the non-elevated launcher (uncommitted work)
+## 10. Task 8 regression tests, release tooling and the non-elevated launcher
 
-Status of this section: **local verification only** (macOS arm64, Node 26.11.1 and 24.13.0). None of
-the new CI jobs below has run on GitHub Actions yet; they are written, YAML-validated and reviewed,
-not observed.
+Status of this section: committed as `f11f900` and `47bbf89`. Every job below has run on GitHub
+Actions **[observed]**: run 38133581910 on `47bbf89`, 17 of 17 jobs successful. Release candidate
+SHA-256 identical on download on ubuntu-24.04, macos-latest and windows-2022; the local rebuild on
+each of those runners reported `PAYLOAD_COMPARE IDENTICAL`.
 
 ### 10.1 Task 8: rotation, concurrency and watcher failure
 
@@ -321,8 +322,10 @@ integrity level the child measured about itself (`obtained` for medium or low, o
 `not_obtained`; an elevated run is never labelled non-elevated). CI job
 `windows-acl-poc-nonelevated` runs it on Server 2022 and 2025.
 
-Feasibility is **unknown until the job runs**: if `runas /trustlevel` does not reduce the token on a
-hosted runner the job reports `not_obtained` and a warning annotation. Any result is Windows Server
+Result **[observed]**, runs 38133373185 and 38133581910: on both Server 2022 and Server 2025 the job
+succeeds but annotates *no non-elevated token was obtained*, so it provides **no** non-elevated
+evidence. The job is kept (it is correctly labelled and costs little), but standard-user evidence can
+only come from the native Windows 11 run in the SC1 checklist. Any result here is Windows Server
 evidence, not Windows 11 client evidence and not a managed-profile result.
 
 ### 10.4 Independent review of this round
@@ -338,3 +341,26 @@ or differing results.
 
 Accepted risk: the key wait blocks the extension host thread for at most 200 ms per attempt, and
 repeats on each poll while a key stays permanently short (for example after a crashed first writer).
+
+### 10.5 Release verification pipeline review (2026-10-11)
+
+Review of the release verification pipeline at `47bbf89`. Only deficiencies shown on that commit or
+its CI runs were changed; the rest was confirmed and left alone.
+
+| Finding | Evidence | Change |
+| --- | --- | --- |
+| The Windows baseline suite could not fail CI (`continue-on-error`), so a new Windows-only failure stayed green | Run 38133373185 (`f11f900`) concluded `success` while `a sidecar that is being deleted by another window…` failed on Windows outside the storage-refused set; it was fixed in `47bbf89` only because the summary was read by hand | Failures are compared by name with `tests/windows-expected-failures.txt` (the 23 storage-dependent tests seen identically on Server 2022 and 2025 in run 38133581910) by `scripts/release/expected-failures.ts`. An unlisted failure, a listed test that passes, or a run without a test count fails the job. `continue-on-error` removed |
+| SC3 "workflow permissions and pinning" had no automated check; the record lists "no re-verification mechanism" | No test read `.github/workflows/ci.yml`; an unpinned `uses:` or `contents: write` would have passed every job | `scripts/release/workflow-policy.ts` and `tests/release/gates.test.ts`: one top-level `contents: read`, no privileged triggers, no secrets, actions pinned by 40-hex SHA with a version comment, every checkout without persisted credentials, images by digest, frozen installs, exact pnpm version. Each rule has a test that it rejects the widening |
+| Review item (Stefan, 2026-10-11): the first version of the workflow check recognised only `${{ secrets.NAME` and `github.token` | `${{ secrets['NAME'] }}`, `${{ github['token'] }}`, `format(…, secrets.X)`, `toJSON(secrets)`, `toJSON(github)`, other letter cases, spaced dots and `secrets: inherit` all passed it | Every `${{ }}` expression is searched for the `secrets` context and for the token in dot, bracket or `toJSON(github)` form, case-insensitively; a `secrets:` key is refused. Synthetic negative tests for each form |
+| The smoke CLI ran a different check than requested on a typo | `smoke-bundle.ts c.vsix --simulat no-sqlite` printed `BUNDLE_SMOKE PASS simulate=none`; a repeated `--simulate` or a second file was silently ignored | Strict `parseArgs`, same rules as `verify-vsix.ts` (usage error, exit 2) |
+| The single release candidate expired after 7 days, but native acceptance must install that exact file later, on owner-provided machines | `retention-days: 7` on the `release-candidate` artifact | 90 days; runbook explains how to check the SHA-256 natively |
+
+Confirmed adequate, unchanged: read-only token and `persist-credentials: false` on every checkout;
+actions pinned by SHA (the SHAs match the commented tags to the reviewer's knowledge **[inferred]**, not
+re-resolved here: that stays a manual SC3 item); UBI 9 image pinned by digest; frozen lockfile; the
+candidate is built once and verified by SHA-256 before use; payload comparison ignores ZIP metadata;
+the ZIP reader's limits and directory reconciliation; `bash -eo pipefail` on the piped smoke and rebuild steps.
+
+Noted, not changed: GitHub warns that the pinned `checkout`, `setup-node` and `download-artifact`
+versions target Node 20 and are forced onto Node 24. They still run; moving to newer pinned releases is
+maintenance for a later change, with SHAs resolved and recorded at that time.

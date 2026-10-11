@@ -242,9 +242,24 @@ Tested with: managed profile | space/non-ASCII profile name | OneDrive-redirecte
 | Build once | `pnpm release:build release/candidate.vsix` | the working tree packages | that anything runs |
 | Content | `pnpm release:verify release/candidate.vsix [--out manifest.json]` | exactly the allowlisted entries; sane manifest and bundle; per-file SHA-256 | behaviour |
 | Reproducibility | `pnpm release:verify other.vsix --compare manifest.json` | payload file hashes equal (ZIP bytes ignored) | a clean toolchain |
+| Workflow policy (SC3) | `node scripts/release/workflow-policy.ts` | read-only token, no secrets, actions pinned by SHA, images by digest, frozen installs | that a pinned SHA is the tagged release |
+| Windows baseline | `node scripts/release/expected-failures.ts baseline.tap tests/windows-expected-failures.txt` | only the listed storage-dependent tests fail while win32 storage is refused | anything about Windows storage itself |
 | Smoke | `pnpm release:smoke release/candidate.vsix [--simulate no-sqlite\|no-reviver\|no-watcher]` | the shipped bundle activates, shows the budget, degrades safely and prints a path-free diagnostics report against a stub host | native Kiro behaviour, real log shapes, `context.logUri`, `vscode.env.appName` |
 
-Native acceptance runs must install **the same file** and record its SHA-256. For phase A of the
+Native acceptance runs must install **the same file** and record its SHA-256. Download the
+`release-candidate` artifact of the CI run for the release commit (kept 90 days), then compare its
+hash with the `SHA-256:` line in that run's *Release candidate (built once)* summary before installing:
+
+```bash
+sha256sum candidate.vsix                                   # Linux (RHEL 9)
+shasum -a 256 candidate.vsix                               # macOS
+```
+
+```powershell
+(Get-FileHash -Algorithm SHA256 .\candidate.vsix).Hash.ToLower()   # Windows 11
+```
+
+A mismatch stops the run; do not rebuild locally as a substitute. For phase A of the
 RHEL/Windows/macOS acceptance runs, `node scripts/release/synthetic-root.ts <empty-directory>` creates
 an invented log tree whose observations end "now" with a billing reset 20 days later.
 

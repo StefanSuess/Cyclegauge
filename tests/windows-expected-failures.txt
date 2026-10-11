@@ -1,0 +1,30 @@
+# Top-level unit tests that are EXPECTED to fail on Windows runners while win32 storage stays fail
+# closed (src/paths.ts; SC1 open, Tasks 4, 5 and 7 gated). Each one opens a Store. Checked by
+# scripts/release/expected-failures.ts in the `windows` CI job: an unlisted failure fails the job,
+# and so does a listed test that starts passing. Shrink this list only together with the change
+# that enables Windows storage; never add a test to it to make CI green.
+#
+# Source: CI run 38133581910 (47bbf89), identical on windows-2022 and windows-2025: 23 failing.
+activation imports a synthetic account snapshot and click opens details
+unchanged snapshot becomes stale without a new observation
+log change refreshes the status and disposal stops later updates
+detail view renders a qualified forecast and observed daily coverage from synthetic account logs
+detail view progresses from limited-history provisional to regular and stale unavailable
+same-size in-place replacement is reread and recorded as source change
+store transaction rolls back checkpoint and billing observations together
+owner-only permissions and read-only source directory with no sidecars
+corrupted persisted projection fails closed without leaking stored text
+invalid/unsafe store emits only fixed CLI failure codes
+unknown fields never reach SQLite files, even in persistent keys
+independent store connections serialize and deduplicate shared imports
+absent source produces unavailable evidence rather than zero usage
+imports the existing wholly synthetic fixture with original observations and reset gap
+corrupted timezone on an explicit-offset observation fails private output projection
+exponent expansion cannot poison stored billing observations
+CLI runs and restarts against synthetic sources with billing-only JSON output
+imports persistently, deduplicates restarts and never changes source metadata
+defers partial records, rejects malformed and oversized lines, detects truncation/rotation
+rejects symlink sources and storage, source overlap and repository storage
+ignores unrelated filenames and isolates two accounts and unknown identity
+controller activation, configuration, open-view edit, refresh and clear preserve budget without expensive analysis
+account ambiguity during an open native editor rejects its late completion
