@@ -12,29 +12,24 @@ The budget detail view now shows a script-free **Usage trajectory** chart (inlin
 
 Details and validation: `docs/milestone-5-validation.md`.
 
-## Cost Optimizer
+## Cost Advisor
 
-Click the budget status bar, then its **Cost Optimizer** jump link. Use the panel title gear (Configure), pencil (Edit) or clear action; the same commands are available in the Command Palette.
+The detail view shows a **Cost Advisor** card right after the current status. It needs no setup: when a qualified
+forecast exists it compares 1, 3 and 6 full UTC billing cycles using bundled list prices (catalog version and review
+date are shown) and says plainly whether the result is a *conditional comparison* or there is *insufficient
+information*. Nothing is purchased, sent or fetched.
 
-The quickest flow is **Configure Cost Optimizer → Independent comparison → Consumer prepaid or Enterprise postpaid → expected monthly credits → confirm assumptions**. This explicitly compares commercial list prices for 1, 3 and 6 full UTC billing cycles, assumes no opening purchased credits, excludes promotions and excludes the current partial cycle. It works without a live forecast. It has no personal savings baseline and does not confirm purchase or plan eligibility. Expand each horizon for strategy costs, demand sensitivity, conditional analytical references and limitations.
-
-For personalized scenarios, select your current plan when configuring. The Cost Advisor offers an unconfirmed plan hint when the reported credit limit exactly matches a bundled plan's nominal credits; your explicit choice always takes precedence (see docs/cost-advisor-spec.md). Edit advanced details to confirm the market, balance as-of time, next UTC reset, reported remaining credits, cycle usage, additional before-reset demand, existing purchased lots (including explicitly none), available pack slots and eligible tiers meeting your feature/admin restrictions. The default personalized tier menu contains only the selected current plan until you confirm alternatives. Each lot is entered through separate credit, expiry-precision and expiration prompts. Unknown or date-only expiry remains uncertain. Confirm cohort, first-paid date, promotions and prior add-on use when assessing upgrades; Enterprise overages require explicit permission and applicable headroom. Blank optional balances mean unknown, while 0 and confirmed no lots are distinct.
-
-The view separates new expenditure before reset from future complete cycles, subscription/add-on/overage costs, signed savings, expired/remaining inventory and 75/100/125% hypothetical demand alternatives. A lowest calculable option is not called the cheapest overall when a competitor has unknown costs. Missing balances or eligibility explain which details are needed; independent comparisons remain usable. Monetary values are pre-tax USD modeled expenditure, not invoice quotes. Existing purchased credits are not charged again.
-
-Inputs last only for the current extension session. Clear, restart, account-context change or ambiguity invalidates them, including an editor that completes late. Independent inputs may be created without usable account observations but stay isolated to that context. There is no account selector. Manual inventories older than 24 hours are conditional; a passed reset requires reconfirmation. An optional qualified forecast is revalidated through the existing exact demand adapter and can become unavailable independently of the budget view.
-
-Normal comparisons never run exhaustive break-even enumeration. The view only shows labeled continuous-extra analytical references where applicable. They exclude pack minima/steps, quotas, promotions, opening inventory and multi-cycle carryover. The expensive exact `findBreakEven` remains an explicit engine-only operation, deferred from extension interactions; no approximation replaces an exact result. Consumer purchase increments, rounding, depleted-slot release, first-paid proration and pack restoration remain billing gates. Custom/GovCloud prices and arbitrary monthly switching schedules are unsupported. The Milestone 5 usage chart is separate from the Cost Optimizer and shows no costs.
-
-The repository document `docs/milestone-4b-validation.md` contains test, packaging, layout and local Kiro evidence.
-
-Milestone 3 extends the Kiro IDE extension with credit history and qualified forecasts. Its status bar emphasizes daily budget and forecast outlook: collecting data, provisional, on track, tight, over budget with a conditional exhaustion date, stale or unavailable. Reported remaining credits stay in the detail view alongside account usage, daily budget and forecast status. Click it to open account usage, reported credit limit, reset, UTC-day allocation, observation time, freshness and warnings. The extension reads existing Kiro IDE account-response logs and writes normalized observations only to EasyKiroGauge-owned storage. It does not call Kiro services or need a separate Node installation.
-
-Build and package locally with `./node_modules/.bin/tsc --noEmit`, `./node_modules/.bin/esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/easykirogauge-0.5.1.vsix`. Install the VSIX through Kiro IDE's Extensions: Install from VSIX command. The extension activates after startup, watches IDE account logs and rescans every minute. A rescan of old data never refreshes its observation timestamp.
-
-Settings: `easykirogauge.sourceRoot`, `easykirogauge.storageRoot`, and `easykirogauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation remain outside this milestone. Milestone 2 status/details were previously verified in macOS Kiro 1.2.56. The earlier Milestone 3 VSIX 0.3.0 was installed and its history, coverage, forecast labels and insufficient-coverage explanation verified in a clean local Kiro window on 2026-10-10. The progressive-forecast update, VSIX 0.3.1, was installed, restarted and its policy v2/unavailable detail rendering verified locally on the same date. Eligible provisional/regular rendering is covered synthetically; live predictive accuracy remains unverified. Windows, Ubuntu and RHEL remain unverified.
-
-Milestone 1: a local, read-only `GetUsageLimitsCommand` CREDIT collector with persistent observations and a CLI. It reads existing Kiro IDE account-response logs; it never starts Kiro, calls its services, reads credentials, or accesses its SQLite cache or sessions.
+- **Plan:** an exact match between the reported credit limit and a bundled plan's nominal credits is shown only as an
+  unconfirmed hint, because the reported limit is not verified to be base-only and may include purchased add-on credits.
+  Your explicit choice always wins.
+- **Questions (optional):** use the light-bulb button in the panel's title bar (or the Command Palette entry
+  `EasyKiroGauge: Cost Advisor`) to confirm the plan, billing system and whether you have purchased add-on credits.
+  "Not sure" keeps results conditional; "Clear my answers" forgets them. Answers last for the session and are cleared
+  when the account context changes.
+- **Details:** *Compare options, assumptions and sensitivity* expands the per-strategy costs, assumptions and the
+  uncertainty reasons.
+- **Today's limit:** supported "No action needed" and "Potential savings" outcomes are defined but not yet reachable,
+  because the cost engine marks every priced comparison conditional. See docs/cost-advisor-spec.md.
 
 ## Requirements and use
 

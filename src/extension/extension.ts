@@ -43,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
    async plans(title,selected) {const values=await vscode.window.showQuickPick(PLAN_IDS.map(id=>({label:planNames[id],id,picked:selected.includes(id)})),{title,canPickMany:true,ignoreFocusOut:true});return values?.map(i=>i.id);}
   },
   onCostCommand(id,fn) {
-   const command={configure:'configureCostOptimizer',edit:'editCostScenario',clear:'clearCostInputs',advisor:'costAdvisor'}[id];
+   const command={advisor:'costAdvisor'}[id];
    disposables.push(vscode.commands.registerCommand('easykirogauge.'+command,fn));
   },
   onClick(fn) { disposables.push(vscode.commands.registerCommand('easykirogauge.showUsage', fn)); },

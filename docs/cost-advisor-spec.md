@@ -116,6 +116,14 @@ the production parser and counted in `records_rejected_by_status`. Output report
 | C | Verified limit semantics from the owner-run script; optional purchase amount (USD/EUR with rate basis), expiry dates, Enterprise overage/headroom questions; optional scripted inline form only if native controls prove unacceptable | Owner decision on script results |
 | D | Native macOS verification of the Advisor UI on an isolated instance with synthetic data; versioned release candidate | Owner approval |
 
+## 6.1 UI simplification (after Phase A)
+
+The standalone Cost Optimizer UI is removed: no separate section, link, configure/edit/clear commands, title-bar
+buttons or manual profile prompts. The Cost Advisor is the single user-facing entry point. The engine
+(`src/cost/*`, `calculateCosts`, `presentCost`) is unchanged and is reached only through the Advisor; per-strategy
+costs, assumptions and sensitivity are in the card's collapsed "Compare options, assumptions and sensitivity" details.
+The picker has a "Clear my answers" item instead of a separate command.
+
 ## 7. Defect found and fixed in Phase A
 
 Forecast-derived demand (the only automatic demand source) was rejected by the optimizer's assumption allowlist

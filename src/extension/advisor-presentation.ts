@@ -1,7 +1,7 @@
 import type {CostOptimization} from '../cost/types.ts';
 import type {Advice,AdviceKind,AdvisorContext,PlanHint} from '../cost/advisor.ts';
 import {planNames,type CostHorizon} from './cost-inputs.ts';
-import {winnerText,reasonText} from './cost-presentation.ts';
+import {winnerText,reasonText,presentCost} from './cost-presentation.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
 
 const safe=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]!);
@@ -48,7 +48,8 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
   +(advice[0]?.kind==='potential_savings'?`<p>${savings(first).trim()}</p>`:'')
   +`<p class="small"><strong>Plan:</strong> ${plan}.${safe(confidence)}</p>`
   +(assumptions.length||engineReasons.length?`<p class="small"><strong>Conditions that apply:</strong></p><ul class="small">${[...assumptions,...engineReasons.map(reasonText)].map(t=>`<li>${safe(t)}</li>`).join('')}</ul>`:'')
+  +(horizons.some(h=>h.result)?`<details class="small"><summary>Compare options, assumptions and sensitivity</summary>${horizons.filter(h=>h.result).map(h=>`<h4>${h.months} full billing ${h.months===1?'cycle':'cycles'}</h4>${presentCost(h.result!)}`).join('')}</details>`:'')
   +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p>`
-  +`<p class="small">To change the plan or answer the questions above, use the <strong>Cost Advisor</strong> button (light-bulb) in this panel's title bar, or the Command Palette entry <strong>EasyKiroGauge: Cost Advisor</strong>.${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
+  +`<p class="small">To change the plan or answer the questions above, use the <strong>Cost Advisor</strong> button (light-bulb) in this panel's title bar, or the Command Palette entry <strong>EasyKiroGauge: Cost Advisor</strong> (it also clears your answers).${o.singleAccount?' Answers last for this session and are cleared when the account context changes.':' Answers are unavailable until a single account context is established.'}</p>`
   +`</section>`;
 }

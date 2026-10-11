@@ -158,6 +158,12 @@ test('native questions are minimal, cancellable and keep unknown as unknown',asy
  assert.deepEqual(await reviewAdvisor(native(['plan:free','enterprise_postpaid']),hint,noAnswers),{plan:null,billing:'enterprise_postpaid',addOns:null,addOnCredits:null});
  assert.equal(await reviewAdvisor(native(['plan:pro','consumer_prepaid','some','synthetic-private-text']),hint,noAnswers),null);
 });
+test('the picker can clear answers in one step and nothing else is asked',async()=>{
+ const asked:string[]=[];
+ const ui={async pick(t:string){asked.push(t);return 'reset';},async input(){return undefined;},async plans(){return undefined;}};
+ assert.deepEqual(await reviewAdvisor(ui,planHint('1000',catalog),{plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:null}),noAnswers);
+ assert.equal(asked.length,1);
+});
 test('answers cannot cross accounts, ambiguity or stale editor tickets',()=>{
  const state=new AdvisorInputs();state.observe('synthetic-a','single');
  const answers:AdvisorAnswers={...noAnswers,plan:'pro'};
@@ -196,7 +202,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
   onCostCommand(id:string,fn:()=>Promise<void>){commands.set(id,fn);}};
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
-  assert.ok(html.includes('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('aria-label="Cost Optimizer"'));
+  assert.ok(html.includes('id="cost-advisor"'));assert.ok(!html.includes('Cost Optimizer'));assert.ok(!html.includes('cost-optimizer'));
   // Recommendation at a glance: directly after the current status and before the chart and advanced details.
   assert.ok(html.indexOf('class="outlook"')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
   if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
@@ -223,8 +229,11 @@ test('detail view shows the advisor first, answers are applied through the nativ
 test('manifest exposes the advisor as the first panel title action',async()=>{
  const p=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  assert.ok(p.contributes.commands.some((c:any)=>c.command==='easykirogauge.costAdvisor'&&c.icon==='$(lightbulb)'));
- const first=p.contributes.menus['editor/title'][0];
+ const menu=p.contributes.menus['editor/title'];assert.equal(menu.length,1);
+ const first=menu[0];
  assert.equal(first.command,'easykirogauge.costAdvisor');assert.equal(first.when,'activeWebviewPanelId == easykirogauge.usage');
  const ext=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
+ for(const gone of ['configureCostOptimizer','editCostScenario','clearCostInputs'])assert.ok(!p.contributes.commands.some((c:any)=>c.command.endsWith(gone)),gone);
+ assert.ok(!JSON.stringify(p.contributes).includes('Cost Optimizer'));
  assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: false/);
 });

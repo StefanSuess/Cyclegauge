@@ -26,10 +26,12 @@ const PLAN_PICK_PREFIX='plan:';
  */
 export async function reviewAdvisor(ui:NativeCostInput,hint:PlanHint,current:AdvisorAnswers):Promise<AdvisorAnswers|null> {
  const planItems=[
+  {id:'reset',label:'Clear my answers',description:'Forget what you told the Cost Advisor in this session'},
   {id:'unsure',label:'Not sure',description:hint.plan?`Keep the unconfirmed hint (${planNames[hint.plan]}); results stay conditional`:'Plan stays unknown; results stay conditional'},
   ...PLAN_IDS.map(id=>({id:PLAN_PICK_PREFIX+id,label:`${planNames[id]}${hint.plan===id?' (matches reported credits)':''}`,description:'Confirm this as my current plan'})),
  ];
  const plan=await ui.pick('Cost Advisor — which plan are you on?',planItems);if(!plan)return null;
+ if(plan==='reset')return {...noAnswers};
  const billing=await ui.pick('Cost Advisor — how is the plan billed?',[
   {id:'unsure',label:'Not sure',description:'Personal pricing is assumed and the result stays conditional'},
   {id:'consumer_prepaid',label:'Personal subscription (consumer)',description:'Add-on credit packs apply'},

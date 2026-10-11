@@ -3,7 +3,7 @@
 ## Scope and authority
 
 - Follow [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
-- **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and session-only Cost Optimizer inputs in the script-disabled detail view; exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
+- **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and the cost engine behind the Cost Advisor in the script-disabled detail view (the standalone Cost Optimizer UI was removed in favour of the Advisor); exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
 - **Deferred / unauthorized:** session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights, content analysis, purchases and authenticated calls. Each needs separate explicit approval and does not alter the privacy and read-only rules below.
 - No automatic Git commits. Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.
 - Keep the collector independent of VS Code APIs. Package only the extension bundle, manifest and public documentation; exclude source logs, stores, tests and local dependency caches from VSIX artifacts.
