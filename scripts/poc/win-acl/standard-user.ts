@@ -46,6 +46,7 @@ export const LAUNCH_SCRIPT = [
  '  $p = Start-Process -FilePath $env:EKG_NODE -ArgumentList $env:EKG_ARGS -Credential $cred -LoadUserProfile -WindowStyle Hidden -WorkingDirectory $env:EKG_STAGE -PassThru -Wait',
  "  Write-Output ('X|' + $p.ExitCode)",
  "} catch { Write-Output ('E|' + $_.Exception.GetType().Name + '|' + $_.FullyQualifiedErrorId + '|' + $_.Exception.HResult) }",
+ 'exit 0',
 ].join('\n');
 
 // Fallback: a scheduled task registered for the account (limited run level), polled through the output file.
@@ -63,12 +64,28 @@ export const TASK_SCRIPT = [
  "} catch { Write-Output ('E|' + $_.Exception.GetType().Name + '|' + $_.FullyQualifiedErrorId + '|' + $_.Exception.HResult) } finally {",
  "  Unregister-ScheduledTask -TaskName 'synthetic-ekg-std-task' -Confirm:$false -ErrorAction SilentlyContinue",
  '}',
+ 'exit 0',
+].join('\n');
+
+// First choice: the managed API directly (no console host quirks of Start-Process -Credential).
+export const PSI_SCRIPT = [
+ "$ErrorActionPreference = 'Stop'",
+ 'try {',
+ '  $pw = ConvertTo-SecureString $env:EKG_PW -AsPlainText -Force',
+ '  $psi = New-Object System.Diagnostics.ProcessStartInfo',
+ '  $psi.FileName = $env:EKG_NODE; $psi.Arguments = $env:EKG_ARGS; $psi.WorkingDirectory = $env:EKG_STAGE',
+ '  $psi.UserName = $env:EKG_USER; $psi.Domain = $env:COMPUTERNAME; $psi.Password = $pw',
+ '  $psi.LoadUserProfile = $true; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true',
+ '  $p = [System.Diagnostics.Process]::Start($psi)',
+ '  if (-not $p.WaitForExit(240000)) { $p.Kill(); Write-Output "X|timeout" } else { Write-Output ("X|" + $p.ExitCode) }',
+ "} catch { Write-Output ('E|' + $_.Exception.GetType().Name + '|' + $_.FullyQualifiedErrorId + '|' + $_.Exception.HResult) }",
+ 'exit 0',
 ].join('\n');
 
 /** The launcher's fixed-token outcome line: `X|<exit>` or `E|<type>|<error id>|<hresult>`. */
 export function parseLaunch(stdout: string): string {
  const line = stdout.split(/\r?\n/).find(l => /^[XE]\|/.test(l)) ?? '';
- const x = /^X\|(-?\d{1,10})$/.exec(line.trim());
+ const x = /^X\|(-?\d{1,10}|timeout)$/.exec(line.trim());
  if (x) return `exit_${x[1]}`;
  const e = /^E\|([A-Za-z0-9_.]{1,60})\|([A-Za-z0-9_.,]{1,160})\|(-?\d{1,11})$/.exec(line.trim());
  return e ? `error_${e[1]}_${e[2]}_${e[3]}` : 'no_outcome_line';
@@ -148,14 +165,13 @@ async function main(): Promise<number> {
   const probe = join(here, 'privilege-probe.ts');
   const launchEnv = { ...env, EKG_NODE: process.execPath, EKG_ARGS: childArguments(probe, out, extra), EKG_STAGE: stage };
   const readOut = () => { try { return JSON.parse(readFileSync(out, 'utf8').replace(/^\uFEFF/, '')) as unknown; } catch { return undefined; } };
-  const l = await ps(LAUNCH_SCRIPT, launchEnv, 300_000);
-  launchNote = `start_process:${l.code}:${l.code === 'OK' ? parseLaunch(l.stdout) : 'none'}`;
-  report = readOut();
-  if (report === undefined) {
-   method = 'scheduled_task';
-   const t = await ps(TASK_SCRIPT, launchEnv, 240_000);
-   launchNote += ` scheduled_task:${t.code}:${t.code === 'OK' ? parseLaunch(t.stdout) : 'none'}`;
+  launchNote = '';
+  for (const [name, script, timeout] of [['process_start_info', PSI_SCRIPT, 300_000], ['start_process', LAUNCH_SCRIPT, 300_000], ['scheduled_task', TASK_SCRIPT, 240_000]] as const) {
+   method = name;
+   const r = await ps(script, launchEnv, timeout);
+   launchNote += `${launchNote ? ' ' : ''}${name}:${r.code}:${r.code === 'OK' ? parseLaunch(r.stdout) : 'none'}`;
    report = readOut();
+   if (report !== undefined) break;
   }
   stageCode = report === undefined ? 'LAUNCH_NO_REPORT' : 'LAUNCHED';
   // The child's identity is compared privately here and never printed: the probe records no SID.
