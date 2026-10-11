@@ -40,8 +40,14 @@ test('output consists only of fixed key=value tokens and never echoes paths or i
  assert.equal(values.get('loc_home_exists'), 'yes');
  assert.equal(values.get('loc_extra_exists'), 'no');
  assert.equal(values.get('loc_config_state'), 'not_absolute_or_unset');
- for (const secret of [w.base, w.home, 'synthetic-home-marker', 'injected', hostname(), userName()].filter(s => s.length > 3)) {
+ // Keys are fixed script text (a user named "root" legitimately matches `run_as_root=`), so identities are
+ // searched for in the values only; the paths and markers are searched for everywhere.
+ const valueText = lines.map(l => l.slice(l.indexOf('=') + 1)).join('\n');
+ for (const secret of [w.base, w.home, 'synthetic-home-marker', 'injected'].filter(s => s.length > 3)) {
   assert.ok(!text.includes(secret), 'output must not contain a private value');
+ }
+ for (const identity of [hostname(), userName()].filter(s => s.length > 3)) {
+  assert.ok(!valueText.includes(identity), 'output values must not contain a host or user name');
  }
  rmSync(w.base, { recursive: true });
 });
