@@ -11,6 +11,11 @@
 - Unknown consumption across observation gaps is unknown, not zero. Do not invent daily allocations or sum account snapshots with session totals.
 - CLI metering entries must be checked for additive versus cumulative semantics before aggregation. Do not infer semantics from a field name, increasing values, or one sample.
 
+## Public GitHub content
+
+- Do not put Claude Code session URLs (`claude.ai/code/session_...`) or links to private project threads in PR descriptions, PR or issue comments, or commit messages. `.claude/settings.json` sets `attribution.sessionUrl` to `false` to stop Claude Code adding them automatically.
+- Normal attribution stays: the "Generated with Claude Code" line and `Co-Authored-By` trailers are fine. AI-assisted development is not hidden.
+
 ## Strict privacy rules
 
 - Never commit, print, upload, attach, or expose in diagnostics any real raw session data, credentials, authentication material, account/user/session/request identifiers, prompts, source code encountered in Kiro data, tool arguments/results, conversation text, or private workspace paths. This does not prohibit future EasyKiroGauge application code itself.
