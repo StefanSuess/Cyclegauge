@@ -60,7 +60,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const icon={ok:'✓',warn:'!',bad:'✕',neutral:'…'}[tone];
  const usedPct=o.usage!==null && o.baseLimit!==null && compare(o.baseLimit,'0')>0 ? Math.max(0,Math.min(100,Math.round(Number(o.usage)/Number(o.baseLimit)*100))) : null;
  const limitations=eligible && f.tier==='provisional' ? 'This limited window may not represent future usage. A regular forecast needs at least 7 days and 8 comparable updates.' : '';
- const tooltip=[outlook,tier,`Daily credit budget until reset: ${budget ?? 'Not available'} credits / 24h`,eligible ? `Observed rate: ${selected.ratePerDay} credits / 24h` : '',explanation,`Last account update: ${o.observedAt ?? 'Not available'}`, 'Amounts are observed as of that update; later usage is unknown. Click to open your budget.'].filter(Boolean).join('\n');
+ const tooltip=[`${outlook} · ${tier}`,`Daily credit budget until reset: ${budget ?? 'Not available'} credits / 24h`,eligible ? `Observed rate: ${selected.ratePerDay} credits / 24h` : '',`Last account update: ${o.observedAt ? updated(o.observedAt) : 'Not available'}. Click to open your budget.`].filter(Boolean).join('\n');
  const coverage=`${h.coverage.snapshotCount} distinct snapshots; ${h.coverage.completeUtcDays} complete, ${h.coverage.partialUtcDays} partial, ${h.coverage.unknownUtcDays} unknown UTC days; ${h.coverage.gaps.length} gaps or quality barriers`;
  const forecastRows=row('Observed spending rate',eligible ? `${selected.ratePerDay} credits per 24 hours` : null)
   +row('Projected credit usage at reset',eligible ? selected.projectedUsageAtReset : null)
