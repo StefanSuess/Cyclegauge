@@ -15,7 +15,7 @@ as practical, but there is no guaranteed response time and no bug bounty.
 
 ## Scope
 
-EasyKiroGauge is a local, read-only Kiro IDE extension. It reads Kiro's existing usage logs, stores
+Cyclegauge for Kiro IDE is a local, read-only extension. It reads Kiro's existing usage logs, stores
 derived billing numbers in its own private directory, and has no network code and no telemetry.
 In scope:
 

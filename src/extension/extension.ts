@@ -3,10 +3,28 @@ import { defaultSource, defaultStorage } from '../paths.ts';
 import {planNames} from './cost-inputs.ts';
 import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
-import { LEGACY_EXTENSION_ID, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand } from './identity.ts';
+import { LEGACY_BLOCKED_MESSAGE, LEGACY_EXTENSION_ID, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand, startUnlessLegacy } from './identity.ts';
 
 let stop: (() => void) | undefined;
+function pauseForLegacy(context: vscode.ExtensionContext): void {
+ const paused = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+ paused.name = 'Cyclegauge credit budget';
+ paused.text = '$(warning) Cyclegauge: paused';
+ paused.tooltip = LEGACY_BLOCKED_MESSAGE;
+ paused.command = commandId('showUsage');
+ paused.show();
+ const notice = () => { void vscode.window.showWarningMessage(LEGACY_BLOCKED_MESSAGE); };
+ const contributed: { command: string }[] = context.extension.packageJSON?.contributes?.commands ?? [];
+ context.subscriptions.push(paused, ...contributed.map(c => vscode.commands.registerCommand(c.command, notice)));
+ notice();
+}
+// A still-enabled legacy extension shares the same private storage folder: initialize nothing and write nothing until it is removed.
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+ const legacyInstalled = vscode.extensions.getExtension(LEGACY_EXTENSION_ID) !== undefined;
+ const gate = await startUnlessLegacy(legacyInstalled, () => runCyclegauge(context));
+ if (gate.blocked) pauseForLegacy(context);
+}
+async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
  item.name = 'Cyclegauge credit budget';
@@ -20,10 +38,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  const source = setting('sourceRoot') || defaultSource();
  const storage = setting('storageRoot') || defaultStorage();
  const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
- // A still-installed legacy extension owns the legacy command IDs and shares the same private storage folder.
- const legacyInstalled = vscode.extensions.getExtension(LEGACY_EXTENSION_ID) !== undefined;
- if (legacyInstalled) void vscode.window.showWarningMessage('Cyclegauge: the legacy EasyKiroGauge extension is still installed. Disable or uninstall it so only one extension uses the shared usage storage.');
- const register = (suffix: string, fn: () => unknown) => disposables.push(...registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn, !legacyInstalled));
+ const register = (suffix: string, fn: () => unknown) => disposables.push(...registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
  const ui: ExtensionUi = {
   setStatus(text, html, meta) {
    item.text = text;

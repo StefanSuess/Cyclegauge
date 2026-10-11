@@ -25,3 +25,10 @@ export function registerCommand(register: (id: string, fn: () => unknown) => Dis
 export function readSetting(get: (prefix: string, key: string) => string | undefined, key: (typeof SETTING_KEYS)[number]): string {
  return get(ID_PREFIX, key) || get(LEGACY_ID_PREFIX, key) || '';
 }
+
+export const LEGACY_BLOCKED_MESSAGE = 'Cyclegauge is paused: the legacy EasyKiroGauge extension is still enabled and uses the same private usage storage. Disable or uninstall EasyKiroGauge, then reload the window. Cyclegauge has not read or written any usage data.';
+// Storage gate: `start` (collector, store, watchers) runs only when no legacy installation is detected.
+export async function startUnlessLegacy<T>(legacyInstalled: boolean, start: () => Promise<T>): Promise<{ blocked: true } | { blocked: false; value: T }> {
+ if (legacyInstalled) return { blocked: true };
+ return { blocked: false, value: await start() };
+}

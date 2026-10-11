@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { LEGACY_COMMAND_SUFFIXES, LEGACY_ID_PREFIX, PANEL_VIEW_TYPE, SETTING_KEYS, commandId, legacyCommandId, readSetting, registerCommand } from '../../src/extension/identity.ts';
+import { LEGACY_COMMAND_SUFFIXES, LEGACY_EXTENSION_ID, startUnlessLegacy, LEGACY_ID_PREFIX, PANEL_VIEW_TYPE, SETTING_KEYS, commandId, legacyCommandId, readSetting, registerCommand } from '../../src/extension/identity.ts';
 
 const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const stub = (log: string[], failOn?: string) => (id: string) => { if (id === failOn) throw new Error('synthetic-conflict'); log.push(id); return { dispose() {} }; };
@@ -54,4 +54,32 @@ test('default storage folder keeps its legacy name so existing history stays in 
  const paths = await readFile(new URL('../../src/paths.ts', import.meta.url), 'utf8');
  assert.equal((paths.match(/'EasyKiroGauge'/g) ?? []).length, 3);
  assert.ok(!/'Cyclegauge'/.test(paths));
+});
+
+test('side-by-side: a detected legacy extension blocks all initialization and storage access', async () => {
+ let started = 0;
+ const blocked = await startUnlessLegacy(true, async () => { started += 1; return 'synthetic-controller'; });
+ assert.deepEqual(blocked, { blocked: true });
+ assert.equal(started, 0);
+ const open = await startUnlessLegacy(false, async () => { started += 1; return 'synthetic-controller'; });
+ assert.deepEqual(open, { blocked: false, value: 'synthetic-controller' });
+ assert.equal(started, 1);
+});
+
+test('extension entry point gates everything behind the legacy check and keeps the legacy extension ID', async () => {
+ const source = await readFile(new URL('../../src/extension/extension.ts', import.meta.url), 'utf8');
+ assert.equal(LEGACY_EXTENSION_ID, 'easykirogauge.easykirogauge');
+ assert.match(source, /getExtension\(LEGACY_EXTENSION_ID\)/);
+ const activate = source.slice(source.indexOf('export async function activate'), source.indexOf('async function runCyclegauge'));
+ assert.match(activate, /startUnlessLegacy\(legacyInstalled, \(\) => runCyclegauge\(context\)\)/);
+ // Nothing that touches settings, storage or the collector may run before the gate.
+ for (const forbidden of ['startExtension', 'defaultStorage', 'getConfiguration', 'createWebviewPanel']) assert.ok(!activate.includes(forbidden), forbidden);
+ assert.ok(!source.slice(source.indexOf('function pauseForLegacy'), source.indexOf('export async function activate')).match(/startExtension|defaultStorage|getConfiguration/));
+});
+
+test('VSIX allowlist ships exactly manifest, readme, license and bundle', async () => {
+ const ignore = (await readFile(new URL('../../.vscodeignore', import.meta.url), 'utf8')).split('\n').map(l => l.trim()).filter(Boolean);
+ assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!dist/extension.cjs', '!LICENSE']);
+ assert.equal(manifest.license, 'MIT');
+ assert.match(await readFile(new URL('../../LICENSE', import.meta.url), 'utf8'), /MIT License/);
 });

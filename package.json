@@ -3,9 +3,27 @@
   "version": "0.5.1",
   "private": true,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/StefanSuess/Cyclegauge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/StefanSuess/Cyclegauge/issues"
+  },
+  "homepage": "https://github.com/StefanSuess/Cyclegauge#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "kiro",
+    "credits",
+    "usage",
+    "forecast",
+    "budget"
+  ],
   "type": "module",
   "displayName": "Cyclegauge for Kiro IDE",
-  "description": "Local account credit usage in Kiro IDE",
+  "description": "Credit usage & forecasting for Kiro IDE. Unofficial; not affiliated with AWS or Kiro.",
   "publisher": "easykirogauge",
   "main": "./dist/extension.cjs",
   "engines": {

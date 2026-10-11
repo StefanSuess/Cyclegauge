@@ -1,6 +1,6 @@
 # Technical identity migration: EasyKiroGauge to Cyclegauge (design and review)
 
-Status: implemented in a draft PR for review. Nothing is merged, tagged or published. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
+Status: implemented in a draft PR for review (synchronized with main after PR #8). Nothing is merged, tagged or published. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
 
 ## Decisions (approved in principle by the maintainer, 2026-10-11)
 
@@ -9,7 +9,7 @@ Status: implemented in a draft PR for review. Nothing is merged, tagged or publi
 | Display name | EasyKiroGauge | Cyclegauge for Kiro IDE |
 | Package name | `easykirogauge` | `cyclegauge` |
 | Publisher | `easykirogauge` | **unchanged, provisional**: no Open VSX namespace is chosen yet |
-| Commands | `easykirogauge.*` | `cyclegauge.*`; the four v0.5.1 IDs stay as runtime aliases |
+| Commands | `easykirogauge.*` | `cyclegauge.*`; the four v0.5.1 IDs stay as runtime aliases (`easykirogauge.showUsage` is kept) |
 | Settings | `easykirogauge.sourceRoot`, `storageRoot`, `sourceTimezone` | `cyclegauge.*`; old keys still read as fallback |
 | Webview panel type | `easykirogauge.usage` | `cyclegauge.usage` |
 | Storage folder | `EasyKiroGauge` | **unchanged** |
@@ -34,10 +34,18 @@ The default storage folder remains `EasyKiroGauge` (macOS Application Support, L
 Changing the package name (and later the publisher) produces a new extension ID. VS Code-compatible IDEs treat it as an unrelated extension:
 
 - An installed EasyKiroGauge build does **not** update to Cyclegauge. A manual transition is required: install the Cyclegauge VSIX, then disable and uninstall EasyKiroGauge.
-- Running both at once is unsupported: both would read and write the same private storage folder (concurrent-writer behaviour is not verified), and both would try to own the `easykirogauge.*` command IDs and show two status bar items.
-- Mitigation implemented: at activation Cyclegauge checks whether the legacy extension (`easykirogauge.easykirogauge`) is installed. If so it skips the legacy aliases (avoids ID conflicts, and a failing alias never blocks the primary command) and shows one fixed warning asking the user to disable or uninstall it. It does not touch the other extension.
+- Running both at once is not supported: both would read and write the same private storage folder (concurrent-writer behaviour is not verified) and both would show a status bar item.
+- **Hard gate (implemented):** at activation Cyclegauge checks whether the legacy extension (`easykirogauge.easykirogauge`) is installed and enabled. If so it does **not** read settings, resolve the storage path, start the collector or open the store; it creates no webview. It shows a paused status bar item ("Cyclegauge: paused"), registers its contributed commands only as a notice, and shows one fixed warning. No alias is registered, so the legacy extension keeps its command IDs. Nothing is read or written until the user disables or uninstalls EasyKiroGauge and reloads the window. A disabled extension is not detected and therefore counts as removed.
 - User settings under `easykirogauge.*` stay valid and keep working through the fallback.
 - There is no automatic uninstall and no data import; the transition is manual and documented here. Because current builds are private/VSIX-only, doing this before the first marketplace beta keeps the impact small.
+
+## Custom keybindings and the three Cost Optimizer commands
+
+`configureCostOptimizer`, `editCostScenario` and `clearCostInputs` exist only in the v0.5.1 line. When the Cost Advisor (PR #3) replaces them, those three IDs are **removed, not redirected** to different functionality: drop them from `LEGACY_COMMAND_SUFFIXES` and the manifest. Only `easykirogauge.showUsage` stays as an alias. A user keybinding or task that still points to a removed ID will show VS Code's normal "command not found". Release notes for that version must say: replace those bindings with `cyclegauge.showUsage` / the new Cost Advisor command, or remove them.
+
+## Packaging
+
+The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt` (byte-identical to the repository `LICENSE`) and `extension/dist/extension.cjs` plus the two VSIX manifest files (6 entries). Check commands are in [development.md](development.md).
 
 ## Publisher / Open VSX namespace: open decision
 
@@ -62,4 +70,5 @@ Expected textual conflicts are limited to `package.json` command/menu blocks and
 
 - `pnpm typecheck`, `pnpm test` (including `tests/unit/identity.test.ts`), `python3 tests/fixtures/kiro/validate.py`, `git diff --check`.
 - `pnpm package:vsix` builds `cyclegauge-0.5.1.vsix` with the same five-file allowlist.
-- Not verified: behaviour inside a real Kiro IDE (side-by-side warning, alias registration, settings fallback). That needs a native check on a synthetic Kiro profile and is outside this cloud change.
+- Unit tests cover settings precedence, command compatibility and aliases, the manifest identity, the legacy-extension gate and the VSIX allowlist.
+- Not verified: behaviour inside a real Kiro IDE (side-by-side pause, alias registration, settings fallback). That needs a native check on a synthetic Kiro profile and is outside this cloud change.
