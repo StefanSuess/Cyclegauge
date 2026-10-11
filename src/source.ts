@@ -2,8 +2,12 @@ import { createHash } from 'node:crypto';
 import { readdir, lstat, realpath, open } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { noSymlinks } from './paths.ts';
+import { noSymlinks, samePath } from './paths.ts';
 import { parseLine, type Projection } from './projection.ts';
+/** dev and ino are BigInt: NTFS/ReFS file IDs can exceed 2^53. Text format is unchanged for ordinary values. */
+export function formatFingerprint(dev: bigint, ino: bigint, birthtimeMs: number, digest: string): string {
+ return `${dev}:${ino}:${birthtimeMs}:${digest}`;
+}
 export interface ReadResult { records: Projection[]; codes: Record<string, number>; fingerprint?: string; bytes?: number }
 export async function discover(root: string): Promise<{ files: string[]; codes: Record<string, number> }> {
  const files: string[] = [], codes: Record<string, number> = {};
@@ -36,11 +40,12 @@ export async function readLog(path: string, zone?: string): Promise<ReadResult> 
  let handle;
  try {
   noSymlinks(path); const canonical = await realpath(path);
-  if (canonical !== resolve(path)) return { records: [], codes: { unsafe_source: 1 } };
-  const initial = await lstat(path);
+  if (!samePath(canonical, resolve(path))) return { records: [], codes: { unsafe_source: 1 } };
+  const initial = await lstat(path, { bigint: true });
   handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
   const before = await handle.stat();
-  if (!before.isFile() || before.dev !== initial.dev || before.ino !== initial.ino) return { records: [], codes: { unsafe_source: 1 } };
+  const beforeId = await handle.stat({ bigint: true });
+  if (!before.isFile() || beforeId.dev !== initial.dev || beforeId.ino !== initial.ino) return { records: [], codes: { unsafe_source: 1 } };
   if (before.size > 64 * 1024 * 1024) return { records: [], codes: { oversized_source: 1 } };
   const hash = createHash('sha256');
   const chunk = Buffer.alloc(65536); let pending = Buffer.alloc(0), oversized = false, position = 0;
@@ -65,9 +70,9 @@ export async function readLog(path: string, zone?: string): Promise<ReadResult> 
    if (records.length > 10000) return { records: [], codes: { observation_limit: 1 } };
   }
   if (pending.length || oversized) count('partial_record');
-  const after = await handle.stat(); const current = await lstat(path); noSymlinks(path);
-  if (position !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || current.ino !== before.ino || current.dev !== before.dev || await realpath(path) !== canonical) return { records: [], codes: { source_unstable: 1 } };
-  return { records, codes, fingerprint: `${before.dev}:${before.ino}:${before.birthtimeMs}:${hash.digest('hex')}`, bytes: before.size };
+  const after = await handle.stat(); const current = await lstat(path, { bigint: true }); noSymlinks(path);
+  if (position !== before.size || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || current.ino !== beforeId.ino || current.dev !== beforeId.dev || await realpath(path) !== canonical) return { records: [], codes: { source_unstable: 1 } };
+  return { records, codes, fingerprint: formatFingerprint(beforeId.dev, beforeId.ino, before.birthtimeMs, hash.digest('hex')), bytes: before.size };
  } catch { return { records: [], codes: { source_unavailable: 1 } }; }
  finally { await handle?.close(); }
 }

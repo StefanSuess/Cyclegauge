@@ -50,9 +50,10 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     inputs.observe(single?snapshots[0].partition:null,single?'single':snapshots.length?'ambiguous':'unavailable');
     codes=Object.keys(imported.codes);
     render();
-   } catch {
+   } catch (e) {
     inputs.observe(null,'unavailable');
-    observation=view([],now());codes=['unavailable'];render();
+    // Only this one allowlisted failure is distinguished; every other failure stays generic.
+    observation=view([],now());codes=[(e as Error)?.message==='RUNTIME_UNSUPPORTED'?'runtime_unsupported':'unavailable'];render();
    }
   })();
   try { await running; } finally { running = undefined; }

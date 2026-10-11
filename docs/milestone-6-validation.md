@@ -191,3 +191,17 @@ Status: **open.** Design decisions were approved on 2026-10-11 (section 3.4); en
 Until the open boxes are checked, Tasks 4, 5 and 7 do not start. Tasks 2, 3 and 6 are independent
 of SC1 and are authorised; they must not change Windows ACL enforcement or remove the `win32`
 restriction, and are not committed or pushed without separate approval.
+
+## 7. Tasks 2, 3 and 6 — independent implementation (SC1-independent)
+
+Approved 2026-10-11. **No Windows ACL enforcement was added and the `win32` fail-closed
+restriction is unchanged** (`guardFor('win32')` refuses every operation and a test pins it).
+
+| Task | Change | Evidence |
+| --- | --- | --- |
+| 2 | `src/guard.ts`: `StorageGuard` with the POSIX 0700/0600/uid/nlink/sidecar checks moved verbatim; `paths.ts` and `store.ts` delegate to it; pure `defaultSourceFor`/`defaultStorageFor(platform, env, home)` ignore empty, relative and (for storage) UNC values | `paths-platform`, `posix-storage` tests; a store written by 0.5.1 is read by this code and vice versa with identical import results and 0700/0600 modes **[observed, macOS, Node 26.11.1 and 24.13.0]** |
+| 3 | `src/runtime.ts` capability probes (`node:sqlite` via `process.getBuiltinModule`, reviver source text), lazy SQLite, fixed `RUNTIME_UNSUPPORTED` before anything is created; `src/diagnostics.ts` and `--diagnostics`; extension source root = setting, then `context.logUri` root, then platform default; "Show Diagnostics" command | `runtime-probe`, `runtime-unsupported-ui`, `diagnostics` tests (including `--no-experimental-sqlite` runs) |
+| 6 | `bigint` `dev`/`ino` identity in `readLog`; fingerprint text format unchanged for ordinary values; case-insensitive path equivalence (and `\\?\`/`\\?\UNC\` prefixes) on Windows only; UNC storage rejected | `source-identity` test compares the fingerprint to the exact 0.5.1 formula |
+
+Open items: native confirmation that `context.logUri` has the assumed shape on each OS; Windows CI
+run of the new tests (pending); Tasks 4, 5 and 7 remain gated by SC1.

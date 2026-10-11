@@ -1,29 +1,34 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHmac } from 'node:crypto';
-import { writeFileSync, readFileSync, lstatSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { prepareStorage, noSymlinks } from './paths.ts';
+import { guardFor } from './guard.ts';
+import { loadSqlite, probeRuntime, type BuiltinLoader } from './runtime.ts';
 import { persistedSnapshot, type Snapshot } from './projection.ts';
 export interface StoredSnapshot extends Snapshot { partition: string; associated: boolean; ingestedAt: string }
+export interface StoreOptions { builtin?: BuiltinLoader }
 export class Store {
  private db: DatabaseSync; private secret: Buffer;
- constructor(directory: string, source: string) {
+ constructor(directory: string, source: string, options: StoreOptions = {}) {
+  // Capability probes run first so an unsupported runtime never creates storage.
+  if (!probeRuntime({ builtin: options.builtin }).ok) throw new Error('RUNTIME_UNSUPPORTED');
+  const { DatabaseSync: Database } = loadSqlite(options.builtin)!;
+  const guard = guardFor();
   const root = prepareStorage(directory, source);
   const secureFile = (name: string, initial: Buffer) => {
    const path = join(root, name);
    try { writeFileSync(path, initial, { flag: 'wx', mode: 0o600 }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw new Error('STORAGE_UNAVAILABLE'); }
-   noSymlinks(path); const s = lstatSync(path);
-   if (!s.isFile() || s.nlink !== 1 || (s.mode & 0o777) !== 0o600 || s.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
+   noSymlinks(path); guard.verifyFile(path);
    return path;
   };
   const key = secureFile('device.key', randomBytes(32)); this.secret = readFileSync(key);
   if (this.secret.length !== 32) throw new Error('STORAGE_UNAVAILABLE');
   const dbPath = secureFile('usage.sqlite', Buffer.alloc(0));
   for (const suffix of ['-journal', '-wal', '-shm']) {
-   try { noSymlinks(dbPath + suffix); const s = lstatSync(dbPath + suffix); if (!s.isFile() || s.nlink !== 1 || s.uid !== process.getuid!() || (s.mode & 0o077)) throw new Error('UNSAFE_STORAGE'); }
-   catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('UNSAFE_STORAGE'); }
+   try { noSymlinks(dbPath + suffix); guard.verifySidecar(dbPath + suffix); } catch { throw new Error('UNSAFE_STORAGE'); }
   }
-  this.db = new DatabaseSync(dbPath);
+  this.db = new Database(dbPath);
   try {
    this.db.exec(`PRAGMA busy_timeout=3000;
     CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL);

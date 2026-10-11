@@ -24,6 +24,10 @@
         "title": "EasyKiroGauge: Show Account Credits"
       },
       {
+        "command": "easykirogauge.showDiagnostics",
+        "title": "EasyKiroGauge: Show Diagnostics"
+      },
+      {
         "command": "easykirogauge.configureCostOptimizer",
         "title": "EasyKiroGauge: Configure Cost Optimizer",
         "icon": "$(settings-gear)"

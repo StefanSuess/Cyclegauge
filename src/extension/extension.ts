@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { defaultSource, defaultStorage } from '../paths.ts';
+import { defaultStorage, resolveSourceRoot } from '../paths.ts';
+import { diagnostics } from '../diagnostics.ts';
 import {planNames} from './cost-inputs.ts';
 import {PLAN_IDS} from '../cost/types.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
@@ -16,7 +17,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
  let detail = '';
  const disposables: vscode.Disposable[] = [item];
  const config = vscode.workspace.getConfiguration('easykirogauge');
- const source = config.get<string>('sourceRoot') || defaultSource();
+ // Discovery order: explicit setting, the running IDE's own log directory, then the platform default.
+ const discovered = resolveSourceRoot({ configured: config.get<string>('sourceRoot') || undefined, logUri: context.logUri?.fsPath });
+ const source = discovered.root;
  const storage = config.get<string>('storageRoot') || defaultStorage();
  const timezone = config.get<string>('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
  const ui: ExtensionUi = {
@@ -54,6 +57,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   everyMinute(fn) { const timer = setInterval(fn, 60_000); disposables.push({ dispose() { clearInterval(timer); } }); },
   dispose() { panel?.dispose(); for (const d of disposables) d.dispose(); }
  };
+ disposables.push(vscode.commands.registerCommand('easykirogauge.showDiagnostics', async () => {
+  try {
+   const report = await diagnostics({ root: source, method: discovered.method });
+   void vscode.window.showInformationMessage(`EasyKiroGauge diagnostics: ${JSON.stringify(report)}`);
+  } catch { void vscode.window.showWarningMessage('EasyKiroGauge diagnostics unavailable'); }
+ }));
  try {
   const controller = await startExtension(ui, { source, storage, timezone });
   stop = controller.dispose;
