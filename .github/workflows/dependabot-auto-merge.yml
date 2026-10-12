@@ -65,8 +65,8 @@ jobs:
 
           const message = commits[0].commit.message || '';
           if (!message.includes('updated-dependencies:')) skip('missing Dependabot update metadata');
-          const types = [...message.matchAll(/^\s*- update-type:\s*(\S+)/gm)].map(m => m[1]);
-          const groups = [...message.matchAll(/^\s*- dependency-group:\s*(\S+)/gm)].map(m => m[1]);
+          const types = [...message.matchAll(/^\s*update-type:\s*(\S+)/gm)].map(m => m[1]);
+          const groups = [...message.matchAll(/^\s*dependency-group:\s*(\S+)/gm)].map(m => m[1]);
           if (!types.length || types.length !== groups.length ||
               types.some(x => x !== 'version-update:semver-patch') ||
               groups.some(x => x !== 'npm-patch')) {
