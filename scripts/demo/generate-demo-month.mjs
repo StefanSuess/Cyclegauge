@@ -61,8 +61,8 @@ function cycle(start,stop,scale){
  const reset=new Date(Date.UTC(new Date(start).getUTCFullYear(),new Date(start).getUTCMonth()+1,1)).toISOString().replace('.000Z','Z');
  let used=0,last=0; // the cumulative counter never decreases inside a cycle
  const days=plan(start,stop);
- const first=start+Math.floor(between(8,12)*3600000);
- if(first<=end)record(first,0.3,reset); // first look in the new cycle, never in the future
+ const first=start; // anchor the baseline at the UTC billing-cycle boundary
+ if(first<=end)record(first,0.3,reset); // first observation in the new cycle, never in the future
  for(const {day,credits} of days){
   const target=credits*scale;
   if(day>=end)break;

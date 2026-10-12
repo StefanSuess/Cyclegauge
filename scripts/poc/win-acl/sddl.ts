@@ -82,7 +82,8 @@ function parseRights(raw: string): number {
 
 function parseAce(body: string, nested: boolean): Ace {
  const fields = body.split(';');
- if (nested || fields.length < 6 || fields.length > 7) return { type: fields[0] ?? '', flags: [], rights: 0, trustee: '', plain: false };
+ // Reject ACEs we cannot parse safely; a zero-right placeholder could hide a conditional allow grant.
+ if (nested || fields.length < 6 || fields.length > 7) throw new SddlError('ACL_UNKNOWN_TOKEN');
  const [type, flagText, rightsText, objectGuid, inheritGuid, trusteeText, extra] = fields;
  if (flagText.length % 2) throw new SddlError('ACL_UNKNOWN_TOKEN');
  const flags: string[] = [];
