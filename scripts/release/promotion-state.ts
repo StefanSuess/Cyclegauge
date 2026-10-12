@@ -130,8 +130,9 @@ function assertReleaseMetadata(
   return { missing: inspectAssets(state.assets, expectedAssets, state.draft) };
 }
 
-// GitHub may return CRLF line endings or trim the trailing newline; content must otherwise match exactly.
-const normalizeNotes = (value: string): string => value.replace(/\r\n/g, '\n').trimEnd();
+// GitHub may return CRLF line endings or drop the final newline. Only those two differences are
+// tolerated; any other whitespace (trailing spaces, extra blank lines, tabs, lone CR) still conflicts.
+const normalizeNotes = (value: string): string => value.replace(/\r\n/g, '\n').replace(/\n$/, '');
 
 function assertConsistentState(input: {
   openVsx: OpenVsxState;
