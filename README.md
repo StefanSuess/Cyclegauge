@@ -19,15 +19,6 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the us
 <p align="center"><em>Captured in Kiro using the released v0.5.2 extension and isolated synthetic data. Native macOS verification is maintainer-reported testing, not exhaustive validation.</em></p>
 
 <details>
-<summary>Watch the silent dashboard walkthrough (GIF)</summary>
-
-<p align="center">
-  <img src="docs/media/workflow.gif" alt="A silent animation stepping from the Kiro credit dashboard to Cost Advisor and the usage trajectory chart. Both frames are authentic captures of the released extension using isolated synthetic data; static screenshots are provided above and below." width="700">
-</p>
-
-</details>
-
-<details>
 <summary>Cost Advisor and usage trajectory</summary>
 
 <p align="center">
