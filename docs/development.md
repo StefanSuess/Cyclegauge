@@ -73,7 +73,7 @@ PYSETUP
 printf '%s\n' "$D"
 ```
 
-The last observation is at generation time (never in the future), and resets are the first of the next UTC month **per record**. The 35-day span supplies pooled history even on the first days of a month. For identical bytes, pass the recorded UTC value in `synthetic-anchor.txt` as the Python block's second argument when creating another empty profile. A fixed old anchor is for parser verification only; regenerate with the current clock for native acceptance. If the setup is over 24 hours old, create a new empty profile and rerun; do not reinterpret stale fixtures as fresh. No source time zone ambiguity: both prefixes explicitly use `UTC` and every log timestamp carries `Z`.
+The last observation is at generation time (never in the future), and resets are the first of the next UTC month **per record**. The 35-day span supplies pooled history even on the first days of a month. For identical bytes, pass the recorded UTC value in `synthetic-anchor.txt` as the Python block's second argument when creating another empty profile. A fixed old anchor is for parser verification only; regenerate with the current clock for native acceptance. If the setup is over 24 hours old, create a new empty profile and rerun; do not reinterpret stale fixtures as fresh. No source time zone ambiguity: `cyclegauge.sourceTimezone` explicitly uses `UTC` and every log timestamp carries `Z`.
 
 Optional CLI preflight (invented records only; run once per new profile, because another import deduplicates instead of importing 36 anew). Use a separate owned directory so the native storage directory is initially empty:
 
