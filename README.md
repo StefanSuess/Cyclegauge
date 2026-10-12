@@ -6,11 +6,11 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
 ![Version 0.5.2 beta](https://img.shields.io/badge/version-0.5.2%20beta-orange)
-![Verified on macOS](https://img.shields.io/badge/verified-macOS-lightgrey)
+![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
 
-Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the usage logs Kiro already writes on your machine, so there is nothing to sign in to and nothing is sent anywhere.
+Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads Kiro's local usage logs, needs no separate sign-in, and sends nothing anywhere.
 
 <p align="center">
   <img src="docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
@@ -44,7 +44,7 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 
 Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
 
-1. In Kiro, run **Extensions: Install from VSIX...** and select a Cyclegauge `.vsix` file. (If Cyclegauge appears in Kiro's Extensions view, which uses Open VSX, you can install it there instead; see the changelog for the current distribution channel.)
+1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or in Kiro run **Extensions: Install from VSIX...** and select a downloaded Cyclegauge `.vsix` file.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
@@ -56,7 +56,7 @@ To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io)
 
 ## Privacy
 
-- **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
+- **Read-only.** Kiro's files and databases are never modified. Cyclegauge does not run Kiro commands or call Kiro services.
 - **Local only.** No telemetry and no network code. Derived numbers are kept in the extension's own private directory.
 - **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
 - **Script-free view.** The detail view runs no scripts.
@@ -67,7 +67,7 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 
 | Platform | Status |
 | --- | --- |
-| macOS | Beta, verified (Kiro 1.2.56) |
+| macOS | Beta; maintainer-reported synthetic-data testing (Kiro 1.2.56) |
 | Ubuntu | Unverified |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
 | Windows | Unverified; storage is deliberately disabled for now |
