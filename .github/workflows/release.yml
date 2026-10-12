@@ -74,6 +74,7 @@ jobs:
           run-id: ${{ steps.select.outputs.run_id }}
           github-token: ${{ github.token }}
           path: release/input
+          merge-multiple: true
 
       - name: Verify the exact candidate and prepare release metadata
         id: verify

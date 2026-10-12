@@ -64,3 +64,16 @@ test('every external action is pinned to a full commit SHA', () => {
   assert.ok(actions.length >= 5);
   for (const action of actions) assert.match(action, /^\s*uses:\s*[^\s@]+@[0-9a-f]{40}(?:\s+#.*)?$/);
 });
+
+test('preflight extracts the single ID-selected CI artifact directly into the verified candidate directory', () => {
+  const workflow = read('../../.github/workflows/release.yml');
+  const preflight = workflow.split('  publish-trusted:\n')[0];
+  const step = preflight.split('- name: Download the selected artifact by immutable artifact ID\n')[1].split('\n      - name:')[0];
+  // download-artifact@v4 puts artifact-ids downloads in release/input/<artifact name>/ unless merge-multiple is true,
+  // while verify-promotion.ts requires exactly the three candidate files directly under CANDIDATE_DIR.
+  assert.match(step, /artifact-ids: \$\{\{ steps\.select\.outputs\.artifact_id \}\}/);
+  assert.doesNotMatch(step, /^\s+(?:name|pattern):/m);
+  assert.match(step, /^\s+path: release\/input$/m);
+  assert.match(step, /^\s+merge-multiple: true$/m);
+  assert.match(preflight, /CANDIDATE_DIR: release\/input$/m);
+});
