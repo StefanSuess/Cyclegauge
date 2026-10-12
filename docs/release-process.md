@@ -1,6 +1,6 @@
 # Release process (Open VSX beta)
 
-Maintainer-only. `.github/workflows/release.yml` is manually triggered and never runs on merge. A live run pauses at the protected `release` environment so the maintainer can review the verified candidate and explicitly approve publication.
+Maintainer-only. For the step-by-step setup, dry run and live checklist see [release-runbook.md](release-runbook.md). `.github/workflows/release.yml` is manually triggered and never runs on merge. A live run pauses at the protected `release` environment so the maintainer can review the verified candidate and explicitly approve publication.
 
 ## 1. What a release candidate is
 
@@ -38,8 +38,6 @@ The workflow is create-only. Existing Open VSX versions, tags, releases, or asse
 
 If the candidate artifact has expired, run the existing CI workflow manually on `main` at the same commit and wait for its candidate and verification jobs to pass. The release workflow will derive that new artifact. It never rebuilds during promotion. If `main` has advanced, dispatch from the new head and review that new candidate.
 
-PR #19 remains separate from the release pipeline. Its cleanup is acceptable under the assumption that no external users or historical migration are required; validate its behavior changes with the full applicable suite and native acceptance before a future release includes them.
-
 The package is universal (no `--target`), so Kiro on any OS may offer it. The listing and README state "macOS beta"; Windows storage fails closed by design and Linux is unverified. Restricting to `darwin-arm64`/`darwin-x64` is possible with two target-specific builds but each would need its own native test; deferred.
 
 ## 4. Rollback
@@ -59,7 +57,3 @@ The root `README.md` serves both GitHub and the extension listing. `scripts/rele
 [Kiro uses Open VSX by default](https://kiro.dev/docs/editor/extension-registry/), and [Open VSX publishes the packaged VSIX](https://github.com/eclipse-openvsx/openvsx/wiki/Publishing-Extensions#5-package-and-upload). Merging documentation updates changes the GitHub README immediately. The repository Sponsor button uses [`.github/FUNDING.yml` on the default branch](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository); `ko_fi` takes the username, not the full URL. Only add GitHub Sponsors when the maintainer's sponsorship profile is active and publicly accessible.
 
 The already published **v0.5.2** VSIX and its Open VSX README/metadata do not change when this PR is merged. The support section and sponsor metadata require a **new, higher-version VSIX**, followed by the normal acceptance and explicitly approved Open VSX publication. Do not rebuild, replace or republish v0.5.2. GitHub repository links from the current listing can already lead to the updated README after merge.
-
-## Review status for PR #17
-
-The local independent read-only code review completed, with its two minor findings resolved. The GitHub connector initially requested a Codex environment, but subsequently completed a review of commit `92c398d` and reported one P2 finding: the Enterprise UI incorrectly described unknown purchased add-ons as assumed absent. The disclosure now keeps unknown/unentered add-ons distinct from the explicitly hypothetical `assumed_none` state; a regression test reproduced the issue before the fix. This changes presentation only, not the fail-closed profile or calculations. Review coverage is commit-specific: do not describe the earlier review as approval of a later candidate. Native acceptance remains mandatory before publication.

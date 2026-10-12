@@ -125,10 +125,13 @@ function assertReleaseMetadata(
   if (state.kind === 'drafts-unverified') return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
   if (state.kind === 'absent') return undefined;
   if (!Number.isSafeInteger(state.id) || state.id < 1 || state.tagName !== tagName ||
-      state.name !== candidate.releaseName || state.body !== candidate.releaseNotes || state.prerelease !== true ||
+      state.name !== candidate.releaseName || normalizeNotes(state.body) !== normalizeNotes(candidate.releaseNotes) || state.prerelease !== true ||
       typeof state.draft !== 'boolean') return fail('RELEASE_METADATA_CONFLICT');
   return { missing: inspectAssets(state.assets, expectedAssets, state.draft) };
 }
+
+// GitHub may return CRLF line endings or trim the trailing newline; content must otherwise match exactly.
+const normalizeNotes = (value: string): string => value.replace(/\r\n/g, '\n').trimEnd();
 
 function assertConsistentState(input: {
   openVsx: OpenVsxState;

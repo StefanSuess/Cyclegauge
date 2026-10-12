@@ -222,3 +222,18 @@ test('rejects a candidate whose version metadata and asset names disagree', asyn
   await assert.rejects(promoteCandidate(fake.adapter, bad, { dryRun: false, authMode: 'pat' }));
   assert.deepEqual(fake.writes, []);
 });
+
+test('release notes that GitHub returns with CRLF or without the trailing newline still match', async () => {
+  const c = candidate();
+  const notes = 'Synthetic line one.\nSynthetic line two.\n';
+  const withNotes = { ...c, releaseNotes: notes };
+  for (const body of [notes.replace(/\n/g, '\r\n'), notes.trimEnd()]) {
+    const fake = fakeAdapter({ release: { kind: 'present', ...release('0.6.0', { body }) } });
+    await promoteCandidate(fake.adapter, withNotes, { dryRun: true, authMode: 'pat' }).catch((error: Error) => {
+      assert.doesNotMatch(error.message, /RELEASE_METADATA_CONFLICT/);
+    });
+    const conflict = fakeAdapter({ release: { kind: 'present', ...release('0.6.0', { body: `${body} changed` }) } });
+    await assert.rejects(promoteCandidate(conflict.adapter, withNotes, { dryRun: true, authMode: 'pat' }), /RELEASE_METADATA_CONFLICT/);
+    assert.deepEqual(conflict.writes, []);
+  }
+});
