@@ -16,8 +16,6 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads Kiro's
   <img src="docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
 </p>
 
-<p align="center"><em>Captured in Kiro using the released v0.5.2 extension and isolated synthetic data. Native macOS verification is maintainer-reported testing, not exhaustive validation.</em></p>
-
 <details>
 <summary>Cost Advisor and usage trajectory</summary>
 
