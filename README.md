@@ -13,17 +13,28 @@ Know how many AI credits you've used, how many remain, and whether they'll last 
 Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the usage logs Kiro already writes on your machine, so there is nothing to sign in to and nothing is sent anywhere.
 
 <p align="center">
-  <img src="docs/media/dashboard.png" alt="Cyclegauge dashboard using synthetic data: 58.4 of 100 reported credits used, 41.6 remaining, a November 1 reset, and a qualified forecast. No personal account information is shown." width="900">
+  <img src="docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
 </p>
 
-<p align="center"><em>Recorded in Kiro on macOS with the released v0.5.2 extension and isolated synthetic usage data.</em></p>
+<p align="center"><em>Captured in Kiro using the released v0.5.2 extension and isolated synthetic data. Native macOS verification is maintainer-reported testing, not exhaustive validation.</em></p>
 
 <details>
-<summary>Cost Advisor: unknown inputs stay unknown</summary>
+<summary>Watch the silent dashboard walkthrough (GIF)</summary>
 
-<img src="docs/media/cost-advisor.png" alt="Cost Advisor says the plan is unknown, requests confirmation, and withholds comparisons and savings claims until there is enough confirmed information." width="820">
+<p align="center">
+  <img src="docs/media/workflow.gif" alt="A silent animation stepping from the Kiro credit dashboard to Cost Advisor and the usage trajectory chart. Both frames are authentic captures of the released extension using isolated synthetic data; static screenshots are provided above and below." width="700">
+</p>
 
-This capture shows the Advisor's safe behavior when the synthetic account limit does not identify a catalog plan. After you confirm applicable assumptions, it can show conditional, modelled comparisons; unknown purchase or billing rules are not filled in.
+</details>
+
+<details>
+<summary>Cost Advisor and usage trajectory</summary>
+
+<p align="center">
+  <img src="docs/media/cost-advisor.jpg" alt="Cost Advisor presents an unconfirmed Pro plan and a modelled USD 20 next-cycle estimate above the synthetic usage trajectory chart, which shows observed credits, the reported limit, expected usage scenarios, daily budget pace, and reset date." width="820">
+</p>
+
+The plan hint is unconfirmed and the estimate is conditional, modelled, and before tax. It is not a guaranteed saving or an invoice. Unknown purchase or billing rules are not filled in.
 
 </details>
 
