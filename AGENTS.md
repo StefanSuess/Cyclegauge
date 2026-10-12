@@ -3,7 +3,10 @@
 ## Scope and authority
 
 - Follow [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
-- Agent work follows [docs/agent-workflow.md](docs/agent-workflow.md) (orchestrator, implementer, reviewer).
+- Agent work follows the orchestrator, implementer, reviewer workflow in `docs/agent-workflow.md`, imported here:
+
+@docs/agent-workflow.md
+
 - **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and session-only Cost Optimizer inputs in the script-disabled detail view; exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
 - **Deferred / unauthorized:** session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights, content analysis, purchases and authenticated calls. Each needs separate explicit approval and does not alter the privacy and read-only rules below.
 - Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.

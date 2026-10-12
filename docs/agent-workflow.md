@@ -19,7 +19,7 @@ Do not spawn subagents to demonstrate orchestration. At most two concurrent work
 1. For nontrivial work, write acceptance criteria first (what must be true, which tests prove it).
 2. One writer per file at a time. Parallel write tasks use separate git worktrees on separate branches.
 3. Run `pnpm typecheck`, `pnpm test`, and `python3 tests/fixtures/kiro/validate.py` plus `git diff --check` when fixtures or docs change.
-4. Review nontrivial changes with `reviewer` (read-only) before the PR; the author does not self-review high-risk work.
+4. Review nontrivial changes with `reviewer` (no Bash or edit tools) before the PR: the orchestrator runs the checks and passes the diff, criteria and results; the author does not self-review high-risk work.
 5. Fix clear, bounded failures (a few attempts). Stop and report persistent or ambiguous blockers.
 6. Work on a feature branch and commit there; stage explicit files only (see AGENTS.md). One small PR per task.
 
@@ -44,4 +44,4 @@ Roles are tool-neutral; only the model per role differs. Codex reads this file t
 
 Codex has no `.claude/agents/` files: give its implementer or reviewer the matching file's text as the task prompt and keep the same read-only reviewer rule. Never run both tools on the same files at once.
 
-Claude Code subagents live in `.claude/agents/`: `implementer` (cheap tier, medium effort) and `reviewer` (Sonnet, high effort, read-only).
+Claude Code subagents live in `.claude/agents/`: `implementer` (cheap tier, medium effort) and `reviewer` (Sonnet, high effort, tools: Read, Grep, Glob).
