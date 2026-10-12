@@ -43,7 +43,7 @@ Default source candidates: macOS `~/Library/Application Support/Kiro`; Windows `
 
 Default owned storage: macOS `~/Library/Application Support/EasyKiroGauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/EasyKiroGauge`. The design candidate for Windows is `%LOCALAPPDATA%\EasyKiroGauge`, but this implementation **fails closed on Windows** until owner-only ACL creation and validation are implemented and verified. Existing storage must have owner-only access. Source roots, Git repositories, symlink paths and Kiro storage directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
 
-The CLI prints observed usage, base limit, remaining base credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
+The CLI prints observed usage, reported limit, remaining reported credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
 
 ## Troubleshooting
 

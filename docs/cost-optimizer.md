@@ -1,8 +1,8 @@
-# Cost Optimizer (v0.5.1)
+# Historical Cost Optimizer guide
 
-Describes the Cost Optimizer as released in v0.5.1. It is session-only and driven by three commands: **Cyclegauge: Configure Cost Optimizer**, **Edit Cost Scenario** and **Clear Cost Inputs** (also available from the detail view title bar).
+> This page preserves the earlier standalone Cost Optimizer UI design; that UI is not available in this PR. The current cost feature is the Cost Advisor. Open it from the status bar or run **Cyclegauge: Cost Advisor**. See the [current product overview](../README.md#features) and [Cost Advisor specification](cost-advisor-spec.md) for current behavior, questions and limits.
 
-Click the budget status bar, then its **Cost Optimizer** jump link. Use the panel title gear (Configure), pencil (Edit) or clear action; the same commands are available in the Command Palette.
+The standalone UI instructions below are retained as historical design context and do not describe the current extension.
 
 The quickest flow is **Configure Cost Optimizer → Independent comparison → Consumer prepaid or Enterprise postpaid → expected monthly credits → confirm assumptions**. This explicitly compares commercial list prices for 1, 3 and 6 full UTC billing cycles, assumes no opening purchased credits, excludes promotions and excludes the current partial cycle. It works without a live forecast. It has no personal savings baseline and does not confirm purchase or plan eligibility. Expand each horizon for strategy costs, demand sensitivity, conditional analytical references and limitations.
 
