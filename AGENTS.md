@@ -3,9 +3,10 @@
 ## Scope and authority
 
 - Follow [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
+- Agent work follows [docs/agent-workflow.md](docs/agent-workflow.md) (orchestrator, implementer, reviewer).
 - **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and session-only Cost Optimizer inputs in the script-disabled detail view; exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
 - **Deferred / unauthorized:** session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights, content analysis, purchases and authenticated calls. Each needs separate explicit approval and does not alter the privacy and read-only rules below.
-- No automatic Git commits. Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.
+- Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.
 - Keep the collector independent of VS Code APIs. Package only the extension bundle, manifest and public documentation; exclude source logs, stores, tests and local dependency caches from VSIX artifacts.
 - Account snapshots are authoritative for current **observed account usage**, with an explicit as-of time and freshness status. Session metering provides **observed local daily attribution**, never a replacement account balance.
 - Unknown consumption across observation gaps is unknown, not zero. Do not invent daily allocations or sum account snapshots with session totals.
@@ -42,7 +43,7 @@
 
 ## Milestone 4C approval — 2026-10-10 (historical)
 
-Long-term history and robust forecasting (0.4.1) was approved with refinements: never infer zero usage from missing snapshots, require independent comparable observations, enable heuristics only on walk-forward evidence, report availability/error/underprediction/stability separately with held-out scenarios, and reserve 0.5.0 for the dashboard. The three original forecast methods and the collector, Store, projection and billing semantics stay preserved. No charts in that milestone (0.5.0 later delivered the chart under its own approval), no automatic Git commits. This extends, and does not remove, the earlier boundaries.
+Long-term history and robust forecasting (0.4.1) was approved with refinements: never infer zero usage from missing snapshots, require independent comparable observations, enable heuristics only on walk-forward evidence, report availability/error/underprediction/stability separately with held-out scenarios, and reserve 0.5.0 for the dashboard. The three original forecast methods and the collector, Store, projection and billing semantics stay preserved. No charts in that milestone (0.5.0 later delivered the chart under its own approval). This extends, and does not remove, the earlier boundaries.
 
 ## 0.5.2 Cost Advisor integration — 2026-10-12
 
