@@ -2,6 +2,26 @@
 
 All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x) are beta builds.
 
+## 0.5.3 (beta, macOS)
+
+Documentation, support-metadata and release-process update. No change to extension behavior, collector, store, projection, billing, forecast or Cost Advisor algorithms, data formats or storage.
+
+### Added
+
+- Optional, never-required Ko-fi support: a "Support Cyclegauge" section in the README (which is also the extension listing text) and the standard `sponsor` field in the extension manifest. Cyclegauge stays free, open source and without paid features.
+- A repository Sponsor button that links to Ko-fi.
+- A manually approved, immutable release pipeline (checks, exact-content verification of the candidate VSIX, and approval-gated promotion to GitHub and Open VSX). It is release tooling only and is not part of the packaged extension.
+- README screenshots of the dashboard and Cost Advisor.
+
+### Changed
+
+- Documentation now describes reported credits without assuming a base-only limit.
+
+### Unchanged
+
+- Cyclegauge remains a macOS beta. Windows storage stays disabled (SC1 open), Advisor answers are never persisted (SC5 open), and Linux and RHEL are unverified.
+- v0.5.2 is already published and stays unchanged. Its notes below are kept as they were released.
+
 ## 0.5.2 (beta, macOS)
 
 First public beta under the new extension identity **Cyclegauge for Kiro IDE** (extension ID `StefanSuess.cyclegauge`).
