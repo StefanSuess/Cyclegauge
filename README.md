@@ -12,6 +12,21 @@ Know how many AI credits you've used, how many remain, and whether they'll last 
 
 Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the usage logs Kiro already writes on your machine, so there is nothing to sign in to and nothing is sent anywhere.
 
+<p align="center">
+  <img src="docs/media/dashboard.png" alt="Cyclegauge dashboard using synthetic data: 58.4 of 100 reported credits used, 41.6 remaining, a November 1 reset, and a qualified forecast. No personal account information is shown." width="900">
+</p>
+
+<p align="center"><em>Recorded in Kiro on macOS with the released v0.5.2 extension and isolated synthetic usage data.</em></p>
+
+<details>
+<summary>Cost Advisor: unknown inputs stay unknown</summary>
+
+<img src="docs/media/cost-advisor.png" alt="Cost Advisor says the plan is unknown, requests confirmation, and withholds comparisons and savings claims until there is enough confirmed information." width="820">
+
+This capture shows the Advisor's safe behavior when the synthetic account limit does not identify a catalog plan. After you confirm applicable assumptions, it can show conditional, modelled comparisons; unknown purchase or billing rules are not filled in.
+
+</details>
+
 > Unofficial open-source project. Not affiliated with, endorsed by or sponsored by Amazon Web Services or Kiro. "Kiro" is a trademark of its owner.
 
 ## Features
