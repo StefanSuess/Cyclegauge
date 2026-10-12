@@ -15,6 +15,14 @@ Then run **Extensions: Install from VSIX...** in Kiro and select the file in `di
 
 Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
 
+## Upgrading from 0.5.2 or an earlier build
+
+Cyclegauge 0.5.2 itself stores history in the previous `EasyKiroGauge` directory. This build defaults to a new `Cyclegauge` directory, so an upgrade with blank storage settings starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted automatically.
+
+To keep using your history, disable any earlier extension first, then set **user-level** `cyclegauge.storageRoot` to the directory you previously used before activating this build. On macOS the previous default is `~/Library/Application Support/EasyKiroGauge`; use the full canonical path in the setting. Use only the existing Cyclegauge-owned directory, never Kiro-owned storage. The CLI can select it with `--store-dir`. Do not run two builds against the same directory at once; this build no longer blocks a side-by-side installation.
+
+Transfer any explicit `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` and `easykirogauge.sourceTimezone` values to the corresponding `cyclegauge.*` user settings. The old keys are no longer read; blank current settings use the default source, storage and device timezone. Replace custom `easykirogauge.showUsage` shortcuts with `cyclegauge.showUsage`, then reload the window.
+
 ## Requirements and command-line tool
 
 Node.js **24.13 or newer**. Runtime uses built-in modules only; TypeScript and Node type definitions are development dependencies. Install development tools with `pnpm install --frozen-lockfile`.
@@ -43,7 +51,7 @@ Default source candidates: macOS `~/Library/Application Support/Kiro`; Windows `
 
 Default owned storage: macOS `~/Library/Application Support/Cyclegauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/Cyclegauge`. The design candidate for Windows is `%LOCALAPPDATA%\Cyclegauge`, but this implementation **fails closed on Windows** until owner-only ACL creation and validation are implemented and verified. Existing storage must have owner-only access. Source roots, Git repositories, symlink paths and Kiro storage directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
 
-The CLI prints observed usage, base limit, remaining base credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
+The CLI prints observed usage, reported limit, remaining reported credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
 
 ## Troubleshooting
 

@@ -2,12 +2,13 @@
 #
 # Rules (security checkpoint SC3): read-only token, no secrets, third-party actions pinned by commit
 # SHA, synthetic data only. Nothing here installs or runs Kiro and nothing publishes: the candidate is
-# an artifact for native macOS acceptance; publishing to Open VSX is a manual maintainer step.
+# an artifact for native macOS acceptance; publishing to Open VSX happens only through the manually
+# dispatched, environment-approved release.yml workflow.
 name: ci
 
 on:
   push:
-    branches: [main, 'claude/**', 'release/**']
+    branches: [main, 'claude/**', 'codex/**', 'release/**']
   pull_request:
   workflow_dispatch:
 

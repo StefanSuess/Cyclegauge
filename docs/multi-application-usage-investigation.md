@@ -66,7 +66,7 @@ Normal CLI/Crew activity has left local turn records, but no before/after experi
 4. For any future valid sources, select the newest comparable observation for a proven account partition and billing cycle; never sum overlapping account observations. Preserve equal-time conflicts and isolate unknown account association. Matching amounts or paths are not identity evidence.
 5. The smallest future enabler would be an upstream Crew feature that persists an allowlisted snapshot after its existing successful refreshes, or exposes a strictly cache-only read contract that cannot trigger refresh/authentication. It must retain original as-of time, account continuity, credit pools/reset metadata, provenance and precision. Such a feature was not implemented or requested from upstream here. It would still depend on Crew actually performing its ordinary refreshes.
 
-Under the current constraints, always-current account totals without IDE activity are not established as achievable. If no installed application publishes a fresh account snapshot, Cyclegauge must report stale/unknown; passive observation cannot manufacture it.
+Under the current constraints, always-current account totals without IDE activity are not established as achievable. If no installed application publishes a fresh account snapshot, EasyKiroGauge must report stale/unknown; passive observation cannot manufacture it.
 
 ## Safety and evidence limits
 

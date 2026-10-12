@@ -5,12 +5,30 @@
 **Credit usage & forecasting for Kiro IDE**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
-![Version 0.5.2 beta](https://img.shields.io/badge/version-0.5.2%20beta-orange)
-![Verified on macOS](https://img.shields.io/badge/verified-macOS-lightgrey)
+![Version 0.5.3 beta](https://img.shields.io/badge/version-0.5.3%20beta-orange)
+[![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
+[![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Linux unverified](https://img.shields.io/badge/Linux-unverified-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows storage disabled](https://img.shields.io/badge/Windows-storage%20disabled-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
 
-Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the usage logs Kiro already writes on your machine, so there is nothing to sign in to and nothing is sent anywhere.
+Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads Kiro's local usage logs, needs no separate sign-in, and sends nothing anywhere.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
+</p>
+
+<details>
+<summary>Cost Advisor and usage trajectory</summary>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/cost-advisor.jpg" alt="Cost Advisor presents an unconfirmed Pro plan and a modelled USD 20 next-cycle estimate above the synthetic usage trajectory chart, which shows observed credits, the reported limit, expected usage scenarios, daily budget pace, and reset date." width="820">
+</p>
+
+The plan hint is unconfirmed and the estimate is conditional, modelled, and before tax. It is not a guaranteed saving or an invoice. Unknown purchase or billing rules are not filled in.
+
+</details>
 
 > Unofficial open-source project. Not affiliated with, endorsed by or sponsored by Amazon Web Services or Kiro. "Kiro" is a trademark of its owner.
 
@@ -27,7 +45,7 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the us
 
 Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
 
-1. In Kiro, run **Extensions: Install from VSIX...** and select a Cyclegauge `.vsix` file. (If Cyclegauge appears in Kiro's Extensions view, which uses Open VSX, you can install it there instead; see the changelog for the current distribution channel.)
+1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), download the VSIX from the [GitHub v0.5.3 release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.3), or in Kiro run **Extensions: Install from VSIX...** and select a downloaded Cyclegauge `.vsix` file.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
@@ -35,9 +53,11 @@ It shows "Collecting data" until Kiro has written account usage to its logs and 
 
 To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io): `pnpm install --frozen-lockfile && pnpm package:vsix`, then install the file from `dist/`.
 
+**Upgrading from 0.5.2 or an earlier build?** The default history directory and compatibility settings change. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-052-or-an-earlier-build) before installing to retain access to existing history.
+
 ## Privacy
 
-- **Read-only.** Kiro's files and databases are never modified, and Kiro is never started or called.
+- **Read-only.** Kiro's files and databases are never modified. Cyclegauge does not run Kiro commands or call Kiro services.
 - **Local only.** No telemetry and no network code. Derived numbers are kept in the extension's own private directory.
 - **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
 - **Script-free view.** The detail view runs no scripts.
@@ -48,7 +68,7 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 
 | Platform | Status |
 | --- | --- |
-| macOS | Beta, verified (Kiro 1.2.56) |
+| macOS | Beta; maintainer-reported synthetic-data testing (Kiro 1.2.56) |
 | Ubuntu | Unverified |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
 | Windows | Unverified; storage is deliberately disabled for now |
@@ -61,6 +81,14 @@ Figures are the last values Kiro logged, shown with an as-of time. They are not 
 - [Contributing](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CONTRIBUTING.md) and [security policy](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/SECURITY.md)
 - [Changelog](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CHANGELOG.md)
 - [Roadmap](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/ROADMAP.md) and [version history](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/version-history.md)
+
+## ❤️ Support Cyclegauge
+
+Cyclegauge is free, open source, and independently developed. It will stay completely free, with no paid features.
+
+If you've found it useful and would like to say thanks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/stefansuess). ☕
+
+Support is entirely optional. Knowing that someone appreciates my work means a lot. Thank you!
 
 ## License
 

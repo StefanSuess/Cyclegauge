@@ -1,0 +1,10 @@
+{
+  "name": "cyclegauge-release-publisher-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Pinned Open VSX CLI used only by the protected Cyclegauge release job.",
+  "type": "module",
+  "devDependencies": {
+    "ovsx": "1.2.0"
+  }
+}

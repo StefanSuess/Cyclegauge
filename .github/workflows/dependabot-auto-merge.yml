@@ -1,0 +1,100 @@
+# Privileged follow-up to the read-only CI workflow.
+# Dependabot pull_request_target runs cannot access secrets or writable tokens.
+# Never check out or execute PR content in this workflow.
+name: Dependabot npm patch auto-merge
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  auto-merge:
+    name: Enable verified npm patch auto-merge
+    if: >-
+      github.repository == 'StefanSuess/Cyclegauge' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify source PR, current commit, and patch-only metadata
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_PULL_REQUESTS: ${{ toJSON(github.event.workflow_run.pull_requests) }}
+        run: |
+          node <<'NODE'
+          const { execFileSync } = require('node:child_process');
+          const { appendFileSync } = require('node:fs');
+
+          const repo = process.env.REPOSITORY;
+          const sha = process.env.CI_HEAD_SHA;
+          const api = (path) => JSON.parse(execFileSync('gh', ['api', '--method', 'GET', path], { encoding: 'utf8' }));
+          const skip = (reason) => { console.log('Skipping auto-merge: ' + reason); process.exit(0); };
+
+          const linked = JSON.parse(process.env.CI_PULL_REQUESTS || '[]');
+          if (linked.length !== 1 || !Number.isSafeInteger(linked[0].number)) skip('expected exactly one linked PR');
+          const number = linked[0].number;
+          const pr = api(`/repos/${repo}/pulls/${number}`);
+
+          if (pr.state !== 'open' || pr.draft ||
+              pr.user?.login !== 'dependabot[bot]' ||
+              pr.base?.ref !== 'main' ||
+              pr.head?.repo?.full_name !== repo ||
+              !/^dependabot\/npm_and_yarn\/npm-patch-[A-Za-z0-9_-]+$/.test(pr.head?.ref || '') ||
+              pr.head?.sha !== sha ||
+              pr.commits !== 1 ||
+              pr.changed_files < 1 || pr.changed_files > 2) {
+            skip('PR identity, head, or file count does not qualify');
+          }
+
+          const commits = api(`/repos/${repo}/pulls/${number}/commits?per_page=100`);
+          if (commits.length !== 1 || commits[0].sha !== sha ||
+              commits[0].author?.login !== 'dependabot[bot]' ||
+              commits[0].commit?.verification?.verified !== true) {
+            skip('not exactly one GitHub-verified Dependabot commit at the CI head');
+          }
+
+          const message = commits[0].commit.message || '';
+          if (!message.includes('updated-dependencies:')) skip('missing Dependabot update metadata');
+          const types = [...message.matchAll(/^\s*update-type:\s*(\S+)/gm)].map(m => m[1]);
+          const groups = [...message.matchAll(/^\s*dependency-group:\s*(\S+)/gm)].map(m => m[1]);
+          if (!types.length || types.length !== groups.length ||
+              types.some(x => x !== 'version-update:semver-patch') ||
+              groups.some(x => x !== 'npm-patch')) {
+            skip('update contains a non-patch or non-npm-patch dependency');
+          }
+
+          const files = api(`/repos/${repo}/pulls/${number}/files?per_page=100`);
+          const allowed = new Set(['package.json', 'pnpm-lock.yaml']);
+          if (files.length !== pr.changed_files ||
+              files.some(x => !allowed.has(x.filename) || x.status !== 'modified')) {
+            skip('PR changes files other than the npm manifest and pnpm lockfile');
+          }
+
+          appendFileSync(process.env.GITHUB_OUTPUT, `eligible=true\nnumber=${number}\n`);
+          console.log(`Verified PR #${number} (CI head ${sha}) for patch auto-merge`);
+          NODE
+
+      - name: Enable squash auto-merge after required checks
+        if: steps.check.outputs.eligible == 'true'
+        env:
+          # An Actions secret is available here because workflow_run, not Dependabot, triggered this workflow.
+          # A fine-grained PAT causes the required push CI on main after merging.
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ steps.check.outputs.number }}
+        run: |
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Configure the Actions secret DEPENDABOT_AUTOMERGE_TOKEN before enabling auto-merge."
+            exit 1
+          fi
+          gh pr merge --auto --squash "$PR_NUMBER" --repo "$GH_REPO"

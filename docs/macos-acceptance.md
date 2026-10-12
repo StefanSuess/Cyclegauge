@@ -79,4 +79,4 @@ Use the exact current-date [development setup](development.md#reproducible-synth
 
 ## F. Shut down and record
 
-Cmd+Q, `pgrep` prints 0, nothing was written outside `$D` (and `/tmp` for B1 only if B1 failed). Record pass / fail / blocked per row, versions, SHA-256 and date in the release notes. A fail in A, B, C or E blocks the release; D failures are fixed or documented as known issues by the maintainer.
+Cmd+Q, `pgrep` prints 0, nothing was written outside `$D` (and `/tmp` for B1 only if B1 failed). Record pass / fail / blocked per row, versions, SHA-256 and date in the release notes. A fail in A, B, D or E blocks publication. Section C is checked after publication; failures require a fixed higher version, never replacement of the published VSIX.

@@ -1,6 +1,6 @@
 # Milestone 5 validation — 2026-10-10
 
-Version **0.5.0** adds the approved usage trajectory chart to the existing script-disabled detail view. Collector, Store, history, Forecast Engine and Cost Optimizer algorithms are unchanged; the work is presentation only. No chart library, runtime dependency, webview script, permission, data source or authenticated call was added. No Git commits were made.
+EasyKiroGauge **0.5.0** adds the approved usage trajectory chart to the existing script-disabled detail view. Collector, Store, history, Forecast Engine and Cost Optimizer algorithms are unchanged; the work is presentation only. No chart library, runtime dependency, webview script, permission, data source or authenticated call was added. No Git commits were made.
 
 ## What was built
 
@@ -44,13 +44,13 @@ High-contrast behavior is provided by a `forced-colors: active` rule; it was not
 
 ## Local Kiro evidence
 
-Platform: **macOS, Apple Silicon, Kiro 1.2.56**. The 0.5.0 VSIX was installed with the IDE's own extension installer, the bundle was byte-compared with the build output, and the window was reloaded.
+Platform: **macOS, Apple Silicon, Kiro 1.2.56**. `easykirogauge-0.5.0.vsix` was installed with the IDE's own extension installer, the bundle was byte-compared with the build output, and the window was reloaded.
 
 Verified in the live window: the status bar item activates; the detail view shows the **Usage trajectory** section with the reported-limit note, SVG chart (hatched unknown period before the first retained update, observed points and connectors, reported limit, reset marker), legend, text summary and an expandable **Chart data table** that lists the plotted points; Forecast and **Cost Optimizer** sections follow; the panel title gear opened the native Cost Optimizer quick pick (cancelled without entering data). The live account is in the *collecting data* state, so projection, scenario envelope, budget guide and exhaustion layers were **not** visible live; they are verified only through synthetic tests and the local-browser captures. Pencil/clear title actions and light-theme/narrow-pane rendering were not separately exercised in Kiro. No live account value is recorded in this repository.
 
 ## Artifact
 
-The 0.5.0 VSIX was **59,982 bytes**, SHA-256 `7156dc6631201363872d9d8fba1e1af1d1fd8c4fcc2a41fb52b593ce47150738`. It was not published and is excluded from the repository by `.gitignore`.
+`dist/easykirogauge-0.5.0.vsix`, **59,982 bytes**, SHA-256 `7156dc6631201363872d9d8fba1e1af1d1fd8c4fcc2a41fb52b593ce47150738`. Not published; excluded from the repository by `.gitignore`.
 
 ## Deviations from the approved design
 
