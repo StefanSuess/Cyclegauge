@@ -6,7 +6,9 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
 ![Version 0.5.2 beta](https://img.shields.io/badge/version-0.5.2%20beta-orange)
-![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)
+[![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Linux unverified](https://img.shields.io/badge/Linux-unverified-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows storage disabled](https://img.shields.io/badge/Windows-storage%20disabled-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
 
