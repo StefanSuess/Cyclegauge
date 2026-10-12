@@ -30,3 +30,12 @@ test('spawn and termination failures remain distinguishable without raw errors',
   status: null, signal: 'SIGKILL', stdout: 'synthetic-private',
  }), 'VSCE_TERMINATED');
 });
+
+test('a terminated VSCE timeout remains a termination when spawnSync also returns an error', () => {
+ const code = classifyVsceFailure({
+  status: null, signal: 'SIGKILL',
+  error: Object.assign(new Error('synthetic-timeout'), { code: 'ETIMEDOUT' }),
+  stdout: 'synthetic-private-output', stderr: 'synthetic-private-error',
+ });
+ assert.equal(code, 'VSCE_TERMINATED');
+});

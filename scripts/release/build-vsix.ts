@@ -25,8 +25,8 @@ export function classifyVsceFailure(result: {
  stdout?: string | null;
  stderr?: string | null;
 }): string {
- if (result.error) return 'VSCE_SPAWN_FAILED';
  if (result.signal) return 'VSCE_TERMINATED';
+ if (result.error) return 'VSCE_SPAWN_FAILED';
  const output = (result.stdout || '') + '\n' + (result.stderr || '');
  if (/@types\/vscode/i.test(output) && /(?:engines?\.?vscode|version|incompatib|not supported)/i.test(output)) {
   return 'VSCE_TYPES_ENGINE_MISMATCH';
