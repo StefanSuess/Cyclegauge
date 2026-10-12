@@ -1,6 +1,6 @@
 # Agent workflow
 
-Sonnet is the orchestrator. It plans, delegates only when useful, integrates and opens the PR.
+The orchestrator plans, delegates only when useful, integrates and opens the PR.
 Priorities: correctness and security, minimal supervision, low token use, small focused PRs.
 
 ## Pick the lightest strategy
@@ -8,7 +8,7 @@ Priorities: correctness and security, minimal supervision, low token use, small 
 | Task | Strategy |
 | --- | --- |
 | Trivial (typo, one-line fix) | One agent, no orchestration, no review agent. |
-| Moderate | Sonnet implements directly, or hands well-scoped mechanical work to `implementer` (Haiku). |
+| Moderate | the orchestrator implements directly, or hands well-scoped mechanical work to `implementer` (cheap tier). |
 | Complex | Split into independently testable tasks, delegate suitable ones, integrate, then `reviewer`. |
 | High-risk (storage, source reading, billing, forecasts, packaging, workflows, security) | Stronger reasoning for design, mandatory independent `reviewer` pass. |
 
@@ -32,4 +32,15 @@ Public text never includes Claude Code session URLs or private thread links.
 
 Merge, tag, release, deploy, publish, change secrets, or relax security checks. Preserve data formats, billing semantics and privacy; no real Kiro data; work in the cloud by default (native Kiro UI tests are the exception).
 
-Subagents live in `.claude/agents/`: `implementer` (Haiku, medium effort) and `reviewer` (Sonnet, high effort, read-only).
+## Tools and model tiers
+
+Roles are tool-neutral; only the model per role differs. Codex reads this file through AGENTS.md.
+
+| Role | Claude Code | Codex |
+| --- | --- | --- |
+| Orchestrator, reviewer | Sonnet (high effort for review) | mid/strong tier, TBD by maintainer |
+| Implementer | Haiku (medium effort) | cheapest tier, TBD by maintainer |
+
+Codex has no `.claude/agents/` files: give its implementer or reviewer the matching file's text as the task prompt and keep the same read-only reviewer rule. Never run both tools on the same files at once.
+
+Claude Code subagents live in `.claude/agents/`: `implementer` (cheap tier, medium effort) and `reviewer` (Sonnet, high effort, read-only).
