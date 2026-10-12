@@ -16,11 +16,11 @@ Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads the us
 
 ## Features
 
-- **Status bar at a glance:** your daily credit budget and forecast outlook (collecting data, provisional, on track, tight, over budget, stale or unavailable).
+- **Status bar at a glance:** your daily credit budget and forecast outlook (collecting data, provisional, on track, at risk, likely to exceed, stale or unavailable).
 - **Detail view:** credits used, remaining reported capacity, daily budget, next reset and how fresh the data is.
 - **Usage trajectory chart:** observed usage, the reported limit, the reset, and (when there is enough history) scenario lines. Unknown periods are hatched, never filled with zero. Accessible text and a data table accompany the chart.
 - **Qualified forecasts:** a provisional estimate (at least 3 comparable snapshots over 48 hours) and a regular forecast (8 snapshots over 7 days), both needing fresh data without long gaps. They are labeled scenarios, not guarantees.
-- **Cost Optimizer:** an optional, session-only comparison of plan and credit-pack costs from assumptions you enter.
+- **Cost Advisor:** automatic conditional plan comparisons from your forecast, with session-only answers. Numerical estimates show modelled pre-tax USD list-price differences for the next full billing cycle; 1/3/6-cycle details and hypothetical 75/100/125% usage sensitivity stay expandable. Plan hints are unconfirmed, and estimates are not guaranteed savings or invoices. Use **Cyclegauge: Cost Advisor** or the lightbulb status item while the detail view is open.
 - **Command-line tool:** print the same figures in a terminal, optionally as JSON.
 
 ## Install

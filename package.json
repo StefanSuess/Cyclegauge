@@ -44,19 +44,9 @@
         "title": "Cyclegauge: Show Account Credits"
       },
       {
-        "command": "cyclegauge.configureCostOptimizer",
-        "title": "Cyclegauge: Configure Cost Optimizer",
-        "icon": "$(settings-gear)"
-      },
-      {
-        "command": "cyclegauge.editCostScenario",
-        "title": "Cyclegauge: Edit Cost Scenario",
-        "icon": "$(edit)"
-      },
-      {
-        "command": "cyclegauge.clearCostInputs",
-        "title": "Cyclegauge: Clear Cost Inputs",
-        "icon": "$(clear-all)"
+        "command": "cyclegauge.costAdvisor",
+        "title": "Cyclegauge: Cost Advisor",
+        "icon": "$(lightbulb)"
       }
     ],
     "configuration": {
@@ -106,19 +96,9 @@
     "menus": {
       "editor/title": [
         {
-          "command": "cyclegauge.configureCostOptimizer",
+          "command": "cyclegauge.costAdvisor",
           "when": "activeWebviewPanelId == cyclegauge.usage",
-          "group": "navigation@1"
-        },
-        {
-          "command": "cyclegauge.editCostScenario",
-          "when": "activeWebviewPanelId == cyclegauge.usage",
-          "group": "navigation@2"
-        },
-        {
-          "command": "cyclegauge.clearCostInputs",
-          "when": "activeWebviewPanelId == cyclegauge.usage",
-          "group": "navigation@3"
+          "group": "navigation@0"
         }
       ]
     }

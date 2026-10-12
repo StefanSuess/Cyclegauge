@@ -1,6 +1,6 @@
 # Technical identity migration: EasyKiroGauge to Cyclegauge (design and review)
 
-Status: implemented in a draft PR for review (synchronized with main after PR #8 and PR #12). Nothing is merged, tagged or published. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
+Status: identity migration is on main; PR #17 integrates the Cost Advisor for the 0.5.2 candidate. Native acceptance and publication remain pending. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
 
 ## Decisions (approved in principle by the maintainer, 2026-10-11)
 
@@ -8,8 +8,8 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 | --- | --- | --- |
 | Display name | EasyKiroGauge | Cyclegauge for Kiro IDE |
 | Package name | `easykirogauge` | `cyclegauge` |
-| Publisher | `easykirogauge` | `StefanSuess` (0.5.2); namespace not yet created or verified |
-| Commands | `easykirogauge.*` | `cyclegauge.*`; the four v0.5.1 IDs stay as runtime aliases (`easykirogauge.showUsage` is kept) |
+| Publisher | `easykirogauge` | `StefanSuess` (0.5.2); namespace exists; public verification remains false (2026-10-12) |
+| Commands | `easykirogauge.*` | `cyclegauge.*`; only `easykirogauge.showUsage` stays aliased; old Optimizer IDs are removed |
 | Settings | `easykirogauge.sourceRoot`, `storageRoot`, `sourceTimezone` | `cyclegauge.*`; old keys still read as fallback |
 | Webview panel type | `easykirogauge.usage` | `cyclegauge.usage` |
 | Storage folder | `EasyKiroGauge` | **unchanged** |
@@ -18,7 +18,7 @@ Status: implemented in a draft PR for review (synchronized with main after PR #8
 ## What changes in code
 
 - `src/extension/identity.ts` holds every identifier, the alias list, and the two helpers (`registerCommand`, `readSetting`). It has no `vscode` import and is unit tested (`tests/unit/identity.test.ts`).
-- Commands: each command is registered as `cyclegauge.<name>`. Only the four commands that shipped in v0.5.1 (`showUsage`, `configureCostOptimizer`, `editCostScenario`, `clearCostInputs`) also get an `easykirogauge.<name>` alias, registered at runtime and **not** contributed in `package.json`, so the command palette shows one entry per command. Existing keybindings and tasks keep working. Commands added later never get an alias.
+- Commands use `cyclegauge.*`. Only `easykirogauge.showUsage` remains as an alias. The three old Optimizer commands are removed under both prefixes; use `cyclegauge.costAdvisor` in new bindings. No legacy alias is added for the Advisor.
 - Settings: both prefixes are declared in `contributes.configuration`; the legacy keys carry a `deprecationMessage`. Resolution order: `cyclegauge.*` if non-empty, else `easykirogauge.*` if non-empty, else the platform default. Values are read once at activation, as before.
 - The status bar item, command titles, CLI help text and VSIX file name (`cyclegauge-<version>.vsix`) use the new name.
 
@@ -41,7 +41,7 @@ Changing the package name (and later the publisher) produces a new extension ID.
 
 ## Custom keybindings and the three Cost Optimizer commands
 
-`configureCostOptimizer`, `editCostScenario` and `clearCostInputs` exist only in the v0.5.1 line. When the Cost Advisor (PR #3) replaces them, those three IDs are **removed, not redirected** to different functionality: drop them from `LEGACY_COMMAND_SUFFIXES` and the manifest. Only `easykirogauge.showUsage` stays as an alias. A user keybinding or task that still points to a removed ID will show VS Code's normal "command not found". Release notes for that version must say: replace those bindings with `cyclegauge.showUsage` / the new Cost Advisor command, or remove them.
+`configureCostOptimizer`, `editCostScenario` and `clearCostInputs` exist only in the v0.5.1 line. The Cost Advisor in 0.5.2 replaces them. Those three IDs are **removed, not redirected** to different functionality, from `LEGACY_COMMAND_SUFFIXES` and the manifest. Only `easykirogauge.showUsage` stays as an alias. A user keybinding or task that still points to a removed ID will show VS Code's normal "command not found". Release notes for that version must say: replace those bindings with `cyclegauge.showUsage` / the new Cost Advisor command, or remove them.
 
 ## Packaging
 
@@ -49,11 +49,13 @@ The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `exte
 
 ## Publisher / Open VSX namespace
 
-From 0.5.2 `package.json` says `publisher: StefanSuess`, so the intended extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11, provided the namespace is available). The namespace is **not yet created or verified**; if it cannot be obtained, `package.json`, the release verifier and the docs change together. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the new ID.
+From 0.5.2 `package.json` says `publisher: StefanSuess`, so the intended extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11). The [public namespace API](https://open-vsx.org/api/StefanSuess) reports that the namespace exists and is unverified (2026-10-12). This does not verify the maintainer's publishing permission; confirm that separately before publishing. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the new ID.
 
-## Where this change should land, and conflicts
+## Historical identity integration planning and conflicts
 
-Recommendation: merge the identity change into `main` first (it is based on `main` at v0.5.1 plus the public docs), then update the other lines by merging `main` into them. Rationale: it is small, touches mostly manifest/identifier lines, and the guard test fails loudly when a later branch adds an unmapped identifier. Landing it on the Cost Advisor line instead would tie a rename to an unmerged feature.
+The following is historical planning, not current release instructions. Identity migration is already on main and PR #17 excludes platform/storage work.
+
+Original recommendation: merge the identity change into `main` first (it is based on `main` at v0.5.1 plus the public docs), then update the other lines by merging `main` into them. Rationale: it is small, touches mostly manifest/identifier lines, and the guard test fails loudly when a later branch adds an unmapped identifier. Landing it on the Cost Advisor line instead would tie a rename to an unmerged feature.
 
 Open lines checked against `main` (all branched from the v0.5.1 baseline):
 
@@ -64,7 +66,7 @@ Open lines checked against `main` (all branched from the v0.5.1 baseline):
 | Dashboard redesign (PR 4, on PR 3) | same manifest and `extension.ts` lines as PR 3 | follows PR 3 |
 | New Cost Advisor savings PR | not inspected in detail; expected to add or reuse `costAdvisor` | same rule: new commands use `cyclegauge.*` only |
 
-Expected textual conflicts are limited to `package.json` command/menu blocks and the top of `extension.ts`; no algorithm or storage code is affected. Decision for the branches that remove the optimizer commands: whether removing already-shipped v0.5.1 command IDs needs an alias (for keybinding users) is a product call for PR 3, not for this change.
+Expected textual conflicts are limited to `package.json` command/menu blocks and the top of `extension.ts`; no algorithm or storage code is affected. The 0.5.2 decision is settled: remove the three Optimizer IDs under both prefixes; only `easykirogauge.showUsage` remains aliased.
 
 ## Verification
 

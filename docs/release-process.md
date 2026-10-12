@@ -16,16 +16,16 @@ pnpm release:verify release/candidate.vsix --pre-release --out release/manifest.
 ## 2. Gates before publishing (all mandatory)
 
 1. The candidate's CI run is green (verify on macOS and Ubuntu, candidate built, rebuilt, payload identical, macOS download check).
-2. The publisher is **`StefanSuess`** (decided by the maintainer 2026-10-11, provided the Open VSX namespace is available; availability is not checked from CI or the cloud environment). The intended extension ID is `StefanSuess.cyclegauge`; the legacy build `easykirogauge.easykirogauge` is a different extension, detected by a constant that must not change. `release:verify` fails on any other ID.
-3. Native macOS acceptance of the exact final candidate passed ([macos-acceptance.md](macos-acceptance.md), sections A to C and E).
+2. The publisher is **`StefanSuess`** (fixed extension identity; the namespace exists, with public verification status `false` as observed on 2026-10-12 at [the registry API](https://open-vsx.org/api/StefanSuess)). Namespace existence does not prove publishing permission; the maintainer must confirm access. The intended extension ID is `StefanSuess.cyclegauge`; the legacy build `easykirogauge.easykirogauge` is a different extension, detected by a constant that must not change. `release:verify` fails on any other ID.
+3. Native macOS acceptance of the exact final candidate passed ([macos-acceptance.md](macos-acceptance.md), sections **A, B, C, E and F**). **Section F (Cost Advisor acceptance) is explicitly mandatory before publishing**, including conditional figures, answers, account isolation and native visibility checks on the exact final VSIX.
 4. The maintainer approved the version, the changelog text and the listing text.
 5. Security checkpoints stay as they are: SC1 open (Windows storage disabled), SC5 not implemented. A beta does not close or bypass them.
 
 ## 3. Publishing (maintainer, one time per version)
 
 1. Create an Eclipse Foundation account, link your GitHub username, sign the Open VSX Publisher Agreement and create an access token at open-vsx.org (maintainer actions; the token never goes into the repository, CI or chat).
-2. Check that the namespace `StefanSuess` is free on open-vsx.org, then create it once: `npx ovsx create-namespace StefanSuess -p <token>`. If it is taken, stop: the ID in `package.json`, the verifier and the docs must change together and the candidate must be rebuilt.
-3. **Recommended before or right after the first publish: namespace ownership verification.** An unverified namespace is shown as such on the listing, and anyone could be mistaken for the owner. Request ownership of the `StefanSuess` namespace through Open VSX's claim process (currently a GitHub issue on the open-vsx.org repository, referencing your Eclipse account and GitHub identity; check the current Open VSX documentation for the exact steps). A verified namespace is also the basis for later namespace protection against look-alikes.
+2. The namespace `StefanSuess` already exists; do not recreate it or assume it is available for registration. Confirm the maintainer's Eclipse account has publishing rights for that namespace using the registry account interface. Public namespace metadata does not establish membership or token permissions. If access is missing, resolve it before publishing; do not change the extension identity as an automatic workaround.
+3. **Namespace ownership verification remains outstanding:** the public API currently reports `verified: false` (2026-10-12). An unverified namespace is shown as such on the listing. Request ownership of the `StefanSuess` namespace through Open VSX's claim process (currently a GitHub issue on the open-vsx.org repository, referencing your Eclipse account and GitHub identity; check the current Open VSX documentation for the exact steps). A verified namespace is also the basis for later namespace protection against look-alikes.
 4. Check the checksum of the file you are about to publish against the one recorded for the accepted candidate:
    ```sh
    shasum -a 256 release/candidate.vsix
@@ -43,3 +43,7 @@ A published Open VSX version cannot be edited. If acceptance step D finds a defe
 ## 5. After publishing
 
 Record version, SHA-256, CI run, Kiro and macOS versions in the release notes. Do not collect telemetry; user feedback arrives through GitHub issues, which must never contain real Kiro data.
+
+## Review status for PR #17
+
+The local independent read-only code review completed, with its two minor findings resolved. The GitHub connector initially requested a Codex environment, but subsequently completed a review of commit `92c398d` and reported one P2 finding: the Enterprise UI incorrectly described unknown purchased add-ons as assumed absent. The disclosure now keeps unknown/unentered add-ons distinct from the explicitly hypothetical `assumed_none` state; a regression test reproduced the issue before the fix. This changes presentation only, not the fail-closed profile or calculations. Review coverage is commit-specific: do not describe the earlier review as approval of a later candidate. Native acceptance remains mandatory before publication.

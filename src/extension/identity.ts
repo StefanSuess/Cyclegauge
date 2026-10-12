@@ -4,8 +4,9 @@ export const LEGACY_ID_PREFIX = 'easykirogauge';
 // Extension ID of the pre-rename build (publisher.name); used only to detect a side-by-side install.
 export const LEGACY_EXTENSION_ID = 'easykirogauge.easykirogauge';
 export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
-// Commands that shipped under the legacy prefix in v0.5.1. Only these get a temporary alias.
-export const LEGACY_COMMAND_SUFFIXES = ['showUsage', 'configureCostOptimizer', 'editCostScenario', 'clearCostInputs'] as const;
+// Commands that shipped under the legacy prefix and keep a temporary alias. The three v0.5.1 Cost Optimizer IDs
+// (configureCostOptimizer, editCostScenario, clearCostInputs) were removed with the Cost Advisor, not redirected.
+export const LEGACY_COMMAND_SUFFIXES = ['showUsage'] as const;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;
 export const legacyCommandId = (suffix: string): string => `${LEGACY_ID_PREFIX}.${suffix}`;

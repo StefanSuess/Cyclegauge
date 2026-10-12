@@ -11,7 +11,12 @@ First public beta under the new extension identity **Cyclegauge for Kiro IDE** (
 - This is a **different extension**, not an update. Kiro will not upgrade an installed EasyKiroGauge build to Cyclegauge.
 - Install Cyclegauge, then disable or uninstall EasyKiroGauge and reload the window. While both are enabled Cyclegauge pauses itself (status bar "Cyclegauge: paused") and reads and writes nothing.
 - Your history stays where it is: the storage folder keeps its legacy name `EasyKiroGauge`. Nothing is moved, copied or deleted.
-- Old `easykirogauge.*` settings still work as a fallback. The commands `showUsage`, `configureCostOptimizer`, `editCostScenario` and `clearCostInputs` keep their `easykirogauge.*` IDs as aliases for now.
+- Old `easykirogauge.*` settings still work as a fallback. Only `easykirogauge.showUsage` remains as a command alias. The old `configureCostOptimizer`, `editCostScenario` and `clearCostInputs` IDs are removed under both prefixes; replace custom bindings with `cyclegauge.costAdvisor`, or remove them.
+
+### Added
+
+- Script-free Cost Advisor with unconfirmed plan hints, account-bound session answers and native Command Palette, title-bar and panel-visible status-bar entry points.
+- Clearly labelled modelled pre-tax USD comparisons for the next full billing cycle, plus 1/3/6-cycle details and hypothetical usage sensitivity. Unknown inputs remain conditional or unavailable; no guaranteed savings, purchases, network calls or telemetry.
 
 ### Changed
 
@@ -21,7 +26,8 @@ First public beta under the new extension identity **Cyclegauge for Kiro IDE** (
 
 ### Unchanged
 
-- Collector, store, projection, billing, forecast and cost-optimizer behaviour and data formats are identical to 0.5.1. The detail view is still script-free, and the extension still has no network code and no telemetry.
+- Collector, store, projection, billing and forecast algorithms and data formats are preserved. The cost engine accepts two existing forecast-demand assumption codes so automatic comparisons can run; pricing and simulation algorithms are preserved. The Advisor replaces the standalone Cost Optimizer UI. The detail view stays script-free, with no network code or telemetry.
+- Windows storage stays disabled (SC1 open). Advisor answers are never persisted (SC5 open). Native acceptance of this exact 0.5.2 candidate remains pending.
 
 ### Known limitations
 
