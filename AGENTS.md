@@ -1,53 +1,40 @@
-# Cyclegauge contributor rules
+# Cyclegauge agent instructions
 
-## Scope and authority
+## Authority and scope
 
-- Follow [SPEC.md](SPEC.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
-- Agent work follows the orchestrator, implementer, reviewer workflow in `docs/agent-workflow.md`, imported here:
+- Follow [SPEC.md](SPEC.md) for behavior, [ARCHITECTURE.md](ARCHITECTURE.md) for trust boundaries and [ROADMAP.md](ROADMAP.md) for scope. Dated milestone approvals are historical evidence, **not** blanket authorization for new features.
+- For nontrivial changes, read [the agent workflow](docs/agent-workflow.md) before working. Keep shared rules here; `CLAUDE.md` imports this file for Claude Code, while Codex loads `AGENTS.md` directly.
+- Make only the requested, approved change. Never merge, tag, release, deploy, publish, change secrets, or weaken security checks without explicit maintainer approval.
+- Preserve collector, Store, projection, billing, forecast and established data-format contracts unless the change is explicitly approved. Keep the collector independent of VS Code APIs.
+- Session aggregation, Crew integration, Kiro-owned SQLite access, usage-efficiency/content analysis, purchases, authenticated calls, new platform enablement and answer persistence require separate approval. Do not treat an implementation plan as approval.
 
-@docs/agent-workflow.md
+## Privacy (non-negotiable)
 
-- **Implemented (0.5.1, UI-only simplification of the 0.5.0 view):** Milestones 1–3 (collector, extension, history/forecasts), 4A–4B (independent exact cost engine and session-only Cost Optimizer inputs in the script-disabled detail view; exhaustive exact break-even is engine-only and never invoked during extension interactions), 4C (0.4.1 pooled history forecasting) and 5 (script-free inline-SVG usage chart). Evidence: the `docs/milestone-*-validation.md` files.
-- **Deferred / unauthorized:** session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights, content analysis, purchases and authenticated calls. Each needs separate explicit approval and does not alter the privacy and read-only rules below.
-- Preserve collector, Store, projection, billing and forecast algorithms unless a new approval says otherwise.
-- Keep the collector independent of VS Code APIs. Package only the extension bundle, manifest and public documentation; exclude source logs, stores, tests and local dependency caches from VSIX artifacts.
-- Account snapshots are authoritative for current **observed account usage**, with an explicit as-of time and freshness status. Session metering provides **observed local daily attribution**, never a replacement account balance.
-- Unknown consumption across observation gaps is unknown, not zero. Do not invent daily allocations or sum account snapshots with session totals.
-- CLI metering entries must be checked for additive versus cumulative semantics before aggregation. Do not infer semantics from a field name, increasing values, or one sample.
+- Never commit, print, upload, attach to issues/PRs, or expose in diagnostics real Kiro logs, databases, sessions, transcripts, prompts, source code encountered in Kiro data, tool inputs/outputs, conversations, credentials, authentication material, raw or derived account/user/session/request identifiers, or private workspace paths.
+- Never copy production Kiro data (including backups or exports) into the repository, temporary fixtures, review packages or CI. Redacting real records does **not** make acceptable fixtures.
+- Create every fixture from scratch with obviously invented `synthetic-*` identifiers and fixed invented dates/numbers. Use inert invented sentinels rather than realistic secrets.
+- Extract only explicitly allowlisted billing fields in memory; discard unknown fields. Diagnostics may show fixed codes, counts, schema field names, versions and platform metadata, **not** rejected values, full records, data-bearing exceptions, dynamic filenames or absolute paths.
+- Never read auth stores, keychains, cookies, credential files or authentication table values. Do not run Kiro commands, call authenticated Kiro services, or enable verbose logging to obtain data. Native IDE installation/activation testing is permitted only within these boundaries.
+- Never send locally read data to external services or tools; public documentation queries must contain no private values.
+- If continuity needs identity, use a narrow in-memory projection and device-local opaque partition key. Raw and derived identifiers remain private; never expose even opaque keys in diagnostics.
 
-## Public GitHub content
+## Source and storage safety
 
-- Do not put Claude Code session URLs (`claude.ai/code/session_...`) or links to private project threads in PR descriptions, PR or issue comments, or commit messages. `.claude/settings.json` sets `attribution.sessionUrl` to `false` to stop Claude Code adding them automatically.
-- Normal attribution stays: the "Generated with Claude Code" line and `Co-Authored-By` trailers are fine. AI-assisted development is not hidden.
+- Kiro-owned files/databases are **strictly read-only**: no writes, repairs, migrations, checkpoints, permission/settings changes, journal changes, exports or SQLite sidecar creation.
+- Use explicit read-only handles and allowlisted roots. Do not recursively import source trees or unrelated directories; reject symlink escapes.
+- SQLite `query_only` is not enough to prove non-mutation; `immutable=1` is not a generally safe reader for a live database/WAL. If safety or freshness cannot be proved, return unavailable, not fabricated observations.
+- Write only to Cyclegauge-owned storage outside Kiro and the repository; never put real billing observations in git or automated tests.
+- Package only the extension bundle, manifest and public documentation. Never include source logs, stores, tests or dependency caches in VSIX artifacts.
 
-## Strict privacy rules
+## Data correctness and evidence
 
-- Never commit, print, upload, attach, or expose in diagnostics any real raw session data, credentials, authentication material, account/user/session/request identifiers, prompts, source code encountered in Kiro data, tool arguments/results, conversation text, or private workspace paths. This restriction applies to source code encountered in Kiro data.
-- Never copy real Kiro logs, databases, transcripts, database backups, or exports into this repository, temporary fixture folders, bug reports, or review packages. Redaction of a copied real session is not an acceptable fixture-generation strategy.
-- All fixtures must be invented from scratch. Use obvious `synthetic-*` identifiers and fixed invented dates/numbers. Sensitive-content test markers must be inert invented sentinels, not realistic credentials or copied text.
-- Extract only explicitly allowlisted billing fields in memory. Drop every unrecognized field by default. Do not log rejected values, full records, exception representations containing data, dynamic filenames, or local absolute paths. Diagnostics may contain fixed error codes, counts, schema field names, and version/platform metadata only.
-- Do not read authentication stores, keychains, cookies, credential files, or authentication table values. Do not invoke Kiro commands, call authenticated Kiro services, or enable verbose logging to obtain more data. IDE extension installation and activation for Milestone 2 validation are authorized; they must not trigger authenticated usage requests.
-- Do not send locally read data to external services or tools. Public documentation lookups must use generic queries without local identifiers or contents.
-- If account continuity requires identifiers, design a narrow in-memory projection and device-local opaque partition key. Never persist raw identifiers or expose opaque identity/deduplication keys in diagnostics. Treat derived identifiers as private too.
+- Account snapshots, with explicit as-of time and freshness, are authoritative for **observed account usage**, not live balances. Local session metering, if separately approved, is at most observed local attribution, never the account total.
+- Gaps are unknown, not zero: do not invent daily allocations or add account snapshot totals to session totals. Before any future CLI/session aggregation, verify additive versus cumulative semantics with evidence; a field name or single sample is insufficient.
+- Keep credits, tokens, context percentages and money distinct. Preserve decimal precision, timestamp offsets and the distinction between local calendar days and UTC billing boundaries.
+- Label observations, documentation, inference and unknowns accurately; macOS verification does not imply Windows, Ubuntu or RHEL support.
 
-## Read-only access
+## Checks and public collaboration
 
-- Kiro-owned files and databases must remain strictly read-only: no migrations, repairs, checkpoints, journal-mode changes, permission changes, sidecar creation, settings changes, session exports, or writes of any kind.
-- Use explicit read-only handles and allowlisted paths. Do not recursively import snapshots, source trees, or unrelated directories; reject symlink escapes from configured source roots.
-- SQLite `query_only` alone is insufficient. A future reader must prove it cannot create or modify sidecars. `immutable=1` is not a generally correct reader for live databases or WAL content. Unsupported/concurrently changing database states must produce a safe unavailable status, never fabricated current data.
-- Write only to Cyclegauge-owned storage. Do not put extracted real billing data in the repository. Never use production Kiro data for automated tests or CI.
-
-## Evidence and validation
-
-- Distinguish locally observed, officially documented, inferred, and unverified claims. macOS observations for Kiro 1.2.37 do not verify Windows, Ubuntu, or RHEL.
-- Keep monetary amounts, credits, tokens, and context percentages separate. Preserve decimal precision and timestamp offsets; daily timezone and UTC billing boundaries are different concepts.
-- Run `python3 tests/fixtures/kiro/validate.py` and `git diff --check` after fixture/documentation changes. The validator checks fixture contracts, not production parser behavior.
-- Before committing, inspect the staged file list and verify it contains only intended application code, tests, dependency manifests, documents, wholly synthetic fixtures, and validation tooling. Do not stage unrelated files with a blanket add.
-
-## Milestone 4C approval — 2026-10-10 (historical)
-
-Long-term history and robust forecasting (0.4.1) was approved with refinements: never infer zero usage from missing snapshots, require independent comparable observations, enable heuristics only on walk-forward evidence, report availability/error/underprediction/stability separately with held-out scenarios, and reserve 0.5.0 for the dashboard. The three original forecast methods and the collector, Store, projection and billing semantics stay preserved. No charts in that milestone (0.5.0 later delivered the chart under its own approval). This extends, and does not remove, the earlier boundaries.
-
-## 0.5.2 Cost Advisor integration — 2026-10-12
-
-The completed Phase A Advisor and numerical estimates are integrated for the macOS beta candidate. The Advisor replaces standalone Cost Optimizer commands/UI; native answers remain session-only and account-scoped. Plan inference is always an unconfirmed hint; explicit selection wins. Unknown billing/add-on inputs remain conditional or unavailable. Supported savings/no-action claims require explicit answers and a supported engine comparison. No purchases, network calls, telemetry or authenticated access. Pricing, collector, Store, projection, billing and forecast algorithms remain preserved; the simulator validation allowlist accepts two existing forecast-demand assumption codes. SC1 and SC5 remain open. Cross-platform storage, platform PoCs, persistence and future-record filtering are excluded. Native acceptance on the exact final VSIX is required before release.
+- Run `pnpm typecheck` and `pnpm test` for code changes. Run `python3 tests/fixtures/kiro/validate.py` for fixture changes; for fixture or documentation changes also run `git diff --check`. Follow task-specific release checks in [development guidance](docs/development.md).
+- Inspect the staged files before committing; stage explicit intended paths only. Never stage real data or blanket-add unrelated files.
+- Do not include Claude Code session URLs (`claude.ai/code/session_...`) or private thread links in commits, issues or PRs. Normal AI attribution, including `Co-Authored-By`, is allowed; `.claude/settings.json` disables session URL attribution.
