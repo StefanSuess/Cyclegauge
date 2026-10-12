@@ -5,6 +5,7 @@
 - Follow [SPEC.md](SPEC.md) for behavior, [ARCHITECTURE.md](ARCHITECTURE.md) for trust boundaries and [ROADMAP.md](ROADMAP.md) for scope. Dated milestone approvals are historical evidence, **not** blanket authorization for new features.
 - For nontrivial changes, read [the agent workflow](docs/agent-workflow.md) before working. Keep shared rules here; `CLAUDE.md` imports this file for Claude Code, while Codex loads `AGENTS.md` directly.
 - Make only the requested, approved change. Never merge, tag, release, deploy, publish, change secrets, or weaken security checks without explicit maintainer approval.
+- Keep agent work cost-aware: smallest useful task, least expensive capable model, targeted context and tests, no unnecessary delegation or review loops. Never trade away mandatory security/correctness gates to save cost; see [agent workflow](docs/agent-workflow.md).
 - Preserve collector, Store, projection, billing, forecast and established data-format contracts unless the change is explicitly approved. Keep the collector independent of VS Code APIs.
 - Session aggregation, Crew integration, Kiro-owned SQLite access, usage-efficiency/content analysis, purchases, authenticated calls, new platform enablement and answer persistence require separate approval. Do not treat an implementation plan as approval.
 
