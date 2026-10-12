@@ -49,7 +49,7 @@ jobs:
               pr.user?.login !== 'dependabot[bot]' ||
               pr.base?.ref !== 'main' ||
               pr.head?.repo?.full_name !== repo ||
-              !/^dependabot\\/npm_and_yarn\\/npm-patch-[A-Za-z0-9_-]+$/.test(pr.head?.ref || '') ||
+              !/^dependabot\/npm_and_yarn\/npm-patch-[A-Za-z0-9_-]+$/.test(pr.head?.ref || '') ||
               pr.head?.sha !== sha ||
               pr.commits !== 1 ||
               pr.changed_files < 1 || pr.changed_files > 2) {
@@ -65,8 +65,8 @@ jobs:
 
           const message = commits[0].commit.message || '';
           if (!message.includes('updated-dependencies:')) skip('missing Dependabot update metadata');
-          const types = [...message.matchAll(/^\\s*- update-type:\\s*(\\S+)/gm)].map(m => m[1]);
-          const groups = [...message.matchAll(/^\\s*- dependency-group:\\s*(\\S+)/gm)].map(m => m[1]);
+          const types = [...message.matchAll(/^\s*- update-type:\s*(\S+)/gm)].map(m => m[1]);
+          const groups = [...message.matchAll(/^\s*- dependency-group:\s*(\S+)/gm)].map(m => m[1]);
           if (!types.length || types.length !== groups.length ||
               types.some(x => x !== 'version-update:semver-patch') ||
               groups.some(x => x !== 'npm-patch')) {
@@ -80,7 +80,7 @@ jobs:
             skip('PR changes files other than the npm manifest and pnpm lockfile');
           }
 
-          appendFileSync(process.env.GITHUB_OUTPUT, `eligible=true\\nnumber=${number}\\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `eligible=true\nnumber=${number}\n`);
           console.log(`Verified PR #${number} (CI head ${sha}) for patch auto-merge`);
           NODE
 
