@@ -1,6 +1,6 @@
 # Technical identity migration: EasyKiroGauge to Cyclegauge (design and review)
 
-Status: identity migration is on main; PR #17 integrates the Cost Advisor for the 0.5.2 candidate. Native acceptance and publication remain pending. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled).
+Status: the identity migration and Cost Advisor shipped together in v0.5.2, the first public Cyclegauge beta under the new extension identity. This document preserves the original design and review record; it does not describe a pending migration. Storage migration is **not** part of this change and needs its own security review and approval (security checkpoint SC1 stays open; Windows storage stays disabled). The published v0.5.2 release is historical and immutable.
 
 ## Decisions (approved in principle by the maintainer, 2026-10-11)
 
@@ -37,7 +37,7 @@ Changing the package name (and later the publisher) produces a new extension ID.
 - Running both at once is not supported: both would read and write the same private storage folder (concurrent-writer behaviour is not verified) and both would show a status bar item.
 - **Hard gate (implemented):** at activation Cyclegauge checks whether the legacy extension (`easykirogauge.easykirogauge`) is installed and enabled. If so it does **not** read settings, resolve the storage path, start the collector or open the store; it creates no webview. It shows a paused status bar item ("Cyclegauge: paused"), registers its contributed commands only as a notice, and shows one fixed warning. No alias is registered, so the legacy extension keeps its command IDs. Nothing is read or written until the user disables or uninstalls EasyKiroGauge and reloads the window. A disabled extension is not detected and therefore counts as removed.
 - User settings under `easykirogauge.*` stay valid and keep working through the fallback.
-- There is no automatic uninstall and no data import; the transition is manual and documented here. Because current builds are private/VSIX-only, doing this before the first marketplace beta keeps the impact small.
+- There is no automatic uninstall and no data import; the transition is manual and documented here. Version 0.5.2 shipped this identity change as the first public Cyclegauge beta.
 
 ## Custom keybindings and the three Cost Optimizer commands
 
@@ -49,13 +49,13 @@ The VSIX contains exactly `extension/package.json`, `extension/readme.md`, `exte
 
 ## Publisher / Open VSX namespace
 
-From 0.5.2 `package.json` says `publisher: StefanSuess`, so the intended extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11). The [public namespace API](https://open-vsx.org/api/StefanSuess) reports that the namespace exists and is unverified (2026-10-12). This does not verify the maintainer's publishing permission; confirm that separately before publishing. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the new ID.
+From 0.5.2 `package.json` says `publisher: StefanSuess`, so the published extension ID is `StefanSuess.cyclegauge` (maintainer decision, 2026-10-11). The [public namespace API](https://open-vsx.org/api/StefanSuess) reports that the namespace exists and is unverified (2026-10-12). This does not establish the maintainer's current publishing permission. Namespace verification remains pending, and do not assume Open VSX Trusted Publishing is configured until the namespace is verified and the GitHub publisher is registered. `LEGACY_EXTENSION_ID` (`easykirogauge.easykirogauge`) stays as it is: it identifies the old build for the side-by-side gate, and tests pin that it differs from the published ID.
 
 ## Historical identity integration planning and conflicts
 
-The following is historical planning, not current release instructions. Identity migration is already on main and PR #17 excludes platform/storage work.
+The following is historical planning, not current release instructions. The identity migration and PR #17 Cost Advisor changes shipped in v0.5.2. Platform/storage work remains separate.
 
-Original recommendation: merge the identity change into `main` first (it is based on `main` at v0.5.1 plus the public docs), then update the other lines by merging `main` into them. Rationale: it is small, touches mostly manifest/identifier lines, and the guard test fails loudly when a later branch adds an unmapped identifier. Landing it on the Cost Advisor line instead would tie a rename to an unmerged feature.
+The original recommendation was to merge the identity change into `main` first (then at v0.5.1 plus the public docs) and update other lines by merging `main` into them. This was considered a small manifest and identifier change, and the guard test was expected to flag later unmapped identifiers. The recommendation is historical; identity migration and PR #17 shipped in v0.5.2.
 
 Open lines checked against `main` (all branched from the v0.5.1 baseline):
 
