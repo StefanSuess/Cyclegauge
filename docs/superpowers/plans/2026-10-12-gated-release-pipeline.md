@@ -99,5 +99,5 @@ The resulting focused PR should contain only the manual release workflow, promot
 
 - Candidate selection produces `{ runId, runSha, artifactId, artifactName, artifactDigest }`; promotion verification consumes those identifiers and returns the verified VSIX hash, package version, and payload manifest.
 - The verified promotion bundle contains the byte-identical VSIX, derived release checksum, source run/SHA/artifact metadata, and deterministic release notes; the protected publish job consumes this bundle and rechecks its VSIX hash.
-- Release-state inspection is read-only; its state model is consumed by both dry-run preflight and protected mutations. The same exact-match/conflict rules apply in both places.
+- Release-state inspection is read-only; its state model is consumed by both dry-run preflight and protected mutations. Preflight explicitly reports limited draft visibility, while the protected job lists drafts with `contents:write` before attempting release creation. The same exact-match/conflict rules apply to all visible records.
 - Workflow policy tests assert that only protected publishing jobs can hold write permissions, only Trusted Publishing can hold OIDC permission, PAT mode has no OIDC permission, and normal CI stays read-only.

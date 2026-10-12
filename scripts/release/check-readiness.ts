@@ -31,7 +31,7 @@ async function run(): Promise<void> {
     releaseName: String(metadata.releaseName),
     releaseNotes: readFileSync(join(root, 'release-notes.md'), 'utf8'),
   };
-  const adapter = createAdapterFromEnv(join(root, 'scripts/release/publisher-tools'));
+  const adapter = createAdapterFromEnv(join(root, 'scripts/release/publisher-tools'), 'limited');
   const result = await promoteCandidate(adapter, candidate, {
     dryRun: true,
     authMode: request.authMode,
@@ -39,7 +39,8 @@ async function run(): Promise<void> {
   appendFileSync(requiredEnv('GITHUB_STEP_SUMMARY'), [
     '### Read-only publication readiness',
     '',
-    `- Remote state: \`${result.status}\`; conflicts and unverifiable records were rejected`,
+    `- Remote state: \`${result.status}\`; visible conflicts and unverifiable records were rejected`,
+    '- Draft visibility may be limited here; the protected publishing job checks drafts again before any release creation',
     '- No Open VSX, tag, or GitHub release write was made',
     '- Credential readiness not tested; this job has no publishing secret or OIDC permission',
     '',

@@ -137,6 +137,9 @@ test('conflicting or unverifiable Open VSX, tag, release, or asset state fails c
     { release: { kind: 'present', ...release('0.6.0', { assets: [
       { name: c.vsixAssetName, sha256: 'f'.repeat(64) },
     ] }) } },
+    { release: { kind: 'present', ...release('0.6.0', { assets: [
+      { name: 'synthetic-unexpected.txt', sha256: digest(bytes) },
+    ] }) } },
   ];
   for (const state of cases) {
     const fake = fakeAdapter(state);
@@ -164,6 +167,32 @@ test('a dry run reads readiness but makes zero write calls', async () => {
   assert.deepEqual(fake.state.openVsx, { kind: 'absent' });
   assert.deepEqual(fake.state.tag, { kind: 'absent' });
   assert.deepEqual(fake.state.release, { kind: 'absent' });
+});
+
+test('limited draft visibility is allowed only in read-only preflight', async () => {
+  const fake = fakeAdapter({ release: { kind: 'drafts-unverified' } });
+  assert.equal((await promoteCandidate(fake.adapter, candidate(), { dryRun: true, authMode: 'pat' })).status, 'ready');
+  await assert.rejects(promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' }), /RELEASE_DRAFT_VISIBILITY_LIMITED/);
+  assert.deepEqual(fake.writes, []);
+});
+
+test('failed asset upload is retried only after rediscovering the exact matching draft', async () => {
+  const c = candidate();
+  const fake = fakeAdapter({
+    openVsx: { kind: 'present', sha256: c.sha256 },
+    tag: { kind: 'present', tagName: 'v0.6.0', targetSha: commit },
+    release: { kind: 'present', ...release() },
+  });
+  const upload = fake.adapter.uploadAsset;
+  let failOnce = true;
+  fake.adapter.uploadAsset = async (...args) => {
+    if (failOnce) { failOnce = false; throw new Error('synthetic upload failure'); }
+    return upload(...args);
+  };
+  await assert.rejects(promoteCandidate(fake.adapter, c, { dryRun: false, authMode: 'pat' }), /PROMOTION_WRITE_FAILED/);
+  assert.equal(fake.state.release.draft, true);
+  assert.equal((await promoteCandidate(fake.adapter, c, { dryRun: false, authMode: 'pat' })).status, 'published');
+  assert.deepEqual(fake.writes, [`asset:${c.vsixAssetName}`, 'asset:SHA256SUMS.txt', 'publish-release']);
 });
 
 test('v0.5.2 is a read-only exact no-op and never receives repair writes', async () => {

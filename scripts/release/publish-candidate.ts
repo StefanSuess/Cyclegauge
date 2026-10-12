@@ -54,7 +54,7 @@ async function run(): Promise<void> {
     releaseNotes: notes.toString('utf8'),
   };
   const publisherToolsDir = join(bundleDir, 'publisher-runtime/publisher-tools');
-  const adapter = createAdapterFromEnv(publisherToolsDir);
+  const adapter = createAdapterFromEnv(publisherToolsDir, 'full');
   verifyCurrentMainSha(await adapter.readMainSha(), candidate.commit);
   const result = await promoteCandidate(adapter, candidate, { dryRun: false, authMode: request.authMode });
   appendFileSync(requiredEnv('GITHUB_STEP_SUMMARY'), [

@@ -114,15 +114,7 @@ jobs:
         id: runtime
         if: ${{ inputs.dry_run == false }}
         run: |
-          runtime_dir=release/promotion-bundle/publisher-runtime
-          mkdir -p "$runtime_dir/scripts/release" "$runtime_dir/publisher-tools"
-          cp scripts/is-main.ts "$runtime_dir/scripts/is-main.ts"
-          for file in publish-candidate.ts promotion-policy.ts promotion-state.ts release-state.ts verify-vsix.ts; do
-            cp "scripts/release/$file" "$runtime_dir/scripts/release/$file"
-          done
-          cp -R scripts/release/publisher-tools/node_modules "$runtime_dir/publisher-tools/node_modules"
-          tar -czf release/promotion-bundle/publisher-runtime.tar.gz -C "$runtime_dir" .
-          rm -rf "$runtime_dir"
+          bash scripts/release/prepare-publisher-runtime.sh release/promotion-bundle scripts/release/publisher-tools/node_modules
           sha256=$(sha256sum release/promotion-bundle/publisher-runtime.tar.gz | cut -d' ' -f1)
           echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
 

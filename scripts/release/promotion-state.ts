@@ -14,6 +14,7 @@ export type GitTagState =
 export interface ReleaseAssetState { name: string; sha256: string }
 export type GitHubReleaseState =
   | { kind: 'absent' }
+  | { kind: 'drafts-unverified' }
   | {
       kind: 'present';
       id: number;
@@ -121,6 +122,7 @@ function assertReleaseMetadata(
   expectedAssets: ReleaseAssetState[],
 ): { missing: Set<string> } | undefined {
   if (state.kind === 'unavailable') return fail('RELEASE_STATE_UNAVAILABLE');
+  if (state.kind === 'drafts-unverified') return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
   if (state.kind === 'absent') return undefined;
   if (!Number.isSafeInteger(state.id) || state.id < 1 || state.tagName !== tagName ||
       state.name !== candidate.releaseName || state.body !== candidate.releaseNotes || state.prerelease !== true ||
@@ -154,7 +156,12 @@ async function readState(adapter: PromotionAdapter, candidate: PromotionCandidat
   } catch {
     return fail('PROMOTION_READ_FAILED');
   }
-  assertConsistentState({ openVsx, tag, release, candidate, tagName, expectedAssets });
+  if (release.kind === 'drafts-unverified') {
+    assertOpenVsx(openVsx, candidate.sha256);
+    assertTag(tag, tagName, candidate.commit);
+  } else {
+    assertConsistentState({ openVsx, tag, release, candidate, tagName, expectedAssets });
+  }
   return { openVsx, tag, release };
 }
 
@@ -184,6 +191,7 @@ export async function promoteCandidate(
   const { tagName, expectedAssets } = validateCandidate(candidate);
   if (typeof options.dryRun !== 'boolean' || !['pat', 'trusted-publishing'].includes(options.authMode)) return fail('PROMOTION_OPTIONS_INVALID');
   let state = await readState(adapter, candidate, tagName, expectedAssets);
+  if (state.release.kind === 'drafts-unverified' && !options.dryRun) return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
   if (state.release.kind === 'present' && !state.release.draft) {
     inspectAssets(state.release.assets, expectedAssets, false);
     return { status: 'already-published', tagName, sha256: candidate.sha256 };

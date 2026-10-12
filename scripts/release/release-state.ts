@@ -111,13 +111,15 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
   private readonly repository: string;
   private readonly token: string;
   private readonly publisherToolsDir: string;
+  private readonly draftVisibility: 'limited' | 'full';
 
-  constructor(input: { repository: string; token: string; publisherToolsDir: string; apiBase?: string }) {
+  constructor(input: { repository: string; token: string; publisherToolsDir: string; draftVisibility: 'limited' | 'full'; apiBase?: string }) {
     repositoryParts(input.repository);
     this.repository = input.repository;
     this.token = input.token;
     this.apiBase = (input.apiBase || 'https://api.github.com').replace(/\/$/, '');
     this.publisherToolsDir = input.publisherToolsDir;
+    this.draftVisibility = input.draftVisibility;
   }
 
   private api(path: string): string {
@@ -178,12 +180,26 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
 
   async readRelease(tagName: string): Promise<GitHubReleaseState> {
     try {
-      const release = await githubRequest<{
+      type ReleaseRow = {
         id?: number; tag_name?: string; name?: string | null; body?: string | null; draft?: boolean; prerelease?: boolean;
-      }>(this.api(`releases/tags/${encodeURIComponent(tagName)}`), this.token);
-      if (release.status === 404) return { kind: 'absent' };
-      const value = release.value;
-      if (!value || !Number.isSafeInteger(value.id) ||
+      };
+      let value: ReleaseRow | undefined;
+      for (let page = 1; page <= 100; page++) {
+        const response = await githubRequest<ReleaseRow[]>(this.api(`releases?per_page=100&page=${page}`), this.token);
+        const rows = response.value;
+        if (response.status !== 200 || !Array.isArray(rows) || rows.length > 100) return { kind: 'unavailable' };
+        for (const row of rows) {
+          if (!row || typeof row.tag_name !== 'string') return { kind: 'unavailable' };
+          if (row.tag_name === tagName) {
+            if (value) return { kind: 'unavailable' };
+            value = row;
+          }
+        }
+        if (rows.length < 100) break;
+        if (page === 100) return { kind: 'unavailable' };
+      }
+      if (!value) return this.draftVisibility === 'limited' ? { kind: 'drafts-unverified' } : { kind: 'absent' };
+      if (!Number.isSafeInteger(value.id) ||
           typeof value.tag_name !== 'string' || typeof value.draft !== 'boolean' || typeof value.prerelease !== 'boolean') {
         return { kind: 'unavailable' };
       }
@@ -338,13 +354,14 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
   }
 }
 
-export function createAdapterFromEnv(publisherToolsDir: string): GitHubOpenVsxAdapter {
+export function createAdapterFromEnv(publisherToolsDir: string, draftVisibility: 'limited' | 'full'): GitHubOpenVsxAdapter {
   const repository = process.env.GITHUB_REPOSITORY;
   if (!repository) throw new Error('CONFIG_INVALID');
   return new GitHubOpenVsxAdapter({
     repository,
     token: tokenFromEnv(),
     publisherToolsDir,
+    draftVisibility,
     apiBase: process.env.GITHUB_API_URL,
   });
 }
