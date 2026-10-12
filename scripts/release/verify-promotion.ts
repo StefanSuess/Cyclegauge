@@ -16,7 +16,7 @@ function requiredEnv(name: string): string {
 }
 
 function appendOutput(name: string, value: string): void {
-  if (!/^[A-Z_]+$/.test(name) || /[\r\n]/.test(value)) return fail('OUTPUT_INVALID');
+  if (!/^[A-Z][A-Z0-9_]*$/.test(name) || /[\r\n]/.test(value)) return fail('OUTPUT_INVALID');
   appendFileSync(requiredEnv('GITHUB_OUTPUT'), `${name.toLowerCase()}=${value}\n`, { encoding: 'utf8' });
 }
 
@@ -40,6 +40,10 @@ function run(): void {
   const commit = requiredEnv('SOURCE_SHA');
   const runId = requiredEnv('RUN_ID');
   const artifactId = requiredEnv('ARTIFACT_ID');
+  // Downstream readiness and publish checks compare these as numbers.
+  const runIdNumber = Number(runId);
+  const artifactIdNumber = Number(artifactId);
+  if (!/^[1-9]\d*$/.test(runId) || !/^[1-9]\d*$/.test(artifactId) || !Number.isSafeInteger(runIdNumber) || runIdNumber < 1 || !Number.isSafeInteger(artifactIdNumber) || artifactIdNumber < 1) return fail('CONFIG_INVALID');
   const artifactDigest = process.env.ARTIFACT_DIGEST || 'unavailable';
   const sourceDir = process.env.CANDIDATE_DIR || 'release/input';
   const bundleDir = process.env.BUNDLE_DIR || 'release/promotion-bundle';
@@ -81,8 +85,8 @@ function run(): void {
   writeFileSync(join(bundleDir, 'promotion.json'), JSON.stringify({
     version,
     commit,
-    runId,
-    artifactId,
+    runId: runIdNumber,
+    artifactId: artifactIdNumber,
     artifactName: 'release-candidate',
     artifactDigest,
     sha256: result.sha256,

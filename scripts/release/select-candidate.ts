@@ -30,7 +30,7 @@ function requiredEnv(name: string): string {
 }
 
 function appendOutput(name: string, value: string): void {
-  if (!/^[A-Z_]+$/.test(name) || /[\r\n]/.test(value)) throw new Error('OUTPUT_INVALID');
+  if (!/^[A-Z][A-Z0-9_]*$/.test(name) || /[\r\n]/.test(value)) throw new Error('OUTPUT_INVALID');
   appendFileSync(requiredEnv('GITHUB_OUTPUT'), `${name.toLowerCase()}=${value}\n`, { encoding: 'utf8' });
 }
 
