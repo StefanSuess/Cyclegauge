@@ -44,6 +44,16 @@ A published Open VSX version cannot be edited. If acceptance step D finds a defe
 
 Record version, SHA-256, CI run, Kiro and macOS versions in the release notes. Do not collect telemetry; user feedback arrives through GitHub issues, which must never contain real Kiro data.
 
+## Support links and marketplace listing
+
+The root `README.md` serves both GitHub and the extension listing. `scripts/release/build-vsix.ts` copies it and `package.json` into the staging directory; `.vscodeignore` includes both in the VSIX. The README's single **Support Cyclegauge** section is the main place to discover optional Ko-fi support. Other user guides link to the README rather than repeat the request.
+
+`package.json` uses the official [`sponsor.url` field](https://code.visualstudio.com/api/references/extension-manifest) for the same Ko-fi destination. Keep `homepage`, `repository`, `bugs`, and the functional description focused on their existing purposes. Do not add custom donation metadata. A client's display of a separate sponsor control may vary; the packaged README supplies the link regardless.
+
+[Kiro uses Open VSX by default](https://kiro.dev/docs/editor/extension-registry/), and [Open VSX publishes the packaged VSIX](https://github.com/eclipse-openvsx/openvsx/wiki/Publishing-Extensions#5-package-and-upload). Merging documentation updates changes the GitHub README immediately. The repository Sponsor button uses [`.github/FUNDING.yml` on the default branch](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository); `ko_fi` takes the username, not the full URL. Only add GitHub Sponsors when the maintainer's sponsorship profile is active and publicly accessible.
+
+The already published **v0.5.2** VSIX and its Open VSX README/metadata do not change when this PR is merged. The support section and sponsor metadata require a **new, higher-version VSIX**, followed by the normal acceptance and explicitly approved Open VSX publication. Do not rebuild, replace or republish v0.5.2. GitHub repository links from the current listing can already lead to the updated README after merge.
+
 ## Review status for PR #17
 
 The local independent read-only code review completed, with its two minor findings resolved. The GitHub connector initially requested a Codex environment, but subsequently completed a review of commit `92c398d` and reported one P2 finding: the Enterprise UI incorrectly described unknown purchased add-ons as assumed absent. The disclosure now keeps unknown/unentered add-ons distinct from the explicitly hypothetical `assumed_none` state; a regression test reproduced the issue before the fix. This changes presentation only, not the fail-closed profile or calculations. Review coverage is commit-specific: do not describe the earlier review as approval of a later candidate. Native acceptance remains mandatory before publication.

@@ -82,6 +82,14 @@ Figures are the last values Kiro logged, shown with an as-of time. They are not 
 - [Changelog](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CHANGELOG.md)
 - [Roadmap](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/ROADMAP.md) and [version history](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/version-history.md)
 
+## ❤️ Support Cyclegauge
+
+Cyclegauge is free, open source, and independently developed. It will stay completely free, with no paid features.
+
+If you've found it useful and would like to say thanks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/stefansuess). ☕
+
+Support is entirely optional. Knowing that someone appreciates my work means a lot. Thank you!
+
 ## License
 
 [MIT](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
