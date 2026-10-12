@@ -4,14 +4,7 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 ## 0.5.2 (beta, macOS)
 
-First public beta under the new extension identity **Cyclegauge for Kiro IDE** (extension ID `StefanSuess.cyclegauge`).
-
-### Important if you used EasyKiroGauge
-
-- This is a **different extension**, not an update. Kiro will not upgrade an installed EasyKiroGauge build to Cyclegauge.
-- Install Cyclegauge, then disable or uninstall EasyKiroGauge and reload the window. While both are enabled Cyclegauge pauses itself (status bar "Cyclegauge: paused") and reads and writes nothing.
-- Your history stays where it is: the storage folder keeps its legacy name `EasyKiroGauge`. Nothing is moved, copied or deleted.
-- Old `easykirogauge.*` settings still work as a fallback. Only `easykirogauge.showUsage` remains as a command alias. The old `configureCostOptimizer`, `editCostScenario` and `clearCostInputs` IDs are removed under both prefixes; replace custom bindings with `cyclegauge.costAdvisor`, or remove them.
+First public beta of **Cyclegauge for Kiro IDE** (extension ID `StefanSuess.cyclegauge`).
 
 ### Added
 
@@ -20,8 +13,8 @@ First public beta under the new extension identity **Cyclegauge for Kiro IDE** (
 
 ### Changed
 
-- New names: commands and settings are `cyclegauge.*`; the Command Palette entries start with "Cyclegauge:".
-- Source and storage root settings (`cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, `cyclegauge.sourceTimezone` and their legacy keys) are machine-scoped: a workspace's `.vscode/settings.json` can no longer change them. Set them in your user settings.
+- Commands and settings use `cyclegauge.*`; the Command Palette entries start with "Cyclegauge:".
+- Source and storage root settings (`cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, `cyclegauge.sourceTimezone`) are machine-scoped: a workspace's `.vscode/settings.json` can no longer change them. Set them in your user settings.
 - Release builds are verified by an exact-content check (allowlist, manifest, bundle) and can be reproduced from the commit.
 
 ### Unchanged
@@ -36,7 +29,7 @@ First public beta under the new extension identity **Cyclegauge for Kiro IDE** (
 
 ## 0.5.1
 
-UI-only simplification of the detail view (published only as a local VSIX under the name EasyKiroGauge).
+UI-only simplification of the detail view.
 
 ## Earlier
 

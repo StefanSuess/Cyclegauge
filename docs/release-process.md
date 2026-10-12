@@ -16,8 +16,8 @@ pnpm release:verify release/candidate.vsix --pre-release --out release/manifest.
 ## 2. Gates before publishing (all mandatory)
 
 1. The candidate's CI run is green (verify on macOS and Ubuntu, candidate built, rebuilt, payload identical, macOS download check).
-2. The publisher is **`StefanSuess`** (fixed extension identity; the namespace exists, with public verification status `false` as observed on 2026-10-12 at [the registry API](https://open-vsx.org/api/StefanSuess)). Namespace existence does not prove publishing permission; the maintainer must confirm access. The intended extension ID is `StefanSuess.cyclegauge`; the legacy build `easykirogauge.easykirogauge` is a different extension, detected by a constant that must not change. `release:verify` fails on any other ID.
-3. Native macOS acceptance of the exact final candidate passed ([macos-acceptance.md](macos-acceptance.md), sections **A, B, C, E and F**). **Section F (Cost Advisor acceptance) is explicitly mandatory before publishing**, including conditional figures, answers, account isolation and native visibility checks on the exact final VSIX.
+2. The publisher is **`StefanSuess`** (fixed extension identity; the namespace exists, with public verification status `false` as observed on 2026-10-12 at [the registry API](https://open-vsx.org/api/StefanSuess)). Namespace existence does not prove publishing permission; the maintainer must confirm access. The intended extension ID is `StefanSuess.cyclegauge`. `release:verify` fails on any other ID.
+3. Native macOS acceptance of the exact final candidate passed ([macos-acceptance.md](macos-acceptance.md), sections **A, B, C, D and E**). **Section E (Cost Advisor acceptance) is explicitly mandatory before publishing**, including conditional figures, answers, account isolation and native visibility checks on the exact final VSIX.
 4. The maintainer approved the version, the changelog text and the listing text.
 5. Security checkpoints stay as they are: SC1 open (Windows storage disabled), SC5 not implemented. A beta does not close or bypass them.
 

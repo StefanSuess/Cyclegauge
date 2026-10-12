@@ -8,7 +8,7 @@
 - `git diff --check` passes.
 - Code review's two precision findings reproduced RED → GREEN: final-only projection truncation and conditional exhaustion immediately before UTC midnight/reset.
 - `pnpm package:vsix` builds 0.3.1. Exact ZIP inventory: `[Content_Types].xml`, `extension.vsixmanifest`, `extension/package.json`, `extension/readme.md`, `extension/dist/extension.cjs`. No source logs/stores/tests/dependency cache or internal design docs.
-- Local Kiro IDE installer successfully installed the VSIX. A clean Kiro window displayed EasyKiroGauge's status item; clicking it opened the account details. Native accessibility checks confirmed history, coverage, forecast, policy and insufficient-comparable-coverage explanation. Only fixed booleans/labels were retained in this report; no screenshots or private account values/identifiers/paths.
+- Local Kiro IDE installer successfully installed the VSIX. A clean Kiro window displayed the extension's status item; clicking it opened the account details. Native accessibility checks confirmed history, coverage, forecast, policy and insufficient-comparable-coverage explanation. Only fixed booleans/labels were retained in this report; no screenshots or private account values/identifiers/paths.
 
 ## Limitations and data-quality gates
 
@@ -26,8 +26,8 @@
 - RED → GREEN coverage for 48-hour/three-snapshot provisional eligibility, promotion at seven days/eight snapshots, inadequate snapshot count despite seven-day span, duplicate points, exact 36-hour gap boundary, stale observations, unknown/multiple accounts, changed limits, missing fields, counter decreases, extras, conflicts and fresh post-reset windows.
 - A quality barrier restarts the usable window. Unknown daily values remain unknown; only fresh comparable endpoints contribute to the new rate. Cycle-to-date and rolling methods retain their stricter gates.
 - Synthetic extension integration exercises provisional → regular → stale/unavailable and checks the window/count/limitations text. JSON schema/policy v2 uses `tier` rather than the misleading former `confidence` property.
-- VSIX 0.3.1 installed via Kiro's local VSIX picker and the extension host restarted. Opening **EasyKiroGauge: Show Account Credits** exposed policy v2, provisional 48-hour and regular seven-day requirements, selected observation coverage and the unavailable label. Checks retained only fixed booleans; no account amounts, identifiers, source data or screenshots were captured in this report.
-- Live eligible provisional/regular forecasts and predictive accuracy remain unverified; available live evidence yielded unavailable. No authenticated usage request was initiated by EasyKiroGauge. No Kiro-owned logs or databases were modified.
+- VSIX 0.3.1 installed via Kiro's local VSIX picker and the extension host restarted. Opening the account command exposed policy v2, provisional 48-hour and regular seven-day requirements, selected observation coverage and the unavailable label. Checks retained only fixed booleans; no account amounts, identifiers, source data or screenshots were captured in this report.
+- Live eligible provisional/regular forecasts and predictive accuracy remain unverified; available live evidence yielded unavailable. No authenticated usage request was initiated by the extension. No Kiro-owned logs or databases were modified.
 
 
 ## Focused UI refinement — VSIX 0.3.2, 2026-10-10

@@ -1,6 +1,6 @@
 # Milestone 4B validation — 2026-10-10
 
-Milestone 4A was accepted with 113 passing tests. Task 5 and the performance prerequisite are implemented in EasyKiroGauge 0.4.0. The daily-budget status bar, collector, Store, CLI and forecast algorithms remain preserved. No Milestone 5 charts, purchases, authenticated API calls, source integrations or automatic Git commits were added.
+Milestone 4A was accepted with 113 passing tests. Task 5 and the performance prerequisite are implemented in version 0.4.0. The daily-budget status bar, collector, Store, CLI and forecast algorithms remain preserved. No Milestone 5 charts, purchases, authenticated API calls, source integrations or automatic Git commits were added.
 
 ## Performance blocker resolved
 
@@ -48,7 +48,7 @@ Synthetic overview captures: [light 360](validation/m4b-light-360.png), [light 9
 
 ## Artifact and packaging
 
-Artifact: `dist/easykirogauge-0.4.0.vsix`, **47,405 bytes**.
+Artifact: version 0.4.0 VSIX, **47,405 bytes**.
 
 SHA-256: `49d264840fd2bc27094b11de2e9bd807f5999980a1c8a07c5ea4e91cdd36773a`.
 
@@ -66,4 +66,4 @@ The five ZIP entries are `[Content_Types].xml`, `extension.vsixmanifest`, `exten
 
 The accepted uncommitted baseline was preserved in the supplied checkout. No files were staged and no Git commits were made.
 
-The final baseline-only presentation correction was exercised through its synthetic regression, then reinstalled; the installed EasyKiroGauge bundle was byte-compared successfully against the final build. Native personalized scenarios with an excluded current tier were not manually exercised. Temporary layout tabs/server and the separately launched disposable Kiro test process were closed.
+The final baseline-only presentation correction was exercised through its synthetic regression, then reinstalled; the installed extension bundle was byte-compared successfully against the final build. Native personalized scenarios with an excluded current tier were not manually exercised. Temporary layout tabs/server and the separately launched disposable Kiro test process were closed.

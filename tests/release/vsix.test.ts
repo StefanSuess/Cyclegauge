@@ -50,10 +50,17 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.ok(unscoped.problems.includes('MANIFEST_SETTING_SCOPE'));
+ const extraSetting = pack(e => e.map(x => {
+  if (x.name !== 'extension/package.json') return x;
+  const m = JSON.parse(x.data.toString('utf8'));
+  m.contributes.configuration.properties['cyclegauge.extraSetting'] = { type: 'string', default: '', scope: 'machine' };
+  return { ...x, data: Buffer.from(JSON.stringify(m)) };
+ }));
+ assert.ok(extraSetting.problems.includes('MANIFEST_SETTING_PROPERTIES'));
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 
-test('the verifier rejects a wrong publisher and the legacy extension ID', async () => {
+test('the verifier rejects a wrong publisher', async () => {
  const entries = readZip(await build('id.vsix', true));
  const withPublisher = (publisher: string) => verifyVsix(writeZip(entries.map(e => {
   if (e.name !== 'extension/package.json') return { name: e.name, data: e.data };
@@ -61,7 +68,6 @@ test('the verifier rejects a wrong publisher and the legacy extension ID', async
   return { name: e.name, data: Buffer.from(JSON.stringify(m)) };
  })), { expectPreRelease: true });
  assert.ok(withPublisher('someone-else').problems.includes('MANIFEST_EXTENSION_ID'));
- assert.ok(withPublisher('easykirogauge').problems.includes('MANIFEST_EXTENSION_ID'));
  assert.equal(withPublisher('StefanSuess').problems.includes('MANIFEST_EXTENSION_ID'), false);
 });
 

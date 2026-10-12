@@ -23,7 +23,7 @@ Milestone 1: a local, read-only `GetUsageLimitsCommand` CREDIT collector with pe
 
 ## Milestones 2 and 3 (extension)
 
-Milestone 3 extends the Kiro IDE extension with credit history and qualified forecasts. Its status bar emphasizes daily budget and forecast outlook: collecting data, provisional, on track, tight, over budget with a conditional exhaustion date, stale or unavailable. Remaining base credits stay in the detail view alongside account usage, daily budget and forecast status. Click it to open account usage, base limit, reset, UTC-day allocation, observation time, freshness and warnings. The extension reads existing Kiro IDE account-response logs and writes normalized observations only to EasyKiroGauge-owned storage. It does not call Kiro services or need a separate Node installation.
+Milestone 3 extends the Kiro IDE extension with credit history and qualified forecasts. Its status bar emphasizes daily budget and forecast outlook: collecting data, provisional, on track, tight, over budget with a conditional exhaustion date, stale or unavailable. Remaining base credits stay in the detail view alongside account usage, daily budget and forecast status. Click it to open account usage, base limit, reset, UTC-day allocation, observation time, freshness and warnings. The extension reads existing Kiro IDE account-response logs and writes normalized observations only to app-owned storage. It does not call Kiro services or need a separate Node installation.
 
 ## Milestone 3 verification record (2026-10-10)
 

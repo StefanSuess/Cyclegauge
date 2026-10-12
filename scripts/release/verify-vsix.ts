@@ -23,9 +23,8 @@ export const ALLOWLIST = [
 ];
 /** Files whose bytes must be identical across independent builds of the same commit. */
 export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
-/** Intended Open VSX identity. The legacy build's ID is a different extension and must never be reused. */
+/** Intended Open VSX identity. */
 export const EXPECTED_ID = 'StefanSuess.cyclegauge';
-export const LEGACY_ID = 'easykirogauge.easykirogauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
 
 export interface FileHash { name: string; bytes: number; sha256: string }
@@ -61,17 +60,15 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
    result.version = typeof manifest.version === 'string' && /^\d+\.\d+\.\d+$/.test(manifest.version) ? manifest.version : 'unknown';
    if (manifest.name !== 'cyclegauge') problems.push('MANIFEST_NAME');
    if (`${manifest.publisher}.${manifest.name}` !== EXPECTED_ID) problems.push('MANIFEST_EXTENSION_ID');
-   if (`${manifest.publisher}.${manifest.name}`.toLowerCase() === LEGACY_ID) problems.push('MANIFEST_EXTENSION_ID');
    if (manifest.license !== 'MIT') problems.push('MANIFEST_LICENSE');
    if (manifest.main !== './dist/extension.cjs') problems.push('MANIFEST_MAIN');
    if (manifest.dependencies && Object.keys(manifest.dependencies).length) problems.push('MANIFEST_RUNTIME_DEPENDENCIES');
    if (!manifest.engines?.vscode) problems.push('MANIFEST_ENGINE');
    if (manifest.icon !== 'assets/branding/cyclegauge-icon-256.png') problems.push('MANIFEST_ICON');
    const props = manifest.contributes?.configuration?.properties ?? {};
+   if (Object.keys(props).sort().join(',') !== SETTING_KEYS.map(key => `cyclegauge.${key}`).sort().join(',')) problems.push('MANIFEST_SETTING_PROPERTIES');
    // Workspace settings must not be able to redirect the source or storage roots.
-   for (const prefix of ['cyclegauge', 'easykirogauge']) for (const key of SETTING_KEYS) {
-    if (props[`${prefix}.${key}`]?.scope !== 'machine') problems.push('MANIFEST_SETTING_SCOPE');
-   }
+   for (const key of SETTING_KEYS) if (props[`cyclegauge.${key}`]?.scope !== 'machine') problems.push('MANIFEST_SETTING_SCOPE');
   } catch { problems.push('MANIFEST_JSON'); }
  }
  const vsixManifest = get('extension.vsixmanifest')?.toString('utf8');
