@@ -125,10 +125,14 @@ function assertReleaseMetadata(
   if (state.kind === 'drafts-unverified') return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
   if (state.kind === 'absent') return undefined;
   if (!Number.isSafeInteger(state.id) || state.id < 1 || state.tagName !== tagName ||
-      state.name !== candidate.releaseName || state.body !== candidate.releaseNotes || state.prerelease !== true ||
+      state.name !== candidate.releaseName || normalizeNotes(state.body) !== normalizeNotes(candidate.releaseNotes) || state.prerelease !== true ||
       typeof state.draft !== 'boolean') return fail('RELEASE_METADATA_CONFLICT');
   return { missing: inspectAssets(state.assets, expectedAssets, state.draft) };
 }
+
+// GitHub may return CRLF line endings or drop the final newline. Only those two differences are
+// tolerated; any other whitespace (trailing spaces, extra blank lines, tabs, lone CR) still conflicts.
+const normalizeNotes = (value: string): string => value.replace(/\r\n/g, '\n').replace(/\n$/, '');
 
 function assertConsistentState(input: {
   openVsx: OpenVsxState;

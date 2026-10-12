@@ -222,3 +222,31 @@ test('rejects a candidate whose version metadata and asset names disagree', asyn
   await assert.rejects(promoteCandidate(fake.adapter, bad, { dryRun: false, authMode: 'pat' }));
   assert.deepEqual(fake.writes, []);
 });
+
+const notesCandidate = (notes: string) => ({ ...candidate(), releaseNotes: notes });
+const dryRunWithBody = (notes: string, body: string) =>
+  promoteCandidate(fakeAdapter({ tag: { kind: 'present', tagName: 'v0.6.0', targetSha: commit }, release: { kind: 'present', ...release('0.6.0', { body }) } }).adapter, notesCandidate(notes), { dryRun: true, authMode: 'pat' });
+
+test('release notes returned with CRLF or without the final newline still match', async () => {
+  const notes = 'Synthetic line one.\nSynthetic line two.\n';
+  for (const body of [notes, notes.replace(/\n/g, '\r\n'), notes.slice(0, -1), notes.slice(0, -1).replace(/\n/g, '\r\n')]) {
+    assert.equal((await dryRunWithBody(notes, body)).status, 'ready');
+  }
+  assert.equal((await dryRunWithBody('Synthetic one line.', 'Synthetic one line.\r\n')).status, 'ready');
+});
+
+test('release notes with any other whitespace or content difference fail closed', async () => {
+  const notes = 'Synthetic line one.\nSynthetic line two.\n';
+  const bodies = [
+    `${notes}\n`,
+    `${notes}\r\n\r\n`,
+    'Synthetic line one.\nSynthetic line two.  \n',
+    'Synthetic line one.\nSynthetic line two.\t',
+    ' Synthetic line one.\nSynthetic line two.\n',
+    'Synthetic line one.\n\nSynthetic line two.\n',
+    'Synthetic line one.\rSynthetic line two.\r',
+    notes.replace('two', 'three'),
+  ];
+  for (const body of bodies) await assert.rejects(dryRunWithBody(notes, body), /RELEASE_METADATA_CONFLICT/);
+  await assert.rejects(dryRunWithBody('Synthetic note.', 'Synthetic note.  '), /RELEASE_METADATA_CONFLICT/);
+});
