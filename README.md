@@ -51,9 +51,9 @@ Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegaug
 
 It shows "Collecting data" until Kiro has written account usage to its logs and a few observations have been recorded. Your daily budget is available from the first fresh account update in the tooltip and the detail view. Settings, the CLI and troubleshooting notes are in the [usage guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md).
 
-**Coming from EasyKiroGauge?** Cyclegauge is a different extension, so Kiro does not upgrade the old one. Install Cyclegauge, then disable or uninstall EasyKiroGauge and reload. While both are enabled, Cyclegauge pauses itself. Your history stays in place. Details: [identity migration](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/identity-migration.md).
-
 To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io): `pnpm install --frozen-lockfile && pnpm package:vsix`, then install the file from `dist/`.
+
+**Upgrading from 0.5.2 or an earlier build?** The default history directory and compatibility settings change. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-052-or-an-earlier-build) before installing to retain access to existing history.
 
 ## Privacy
 

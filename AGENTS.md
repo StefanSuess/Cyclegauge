@@ -22,7 +22,7 @@
 
 ## Strict privacy rules
 
-- Never commit, print, upload, attach, or expose in diagnostics any real raw session data, credentials, authentication material, account/user/session/request identifiers, prompts, source code encountered in Kiro data, tool arguments/results, conversation text, or private workspace paths. This does not prohibit future EasyKiroGauge application code itself.
+- Never commit, print, upload, attach, or expose in diagnostics any real raw session data, credentials, authentication material, account/user/session/request identifiers, prompts, source code encountered in Kiro data, tool arguments/results, conversation text, or private workspace paths. This restriction applies to source code encountered in Kiro data.
 - Never copy real Kiro logs, databases, transcripts, database backups, or exports into this repository, temporary fixture folders, bug reports, or review packages. Redaction of a copied real session is not an acceptable fixture-generation strategy.
 - All fixtures must be invented from scratch. Use obvious `synthetic-*` identifiers and fixed invented dates/numbers. Sensitive-content test markers must be inert invented sentinels, not realistic credentials or copied text.
 - Extract only explicitly allowlisted billing fields in memory. Drop every unrecognized field by default. Do not log rejected values, full records, exception representations containing data, dynamic filenames, or local absolute paths. Diagnostics may contain fixed error codes, counts, schema field names, and version/platform metadata only.

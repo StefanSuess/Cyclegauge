@@ -57,10 +57,10 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 2. [ ] 0.5.3 merged; CI on that `main` commit green; no newer `main` commit expected during approval.
 3. [ ] Dry run for 0.5.3 passed; you recorded commit, artifact ID and SHA-256.
 4. [ ] Download that exact artifact from the linked CI run; verify its SHA-256.
-5. [ ] Native macOS acceptance of that VSIX: [macos-acceptance.md](macos-acceptance.md) sections A, B, C, E, F.
+5. [ ] Native macOS acceptance of that VSIX: [macos-acceptance.md](macos-acceptance.md) sections A, B, D, E.
 6. [ ] Dispatch `dry_run = false` with the chosen auth mode.
 7. [ ] In the run, re-read the preflight summary (same commit and SHA-256 as the dry run) and the release notes, then approve the `release` deployment.
-8. [ ] After success: check Open VSX listing/version, tag `v0.5.3`, the GitHub pre-release and its two assets (`cyclegauge-v0.5.3.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section D.
+8. [ ] After success: check Open VSX listing/version, tag `v0.5.3`, the GitHub pre-release and its two assets (`cyclegauge-v0.5.3.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section C.
 9. [ ] Revoke or rotate the PAT if it is no longer needed.
 
 ## Failure handling
