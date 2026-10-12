@@ -42,7 +42,7 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 
 ### 5. Prepare 0.5.3 (separate approved change; do not mix unrelated PRs such as #19)
 1. Confirm `package.json` remains `0.5.3` (the version bump is already on `main`).
-2. Add a **non-empty** `## 0.5.3 (beta, macOS)` section to `CHANGELOG.md`; the release workflow extracts these notes verbatim. Do not invent acceptance results.
+2. Verify and update the existing **non-empty** `## 0.5.3 (beta, macOS)` section in `CHANGELOG.md`; the release workflow extracts these notes verbatim. Do not invent acceptance results.
 3. Merge that focused change only after CI passes. Verify all four checks on the resulting `main` commit. If any subsequent change reaches `main`, recheck the latest candidate and rerun the dry run.
 
 ## Dry run (safe; no writes, no environment, no secrets)
