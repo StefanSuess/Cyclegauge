@@ -38,8 +38,9 @@ Roles are tool-neutral; only the model per role differs. Codex reads this file t
 
 | Role | Claude Code | Codex |
 | --- | --- | --- |
-| Orchestrator, reviewer | Sonnet (high effort for review) | mid/strong tier, TBD by maintainer |
-| Implementer | Haiku (medium effort) | cheapest tier, TBD by maintainer |
+| Orchestrator, reviewer | Sonnet (high effort for review) | Sol |
+| High-risk design or review | Opus | Astra |
+| Implementer | Haiku (medium effort) | Luna |
 
 Codex has no `.claude/agents/` files: give its implementer or reviewer the matching file's text as the task prompt and keep the same read-only reviewer rule. Never run both tools on the same files at once.
 
