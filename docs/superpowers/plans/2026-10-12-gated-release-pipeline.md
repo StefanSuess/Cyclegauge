@@ -89,7 +89,7 @@ Implements [the release-pipeline design](../specs/2026-10-12-gated-release-pipel
 - [x] Pin the pnpm bootstrap package and registry integrity in an npm lockfile; install it with `npm ci --ignore-scripts` instead of an unverified global install.
 - [x] Split OIDC and PAT publication into mutually exclusive protected jobs; PAT mode receives no `id-token: write` permission.
 - [x] Recheck the current protected `main` SHA after approval and fail before promotion if it differs from the reviewed candidate commit.
-- [ ] Re-run all release, unit, typecheck, fixture, YAML, and diff checks; then stage, commit, push and open the focused PR without creating a release or tag.
+- [x] Re-run all release, unit, typecheck, fixture, YAML, and diff checks; stage, commit, push and open the focused PR without creating a release or tag.
 
 ## Expected review boundary
 
