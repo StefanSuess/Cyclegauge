@@ -44,6 +44,7 @@ test('extracted publisher runs the full promotion against synthetic mocked remot
     const resultFile = join(temp, 'mock-result.json');
     const originalVsix = join(temp, 'original.vsix');
     const version = '0.6.0';
+    const packagedVersion = (JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')) as { version: string }).version;
     const commit = 'a'.repeat(40);
     mkdirSync(join(tools, 'ovsx/bin'), { recursive: true });
     writeFileSync(join(tools, 'ovsx/bin/ovsx'), `require('node:fs').writeFileSync(process.env.SYNTHETIC_OPENVSX_MARKER, 'published');\n`);
@@ -55,7 +56,7 @@ test('extracted publisher runs the full promotion against synthetic mocked remot
         manifest.version = version;
         data = Buffer.from(JSON.stringify(manifest));
       } else if (entry.name === 'extension.vsixmanifest') {
-        data = Buffer.from(data.toString('utf8').replaceAll('0.5.2', version));
+        data = Buffer.from(data.toString('utf8').replaceAll(packagedVersion, version));
       }
       return { name: entry.name, data };
     });

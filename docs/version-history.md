@@ -4,6 +4,7 @@ Condensed notes that used to sit in the README. Detailed evidence lives in the p
 
 ## Release summary
 
+- **0.5.3** Documentation, optional Ko-fi support metadata and release-pipeline update; no behavior change. See [CHANGELOG.md](../CHANGELOG.md).
 - **0.5.2** First public Cyclegauge beta under the new extension identity `StefanSuess.cyclegauge`. The contemporaneous changelog records that native acceptance of the exact candidate remained pending; Windows storage remains disabled, and Linux/RHEL remain unverified. See [CHANGELOG.md](../CHANGELOG.md) for its release notes and limitations.
 - **0.5.1** UI-only simplification of the detail view (concise default reading flow, one collapsed "Advanced details" section). See [milestone-5-1-validation.md](milestone-5-1-validation.md).
 - **0.5.0** Usage trajectory chart, see [usage-chart.md](usage-chart.md).
