@@ -7,7 +7,7 @@ Maintainer checklist for the first controlled use of `.github/workflows/release.
 - v0.5.2 and its GitHub pre-release already exist; they were created before the pipeline. The workflow treats v0.5.2 as immutable and cannot repair or re-promote it (its asset is named `candidate.vsix`, the pipeline expects `cyclegauge-v<version>.vsix`).
 - `package.json` is still `0.5.2`. `main` contains changes that are not in the published VSIX (Ko-fi `sponsor` field, README support section and screenshots), so the next release needs a **new, higher version** (proposed 0.5.3). Never rebuild or replace v0.5.2.
 - The release workflow has never been run. The `release` environment, the Open VSX token and the Trusted Publisher registration are not visible from code and must be checked by you.
-- The Open VSX namespace `StefanSuess` exists; public verification was `false` on 2026-10-12. Publishing rights are not proven by that.
+- The maintainer reports that v0.5.2 was published to Open VSX manually with a PAT, so account access to the `StefanSuess` namespace and PAT publishing are proven in practice (maintainer-reported; not checked by this repo). Public namespace verification was `false` on 2026-10-12.
 
 ## What is automated
 
@@ -26,11 +26,13 @@ Settings → Environments → New environment → name exactly `release`.
 - Confirm it shows the reviewer rule and the `main` restriction.
 
 ### 3. Open VSX account and namespace
+Already done for the manual v0.5.2 release (maintainer-reported); only confirm the publisher agreement is still accepted.
 1. Log in at open-vsx.org with the GitHub account that should publish, and accept the publisher agreement.
 2. Confirm that account owns/can publish to namespace `StefanSuess`.
 3. Optionally request namespace verification through Open VSX's claim process. Do not describe the namespace as verified until the registry shows it.
 
 ### 4a. PAT mode (recommended for the first release)
+The PAT worked for the manual v0.5.2 publish. You may reuse that token or create a fresh one, but it must be stored as an environment secret for the workflow to see it.
 1. Open VSX → Settings → Access Tokens → generate a token for the publishing account.
 2. GitHub → Settings → Environments → `release` → Environment secrets → add `OPENVSX_PAT`. Do not add a repository-level secret.
 3. Dispatch with `auth_mode = pat`. Revoke or rotate the token afterwards if you do not need it.
