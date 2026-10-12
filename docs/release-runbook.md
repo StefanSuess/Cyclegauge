@@ -2,11 +2,11 @@
 
 Maintainer checklist for the first controlled use of `.github/workflows/release.yml`. It complements [release-process.md](release-process.md), which describes the gates. Nothing here publishes anything; the release workflow only runs when you dispatch it.
 
-## Current state (verified 2026-10-12 against `main` at `3e9d246`)
+## Current state (checked 2026-10-12 against `main` at `42f60349` and GitHub Actions)
 
 - v0.5.2 and its GitHub pre-release already exist; they were created before the pipeline. The workflow treats v0.5.2 as immutable and cannot repair or re-promote it (its asset is named `candidate.vsix`, the pipeline expects `cyclegauge-v<version>.vsix`).
-- `package.json` is still `0.5.2`. `main` contains changes that are not in the published VSIX (Ko-fi `sponsor` field, README support section and screenshots), so the next release needs a **new, higher version** (proposed 0.5.3). Never rebuild or replace v0.5.2.
-- The release workflow has never been run. The `release` environment, the Open VSX token and the Trusted Publisher registration are not visible from code and must be checked by you.
+- `package.json` is **already `0.5.3`** on `main`. The latest published GitHub release is still **v0.5.2**. The next release must use an unpublished, higher version, a matching non-empty `CHANGELOG.md` section, and fresh CI plus native acceptance. Never rebuild or replace v0.5.2.
+- The manually dispatched [release workflow run #38276549100](https://github.com/StefanSuess/Cyclegauge/actions/runs/38276549100) completed successfully on 2026-10-12 at an **earlier** `main` commit, with **preflight only**; both publishing jobs were skipped. This is not proof of a live release or of readiness for the current `main` commit. A fresh dry run is required before any live release. The `release` environment, Open VSX secret and Trusted Publisher registration cannot be verified from repository code.
 - The maintainer reports that v0.5.2 was published to Open VSX manually with a PAT, so account access to the `StefanSuess` namespace and PAT publishing are proven in practice (maintainer-reported; not checked by this repo). Public namespace verification was `false` on 2026-10-12.
 
 ## What is automated
@@ -15,8 +15,8 @@ CI builds the candidate once and verifies it (content allowlist, rebuild payload
 
 ## What you must do manually
 
-### 1. Protect `main` (once)
-Settings → Rules → Rulesets: target `main`; require a pull request (0 approvals); require checks `verify (macos-latest)`, `verify (ubuntu-24.04)`, `release candidate (built once)`, `release candidate on macOS`; block force pushes and deletion.
+### 1. Verify `main` protection (once and after changes)
+Settings → Rules → Rulesets: the active `main` ruleset currently requires a pull request (0 approvals), squash merges, **up-to-date branches**, checks `verify (macos-latest)`, `verify (ubuntu-24.04)`, `release candidate (built once)`, `release candidate on macOS`, and blocks force pushes and deletion. Confirm these remain enforced after future edits.
 
 ### 2. Create the `release` GitHub Environment (once, before any live run)
 Settings → Environments → New environment → name exactly `release`.
@@ -40,16 +40,16 @@ The PAT worked for the manual v0.5.2 publish. You may reuse that token or create
 ### 4b. Trusted Publishing (OIDC), optional
 Only after the namespace is verified and Open VSX offers Trusted Publisher registration for it: register repository `StefanSuess/Cyclegauge`, workflow path `.github/workflows/release.yml`, environment `release`. Registration steps and server support are controlled by Open VSX and were **not verified** here; the pinned `ovsx@1.2.0` CLI does expose `--trusted-publishing`. Until registered, use PAT mode; an unregistered OIDC run fails at publish time (nothing is published).
 
-### 5. Prepare 0.5.3 (separate PR, your approval; do not mix unrelated PRs such as #19)
-1. Bump `package.json` to `0.5.3`.
-2. Add a `## 0.5.3 (beta, macOS)` section to `CHANGELOG.md` (non-empty; used verbatim as release notes).
-3. Merge after CI is green. Wait for the CI run on the merge commit to finish with all four jobs green.
+### 5. Prepare 0.5.3 (separate approved change; do not mix unrelated PRs such as #19)
+1. Confirm `package.json` remains `0.5.3` (the version bump is already on `main`).
+2. Add a **non-empty** `## 0.5.3 (beta, macOS)` section to `CHANGELOG.md`; the release workflow extracts these notes verbatim. Do not invent acceptance results.
+3. Merge that focused change only after CI passes. Verify all four checks on the resulting `main` commit. If any subsequent change reaches `main`, recheck the latest candidate and rerun the dry run.
 
 ## Dry run (safe; no writes, no environment, no secrets)
 1. Actions → release → Run workflow, branch `main`, `version = 0.5.3`, `dry_run = true`, either auth mode.
 2. Expect: preflight selects the CI run and artifact, verifies the VSIX, and reports "Read-only publication readiness". Read the summary: commit, CI run, artifact ID, VSIX SHA-256 and release notes.
 3. A dry run cannot test PAT or OIDC credentials and cannot see draft releases; the live job repeats the draft check.
-4. Before 0.5.3 is merged, a dry run for `0.5.2` is expected to fail on state or version checks; that is not a pipeline fault.
+4. Do **not** dispatch a dry run for `0.5.2`: it is already published and intentionally immutable. If the `0.5.3` changelog or candidate is not yet ready, finish those prerequisites before testing.
 5. Same-version dry and live runs share one concurrency group, so a live run waiting for approval queues dry runs.
 
 ## Live release checklist (only with your explicit go)
