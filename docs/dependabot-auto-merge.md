@@ -1,6 +1,6 @@
 # Dependabot npm patch auto-merge
 
-This optional automation is intentionally **off until the maintainer configures both prerequisites**. It does not auto-publish a new extension version.
+This automation does not auto-publish a new extension version. As of 2026-10-12, GitHub reports **Allow auto-merge is enabled** and the maintainer has reported creating the necessary Actions repository secret; the secret's actual presence or permissions cannot be read through the repository API used for this review. Only a real eligible npm patch PR can establish end-to-end success.
 
 ## One-time setup (repository administrator)
 
@@ -26,7 +26,7 @@ Do **not** add this PAT to the untrusted `ci.yml` workflow or to a `pull_request
 ## First-live-test checklist
 
 1. Merge the PR adding this workflow after reviewing the files and CI.
-2. Set up the prerequisites above. The repository currently has `allow_auto_merge=false` unless you manually enable it.
+2. Confirm the prerequisites above remain in place. At the last public-settings check, `allow_auto_merge=true`. Verify the Actions secret yourself, as its value cannot be inspected.
 3. Let Dependabot create a new `npm-patch` PR on its normal schedule, or manually request a Dependabot update; existing `npm-minor-patch` PRs are **not** eligible.
 4. Verify a green CI run followed by the **Dependabot npm patch auto-merge** run, the resulting squash merge, and a fresh green CI **push** run on `main`.
 5. If any gate fails, inspect the workflow logs before changing permissions or retrying.
