@@ -16,14 +16,14 @@ Know how many AI credits you've used, how many remain, and whether they'll last 
 Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads Kiro's local usage logs, needs no separate sign-in, and sends nothing anywhere.
 
 <p align="center">
-  <img src="docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/4d59f1df87047c5f7bf1d90e337216f690478515/docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
 </p>
 
 <details>
 <summary>Cost Advisor and usage trajectory</summary>
 
 <p align="center">
-  <img src="docs/media/cost-advisor.jpg" alt="Cost Advisor presents an unconfirmed Pro plan and a modelled USD 20 next-cycle estimate above the synthetic usage trajectory chart, which shows observed credits, the reported limit, expected usage scenarios, daily budget pace, and reset date." width="820">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/4d59f1df87047c5f7bf1d90e337216f690478515/docs/media/cost-advisor.jpg" alt="Cost Advisor presents an unconfirmed Pro plan and a modelled USD 20 next-cycle estimate above the synthetic usage trajectory chart, which shows observed credits, the reported limit, expected usage scenarios, daily budget pace, and reset date." width="820">
 </p>
 
 The plan hint is unconfirmed and the estimate is conditional, modelled, and before tax. It is not a guaranteed saving or an invoice. Unknown purchase or billing rules are not filled in.
@@ -45,7 +45,7 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 
 Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
 
-1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or in Kiro run **Extensions: Install from VSIX...** and select a downloaded Cyclegauge `.vsix` file.
+1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), download the VSIX from the [GitHub v0.5.2 release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2), or in Kiro run **Extensions: Install from VSIX...** and select a downloaded Cyclegauge `.vsix` file.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
