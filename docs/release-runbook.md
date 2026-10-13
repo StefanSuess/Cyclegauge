@@ -25,7 +25,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 
 **E. Merge the release PR**
 1. [agent, with explicit maintainer approval to merge] Squash-merge the release PR.
-2. [agent] Wait for green CI on that exact `main` commit (all required checks, including the candidate jobs). A green run for an earlier commit is insufficient. Do not merge anything else until the release is done.
+2. [agent] Wait for green CI on that exact `main` commit (all required checks, including the candidate and attestation jobs). A green run for an earlier commit is insufficient. Do not merge anything else until the release is done.
 
 **F. Native acceptance of the exact CI candidate**
 1. [maintainer] Download the `release-candidate` artifact of that CI run and compare its SHA-256 with the CI summary.
@@ -51,7 +51,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 
 ## What the workflow does
 
-CI builds the candidate once and verifies it (content allowlist, rebuild payload comparison, macOS check). The release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX, derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub pre-release. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
+CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation, derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub pre-release. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
 
 ## What you must do manually
 
@@ -82,12 +82,12 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 
 ### 5. Verify readiness before each dry run
 1. `package.json` is `X.Y.Z` and the `## X.Y.Z (...)` section in `CHANGELOG.md` is nonempty (the release-preparation PR is merged). Review those notes against the exact final candidate.
-2. Check all required CI jobs on the **current** `main` commit; a green run for an earlier commit is insufficient.
+2. Check all required CI jobs, including `attest release candidate`, on the **current** `main` commit; a green run for an earlier commit is insufficient. After the attestation gate first merges, use a fresh `main` CI run and dry run. Older unattested candidates fail the new gate.
 3. If `main` changes again, use the new candidate artifact and repeat the dry run and relevant native acceptance checks. The README must not direct users to a release before it is published.
 
 ## Dry run (safe; no writes, no environment, no secrets)
 1. Actions → release → Run workflow, branch `main`, `version = X.Y.Z`, `dry_run = true`, either auth mode.
-2. Expect: preflight selects the CI run and artifact, verifies the VSIX, and reports "Read-only publication readiness". Read the summary: commit, CI run, artifact ID, VSIX SHA-256 and release notes.
+2. Expect: preflight selects the CI run and artifact, verifies the VSIX and its attestation, and reports "Read-only publication readiness". Read the summary: commit, CI run, artifact ID, VSIX SHA-256 and release notes. `ATTESTATION_VERIFICATION_FAILED` means the exact VSIX has no provenance matching the trusted workflow, `main` and source commit; inspect the CI signer job, then create a fresh candidate through CI.
 3. A dry run cannot test PAT or OIDC credentials and cannot see draft releases; the live job repeats the draft check.
 4. Do **not** dispatch a dry run for an already published version: it is immutable (v0.5.2 predates the pipeline and cannot be repaired). If the changelog or candidate is not yet ready, finish those prerequisites before testing.
 5. Same-version dry and live runs share one concurrency group, so a live run waiting for approval queues dry runs.
