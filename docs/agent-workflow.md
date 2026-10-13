@@ -11,6 +11,8 @@ Read with [AGENTS.md](../AGENTS.md). Minimize **total cost** (model tokens, agen
 
 Choose the least expensive *currently available* model that can reliably complete each task; avoid hard-coded model maps that become stale. Escalate on real ambiguity, repeated bounded failure or high stakes. Several failed cheap attempts may cost more than one strong pass.
 
+**Orchestration.** For moderate and larger work the main session orchestrates: it plans, briefs, reviews and integrates, and delegates implementation and review to subagents. Match model and effort to difficulty and risk: a small, cheap model at low effort for mechanical edits and docs; a mid-tier model for ordinary code and reviews; the most capable model at high effort only for hard design, storage, security or release questions. Trivial changes are still edited directly, because a delegate starts without context and costs more than the edit. The orchestrator gives each delegate the exact files, acceptance criteria and checks to run, forbids commit and push in the brief, reviews the resulting diff itself before committing, and keeps git, PRs, CI triage and maintainer decisions to itself. A delegated agent does its assigned task and does not delegate further.
+
 Start with one worker, at most two concurrent unless more clearly saves time/cost. Don't spawn agents just to demonstrate orchestration. Read relevant files instead of the entire repo; pass delegates only the brief, necessary context and criteria. Avoid speculative refactors, oversized plans, duplicate reviews, repeated analysis, unbounded retries and verbose reports. Ask approval before new paid services, external API charges or substantial optional compute.
 
 ## Working rules
