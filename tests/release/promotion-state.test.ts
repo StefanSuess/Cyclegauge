@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
 import { promoteCandidate, type PromotionAdapter, type PromotionCandidate } from '../../scripts/release/promotion-state.ts';
 
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
@@ -79,6 +80,89 @@ function fakeAdapter(initial?: {
 }
 
 const expectedWrites = ['open-vsx', 'tag', 'draft', 'asset:cyclegauge-v0.6.0.vsix', 'asset:SHA256SUMS.txt', 'publish-release'];
+
+test('delayed Open VSX and draft visibility retries reads without repeating writes', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeAdapter();
+  const readOpenVsx = fake.adapter.readOpenVsx;
+  const readRelease = fake.adapter.readRelease;
+  let hiddenOpenVsx = 2;
+  let hiddenDraft = 2;
+  fake.adapter.readOpenVsx = async version => {
+    if (fake.writes.includes('open-vsx') && hiddenOpenVsx-- > 0) return { kind: 'absent' };
+    return readOpenVsx(version);
+  };
+  fake.adapter.readRelease = async tag => {
+    if (fake.writes.includes('draft') && hiddenDraft-- > 0) return { kind: 'absent' };
+    return readRelease(tag);
+  };
+  const completion = promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'trusted-publishing' });
+  const checked = completion.then(result => assert.equal(result.status, 'published'));
+  // Drain the promotion's promises between virtual timer advances.
+  for (let step = 0; step < 6; step++) {
+    await setImmediate();
+    t.mock.timers.tick(16_000);
+  }
+  await checked;
+  assert.deepEqual(fake.writes, expectedWrites);
+});
+
+test('missing publication stops after bounded verification reads and never creates a tag', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeAdapter();
+  let postWriteReads = 0;
+  fake.adapter.readOpenVsx = async () => {
+    if (fake.writes.includes('open-vsx')) postWriteReads++;
+    return { kind: 'absent' };
+  };
+  const checked = assert.rejects(promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' }), /PROMOTION_WRITE_FAILED/);
+  for (let step = 0; step < 6; step++) {
+    await setImmediate();
+    t.mock.timers.tick(16_000);
+  }
+  await checked;
+  assert.equal(postWriteReads, 6);
+  assert.deepEqual(fake.writes, ['open-vsx']);
+});
+
+test('a conflicting hash after publication fails immediately without retrying or creating a tag', async () => {
+  const fake = fakeAdapter();
+  let postWriteReads = 0;
+  fake.adapter.readOpenVsx = async () => {
+    if (!fake.writes.includes('open-vsx')) return { kind: 'absent' };
+    postWriteReads++;
+    return { kind: 'present', sha256: 'f'.repeat(64) };
+  };
+  await assert.rejects(promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' }), /OPENVSX_VERSION_CONFLICT/);
+  assert.equal(postWriteReads, 1);
+  assert.deepEqual(fake.writes, ['open-vsx']);
+});
+
+test('conflicting or unavailable draft read-back fails immediately without uploading assets', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  for (const [state, code] of [
+    [{ kind: 'unavailable' }, 'RELEASE_STATE_UNAVAILABLE'],
+    [{ kind: 'drafts-unverified' }, 'RELEASE_DRAFT_VISIBILITY_LIMITED'],
+    [{ kind: 'present', ...release('0.6.0', { draft: false, body: 'synthetic-conflicting-notes' }) }, 'RELEASE_METADATA_CONFLICT'],
+  ] as const) {
+    const fake = fakeAdapter({ openVsx: { kind: 'present', sha256: candidate().sha256 } });
+    const readRelease = fake.adapter.readRelease;
+    let postWriteReads = 0;
+    fake.adapter.readRelease = async tag => {
+      if (!fake.writes.includes('draft')) return readRelease(tag);
+      postWriteReads++;
+      return state;
+    };
+    const checked = assert.rejects(promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' }), new RegExp(code));
+    for (let step = 0; step < 6; step++) {
+      await setImmediate();
+      t.mock.timers.tick(16_000);
+    }
+    await checked;
+    assert.equal(postWriteReads, 1);
+    assert.deepEqual(fake.writes, ['tag', 'draft']);
+  }
+});
 
 test('publishes in order and verifies each completed remote state', async () => {
   const fake = fakeAdapter();
@@ -176,7 +260,8 @@ test('limited draft visibility is allowed only in read-only preflight', async ()
   assert.deepEqual(fake.writes, []);
 });
 
-test('failed asset upload is retried only after rediscovering the exact matching draft', async () => {
+test('failed asset upload is retried only after rediscovering the exact matching draft', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const c = candidate();
   const fake = fakeAdapter({
     openVsx: { kind: 'present', sha256: c.sha256 },
@@ -189,7 +274,12 @@ test('failed asset upload is retried only after rediscovering the exact matching
     if (failOnce) { failOnce = false; throw new Error('synthetic upload failure'); }
     return upload(...args);
   };
-  await assert.rejects(promoteCandidate(fake.adapter, c, { dryRun: false, authMode: 'pat' }), /PROMOTION_WRITE_FAILED/);
+  const checked = assert.rejects(promoteCandidate(fake.adapter, c, { dryRun: false, authMode: 'pat' }), /PROMOTION_WRITE_FAILED/);
+  for (let step = 0; step < 6; step++) {
+    await setImmediate();
+    t.mock.timers.tick(16_000);
+  }
+  await checked;
   assert.equal(fake.state.release.draft, true);
   assert.equal((await promoteCandidate(fake.adapter, c, { dryRun: false, authMode: 'pat' })).status, 'published');
   assert.deepEqual(fake.writes, [`asset:${c.vsixAssetName}`, 'asset:SHA256SUMS.txt', 'publish-release']);
