@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { Store } from '../../src/store.ts';
 import { parseLine } from '../../src/projection.ts';
+import { windowsStorageCheck } from '../../src/windows-storage.ts';
 
 const windows = { skip: process.platform !== 'win32' ? 'Windows DACL enforcement requires Windows' : false };
 function fixture(t: { after(fn: () => void): void }) {
@@ -20,6 +21,13 @@ function acl(path: string, command: string): void {
   { env: { ...process.env, SYNTHETIC_ACL_PATH: path }, stdio: 'ignore' });
  assert.equal(result.status, 0, 'synthetic ACL setup failed');
 }
+test('Windows verifies a created directory and the files this process writes into it', windows, t => {
+ const f = fixture(t);
+ assert.equal(windowsStorageCheck(f.storage, true), 0);
+ const file = join(f.storage, 'synthetic-file'); writeFileSync(file, 'synthetic');
+ // Fixed codes only: 4 means the file's owner is not the current user.
+ assert.equal(windowsStorageCheck(file), 0);
+});
 test('Windows creates an owner-only inheritable DACL and persists across restarts', windows, t => {
  const f = fixture(t); let store = new Store(f.storage, f.source);
  const record = parseLine('2030-01-01T00:00:00Z [info] synthetic {"commandName":"GetUsageLimitsCommand","output":{"userInfo":{"userId":"synthetic-windows"},"nextDateReset":"2030-02-01T00:00:00Z","usageBreakdownList":[{"resourceType":"CREDIT","currentUsageWithPrecision":1.25,"usageLimitWithPrecision":100}]},"metadata":{"httpStatusCode":200}}', 'UTC');
@@ -33,6 +41,7 @@ test('Windows creates an owner-only inheritable DACL and persists across restart
 });
 test('Windows rejects inherited permissive storage without creating sensitive files', windows, t => {
  const f = fixture(t); mkdirSync(f.storage);
+ assert.equal(windowsStorageCheck(f.storage, true), 5);
  assert.throws(() => new Store(f.storage, f.source), /^Error: UNSAFE_STORAGE$/);
  assert.equal(existsSync(join(f.storage, 'device.key')), false);
 });
@@ -42,6 +51,7 @@ for (const name of ['device.key', 'usage.sqlite', 'usage.sqlite-journal', 'usage
   const file = join(f.storage, name); if (!existsSync(file)) writeFileSync(file, 'synthetic');
   const before = readFileSync(file);
   acl(file, `$a=Get-Acl -LiteralPath $p; $a.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new([System.Security.Principal.SecurityIdentifier]::new('S-1-1-0'),'Read','Allow')); Set-Acl -LiteralPath $p -AclObject $a`);
+  assert.equal(windowsStorageCheck(file), 6);
   assert.throws(() => new Store(f.storage, f.source), /^Error: UNSAFE_STORAGE$/);
   assert.deepEqual(readFileSync(file), before);
   acl(file, `$a=Get-Acl -LiteralPath $p; if (@($a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | Where-Object {$_.IdentityReference.Value -eq 'S-1-1-0'}).Count -ne 1) {exit 2}`);
@@ -52,5 +62,6 @@ test('Windows rejects hard-linked keys and directory junctions', windows, t => {
  linkSync(join(f.storage, 'device.key'), join(f.base, 'synthetic-hardlink'));
  assert.throws(() => new Store(f.storage, f.source), /UNSAFE_STORAGE/);
  symlinkSync(f.storage, join(f.base, 'synthetic-junction'), 'junction');
+ assert.equal(windowsStorageCheck(join(f.base, 'synthetic-junction'), true), 3);
  assert.throws(() => new Store(join(f.base, 'synthetic-junction'), f.source), /UNSAFE_STORAGE/);
 });

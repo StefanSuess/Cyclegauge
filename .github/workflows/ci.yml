@@ -48,8 +48,9 @@ jobs:
       - name: Release tooling and packaging tests
         if: ${{ !cancelled() }}
         run: pnpm test:release
+      # Platform-independent fixture bytes; the Windows runner's Python has no IANA timezone data.
       - name: Fixture contract validator
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os != 'Windows' }}
         run: python3 tests/fixtures/kiro/validate.py
 
   # The candidate is built ONCE here. Host jobs verify that exact file by SHA-256 and the

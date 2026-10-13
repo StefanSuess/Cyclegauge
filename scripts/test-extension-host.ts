@@ -55,4 +55,5 @@ try {
  }
  console.log('HOST_TESTS_PASSED');
 } catch { console.error('HOST_TESTS_FAILED'); process.exitCode = 1; }
-finally { if (base) rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); }
+// A host process can still hold profile handles; a raw cleanup error would print the temporary path.
+finally { if (base) try { rmSync(base, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { console.error('HOST_CLEANUP_FAILED'); } }
