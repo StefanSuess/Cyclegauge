@@ -32,6 +32,11 @@ export async function run(): Promise<void> {
   const before = readFileSync(log), modified = statSync(log).mtimeMs;
   const extension = vscode.extensions.getExtension('StefanSuess.cyclegauge');
   assert.ok(extension); await extension.activate(); assert.ok(extension.isActive);
+  phase = 'log-layout';
+  // The collector's default discovery assumes this editor layout beneath the user-data root.
+  const sessions = readdirSync(join(base, 'profile', 'logs')).filter(name => /^\d{8}T\d{6}$/.test(name));
+  assert.ok(sessions.length > 0);
+  assert.ok(sessions.some(name => statSync(join(base, 'profile', 'logs', name, 'window1', 'exthost')).isDirectory()));
   phase = 'commands';
   const commands = await vscode.commands.getCommands(true);
   assert.ok(commands.includes('cyclegauge.showUsage')); assert.ok(commands.includes('cyclegauge.costAdvisor'));
