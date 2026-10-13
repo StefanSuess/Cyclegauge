@@ -14,7 +14,8 @@ try {
  $directory = $env:CYCLEGAUGE_ACL_DIRECTORY -eq '1'
  $volume = [System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($p))
  if ($volume.DriveType -ne 'Fixed' -or $volume.DriveFormat -ne 'NTFS') { exit 2 }
- $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+ $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+ $sid = $identity.User
  $cursor = $p
  while ($cursor) {
   if ([System.IO.File]::Exists($cursor) -or [System.IO.Directory]::Exists($cursor)) {
@@ -32,7 +33,11 @@ try {
  }
  if ($directory) { $acl = [System.IO.Directory]::GetAccessControl($p) }
  else { $acl = [System.IO.File]::GetAccessControl($p) }
- if ($acl.GetOwner([System.Security.Principal.SecurityIdentifier]) -ne $sid) { exit 4 }
+ # Node cannot name an owner when it creates a file. An elevated process's files belong to its
+ # token's default owner (Administrators), which can take ownership of any file regardless.
+ # The directory is created above with the user as owner and stays strict.
+ $owner = $acl.GetOwner([System.Security.Principal.SecurityIdentifier])
+ if ($owner -ne $sid -and ($directory -or $owner -ne $identity.Owner)) { exit 4 }
  if ($directory -and !$acl.AreAccessRulesProtected) { exit 5 }
  # The raw list also counts entries that GetAccessRules cannot represent.
  $raw = [System.Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorSddlForm('Access'))

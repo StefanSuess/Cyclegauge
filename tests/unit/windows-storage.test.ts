@@ -9,7 +9,7 @@ import { parseLine } from '../../src/projection.ts';
 import { windowsStorageCheck } from '../../src/windows-storage.ts';
 
 const windows = { skip: process.platform !== 'win32' ? 'Windows DACL enforcement requires Windows' : false };
-function fixture(t: { after(fn: () => void): void }) {
+function fixture(t: { after(fn: () => void): void; skip(message?: string): void }) {
  const base = mkdtempSync(join(tmpdir(), 'synthetic-acl-'));
  t.after(() => rmSync(base, { recursive: true, force: true, maxRetries: 5 }));
  return { base, source: join(base, 'source'), storage: join(base, "owned ü ' space") };
@@ -25,7 +25,7 @@ test('Windows verifies a created directory and the files this process writes int
  const f = fixture(t);
  assert.equal(windowsStorageCheck(f.storage, true), 0);
  const file = join(f.storage, 'synthetic-file'); writeFileSync(file, 'synthetic');
- // Fixed codes only: 4 means the file's owner is not the current user.
+ // Fixed codes only: 4 means the owner is neither the user nor this process's default owner.
  assert.equal(windowsStorageCheck(file), 0);
 });
 test('Windows creates an owner-only inheritable DACL and persists across restarts', windows, t => {
@@ -41,7 +41,8 @@ test('Windows creates an owner-only inheritable DACL and persists across restart
 });
 test('Windows rejects inherited permissive storage without creating sensitive files', windows, t => {
  const f = fixture(t); mkdirSync(f.storage);
- assert.equal(windowsStorageCheck(f.storage, true), 5);
+ // 5 inheriting directory; 4 when an elevated process's default owner is not the user.
+ assert.ok([4, 5].includes(windowsStorageCheck(f.storage, true)));
  assert.throws(() => new Store(f.storage, f.source), /^Error: UNSAFE_STORAGE$/);
  assert.equal(existsSync(join(f.storage, 'device.key')), false);
 });
@@ -57,6 +58,15 @@ for (const name of ['device.key', 'usage.sqlite', 'usage.sqlite-journal', 'usage
   acl(file, `$a=Get-Acl -LiteralPath $p; if (@($a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | Where-Object {$_.IdentityReference.Value -eq 'S-1-1-0'}).Count -ne 1) {exit 2}`);
  });
 }
+test('Windows rejects a file owned by another principal', windows, t => {
+ const f = fixture(t); new Store(f.storage, f.source).close();
+ const file = join(f.storage, 'device.key');
+ // LocalService is neither the user nor an elevated default owner; setting it needs an elevated runner.
+ const result = spawnSync(join(process.env.SystemRoot!, 'System32', 'icacls.exe'), [file, '/setowner', '*S-1-5-19'], { stdio: 'ignore' });
+ if (result.status !== 0) return t.skip('changing a file owner requires elevation');
+ assert.equal(windowsStorageCheck(file), 4);
+ assert.throws(() => new Store(f.storage, f.source), /^Error: UNSAFE_STORAGE$/);
+});
 test('Windows rejects hard-linked keys and directory junctions', windows, t => {
  const f = fixture(t); new Store(f.storage, f.source).close();
  linkSync(join(f.storage, 'device.key'), join(f.base, 'synthetic-hardlink'));
