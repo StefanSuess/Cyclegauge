@@ -1,0 +1,43 @@
+# Synthetic unit-test coverage for source modules loaded by this suite.
+# This does not establish native Kiro or unloaded-module coverage.
+name: coverage
+
+on:
+  push:
+    branches: [main, 'claude/**', 'codex/**', 'release/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: coverage-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  unit-coverage:
+    name: unit source coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.13.0'
+      - name: Install pnpm
+        run: npm install --global pnpm@12.10.1
+      - run: pnpm install --frozen-lockfile
+      - name: Measure loaded-source coverage (minimum 80% lines)
+        shell: bash
+        run: |
+          pnpm test:coverage | tee coverage.txt
+          {
+            echo '### Synthetic unit-test coverage'
+            echo 'Only source modules loaded by the unit suite are measured; this is not native Kiro coverage.'
+            echo '```text'
+            sed -n '/start of coverage report/,/end of coverage report/p' coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
