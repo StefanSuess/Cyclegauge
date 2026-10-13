@@ -107,7 +107,25 @@ test('delayed Open VSX and draft visibility retries reads without repeating writ
   assert.deepEqual(fake.writes, expectedWrites);
 });
 
-test('missing publication stops after bounded verification reads and never creates a tag', async t => {
+test('Open VSX appearing at three minutes completes without uploading twice', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const fake = fakeAdapter();
+  const readOpenVsx = fake.adapter.readOpenVsx;
+  let postWriteReads = 0;
+  fake.adapter.readOpenVsx = async version => {
+    if (fake.writes.includes('open-vsx') && ++postWriteReads < 19) return { kind: 'absent' };
+    return readOpenVsx(version);
+  };
+  const checked = promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' });
+  for (let step = 0; step < 18; step++) {
+    await setImmediate();
+    t.mock.timers.tick(10_000);
+  }
+  assert.equal((await checked).status, 'published');
+  assert.deepEqual(fake.writes, expectedWrites);
+});
+
+test('missing Open VSX publication stops after three minutes and never creates a tag', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const fake = fakeAdapter();
   let postWriteReads = 0;
@@ -116,12 +134,12 @@ test('missing publication stops after bounded verification reads and never creat
     return { kind: 'absent' };
   };
   const checked = assert.rejects(promoteCandidate(fake.adapter, candidate(), { dryRun: false, authMode: 'pat' }), /PROMOTION_WRITE_FAILED/);
-  for (let step = 0; step < 6; step++) {
+  for (let step = 0; step < 18; step++) {
     await setImmediate();
-    t.mock.timers.tick(16_000);
+    t.mock.timers.tick(10_000);
   }
   await checked;
-  assert.equal(postWriteReads, 6);
+  assert.equal(postWriteReads, 19);
   assert.deepEqual(fake.writes, ['open-vsx']);
 });
 
