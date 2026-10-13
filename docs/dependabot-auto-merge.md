@@ -1,6 +1,6 @@
 # Dependabot npm patch auto-merge
 
-This automation does not auto-publish a new extension version. As of 2026-10-12, GitHub reports **Allow auto-merge is enabled** and the maintainer has reported creating the necessary Actions repository secret; the secret's actual presence or permissions cannot be read through the repository API used for this review. Only a real eligible npm patch PR can establish end-to-end success.
+This automation does not auto-publish a new extension version. **The first live eligible patch PR passed end-to-end on 2026-10-12:** [Dependabot PR #45](https://github.com/StefanSuess/Cyclegauge/pull/45) passed the signed-patch verifier and the protected PAT merge step in [workflow run 38316270235](https://github.com/StefanSuess/Cyclegauge/actions/runs/38316270235); PR #45 was merged and the subsequent [main push CI](https://github.com/StefanSuess/Cyclegauge/actions/runs/38316288428) succeeded. This proves the configured path worked for that PR, not that future dependency updates are automatically safe. GitHub reports **Allow auto-merge is enabled**. The secret itself and its expiry/permissions remain inaccessible through the repository review API.
 
 ## One-time setup (repository administrator)
 
@@ -23,12 +23,10 @@ Do **not** add this PAT to the untrusted `ci.yml` workflow or to a `pull_request
 
 **Fail-closed behavior:** If the qualifying PR passes validation but the PAT is absent, the merge step fails and nothing is merged. The administrator can then set the secret. This is intentionally *not* a broad auto-approval bot.
 
-## First-live-test checklist
+## Live proof and future regression checks
 
-1. Merge the PR adding this workflow after reviewing the files and CI.
-2. Confirm the prerequisites above remain in place. At the last public-settings check, `allow_auto_merge=true`. Verify the Actions secret yourself, as its value cannot be inspected.
-3. Let Dependabot create a new `npm-patch` PR on its normal schedule, or manually request a Dependabot update; existing `npm-minor-patch` PRs are **not** eligible.
-4. Verify a green CI run followed by the **Dependabot npm patch auto-merge** run, the resulting squash merge, and a fresh green CI **push** run on `main`.
-5. If any gate fails, inspect the workflow logs before changing permissions or retrying.
+- **Observed:** PR #45 was an eligible signed `npm-patch` update with passing four-job PR CI. The privileged verifier identified it, the PAT-backed `gh pr merge --auto --squash` step succeeded, the PR was merged, and a new main push CI succeeded (links above).
+- **Keep validating:** After changes to this workflow, repository rules or Dependabot formatting, confirm an eligible fresh patch PR still passes the full chain: signed metadata verification, native auto-merge, and new green `main` push CI. Do not relax eligibility merely to make a skipped run execute.
+- **Operator upkeep:** Monitor PAT expiration/rotation and preserve repository-secret placement, branch rules and required checks. The successful run does not expose or verify the secret's exact scope or expiration.
 
 The workflow deliberately handles only Dependabot's current grouped-patch commit format. If Dependabot changes that format, it will skip merging until the verification is reviewed and updated.
