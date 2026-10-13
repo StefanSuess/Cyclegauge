@@ -38,7 +38,7 @@ The workflow is create-only. Existing Open VSX versions, tags, releases, or asse
 
 If the candidate artifact has expired, run the existing CI workflow manually on `main` at the same commit and wait for its candidate and verification jobs to pass. The release workflow will derive that new artifact. It never rebuilds during promotion. If `main` has advanced, dispatch from the new head and review that new candidate.
 
-The package is universal (no `--target`), so Kiro on any OS may offer it. The listing and README state "macOS beta"; Windows storage uses a fail-closed owner-only NTFS DACL; native Windows/Linux Kiro verification remains outstanding. One universal package is retained because there are no platform-specific runtime dependencies. The same artifact must pass every supported-platform host test and native acceptance before expanding support claims. See [platform verification](platform-verification.md).
+The package is universal (no `--target`), so Kiro on any OS may offer it. The listing and README state "macOS beta"; Windows default storage relies on profile permissions and a chosen location uses a fail-closed owner-only NTFS DACL; native Windows/Linux Kiro verification remains outstanding. One universal package is retained because there are no platform-specific runtime dependencies. The same artifact must pass every supported-platform host test and native acceptance before expanding support claims. See [platform verification](platform-verification.md).
 
 ## 4. Rollback
 

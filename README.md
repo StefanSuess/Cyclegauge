@@ -71,7 +71,7 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 | macOS | Beta; maintainer-reported synthetic-data testing (Kiro 1.2.56) |
 | Ubuntu | Unverified |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
-| Windows | Unverified in native Kiro; secure NTFS storage implemented in development, verification required |
+| Windows | Unverified in native Kiro; storage implemented in development, verification required |
 
 Cross-platform CI and the precise remaining gates are described in [platform verification](https://github.com/StefanSuess/Cyclegauge/blob/main/docs/platform-verification.md). One universal VSIX is retained; generic VS Code host tests do not establish native Kiro support.
 

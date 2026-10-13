@@ -58,7 +58,7 @@
         "cyclegauge.sourceRoot": {
           "type": "string",
           "default": "",
-          "description": "Kiro IDE data root; leave empty for the platform default.",
+          "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
           "scope": "machine"
         },
         "cyclegauge.storageRoot": {

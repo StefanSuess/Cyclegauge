@@ -24,7 +24,8 @@ export function prepareStorage(path: string, source: string): string {
    if (p === dirname(p)) break;
   }
   if (process.platform === 'win32') {
-   windowsStorageAccess(dest, true); noSymlinks(dest);
+   if (windowsStorageVerified(dest)) windowsStorageAccess(dest, true); else mkdirSync(dest, { recursive: true });
+   noSymlinks(dest);
    if (!lstatSync(dest).isDirectory()) throw new Error('UNSAFE_STORAGE');
    return dest;
   }
@@ -33,6 +34,11 @@ export function prepareStorage(path: string, source: string): string {
   if (!stat.isDirectory() || (stat.mode & 0o777) !== 0o700 || stat.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
   return dest;
  } catch { throw new Error('UNSAFE_STORAGE'); }
+}
+// The default location sits in the user's profile, which Windows already restricts to that user,
+// SYSTEM and administrators. A chosen location may be shared, so its DACL is verified instead.
+export function windowsStorageVerified(path: string): boolean {
+ return process.platform === 'win32' && relative(resolve(path), defaultStorage()) !== '';
 }
 export function defaultSource(): string {
  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Kiro');
