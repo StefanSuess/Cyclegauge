@@ -17,7 +17,9 @@ Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sou
 
 ## Upgrading from 0.5.2 or an earlier build
 
-Cyclegauge 0.5.2 itself stores history in the previous `EasyKiroGauge` directory. This build defaults to a new `Cyclegauge` directory, so an upgrade with blank storage settings starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted automatically.
+Pre-release note: from this development version the extension stores its history in the editor's per-extension storage folder. History in the earlier `Cyclegauge` application-data directory is not moved; set `cyclegauge.storageRoot` to that directory to keep using it.
+
+Cyclegauge 0.5.2 itself stores history in the previous `EasyKiroGauge` directory. The extension now defaults to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root; on macOS `~/Library/Application Support/Kiro/User/globalStorage/stefansuess.cyclegauge`), so an upgrade with blank storage settings starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted automatically.
 
 To keep using your history, disable any earlier extension first, then set **user-level** `cyclegauge.storageRoot` to the directory you previously used before activating this build. On macOS the previous default is `~/Library/Application Support/EasyKiroGauge`; use the full canonical path in the setting. Use only the existing Cyclegauge-owned directory, never Kiro-owned storage. The CLI can select it with `--store-dir`. Do not run two builds against the same directory at once; this build no longer blocks a side-by-side installation.
 
@@ -43,20 +45,20 @@ Options:
 | --- | --- |
 | `--source-root <directory>` | Override the Kiro IDE data root, containing `logs/` |
 | `--source-timezone <IANA>` | Interpret offset-free source timestamps |
-| `--store-dir <directory>` | Dedicated private app-owned directory outside source roots and Git repositories |
+| `--store-dir <directory>` | Dedicated private app-owned directory outside the source `logs/` and Git repositories |
 | `--max-age-hours <hours>` | Observation freshness threshold, default 24; operational policy, not measured service latency |
 | `--json` | Local billing/quality query output without account, source or deduplication keys |
 
 Default source candidates: macOS `~/Library/Application Support/Kiro`; Windows `%APPDATA%\Kiro`; Linux `${XDG_CONFIG_HOME:-~/.config}/Kiro`. Only `logs/<run>/<window>/exthost/kiro.kiroAgent/q-client.log` and numeric suffixes such as `q-client.log.1` are read. These suffixes are an explicitly supported synthetic rotation convention, not a verified Kiro rotation contract.
 
-Default owned storage: macOS `~/Library/Application Support/Cyclegauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/Cyclegauge`. The design candidate for Windows is `%LOCALAPPDATA%\Cyclegauge`, but this implementation **fails closed on Windows** until owner-only ACL creation and validation are implemented and verified. Existing storage must have owner-only access. Source roots, Git repositories, symlink paths and Kiro storage directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
+Default owned storage. **Extension:** the editor's own per-extension storage folder, `User/globalStorage/stefansuess.cyclegauge` beneath the editor's data root, like other extensions (on macOS `~/Library/Application Support/Kiro/User/globalStorage/stefansuess.cyclegauge`). **CLI** (no editor available): macOS `~/Library/Application Support/Cyclegauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/Cyclegauge`; Windows `%LOCALAPPDATA%\Cyclegauge`. The two defaults differ, so pass `--store-dir` to query the extension's store from the CLI. On POSIX, storage must have owner-only access. A chosen location must be outside the source root. On Windows the defaults rely on the user profile's permissions only when the editor's data folder is inside the user profile (a portable install or a custom `--user-data-dir` on a shared drive is not protected), and a chosen location is verified (see [platform verification](platform-verification.md)). The source `logs/` folder, anything containing the source root, Git repositories, symlink paths and `kiro-cli`/`.kiro` directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
 
 The CLI prints observed usage, reported limit, remaining reported credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
 
 ## Troubleshooting
 
 - **"Collecting data" for a long time.** The extension only reads usage that Kiro has already written to its logs. Wait for the next scan, which runs every minute and when log files change. A forecast additionally needs several observations over days; see [forecasting.md](forecasting.md).
-- **"Unavailable".** The logs could not be read or have an unsupported format, the storage location is not safe (for example on Windows, where storage is intentionally disabled, or a path containing a symlink), or several accounts were detected. No numbers are invented in these cases.
+- **"Unavailable".** The logs could not be read or have an unsupported format, the storage location is not safe (for example on Windows a chosen storage location that cannot be verified is refused, or a path containing a symlink), or several accounts were detected. No numbers are invented in these cases.
 - **Settings changes do not apply.** `cyclegauge.sourceRoot`, `cyclegauge.storageRoot` and `cyclegauge.sourceTimezone` are read when the extension activates. Reload the window after changing them.
 - **Node.js.** Node.js 24.13+ is required to build and for the CLI. The installed extension runs inside Kiro's own extension host; which Node features that host provides has only been observed on Kiro 1.2.56 (macOS), and no minimum Kiro version is established.
 - **Remote or SSH workspaces.** Not verified. The extension is declared as a UI extension that reads local files.

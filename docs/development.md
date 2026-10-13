@@ -109,7 +109,7 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 | npm package / extension name | `cyclegauge` | Extension ID `StefanSuess.cyclegauge`. |
 | Publisher | `StefanSuess` | Extension ID `StefanSuess.cyclegauge`. The public registry reports the namespace exists and is unverified (2026-10-12); publishing access is a separate maintainer check. |
 | Command IDs, settings keys, webview panel ID | `cyclegauge.*` | Cost Advisor is available as `cyclegauge.costAdvisor`. |
-| Storage folder | `Cyclegauge` under the platform data directory | Private storage owned by Cyclegauge. |
+| Storage folder | Editor per-extension storage (`globalStorage/stefansuess.cyclegauge`); CLI: `Cyclegauge` under the platform data directory | Private storage owned by Cyclegauge. |
 
 The identifiers live in code in `src/extension/identity.ts` and the contributed settings live in `package.json`.
 

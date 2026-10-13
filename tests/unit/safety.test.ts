@@ -90,8 +90,16 @@ test('imports the existing wholly synthetic fixture with original observations a
  s.close();await rm(f.base,{recursive:true});
 });
 test('dot-prefixed source descendants cannot be used as owned storage', async()=>{
- const f=await setup();assert.throws(()=>new Store(join(f.root,'..gauge'),f.root),/UNSAFE_STORAGE/);
- await assert.rejects(stat(join(f.root,'..gauge')));await rm(f.base,{recursive:true});
+ const f=await setup();assert.throws(()=>new Store(join(f.root,'logs','..gauge'),f.root),/UNSAFE_STORAGE/);
+ await assert.rejects(stat(join(f.root,'logs','..gauge')));await rm(f.base,{recursive:true});
+});
+test('storage location rules: default may sit beside the logs, a chosen location may not', async()=>{
+ const f=await setup();const def=join(f.root,'User','globalStorage','stefansuess.cyclegauge');
+ new Store(def,f.root,true).close();assert.throws(()=>new Store(def,f.root),/UNSAFE_STORAGE/);
+ for(const p of [f.root,join(f.root,'logs'),join(f.root,'logs','x'),join(f.root,'..')])assert.throws(()=>new Store(p,f.root,true),/UNSAFE_STORAGE/);
+ for(const n of ['kiro-cli','.kiro'])assert.throws(()=>new Store(join(f.base,n,'data'),f.root),/UNSAFE_STORAGE/);
+ if(process.platform==='darwin'){const u=join(f.root,'LOGS','x');assert.throws(()=>new Store(u,f.root,true),/UNSAFE_STORAGE/);await assert.rejects(stat(u));}
+ await rm(f.base,{recursive:true});
 });
 test('corrupted timezone on an explicit-offset observation fails private output projection', async()=>{
  const f=await setup();await writeFile(f.file,envelope().replace('2030-06-29 18:00:00.000','2030-06-29T18:00:00.000Z')+'\n');
