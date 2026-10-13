@@ -10,7 +10,6 @@
 [![Windows beta](https://img.shields.io/badge/Windows-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 [![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
-[![Coverage](https://github.com/StefanSuess/Cyclegauge/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/coverage.yml?query=branch%3Amain)
 
 [![Open VSX version](https://img.shields.io/open-vsx/v/StefanSuess/cyclegauge)](https://open-vsx.org/extension/StefanSuess/cyclegauge)
 ![Development version 0.7.0 beta](https://img.shields.io/badge/development-0.7.0%20beta-orange)
@@ -88,7 +87,7 @@ Figures are the last values Kiro logged, shown with an as-of time. They are not 
 
 ## Documentation and project
 
-- The [coverage check](https://github.com/StefanSuess/Cyclegauge/actions/workflows/coverage.yml) requires at least 80% line coverage among source modules loaded by synthetic unit tests; it does not measure unloaded modules or native Kiro behavior.
+- The Ubuntu [CI check](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml) requires at least 80% line coverage among source modules loaded by synthetic unit tests; it does not measure unloaded modules or native Kiro behavior.
 - [Documentation index](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/README.md): usage, calculations, forecasting, chart, privacy, architecture
 - [Contributing](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CONTRIBUTING.md) and [security policy](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/SECURITY.md)
 - [Changelog](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CHANGELOG.md)

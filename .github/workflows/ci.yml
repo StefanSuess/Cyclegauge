@@ -43,8 +43,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - name: Unit suite
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os != 'Linux' }}
         run: pnpm test
+      - name: Unit suite with coverage
+        if: ${{ !cancelled() && runner.os == 'Linux' }}
+        shell: bash
+        run: |
+          pnpm test:coverage | tee coverage.txt || coverage_status=$?
+          {
+            echo '### Synthetic unit-test coverage'
+            echo 'Only source modules loaded by the unit suite are measured; this is not native Kiro coverage.'
+            echo '```text'
+            sed -n '/start of coverage report/,/end of coverage report/p' coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "${coverage_status:-0}"
       - name: Release tooling and packaging tests
         if: ${{ !cancelled() }}
         run: pnpm test:release
