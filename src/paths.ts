@@ -18,8 +18,10 @@ export function noSymlinks(path: string): void {
 // those rely on the user profile's own permissions; any other location may be shared and is verified.
 export function prepareStorage(path: string, source: string, profile = false): string {
  const dest = resolve(path), root = resolve(source);
- // Storage may sit beside the logs in the editor's data folder, never among them or around the source.
- if (inside(root, dest) || inside(dest, join(root, 'logs'))) throw new Error('UNSAFE_STORAGE');
+ // A chosen location must be outside the source root; the default may sit beside the logs, never among them or around the source.
+ // macOS filesystems are case-insensitive by default, so compare lower-cased there (comparison only).
+ const k = (x: string) => process.platform === 'darwin' ? x.toLowerCase() : x, d = k(dest), r = k(root);
+ if (inside(r, d) || inside(d, join(r, 'logs')) || (!profile && inside(d, r))) throw new Error('UNSAFE_STORAGE');
  try {
   noSymlinks(dest);
   for (let p = dest;; p = dirname(p)) {

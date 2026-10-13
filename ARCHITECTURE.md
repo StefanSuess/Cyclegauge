@@ -6,7 +6,7 @@ Status: version 0.5.1. Milestones 1–3, 4A–4C and 5 are implemented; the IDE 
 
 `src/extension/extension.ts` adapts VS Code status bar, commands, webview and filesystem watcher APIs. `src/extension/controller.ts` calls the unchanged `collect`, `Store` and `view` core. This separates IDE UI from billing projection and storage. The bundle contains JavaScript and relies on Kiro's extension-host built-in Node modules, including `node:sqlite`; it does not spawn a separate Node process. The extension uses a change watcher with a 60-second polling fallback. Polling also recalculates freshness from the original observation time. Watcher events are hints, not evidence that account usage changed.
 
-The detail webview has scripts disabled and a restrictive content security policy. Only allowlisted billing projections reach it. No raw log, identity, private source path or opaque deduplication key is displayed. The account store remains outside Kiro and the repository. CLI and Crew local per-turn metering are not extension inputs.
+The detail webview has scripts disabled and a restrictive content security policy. Only allowlisted billing projections reach it. No raw log, identity, private source path or opaque deduplication key is displayed. The account store lives in the editor's per-extension storage folder (or a chosen location outside the source root), never among Kiro's logs or in the repository. CLI and Crew local per-turn metering are not extension inputs.
 
 ## Data flow and trust boundaries
 

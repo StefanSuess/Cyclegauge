@@ -38,7 +38,7 @@ test('defers partial records, rejects malformed and oversized lines, detects tru
 test('rejects symlink sources and storage, source overlap and repository storage', async () => {
  const f = await fixture(); await writeFile(join(f.base, 'synthetic-outside'), synthetic() + '\n'); await symlink(join(f.base, 'synthetic-outside'), f.file);
  const store = new Store(f.storage, f.root); const r = await collect(f.root, store, 'UTC'); assert.equal(r.imported, 0); assert.equal(r.codes.unsafe_source, 1); store.close();
- assert.throws(() => new Store(join(f.root, 'logs', 'gauge'), f.root), /UNSAFE_STORAGE/); assert.throws(() => new Store(join(f.root, '..'), f.root), /UNSAFE_STORAGE/);
+ assert.throws(() => new Store(join(f.root, 'logs', 'gauge'), f.root), /UNSAFE_STORAGE/); assert.throws(() => new Store(join(f.root, 'gauge'), f.root), /UNSAFE_STORAGE/); assert.throws(() => new Store(join(f.root, '..'), f.root), /UNSAFE_STORAGE/);
  await symlink(f.storage, join(f.base, 'link'), process.platform === 'win32' ? 'junction' : 'dir'); assert.throws(() => new Store(join(f.base, 'link'), f.root), /UNSAFE_STORAGE/);
  await mkdir(join(f.base, 'repo', '.git'), { recursive: true }); assert.throws(() => new Store(join(f.base, 'repo', 'data'), f.root), /UNSAFE_STORAGE/);
  await rm(f.base, { recursive: true });
