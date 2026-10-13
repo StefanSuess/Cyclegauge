@@ -9,7 +9,7 @@
 [![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 [![Linux unverified](https://img.shields.io/badge/Linux-unverified-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Windows storage disabled](https://img.shields.io/badge/Windows-storage%20disabled-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows verification pending](https://img.shields.io/badge/Windows-verification%20pending-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
 
@@ -75,7 +75,9 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 | macOS | Beta; maintainer-reported synthetic-data testing (Kiro 1.2.56) |
 | Ubuntu | Unverified |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
-| Windows | Unverified; storage is deliberately disabled for now |
+| Windows | Unverified in native Kiro; storage implemented in development, verification required |
+
+Cross-platform CI and the precise remaining gates are described in [platform verification](https://github.com/StefanSuess/Cyclegauge/blob/main/docs/platform-verification.md). One universal VSIX is retained; generic VS Code host tests do not establish native Kiro support.
 
 Figures are the last values Kiro logged, shown with an as-of time. They are not a live balance. Kiro's log format is not a documented contract and may change. More in [platform support and limitations](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/platform-support.md).
 

@@ -183,8 +183,17 @@ async function readRelease(adapter: PromotionAdapter, tagName: string): Promise<
 
 async function writeThenVerify(write: () => Promise<unknown>, reread: () => Promise<unknown>, verify: (state: unknown) => void): Promise<void> {
   try { await write(); } catch { /* A raced retry is accepted only if the read proves the exact result. */ }
-  const state = await reread();
-  verify(state);
+  for (let attempt = 0; ; attempt++) {
+    const state = await reread();
+    try {
+      verify(state);
+      return;
+    } catch (error) {
+      // Retry visibility lag only; conflicts and unverifiable states still fail closed.
+      if (!(error instanceof PromotionStateError) || error.code !== 'PROMOTION_WRITE_FAILED' || attempt === 5) throw error;
+      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
+    }
+  }
 }
 
 export async function promoteCandidate(
@@ -242,8 +251,8 @@ export async function promoteCandidate(
       () => readRelease(adapter, tagName),
       value => {
         const result = value as GitHubReleaseState;
-        if (result.kind !== 'present' || result.draft !== true) return fail('PROMOTION_WRITE_FAILED');
         assertReleaseMetadata(result, candidate, tagName, expectedAssets);
+        if (result.kind !== 'present' || result.draft !== true) return fail('PROMOTION_WRITE_FAILED');
       },
     );
     releaseState = await readRelease(adapter, tagName);

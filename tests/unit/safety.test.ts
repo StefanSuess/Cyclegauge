@@ -34,13 +34,16 @@ test('store transaction rolls back checkpoint and billing observations together'
  assert.equal(s.snapshots().length,0); assert.equal(s.checkpoint('synthetic-source','synthetic-new',12),false);
  s.close(); await rm(f.base,{recursive:true});
 });
-test('owner-only permissions and read-only source directory with no sidecars', async () => {
+test('read-only source directory gains no sidecars; POSIX storage is owner-only', async () => {
  const f = await setup(); await writeFile(f.file,envelope()+'\n'); await chmod(f.file,0o400); await chmod(f.dir,0o500);
  const before = await stat(f.dir); const s = new Store(f.storage,f.root); assert.equal((await collect(f.root,s,'UTC')).imported,1); s.close();
  assert.equal((await stat(f.dir)).mtimeMs,before.mtimeMs); assert.deepEqual(await readdir(f.dir),['q-client.log']);
- assert.equal((await stat(f.storage)).mode & 0o777,0o700);
- for (const file of ['device.key','usage.sqlite']) assert.equal((await stat(join(f.storage,file))).mode & 0o777,0o600);
- await chmod(f.dir,0o700); await rm(f.base,{recursive:true});
+ // Mode bits are POSIX; Windows DACLs are asserted in windows-storage.test.ts.
+ if (process.platform !== 'win32') {
+  assert.equal((await stat(f.storage)).mode & 0o777,0o700);
+  for (const file of ['device.key','usage.sqlite']) assert.equal((await stat(join(f.storage,file))).mode & 0o777,0o600);
+ }
+ await chmod(f.file,0o600); await chmod(f.dir,0o700); await rm(f.base,{recursive:true});
 });
 test('corrupted persisted projection fails closed without leaking stored text', async () => {
  const f = await setup(); await writeFile(f.file,envelope()+'\n'); const s = new Store(f.storage,f.root); await collect(f.root,s,'UTC'); s.close();
@@ -87,8 +90,16 @@ test('imports the existing wholly synthetic fixture with original observations a
  s.close();await rm(f.base,{recursive:true});
 });
 test('dot-prefixed source descendants cannot be used as owned storage', async()=>{
- const f=await setup();assert.throws(()=>new Store(join(f.root,'..gauge'),f.root),/UNSAFE_STORAGE/);
- await assert.rejects(stat(join(f.root,'..gauge')));await rm(f.base,{recursive:true});
+ const f=await setup();assert.throws(()=>new Store(join(f.root,'logs','..gauge'),f.root),/UNSAFE_STORAGE/);
+ await assert.rejects(stat(join(f.root,'logs','..gauge')));await rm(f.base,{recursive:true});
+});
+test('storage location rules: default may sit beside the logs, a chosen location may not', async()=>{
+ const f=await setup();const def=join(f.root,'User','globalStorage','stefansuess.cyclegauge');
+ new Store(def,f.root,true).close();assert.throws(()=>new Store(def,f.root),/UNSAFE_STORAGE/);
+ for(const p of [f.root,join(f.root,'logs'),join(f.root,'logs','x'),join(f.root,'..')])assert.throws(()=>new Store(p,f.root,true),/UNSAFE_STORAGE/);
+ for(const n of ['kiro-cli','.kiro'])assert.throws(()=>new Store(join(f.base,n,'data'),f.root),/UNSAFE_STORAGE/);
+ if(process.platform==='darwin'){const u=join(f.root,'LOGS','x');assert.throws(()=>new Store(u,f.root,true),/UNSAFE_STORAGE/);await assert.rejects(stat(u));}
+ await rm(f.base,{recursive:true});
 });
 test('corrupted timezone on an explicit-offset observation fails private output projection', async()=>{
  const f=await setup();await writeFile(f.file,envelope().replace('2030-06-29 18:00:00.000','2030-06-29T18:00:00.000Z')+'\n');

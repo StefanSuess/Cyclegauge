@@ -5,7 +5,7 @@
 - Follow [SPEC.md](SPEC.md) for behavior, [ARCHITECTURE.md](ARCHITECTURE.md) for trust boundaries and [ROADMAP.md](ROADMAP.md) for scope. Dated milestone approvals are historical evidence, **not** blanket authorization for new features.
 - For nontrivial changes, read [the agent workflow](docs/agent-workflow.md) before working. Keep shared rules here; `CLAUDE.md` imports this file for Claude Code, while Codex loads `AGENTS.md` directly.
 - Make only the requested, approved change. Never merge, tag, release, deploy, publish, change secrets, or weaken security checks without explicit maintainer approval.
-- Keep agent work cost-aware: smallest useful task, least expensive capable model, targeted context and tests, no unnecessary delegation or review loops. Never trade away mandatory security/correctness gates to save cost; see [agent workflow](docs/agent-workflow.md).
+- Keep agent work cost-aware: smallest useful task, least expensive capable model, targeted context and tests, no unnecessary delegation or review loops. The main session orchestrates and delegates implementation to subagents sized to the task only when the brief is clearly shorter than the work; a delegated agent does not delegate further. Never trade away mandatory security/correctness gates to save cost; see [agent workflow](docs/agent-workflow.md).
 - Preserve collector, Store, projection, billing, forecast and established data-format contracts unless the change is explicitly approved. Keep the collector independent of VS Code APIs.
 - Session aggregation, Crew integration, Kiro-owned SQLite access, usage-efficiency/content analysis, purchases, authenticated calls, new platform enablement and answer persistence require separate approval. Do not treat an implementation plan as approval.
 
@@ -24,7 +24,7 @@
 - Kiro-owned files/databases are **strictly read-only**: no writes, repairs, migrations, checkpoints, permission/settings changes, journal changes, exports or SQLite sidecar creation.
 - Use explicit read-only handles and allowlisted roots. Do not recursively import source trees or unrelated directories; reject symlink escapes.
 - SQLite `query_only` is not enough to prove non-mutation; `immutable=1` is not a generally safe reader for a live database/WAL. If safety or freshness cannot be proved, return unavailable, not fabricated observations.
-- Write only to Cyclegauge-owned storage outside Kiro and the repository; never put real billing observations in git or automated tests.
+- Write only to Cyclegauge-owned storage: the editor's per-extension storage folder, the per-user application data folder (CLI) or an explicitly chosen location. Never write among Kiro's logs or into any other Kiro-owned file or folder, and never into the repository; never put real billing observations in git or automated tests.
 - Package only the extension bundle, manifest and public documentation. Never include source logs, stores, tests or dependency caches in VSIX artifacts.
 
 ## Data correctness and evidence

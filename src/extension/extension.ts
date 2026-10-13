@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { defaultSource, defaultStorage } from '../paths.ts';
+import { defaultSource } from '../paths.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { PANEL_VIEW_TYPE, commandId, readSetting, registerCommand } from './identity.ts';
 
@@ -26,7 +26,9 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  const disposables: vscode.Disposable[] = [item, advisorItem];
  const setting = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  const source = setting('sourceRoot') || defaultSource();
- const storage = setting('storageRoot') || defaultStorage();
+ // Like any extension: the editor's own per-extension storage folder unless a location is chosen.
+ const chosenStorage = setting('storageRoot');
+ const storage = chosenStorage || context.globalStorageUri.fsPath;
  const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
  const register = (suffix: string, fn: () => unknown) => disposables.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
  const ui: ExtensionUi = {
@@ -66,7 +68,7 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
   dispose() { panel?.dispose(); for (const d of disposables) d.dispose(); }
  };
  try {
-  const controller = await startExtension(ui, { source, storage, timezone });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone });
   stop = controller.dispose;
   context.subscriptions.push({ dispose: controller.dispose });
  } catch {

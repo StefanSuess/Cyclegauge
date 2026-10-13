@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ import { readZip, writeZip } from '../../scripts/release/zip.ts';
 
 const repository = resolve(import.meta.dirname, '../..');
 
-test('the actual protected publisher archive extracts with every entrypoint import', async () => {
+test('the actual protected publisher archive extracts with every entrypoint import', { skip: process.platform === 'win32' ? 'Protected publisher runs on Ubuntu; POSIX tar/shell archive contract' : false }, async () => {
   const temp = mkdtempSync(join(tmpdir(), 'synthetic-release-runtime-'));
   try {
     const bundle = join(temp, 'bundle');
@@ -34,7 +34,7 @@ test('the actual protected publisher archive extracts with every entrypoint impo
   }
 });
 
-test('extracted publisher runs the full promotion against synthetic mocked remote services', async () => {
+test('extracted publisher runs the full promotion from a relative bundle directory against synthetic remote services', { skip: process.platform === 'win32' ? 'Protected publisher runs on Ubuntu; POSIX tar/shell archive contract' : false }, async () => {
   const temp = mkdtempSync(join(tmpdir(), 'synthetic-release-execution-'));
   try {
     const bundle = join(temp, 'bundle');
@@ -126,7 +126,7 @@ globalThis.fetch = async (input, init = {}) => {
     const execution = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--import', preload, join(runtime, 'scripts/release/publish-candidate.ts')], {
       cwd: repository, encoding: 'utf8', timeout: 60_000,
       env: {
-        PATH: process.env.PATH || '', PROMOTION_BUNDLE_DIR: bundle, GITHUB_TOKEN: 'synthetic-github-token',
+        PATH: process.env.PATH || '', PROMOTION_BUNDLE_DIR: relative(repository, bundle), GITHUB_TOKEN: 'synthetic-github-token',
         GITHUB_REPOSITORY: 'StefanSuess/Cyclegauge', GITHUB_API_URL: 'https://api.github.com',
         GITHUB_SHA: commit, SOURCE_SHA: commit, INPUT_VERSION: version, INPUT_AUTH_MODE: 'trusted-publishing',
         EXPECTED_RUN_ID: '12', EXPECTED_ARTIFACT_ID: '34', GITHUB_STEP_SUMMARY: join(temp, 'summary.md'),

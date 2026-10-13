@@ -58,13 +58,13 @@
         "cyclegauge.sourceRoot": {
           "type": "string",
           "default": "",
-          "description": "Kiro IDE data root; leave empty for the platform default.",
+          "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
           "scope": "machine"
         },
         "cyclegauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private Cyclegauge storage root; leave empty for the platform default.",
+          "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
           "scope": "machine"
         },
         "cyclegauge.sourceTimezone": {
@@ -87,6 +87,7 @@
   },
   "scripts": {
     "demo:setup": "node --disable-warning=ExperimentalWarning scripts/demo/setup.mjs",
+    "test:host": "node --disable-warning=ExperimentalWarning scripts/test-extension-host.ts",
     "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
     "typecheck": "tsc --noEmit",
     "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
@@ -99,6 +100,7 @@
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.0"

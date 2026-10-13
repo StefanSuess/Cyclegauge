@@ -1,6 +1,14 @@
 # Changelog
 
-All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x) are beta builds.
+All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x) are beta builds; see [versioning](docs/release-process.md#versioning).
+
+## Unreleased
+
+### Changed
+
+- The extension's default owned storage moves to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root); the CLI keeps the `Cyclegauge` application-data directory. Existing files are not moved, imported or deleted. Set `cyclegauge.storageRoot` to the earlier directory to keep using its history.
+- Windows storage is implemented: default locations rely on the user profile's permissions and a chosen location gets a verified owner-only DACL. Native Windows verification is outstanding and SC1 stays open.
+- CI verifies the unit and release suites and one universal candidate VSIX in a real VS Code extension host on Windows, Ubuntu and macOS. Windows and Linux remain unverified in native Kiro.
 
 ## 0.5.3 (beta, macOS)
 

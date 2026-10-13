@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Synthetic-only demo. Never reads or changes an existing Kiro profile.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync, readFileSync, copyFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +23,8 @@ const [major, minor] = process.versions.node.split('.').map(Number);
 if (major < 24 || (major === 24 && minor < 13)) {
  console.log('NODE_REQUIRED: install Node.js 24.13 or newer.'); process.exit(1);
 }
-const base = realpathSync(mkdtempSync(join(tmpdir(), 'synthetic-cyclegauge-demo-')));
+// Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
+const base = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-cyclegauge-demo-')));
 const source = join(base, 'source'), storage = join(base, 'storage');
 const home = join(base, 'home'), userData = join(base, 'user-data'), extensions = join(base, 'extensions');
 const workspace = join(base, 'workspace');
@@ -52,11 +53,6 @@ try {
  writeFileSync(join(logs, 'q-client.log'), lines.join(''), { mode: 0o600 });
  writeFileSync(join(base, 'synthetic-anchor.txt'), anchor.toISOString() + '\n', { mode: 0o600 });
  const cliArgs = ['--disable-warning=ExperimentalWarning', 'src/cli.ts', '--source-root', source, '--store-dir', join(base, 'preflight-store'), '--source-timezone', 'UTC', '--json'];
- if (process.platform === 'win32') {
-  const refused = spawnSync(process.execPath, cliArgs, { cwd: root, encoding: 'utf8' });
-  if (refused.status !== 1 || refused.stdout.trim() !== 'STORAGE_UNAVAILABLE' || existsSync(join(base, 'preflight-store'))) throw new Error('WINDOWS_REFUSAL_CHECK_FAILED');
-  console.log('Windows storage refusal PASS (expected unavailable state; no budget/forecast support yet).');
- } else {
  const first = JSON.parse(run(process.execPath, cliArgs, 'COLLECTOR_FAILED'));
  if (first.import.imported !== 36 || first.observation.status !== 'observed' || first.observation.baseLimit !== '5000' || first.observation.forecast.status !== 'qualified' || first.observation.forecast.tier !== 'regular') throw new Error('INGESTION_CHECK_FAILED');
  const second = JSON.parse(run(process.execPath, cliArgs, 'REIMPORT_FAILED'));
@@ -64,7 +60,6 @@ try {
  console.log('Synthetic ingestion PASS (36 records); repeat import PASS.');
  console.log(`Expected usage: ${first.observation.usage}; reported limit: 5000; remaining: ${first.observation.remainingBaseCredits} credits.`);
  console.log(`Forecast: ${first.observation.forecast.tier} (${first.observation.forecast.status}).`);
- }
  const { buildVsix } = await import('../release/build-vsix.ts');
  const { verifyVsix } = await import('../release/verify-vsix.ts');
  const vsix = candidate ?? join(base, 'synthetic-demo.vsix');

@@ -37,10 +37,9 @@ are not a guarantee about every installer. You can also omit `--open` to prepare
 | Run **Cyclegauge: Cost Advisor**; select **Pro Max → Personal subscription (consumer) → No purchased add-on credits** | A conditional, modelled pre-tax USD comparison; expandable details, no guaranteed savings claim |
 | Cancel an Advisor question, then **Clear my answers**, then **Developer: Reload Window** | Cancel preserves answers; clear/reload removes them; usage/history stays unchanged |
 
-**Windows:** storage is deliberately disabled in the current plugin. Setup checks the expected
-`STORAGE_UNAVAILABLE` refusal without creating a store. In Kiro, expect the generic unavailable/waiting state
-(“Waiting for usable local account updates”), with no invented budget or forecast. A full working Windows budget
-is **not** the expected result.
+**Windows:** the same checks apply. The demo's chosen storage folder is verified with an owner-only permission
+check, so setup needs Windows PowerShell and a local NTFS drive; where that is blocked, setup stops with
+`STORAGE_UNAVAILABLE`.
 
 Linux setup and UI results need to be checked on a Linux host; macOS results do not establish Linux compatibility.
 Setup's automated checks exercise the collector in this checkout and verify the selected VSIX's content. The

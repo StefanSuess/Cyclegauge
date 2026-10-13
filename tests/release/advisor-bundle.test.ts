@@ -10,7 +10,8 @@ import {readZip} from '../../scripts/release/zip.ts';
 
 // Exercise the shipped bundle with an invented source and explicit roots. No IDE or real profile is opened.
 test('packaged Advisor native commands, conditional figure, cancellation and panel lifecycle',async()=>{
- const work=realpathSync(mkdtempSync(join(tmpdir(),'synthetic-advisor-bundle-')));
+ // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-advisor-bundle-')));
  let extension:any;const subscriptions:any[]=[];
  try{
   const source=join(work,'source'),storage=join(work,'owned'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
@@ -39,13 +40,11 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   assert.deepEqual(options,{enableScripts:false,enableCommandUris:false,localResourceRoots:[]});
   assert.match(panel.webview.html,/cost-advisor/);
-  if(process.platform!=='win32'){
    answers.push('plan:pro_max','consumer_prepaid','none');await commands.get('cyclegauge.costAdvisor')!();
    assert.match(panel.webview.html,/Confirmed by you/);assert.match(panel.webview.html,/Modelled estimate/);assert.match(panel.webview.html,/USD/);
    assert.ok(!/Supported estimate|Guaranteed savings/.test(panel.webview.html));
    const before=panel.webview.html;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();assert.equal(panel.webview.html,before);
    answers.push('reset');await commands.get('cyclegauge.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
-  }else{assert.match(panel.webview.html,/unavailable/i);}
   assert.ok(!panel.webview.html.includes('synthetic-bundle-account'));assert.ok(!panel.webview.html.includes(work));
   panel.visible=false;visibility({webviewPanel:panel});assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);

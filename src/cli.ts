@@ -7,14 +7,14 @@ const help = `Cyclegauge for Kiro IDE — local observed CREDIT usage (Node.js 2
 Usage: node --disable-warning=ExperimentalWarning src/cli.ts [options]
   --source-root <directory>     Kiro IDE data root; reads allowlisted logs only
   --source-timezone <IANA>      Required for offset-free log timestamps
-  --store-dir <directory>       App-owned private directory outside source/repository
+  --store-dir <directory>       App-owned private directory outside the logs and any repository
   --max-age-hours <hours>       Freshness threshold (default 24)
   --json                       Billing fields and quality; no identity/source keys
   --help
 No Kiro commands, authenticated requests, session aggregation or cache reads.
 Remaining base credits are observed limit minus observed usage, clamped at zero.
 Per-day allocation uses UTC 24-hour days until reset; it is not a forecast.
-Windows storage permissions are unsupported; Windows/Ubuntu/RHEL are unverified.`;
+Windows, Ubuntu and RHEL are unverified.`;
 let store: Store | undefined;
 let stage = 'CONFIGURATION_INVALID';
 try {
@@ -29,7 +29,7 @@ try {
   if (values['source-timezone'] !== undefined) new Intl.DateTimeFormat('en', { timeZone: values['source-timezone'] }).format();
   stage = 'STORAGE_UNAVAILABLE';
   const source = values['source-root'] ?? defaultSource();
-  store = new Store(values['store-dir'] ?? defaultStorage(), source);
+  store = new Store(values['store-dir'] ?? defaultStorage(), source, values['store-dir'] === undefined);
   const now = new Date().toISOString();
   stage = 'COLLECTION_UNAVAILABLE';
   const imported = await collect(source, store, values['source-timezone'], now);
