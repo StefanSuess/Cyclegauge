@@ -2,7 +2,7 @@
 
 Maintainer checklist for the first controlled use of `.github/workflows/release.yml`. It complements [release-process.md](release-process.md), which describes the gates. Nothing here publishes anything; the release workflow only runs when you dispatch it.
 
-## Current state (checked 2026-10-12 against `main` at `42f60349` and GitHub Actions)
+## Current state (checked 2026-10-13 against GitHub Releases, `main` and Actions)
 
 - v0.5.2 and its GitHub pre-release already exist; they were created before the pipeline. The workflow treats v0.5.2 as immutable and cannot repair or re-promote it (its asset is named `candidate.vsix`, the pipeline expects `cyclegauge-v<version>.vsix`).
 - `package.json` is **already `0.5.3`** on `main`. The latest published GitHub release is still **v0.5.2**. The next release must use an unpublished, higher version, a matching non-empty `CHANGELOG.md` section, and fresh CI plus native acceptance. Never rebuild or replace v0.5.2.
@@ -40,10 +40,10 @@ The PAT worked for the manual v0.5.2 publish. You may reuse that token or create
 ### 4b. Trusted Publishing (OIDC), optional
 Only after the namespace is verified and Open VSX offers Trusted Publisher registration for it: register repository `StefanSuess/Cyclegauge`, workflow path `.github/workflows/release.yml`, environment `release`. Registration steps and server support are controlled by Open VSX and were **not verified** here; the pinned `ovsx@1.2.0` CLI does expose `--trusted-publishing`. Until registered, use PAT mode; an unregistered OIDC run fails at publish time (nothing is published).
 
-### 5. Prepare 0.5.3 (separate approved change; do not mix unrelated PRs such as #19)
-1. Confirm `package.json` remains `0.5.3` (the version bump is already on `main`).
-2. Verify and update the existing **non-empty** `## 0.5.3 (beta, macOS)` section in `CHANGELOG.md`; the release workflow extracts these notes verbatim. Do not invent acceptance results.
-3. Merge that focused change only after CI passes. Verify all four checks on the resulting `main` commit. If any subsequent change reaches `main`, recheck the latest candidate and rerun the dry run.
+### 5. Verify 0.5.3 readiness before the next dry run
+1. `package.json` is already `0.5.3`, and the `## 0.5.3 (beta, macOS)` section in `CHANGELOG.md` is already nonempty; PR #19 containing the storage/identity compatibility change is merged. Review those notes against the exact final candidate rather than creating a redundant version-bump or changelog PR.
+2. Check all four required CI jobs on the **current** `main` commit; a green run for an earlier commit is insufficient.
+3. If `main` changes again, use the new candidate artifact and repeat the dry run and relevant native acceptance checks. No public `v0.5.3` GitHub release existed at this audit; the README must not direct users to it before publication.
 
 ## Dry run (safe; no writes, no environment, no secrets)
 1. Actions → release → Run workflow, branch `main`, `version = 0.5.3`, `dry_run = true`, either auth mode.

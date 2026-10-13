@@ -2,9 +2,9 @@
 
 > Extension ID: `StefanSuess.cyclegauge`; commands and settings use the `cyclegauge.*` prefix.
 
-## Install a VSIX (pre-release)
+## Install the published beta or build a development VSIX
 
-There is no marketplace listing yet. Build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
+The published macOS beta is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and as the [v0.5.2 GitHub pre-release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2). The repository currently contains the unreleased 0.5.3 development version. To test that version, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
 
 ```sh
 pnpm install --frozen-lockfile

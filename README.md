@@ -5,7 +5,7 @@
 **Credit usage & forecasting for Kiro IDE**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
-![Version 0.5.3 beta](https://img.shields.io/badge/version-0.5.3%20beta-orange)
+![Development version 0.5.3 beta](https://img.shields.io/badge/development-0.5.3%20beta-orange)
 [![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 [![Linux unverified](https://img.shields.io/badge/Linux-unverified-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
@@ -45,7 +45,7 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 
 Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
 
-1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), download the VSIX from the [GitHub v0.5.3 release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.3), or in Kiro run **Extensions: Install from VSIX...** and select a downloaded Cyclegauge `.vsix` file.
+1. Install the published macOS beta from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or download the VSIX from the [latest published GitHub pre-release (v0.5.2)](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2) and select **Extensions: Install from VSIX...** in Kiro. Version 0.5.3 is currently the **unreleased development version**, not a GitHub release.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
