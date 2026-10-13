@@ -52,6 +52,8 @@ For a chosen storage location, Windows PowerShell is started for each storage ch
 
 Maintainer observation on 2026-10-14 (native Kiro installs, directory names only, Kiro and OS versions not recorded): the IDE user-data root is `%APPDATA%\Kiro` on Windows and `~/.config/Kiro` on Linux, matching the default source roots. Beneath it both show `logs/<timestamp>/window1/exthost/kiro.kiroAgent`, the same layout as macOS. That directory contains `q-client.log` on Linux and a `q-client` text document on Windows (Explorer hides the extension, so `.log` is assumed).
 
-Pending: Windows and Ubuntu native Kiro smoke, default log discovery evidence on those systems, macOS Intel native validation, and final release-candidate manual acceptance. Do not close SC1 or advertise all-platform production support merely because the DACL tests or generic host tests pass.
+Maintainer-reported native test on 2026-10-14: the CI candidate from run 38445220723 (SHA-256 `fc93f899…8419`) was installed in native Kiro on Windows 11 Pro and on Ubuntu 26 and reported as working on both. The Kiro version and the individual checks were not recorded, so this is a smoke result, not the itemised acceptance used for macOS.
+
+Pending: itemised native acceptance on Windows and Ubuntu with recorded Kiro versions, a non-default or portable Kiro data folder on Windows, macOS Intel native validation, and final release-candidate manual acceptance. Do not close SC1 or advertise all-platform production support merely because the DACL tests or generic host tests pass.
 
 References: [VS Code integration CI](https://code.visualstudio.com/api/working-with-extensions/continuous-integration), [GitHub runner platforms](https://docs.github.com/en/actions/reference/runners/github-hosted-runners), [.NET directory creation with security](https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.createdirectory?view=netframework-4.8.1). Documentation investigated 2026-10-13.
