@@ -116,6 +116,7 @@ test('requires every known CI verification and candidate job to succeed', () => 
     { name: 'release candidate on macOS', status: 'completed', conclusion: 'success' },
     { name: 'release candidate on Windows', status: 'completed', conclusion: 'success' },
     { name: 'release candidate on Ubuntu', status: 'completed', conclusion: 'success' },
+    { name: 'attest release candidate', status: 'completed', conclusion: 'success' },
   ];
   assert.equal(validateCiJobs(jobs), true);
   for (const job of jobs) {
@@ -125,6 +126,7 @@ test('requires every known CI verification and candidate job to succeed', () => 
   expectCode(() => validateCiJobs([...jobs, { name: 'verify (synthetic-os)', status: 'completed', conclusion: 'failure' }]), 'CI_JOB_UNSUCCESSFUL');
   expectCode(() => validateCiJobs(jobs.slice(0, 3)), 'CI_JOB_MISSING');
   expectCode(() => validateCiJobs(jobs.map((job, index) => index === 1 ? { ...job, conclusion: 'failure' } : job)), 'CI_JOB_UNSUCCESSFUL');
+  expectCode(() => validateCiJobs([...jobs, jobs.at(-1)!]), 'CI_JOB_AMBIGUOUS');
 });
 
 test('selects only one unexpired candidate artifact associated with the exact run and repository', () => {
