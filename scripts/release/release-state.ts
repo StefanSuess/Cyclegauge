@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import type { AuthMode } from './promotion-policy.ts';
 import type {
@@ -118,7 +118,7 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
     this.repository = input.repository;
     this.token = input.token;
     this.apiBase = (input.apiBase || 'https://api.github.com').replace(/\/$/, '');
-    this.publisherToolsDir = input.publisherToolsDir;
+    this.publisherToolsDir = resolve(input.publisherToolsDir);
     this.draftVisibility = input.draftVisibility;
   }
 
