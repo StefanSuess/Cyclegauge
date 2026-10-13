@@ -2,9 +2,17 @@
 
 All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x) are beta builds; see [versioning](docs/release-process.md#versioning).
 
+## Unreleased
+
+### Changed
+
+- The extension's default owned storage moves to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root); the CLI keeps the `Cyclegauge` application-data directory. Existing files are not moved, imported or deleted. Set `cyclegauge.storageRoot` to the earlier directory to keep using its history.
+- Windows storage is implemented: default locations rely on the user profile's permissions and a chosen location gets a verified owner-only DACL. Native Windows verification is outstanding and SC1 stays open.
+- CI verifies the unit and release suites and one universal candidate VSIX in a real VS Code extension host on Windows, Ubuntu and macOS. Windows and Linux remain unverified in native Kiro.
+
 ## 0.5.3 (beta, macOS)
 
-Documentation, support-metadata and release-process update, with removal of deprecated command and setting aliases and a new default storage location. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+Documentation, support-metadata and release-process update, with removal of deprecated command and setting aliases and a new default storage directory. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
 
 ### Added
 
@@ -17,12 +25,12 @@ Documentation, support-metadata and release-process update, with removal of depr
 
 - Documentation now describes reported credits without assuming a base-only limit.
 - Deprecated `easykirogauge.*` settings and the `easykirogauge.showUsage` command alias are removed. Transfer any explicit source, storage and timezone settings to their `cyclegauge.*` keys before upgrading.
-- The extension's default owned storage moves from the `EasyKiroGauge` directory to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root), including for users upgrading from Cyclegauge 0.5.2; the CLI keeps the `Cyclegauge` application-data directory. Existing files are not moved, imported or deleted automatically. Without an explicit storage-root setting, existing history and forecast coverage will not appear in the new location. See the [upgrade guide](docs/usage.md#upgrading-from-052-or-an-earlier-build) to reuse prior history.
+- The default owned storage directory changes from `EasyKiroGauge` to `Cyclegauge`, including for users upgrading from Cyclegauge 0.5.2. Existing files are not moved, imported or deleted automatically. Without an explicit storage-root setting, existing history and forecast coverage will not appear in the new directory. See the [upgrade guide](docs/usage.md#upgrading-from-052-or-an-earlier-build) to reuse prior history.
 - The side-by-side installation gate is removed. Disable the earlier extension before configuring a shared storage directory.
 
 ### Unchanged
 
-- Cyclegauge remains a macOS beta. Windows storage is implemented (profile permissions by default, verified owner-only DACL for a chosen location) but native Windows verification is outstanding (SC1 open), Advisor answers are never persisted (SC5 open), and Linux and RHEL are unverified.
+- Cyclegauge remains a macOS beta. Windows storage stays disabled (SC1 open), Advisor answers are never persisted (SC5 open), and Linux and RHEL are unverified.
 - v0.5.2 is already published and stays unchanged. Its notes below are kept as they were released.
 
 ## 0.5.2 (beta, macOS)
