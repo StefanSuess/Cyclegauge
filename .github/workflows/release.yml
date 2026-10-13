@@ -34,6 +34,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       actions: read
+      attestations: read
       contents: read
     outputs:
       run_id: ${{ steps.select.outputs.run_id }}
@@ -87,6 +88,24 @@ jobs:
           CANDIDATE_DIR: release/input
           BUNDLE_DIR: release/promotion-bundle
         run: node --disable-warning=ExperimentalWarning scripts/release/verify-promotion.ts
+
+      - name: Verify the exact candidate attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.select.outputs.version }}
+          SOURCE_SHA: ${{ steps.select.outputs.source_sha }}
+        run: |
+          if ! gh attestation verify "release/promotion-bundle/cyclegauge-v${VERSION}.vsix" \
+            --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ci.yml" \
+            --source-ref refs/heads/main \
+            --source-digest "$SOURCE_SHA" \
+            --deny-self-hosted-runners \
+            --predicate-type https://slsa.dev/provenance/v1 \
+            >/dev/null 2>&1; then
+            echo 'ATTESTATION_VERIFICATION_FAILED' >&2
+            exit 1
+          fi
 
       - name: Check public version, tag, and release state without writes
         env:

@@ -13,6 +13,7 @@ const REQUIRED_CI_JOBS = [
   'release candidate on macOS',
   'release candidate on Windows',
   'release candidate on Ubuntu',
+  'attest release candidate',
 ];
 
 export class PromotionPolicyError extends Error {

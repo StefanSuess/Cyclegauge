@@ -72,6 +72,10 @@ Setup uses the same command across platforms.
 
 Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md). Never post real Kiro data in issues or pull requests.
 
+## Release integrity
+
+For future releases, CI attests the exact VSIX after its checks pass on `main`. Before publication, the release workflow verifies the VSIX bytes and their signed provenance against this repository, the CI workflow and the selected commit. Earlier published versions predate this gate. An attestation establishes origin and integrity; it does not certify that an extension is free of malware or vulnerabilities. See the [release process](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/release-process.md).
+
 ## Platform support and limitations
 
 | Platform | Status |
