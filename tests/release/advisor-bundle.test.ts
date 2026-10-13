@@ -10,7 +10,8 @@ import {readZip} from '../../scripts/release/zip.ts';
 
 // Exercise the shipped bundle with an invented source and explicit roots. No IDE or real profile is opened.
 test('packaged Advisor native commands, conditional figure, cancellation and panel lifecycle',async()=>{
- const work=realpathSync(mkdtempSync(join(tmpdir(),'synthetic-advisor-bundle-')));
+ // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-advisor-bundle-')));
  let extension:any;const subscriptions:any[]=[];
  try{
   const source=join(work,'source'),storage=join(work,'owned'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');

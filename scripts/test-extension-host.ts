@@ -19,7 +19,8 @@ try {
  if (!verifyVsix(archive, { expectPreRelease: true }).ok) throw new Error('HOST_CANDIDATE_INVALID');
  const sha256 = createHash('sha256').update(archive).digest('hex');
  if (process.env.EXPECTED_CANDIDATE_SHA256 && process.env.EXPECTED_CANDIDATE_SHA256 !== sha256) throw new Error('HOST_CANDIDATE_HASH_MISMATCH');
- base = realpathSync(mkdtempSync(join(tmpdir(), 'synthetic-host-')));
+ // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
+ base = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-host-')));
  const extension = join(base, 'extension'), profile = join(base, 'profile');
  for (const entry of readZip(archive)) {
   if (!entry.name.startsWith('extension/')) continue;
