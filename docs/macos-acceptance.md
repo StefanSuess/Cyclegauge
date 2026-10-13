@@ -56,7 +56,7 @@ printed `node ".../open-demo.mjs"` command.
 
 | # | Check | Expected |
 |---|---|---|
-| C1 | In a clean isolated profile, search "Cyclegauge" in the Extensions view | The listing is found, shows icon, description, README and Changelog tab, the pre-release marker and the "macOS beta" wording |
+| C1 | In a clean isolated profile, search "Cyclegauge" in the Extensions view | The listing is found, shows icon, description, README and Changelog tab, the pre-release marker and the new listing wording (a beta for macOS, Windows and Ubuntu, with the macOS beta badge still present) |
 | C2 | Install from the listing | Same file as the candidate: the extension version equals the changelog entry; repeat A2 and A3 |
 | C3 | Installed extension's contents (Developer: Show Running Extensions, or inspect the extensions directory) | No `src/`, tests or logs; metadata only |
 
