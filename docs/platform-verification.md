@@ -50,7 +50,7 @@ Observed on 2026-10-13, commit `1f88e48`, CI run 38436192620: all seven jobs pas
 
 Windows PowerShell is started for each storage check, which blocks the extension host briefly on every store open; environments that block it (Constrained Language Mode, AppLocker) stay unavailable and retry on each refresh.
 
-Maintainer observation on 2026-10-14 (native Kiro installs, directory names only, Kiro and OS versions not recorded): the IDE user-data root is `%APPDATA%\Kiro` on Windows and `~/.config/Kiro` on Linux, matching the default source roots. Beneath it both show `logs/<timestamp>/window1/exthost`, the same layout as macOS; on Windows `exthost/kiro.kiroAgent` was also seen. Not yet observed: `kiro.kiroAgent` on Linux, and the `q-client.log` file name on either system.
+Maintainer observation on 2026-10-14 (native Kiro installs, directory names only, Kiro and OS versions not recorded): the IDE user-data root is `%APPDATA%\Kiro` on Windows and `~/.config/Kiro` on Linux, matching the default source roots. Beneath it both show `logs/<timestamp>/window1/exthost/kiro.kiroAgent`, the same layout as macOS. On Linux that directory contains `q-client.log`; on Windows the file itself was not checked.
 
 Pending: Windows and Ubuntu native Kiro smoke, default log discovery evidence on those systems, macOS Intel native validation, and final release-candidate manual acceptance. Do not close SC1 or advertise all-platform production support merely because the DACL tests or generic host tests pass.
 
