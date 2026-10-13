@@ -81,6 +81,8 @@ Delivered Windows storage (profile permissions for default locations, a verified
 
 ## Future milestone — Usage efficiency insights
 
+**Design proposal (discussion only; not implementation approval):** [Kiro Efficiency Analyzer — context, ignores, Hooks and local attribution](docs/kiro-efficiency-analyzer-proposal.md). The staged proposal preserves current release and privacy boundaries; each collection or scan requires separate scoped approval.
+
 Separately validate non-content metadata for credit/session, turns, duration, selected models, trends and reliably marked spec/non-spec workflows. Resolve session semantics, account association, duplicates and coverage before aggregation. Require outcome evidence and defensible comparators; longer sessions and non-spec work are not inherently inefficient. Do not collect/analyze prompts, source code, conversations or tool outputs. Any content analysis requires a separate explicit privacy/security design review and opt-in authorization; current AGENTS privacy safeguards remain intact. This milestone adds no metadata analysis.
 
 ## Remaining gates
