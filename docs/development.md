@@ -98,7 +98,7 @@ The commands above are the full local check. Release tests include loading the p
 
 The unit/integration suite uses invented records and temporary synthetic sources only, including the existing invented account log fixture. It checks precision, privacy sentinels, DST, source scope and symlinks, read-only file/directory behavior, concurrent source mutation, transactions, restart/deduplication, same-size replacement, corruption, account isolation, conflicts, freshness and cycle transitions.
 
-Verified here: synthetic tests on macOS and live VSIX installation, activation, status bar and detail view in Kiro 1.2.56. The collector was previously reported live-tested by the user. Windows, Ubuntu and RHEL are **unverified targets**, not compatibility claims. Windows is additionally blocked by ACL support. Live SQLite/WAL safety for Kiro's own cache remains unproven, so that adapter is disabled and explicitly unavailable. Format stability, service latency, nonnumeric rotation naming, unknown populated bonuses and historical source timezone changes remain limitations. Not implemented: session aggregation, statistical probability estimates and a background daemon. The session-only Cost Advisor replaces the standalone Cost Optimizer UI in 0.5.2; native acceptance of the final candidate is pending (see [cost-optimizer.md](cost-optimizer.md)).
+Verified here: synthetic tests on macOS and live VSIX installation, activation, status bar and detail view in Kiro 1.2.56. The collector was previously reported live-tested by the user. Windows, Ubuntu and RHEL are **unverified targets**, not compatibility claims. Windows has a new fail-closed NTFS ACL implementation; native Kiro acceptance remains pending. Live SQLite/WAL safety for Kiro's own cache remains unproven, so that adapter is disabled and explicitly unavailable. Format stability, service latency, nonnumeric rotation naming, unknown populated bonuses and historical source timezone changes remain limitations. Not implemented: session aggregation, statistical probability estimates and a background daemon. The session-only Cost Advisor replaces the standalone Cost Optimizer UI in 0.5.2; native acceptance of the final candidate is pending (see [cost-optimizer.md](cost-optimizer.md)).
 
 ## Naming and identifiers
 
@@ -112,3 +112,7 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 | Storage folder | `Cyclegauge` under the platform data directory | Private storage owned by Cyclegauge. |
 
 The identifiers live in code in `src/extension/identity.ts` and the contributed settings live in `package.json`.
+
+## Real extension-host integration
+
+Build a development candidate with `pnpm release:build candidate.vsix --pre-release`, then run `pnpm test:host candidate.vsix` (`xvfb-run -a pnpm test:host candidate.vsix` on headless Linux). CI instead tests the exact shared candidate artifact. See [platform verification](platform-verification.md) for isolation, coverage, host pins and native Kiro limitations.

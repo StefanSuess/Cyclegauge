@@ -11,7 +11,7 @@ import { readZip, writeZip } from '../../scripts/release/zip.ts';
 
 const repository = resolve(import.meta.dirname, '../..');
 
-test('the actual protected publisher archive extracts with every entrypoint import', async () => {
+test('the actual protected publisher archive extracts with every entrypoint import', { skip: process.platform === 'win32' ? 'Protected publisher runs on Ubuntu; POSIX tar/shell archive contract' : false }, async () => {
   const temp = mkdtempSync(join(tmpdir(), 'synthetic-release-runtime-'));
   try {
     const bundle = join(temp, 'bundle');
@@ -34,7 +34,7 @@ test('the actual protected publisher archive extracts with every entrypoint impo
   }
 });
 
-test('extracted publisher runs the full promotion from a relative bundle directory against synthetic remote services', async () => {
+test('extracted publisher runs the full promotion from a relative bundle directory against synthetic remote services', { skip: process.platform === 'win32' ? 'Protected publisher runs on Ubuntu; POSIX tar/shell archive contract' : false }, async () => {
   const temp = mkdtempSync(join(tmpdir(), 'synthetic-release-execution-'));
   try {
     const bundle = join(temp, 'bundle');

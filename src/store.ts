@@ -2,25 +2,34 @@ import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHmac } from 'node:crypto';
 import { writeFileSync, readFileSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
-import { prepareStorage, noSymlinks } from './paths.ts';
+import { prepareStorage, noSymlinks, windowsStorageVerified } from './paths.ts';
 import { persistedSnapshot, type Snapshot } from './projection.ts';
+import { windowsStorageAccess } from './windows-storage.ts';
 export interface StoredSnapshot extends Snapshot { partition: string; associated: boolean; ingestedAt: string }
 export class Store {
  private db: DatabaseSync; private secret: Buffer;
  constructor(directory: string, source: string) {
   const root = prepareStorage(directory, source);
+  const verifyAcl = windowsStorageVerified(root);
   const secureFile = (name: string, initial: Buffer) => {
    const path = join(root, name);
    try { writeFileSync(path, initial, { flag: 'wx', mode: 0o600 }); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw new Error('STORAGE_UNAVAILABLE'); }
    noSymlinks(path); const s = lstatSync(path);
-   if (!s.isFile() || s.nlink !== 1 || (s.mode & 0o777) !== 0o600 || s.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
+   if (!s.isFile() || s.nlink !== 1) throw new Error('UNSAFE_STORAGE');
+   if (process.platform === 'win32') { if (verifyAcl) windowsStorageAccess(path); }
+   else if ((s.mode & 0o777) !== 0o600 || s.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
    return path;
   };
   const key = secureFile('device.key', randomBytes(32)); this.secret = readFileSync(key);
   if (this.secret.length !== 32) throw new Error('STORAGE_UNAVAILABLE');
   const dbPath = secureFile('usage.sqlite', Buffer.alloc(0));
   for (const suffix of ['-journal', '-wal', '-shm']) {
-   try { noSymlinks(dbPath + suffix); const s = lstatSync(dbPath + suffix); if (!s.isFile() || s.nlink !== 1 || s.uid !== process.getuid!() || (s.mode & 0o077)) throw new Error('UNSAFE_STORAGE'); }
+   try {
+    const path = dbPath + suffix; noSymlinks(path); const s = lstatSync(path);
+    if (!s.isFile() || s.nlink !== 1) throw new Error('UNSAFE_STORAGE');
+    if (process.platform === 'win32') { if (verifyAcl) windowsStorageAccess(path); }
+    else if (s.uid !== process.getuid!() || (s.mode & 0o077)) throw new Error('UNSAFE_STORAGE');
+   }
    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('UNSAFE_STORAGE'); }
   }
   this.db = new DatabaseSync(dbPath);

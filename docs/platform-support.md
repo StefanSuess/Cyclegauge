@@ -7,7 +7,7 @@ Cyclegauge for Kiro IDE is an unofficial project. The table separates what has b
 | macOS | Verified target: synthetic tests, plus VSIX installation, activation, status bar and detail view observed in Kiro 1.2.56. |
 | Ubuntu | **Unverified.** The code has Linux default paths (`${XDG_CONFIG_HOME:-~/.config}/Kiro`, `${XDG_DATA_HOME:-~/.local/share}/Cyclegauge`), but no native verification has been done. |
 | RHEL | **Unverified, best effort.** Not an officially supported Kiro platform. |
-| Windows | **Unverified, and storage is deliberately disabled.** The extension fails closed until owner-only ACL creation and validation exist and are verified. |
+| Windows | **Unverified.** Default storage relies on the Windows user profile's permissions; a chosen storage location gets a verified owner-only NTFS DACL and fails closed otherwise; no native Kiro verification has been done. See [platform verification](platform-verification.md). |
 
 macOS observations for one Kiro version do not verify any other platform or version.
 

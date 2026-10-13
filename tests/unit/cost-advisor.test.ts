@@ -217,14 +217,6 @@ test('detail view shows the advisor first, answers are applied through the nativ
   assert.ok(html.indexOf('class="hero ')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
   if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
   assert.ok(commands.has('advisor'));assert.ok(!html.includes('Confirmed by you'));
-  if(process.platform==='win32'){
-   // Windows storage stays fail-closed: no store opens, so there are no observations. The advisor must still render,
-   // say that nothing can be compared, and must not pretend an answer was applied.
-   assert.ok(html.includes('qualified forecast is needed'));
-   assert.match(html,/unavailable/i);
-   answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
-   assert.ok(!html.includes('Confirmed by you'));assert.ok(!/Potential saving|No cheaper option/.test(html));
-  }else{
    assert.ok(html.includes('Unconfirmed'));
    const budget=status;
    answers.push('plan:pro','consumer_prepaid','none');await commands.get('advisor')!();
@@ -235,7 +227,6 @@ test('detail view shows the advisor first, answers are applied through the nativ
    assert.match(html,/Not a guarantee and not an invoice/);
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
    assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
-  }
   controller.dispose();
  }finally{await rm(env.base,{recursive:true,force:true});}
 });

@@ -60,24 +60,24 @@ Kiro databases must never be copied, changed, or checkpointed. The investigation
 | Target | Candidate IDE root | Candidate CLI database | Evidence / required validation |
 | --- | --- | --- | --- |
 | macOS | `~/Library/Application Support/Kiro` | `~/Library/Application Support/kiro-cli/data.sqlite3` | Kiro 1.2.37 paths/shapes observed; synthetic collector tests pass; live VSIX status/detail verified in Kiro 1.2.56 |
-| Windows | `%APPDATA%\Kiro` | Discover or configure explicitly; no verified default | Unverified; owned storage currently fails closed pending ACL support; test native/WSL separation, NTFS replacement/sharing, ACLs, drive/UNC paths, case and Unicode |
-| Ubuntu | `${XDG_CONFIG_HOME:-~/.config}/Kiro` | `${XDG_DATA_HOME:-~/.local/share}/kiro-cli/data.sqlite3` | Inferred candidates only; test XDG overrides, permissions, atomic rename, watch behavior, packaging |
+| Windows | `%APPDATA%\Kiro` | Discover or configure explicitly; no verified default | IDE root and `logs/<timestamp>/window1/exthost/kiro.kiroAgent/q-client` observed by the maintainer on 2026-10-14 (extension hidden by Explorer); native Kiro behaviour unverified; owner-only local NTFS storage implemented; test native/WSL separation, NTFS replacement/sharing, ACLs, drive/UNC paths, case and Unicode |
+| Ubuntu | `${XDG_CONFIG_HOME:-~/.config}/Kiro` | `${XDG_DATA_HOME:-~/.local/share}/kiro-cli/data.sqlite3` | IDE root `~/.config/Kiro` and `logs/<timestamp>/window1/exthost/kiro.kiroAgent/q-client.log` observed by the maintainer on 2026-10-14; CLI database path still inferred; test XDG overrides, permissions, atomic rename, watch behavior, packaging |
 | RHEL | Same XDG candidates as Ubuntu | Same inferred XDG candidate | Unverified independently of Ubuntu; test supported versions, dependencies, SELinux denials, and filesystem behavior |
 
 `~/.kiro/sessions` is observed on macOS; treat it as a candidate elsewhere, not a guarantee. Support explicit roots and separate source instances for multiple installations, containers, remote homes, and WSL. Do not merge host and guest histories implicitly. Record source timezone assumptions for offset-free logs; travel and DST can make historical timestamps ambiguous. Local days may last 23 or 25 hours; billing reset timestamps remain UTC.
 
-Windows/Linux release validation, alternate account adapters and richer presentation remain deferred. The current package targets the local Kiro IDE extension host; VSIX installation alone does not validate those other platforms.
+Windows/Linux native release acceptance remains pending; see [platform verification](docs/platform-verification.md) for the automated host checks. Alternate account adapters remain deferred. The current package targets the local Kiro IDE extension host; VSIX installation alone does not validate those other platforms.
 
 ## Implemented Milestone 1 decisions
 
 - `src/source.ts`: depth-constrained log discovery, explicit read-only file descriptors, no symlinks, bounded lines/files and stable metadata checks around reads. An unstable file yields no projections. No source SQLite connection is ever created.
 - `src/projection.ts` and `src/time.ts`: command/success validation, exact JSON numeric lexical tokens via the Node reviver context, CREDIT allowlist and declared timezone/DST handling. Raw parsed envelopes remain transient; only userId is narrowly projected in memory for partitioning. Original validated timestamp spelling/offset is retained alongside UTC instants.
-- `src/store.ts`: owner-only app directory/key/database, HMAC tokens, per-source import transactions, durable deduplication, private source fingerprints/lengths and fixed-code evidence. Persisted projections are revalidated before querying. Windows ACL enforcement remains unavailable.
+- `src/store.ts`: owner-only app directory/key/database, HMAC tokens, per-source import transactions, durable deduplication, private source fingerprints/lengths and fixed-code evidence. Persisted projections are revalidated before querying. On Windows the default profile location relies on profile permissions; a chosen location uses verified owner-only NTFS DACLs via built-in Windows PowerShell/.NET; unavailable or unsafe ACLs fail closed.
 - `src/collector.ts`: full bounded rescans replace optimized cursors in this small implementation. This prevents missed same-size replacements; fingerprints and lengths retain source-change evidence. Unknown interval consumption remains unknown.
 - `src/decimal.ts` and `src/view.ts`: decimal strings/BigInt arithmetic, freshness/conflict/account isolation, conservative interval classification and explicit allocation, plus independent Milestone 3 history/forecast modules.
 - `src/cli.ts`: local text/JSON query, fixed errors and no private identity/path diagnostic output. No live watcher, automatic migration, pruning or account selector.
 
-Read stability checks detect ordinary concurrent writes/replacement; they do not claim a filesystem snapshot or protection against a malicious local actor able to swap ancestors/metadata during a read. Symlink checks and file identity comparisons fail closed on detected escapes. Restrictive storage permissions protect against other users on verified POSIX filesystem behavior; Windows protections are a required future gate.
+Read stability checks detect ordinary concurrent writes/replacement; they do not claim a filesystem snapshot or protection against a malicious local actor able to swap ancestors/metadata during a read. Symlink checks and file identity comparisons fail closed on detected escapes. Restrictive storage permissions protect against other users on verified POSIX filesystem behavior; Windows DACL enforcement and native acceptance are tracked in [platform verification](docs/platform-verification.md).
 
 ## Milestone 3 core and future optimizer boundary
 
