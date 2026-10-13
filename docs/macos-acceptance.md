@@ -17,16 +17,21 @@ Record: macOS version and architecture, Kiro version (About), SHA-256, run id. S
 
 ## 1. Isolated instance
 
-Run the exact [synthetic setup and CLI preflight in development.md](development.md#reproducible-synthetic-native-acceptance-setup), in the same shell. It defines `$D` and creates 36 invented daily account-response envelopes ending at the current UTC time. Do not use a static 2030 fixture or copy real logs. The preflight must print `SYNTHETIC_PREFLIGHT_PASS`.
-
-Quit any previous isolated instance for that profile; this must print zero:
+After installing development dependencies (`pnpm install --frozen-lockfile`), use the
+[simple synthetic setup](synthetic-demo.md) with the exact candidate from step 0:
 
 ```sh
-pgrep -f -- "--user-data-dir $D/user-data" | wc -l
-HOME="$D/home" /Applications/Kiro.app/Contents/MacOS/Kiro --user-data-dir "$D/user-data" --extensions-dir "$D/extensions" --new-window "$D/workspace"
+pnpm demo:setup --open --vsix "path/to/candidate.vsix"
 ```
 
-Do not sign in or use Kiro's agent. Install the exact candidate VSIX in this instance. Synthetic freshness is relative to setup time; create a new profile if more than 24 hours pass. The current-date setup spans UTC cycles, preserves counter resets, and uses explicit UTC settings and timestamp offsets.
+Setup prints synthetic ingestion/repeat-import PASS, a regular qualified forecast and VSIX content verification
+PASS, then opens **SYNTHETIC DEMO - not real usage**. Use the printed demo folder as `$D` in the advanced checks
+below. It contains 36 invented daily observations, separate preflight/native stores, and `synthetic-anchor.txt`.
+Install the printed `install-this.vsix` in that window; it is a byte-for-byte copy of the supplied candidate.
+
+Do not sign in or use Kiro's agent. Create a fresh demo if more than 24 hours pass. The current-date source spans
+UTC cycles, preserves counter resets, and has explicit UTC settings and timestamp offsets. To reopen, run the
+printed `node ".../open-demo.mjs"` command.
 
 ## A. Fresh install (record pass / fail / blocked)
 
@@ -66,7 +71,7 @@ Do not sign in or use Kiro's agent. Install the exact candidate VSIX in this ins
 
 ## E. Cost Advisor on this exact candidate (required before publication)
 
-Use the exact current-date [development setup](development.md#reproducible-synthetic-native-acceptance-setup) and its preflight, not an unspecified generator. Run the candidate in a fresh profile. In the Advisor choose **Pro Max → Personal subscription (consumer) → No purchased add-on credits**. The 5000-credit reported limit, fresh pooled forecast and 20 invented credits/day exercise a modelled next-reset difference. Record the exact candidate SHA-256 and setup UTC anchor with E1–E6 results.
+Use the current-date [synthetic setup](synthetic-demo.md) with `--vsix` pointing at the exact candidate; its preflight must pass. Run the candidate in a fresh profile. In the Advisor choose **Pro Max → Personal subscription (consumer) → No purchased add-on credits**. The 5000-credit reported limit, fresh pooled forecast and 20 invented credits/day exercise a modelled next-reset difference. Record the exact candidate SHA-256 and setup UTC anchor with E1–E6 results.
 
 | # | Check | Expected |
 |---|---|---|

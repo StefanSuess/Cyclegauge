@@ -53,6 +53,10 @@ It shows "Collecting data" until Kiro has written account usage to its logs and 
 
 To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io): `pnpm install --frozen-lockfile && pnpm package:vsix`, then install the file from `dist/`.
 
+**Test with invented usage:** after installing dependencies, run `pnpm demo:setup --open`. Follow the
+[five-check synthetic demo guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/synthetic-demo.md).
+Setup uses the same command across platforms; Windows currently checks the expected unsupported-storage state.
+
 **Upgrading from 0.5.2 or an earlier build?** The default history directory and compatibility settings change. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-052-or-an-earlier-build) before installing to retain access to existing history.
 
 ## Privacy

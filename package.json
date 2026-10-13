@@ -86,6 +86,7 @@
     }
   },
   "scripts": {
+    "demo:setup": "node --disable-warning=ExperimentalWarning scripts/demo/setup.mjs",
     "test:host": "node --disable-warning=ExperimentalWarning scripts/test-extension-host.ts",
     "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
     "typecheck": "tsc --noEmit",
