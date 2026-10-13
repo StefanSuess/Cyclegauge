@@ -9,7 +9,7 @@
 [![Ubuntu beta](https://img.shields.io/badge/Ubuntu-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 [![Windows beta](https://img.shields.io/badge/Windows-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
-[![CI + coverage](https://img.shields.io/github/actions/workflow/status/StefanSuess/Cyclegauge/ci.yml?branch=main&label=CI%20%2B%20coverage)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI + coverage ≥80%](https://img.shields.io/github/actions/workflow/status/StefanSuess/Cyclegauge/ci.yml?branch=main&label=CI%20%2B%20coverage%20%E2%89%A580%25)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![CI VSIX attestations](https://img.shields.io/badge/CI%20VSIX-attestations-blue)](https://github.com/StefanSuess/Cyclegauge/attestations)
 
 [![Open VSX version](https://img.shields.io/open-vsx/v/StefanSuess/cyclegauge)](https://open-vsx.org/extension/StefanSuess/cyclegauge)
