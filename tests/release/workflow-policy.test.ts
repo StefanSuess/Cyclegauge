@@ -6,8 +6,15 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf
 
 test('normal CI retains read-only permissions and has no publishing credentials', () => {
   const ci = read('../../.github/workflows/ci.yml');
+  const [normalCi, attestationJob] = ci.split(/^  attest:\s*$/m);
+  assert.ok(attestationJob);
   assert.match(ci, /^permissions:\s*\n  contents: read\s*$/m);
-  assert.doesNotMatch(ci, /id-token:\s*write|contents:\s*write|OPENVSX_PAT|ovsx publish/);
+  assert.doesNotMatch(normalCi, /id-token:\s*write|attestations:\s*write/);
+  assert.match(attestationJob, /if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch'\) \}\}/);
+  assert.match(attestationJob, /needs: \[verify, candidate, candidate-host\]/);
+  assert.match(attestationJob, /id-token: write/);
+  assert.match(attestationJob, /attestations: write/);
+  assert.doesNotMatch(ci, /contents:\s*write|OPENVSX_PAT|ovsx publish/);
 });
 
 test('release is manual-only and separates protected OIDC and PAT publishing permissions', () => {
