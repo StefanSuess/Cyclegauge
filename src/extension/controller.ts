@@ -18,7 +18,7 @@ export interface ExtensionUi {
  onCostCommand?(id: 'advisor', callback: () => Promise<void>): void;
  dispose(): void;
 }
-export interface ExtensionOptions { source: string; storage: string; timezone: string; now?: () => string; maxAgeHours?: number }
+export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
  let store: Store | undefined;
@@ -48,7 +48,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   if (running) return running;
   running = (async () => {
    try {
-    store ??= new Store(options.storage, options.source);
+    store ??= new Store(options.storage, options.source, options.profileStorage);
     const now = (options.now ?? (() => new Date().toISOString()))();
     const imported = await collect(options.source, store, options.timezone, now);
     const snapshots=store.snapshots();

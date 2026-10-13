@@ -7,7 +7,6 @@ import { spawnSync } from 'node:child_process';
 import { Store } from '../../src/store.ts';
 import { parseLine } from '../../src/projection.ts';
 import { windowsStorageCheck } from '../../src/windows-storage.ts';
-import { defaultStorage } from '../../src/paths.ts';
 
 const windows = { skip: process.platform !== 'win32' ? 'Windows DACL enforcement requires Windows' : false };
 function fixture(t: { after(fn: () => void): void; skip(message?: string): void }) {
@@ -60,17 +59,16 @@ for (const name of ['device.key', 'usage.sqlite', 'usage.sqlite-journal', 'usage
   acl(file, `$a=[System.IO.File]::GetAccessControl($p); if (@($a.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier]) | Where-Object {$_.IdentityReference.Value -eq 'S-1-1-0'}).Count -ne 1) {exit 2}`);
  });
 }
-test('Windows default profile storage opens without the DACL check; a chosen location still requires it', windows, t => {
- const f = fixture(t); const saved = { local: process.env.LOCALAPPDATA, system: process.env.SystemRoot };
+test('Windows profile storage opens without the DACL check; a chosen location still requires it', windows, t => {
+ const f = fixture(t); const system = process.env.SystemRoot;
  try {
-  process.env.LOCALAPPDATA = f.base; delete process.env.SystemRoot; // the check cannot run without SystemRoot
-  const store = new Store(defaultStorage(), f.source); store.close();
-  assert.equal(existsSync(join(f.base, 'Cyclegauge', 'device.key')), true);
-  linkSync(join(f.base, 'Cyclegauge', 'device.key'), join(f.base, 'synthetic-hardlink'));
-  assert.throws(() => new Store(defaultStorage(), f.source), /^Error: UNSAFE_STORAGE$/);
+  delete process.env.SystemRoot; // the check cannot run without SystemRoot
+  new Store(f.storage, f.source, true).close();
+  assert.equal(existsSync(join(f.storage, 'device.key')), true);
   assert.throws(() => new Store(f.storage, f.source), /^Error: UNSAFE_STORAGE$/);
-  assert.equal(existsSync(f.storage), false);
- } finally { process.env.LOCALAPPDATA = saved.local; process.env.SystemRoot = saved.system; }
+  linkSync(join(f.storage, 'device.key'), join(f.base, 'synthetic-hardlink'));
+  assert.throws(() => new Store(f.storage, f.source, true), /^Error: UNSAFE_STORAGE$/);
+ } finally { process.env.SystemRoot = system; }
 });
 test('Windows rejects a file owned by another principal', windows, t => {
  const f = fixture(t); new Store(f.storage, f.source).close();

@@ -26,13 +26,13 @@ try {
   if (!entry.name.startsWith('extension/')) continue;
   const path = join(base, entry.name); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, entry.data);
  }
- const source = join(base, 'synthetic source ü'), storage = join(base, 'synthetic owned ü');
+ const source = join(base, 'synthetic source ü');
  const logs = join(source, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent');
  mkdirSync(logs, { recursive: true });
  writeFileSync(join(logs, 'q-client.log'), '2030-01-01T00:00:00Z [info] synthetic '+JSON.stringify({ commandName: 'GetUsageLimitsCommand', output: { userInfo: { userId: 'synthetic-host-account' }, prompt: 'SYNTHETIC_CONTENT_SENTINEL', nextDateReset: '2030-02-01T00:00:00Z', usageBreakdownList: [{ resourceType: 'CREDIT', currentUsageWithPrecision: 1.25, usageLimitWithPrecision: 100 }] }, metadata: { httpStatusCode: 200 } })+'\n');
  mkdirSync(join(profile, 'User'), { recursive: true });
  writeFileSync(join(profile, 'User', 'settings.json'), JSON.stringify({
-  'cyclegauge.sourceRoot': source, 'cyclegauge.storageRoot': storage, 'cyclegauge.sourceTimezone': 'UTC',
+  'cyclegauge.sourceRoot': source, 'cyclegauge.sourceTimezone': 'UTC',
   'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'extensions.autoUpdate': false,
   'extensions.autoCheckUpdates': false, 'workbench.startupEditor': 'none', 'security.workspace.trust.enabled': false,
  }));

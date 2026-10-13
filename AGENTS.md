@@ -24,7 +24,7 @@
 - Kiro-owned files/databases are **strictly read-only**: no writes, repairs, migrations, checkpoints, permission/settings changes, journal changes, exports or SQLite sidecar creation.
 - Use explicit read-only handles and allowlisted roots. Do not recursively import source trees or unrelated directories; reject symlink escapes.
 - SQLite `query_only` is not enough to prove non-mutation; `immutable=1` is not a generally safe reader for a live database/WAL. If safety or freshness cannot be proved, return unavailable, not fabricated observations.
-- Write only to Cyclegauge-owned storage outside Kiro and the repository; never put real billing observations in git or automated tests.
+- Write only to Cyclegauge-owned storage: the editor's per-extension storage folder, the per-user application data folder (CLI) or an explicitly chosen location. Never write among Kiro's logs or into any other Kiro-owned file or folder, and never into the repository; never put real billing observations in git or automated tests.
 - Package only the extension bundle, manifest and public documentation. Never include source logs, stores, tests or dependency caches in VSIX artifacts.
 
 ## Data correctness and evidence

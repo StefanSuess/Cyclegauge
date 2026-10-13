@@ -64,7 +64,7 @@
         "cyclegauge.storageRoot": {
           "type": "string",
           "default": "",
-          "description": "Private Cyclegauge storage root; leave empty for the platform default.",
+          "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
           "scope": "machine"
         },
         "cyclegauge.sourceTimezone": {

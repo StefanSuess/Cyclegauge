@@ -6,10 +6,12 @@ import { join } from 'node:path';
 
 const base = process.env.CYCLEGAUGE_SYNTHETIC_TEST_ROOT!;
 const source = join(base, 'synthetic source ü');
-const storage = join(base, 'synthetic owned ü');
+// No storage setting: the store must appear in the editor's own per-extension storage folder.
+const globalStorage = join(base, 'profile', 'User', 'globalStorage');
+const owned = () => join(globalStorage, readdirSync(globalStorage).find(name => name.toLowerCase() === 'stefansuess.cyclegauge')!);
 const log = join(source, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent', 'q-client.log');
 function state() {
- const db = new DatabaseSync(join(storage, 'usage.sqlite'), { readOnly: true });
+ const db = new DatabaseSync(join(owned(), 'usage.sqlite'), { readOnly: true });
  try {
   return {
    rows: db.prepare('SELECT body FROM snapshots ORDER BY observed').all().map(r => JSON.parse(r.body as string)),
@@ -67,8 +69,9 @@ export async function run(): Promise<void> {
   }
   phase = 'privacy';
   assert.deepEqual(readdirSync(join(log, '..')), ['q-client.log']);
-  for (const name of readdirSync(storage)) {
-   const bytes = readFileSync(join(storage, name));
+  assert.deepEqual(readdirSync(owned()).filter(name => !name.startsWith('usage.sqlite')), ['device.key']);
+  for (const name of readdirSync(owned())) {
+   const bytes = readFileSync(join(owned(), name));
    for (const marker of ['synthetic-host-account', 'SYNTHETIC_CONTENT_SENTINEL', source]) assert.ok(!bytes.includes(marker));
   }
   phase = 'complete'; report(true);

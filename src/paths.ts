@@ -14,17 +14,20 @@ export function noSymlinks(path: string): void {
   const next = dirname(p); if (p === next) break; p = next;
  }
 }
-export function prepareStorage(path: string, source: string): string {
+// profile: the editor's per-extension storage or the per-user application data default. On Windows
+// those rely on the user profile's own permissions; any other location may be shared and is verified.
+export function prepareStorage(path: string, source: string, profile = false): string {
  const dest = resolve(path), root = resolve(source);
- if (inside(dest, root) || inside(root, dest)) throw new Error('UNSAFE_STORAGE');
+ // Storage may sit beside the logs in the editor's data folder, never among them or around the source.
+ if (inside(root, dest) || inside(dest, join(root, 'logs'))) throw new Error('UNSAFE_STORAGE');
  try {
   noSymlinks(dest);
   for (let p = dest;; p = dirname(p)) {
-   if (existsSync(join(p, '.git')) || /^(Kiro|kiro-cli|\.kiro)$/i.test(p.split(/[\\/]/).at(-1)!)) throw new Error('UNSAFE_STORAGE');
+   if (existsSync(join(p, '.git')) || /^(kiro-cli|\.kiro)$/i.test(p.split(/[\\/]/).at(-1)!)) throw new Error('UNSAFE_STORAGE');
    if (p === dirname(p)) break;
   }
   if (process.platform === 'win32') {
-   if (windowsStorageVerified(dest)) windowsStorageAccess(dest, true); else mkdirSync(dest, { recursive: true });
+   if (profile) mkdirSync(dest, { recursive: true }); else windowsStorageAccess(dest, true);
    noSymlinks(dest);
    if (!lstatSync(dest).isDirectory()) throw new Error('UNSAFE_STORAGE');
    return dest;
@@ -34,11 +37,6 @@ export function prepareStorage(path: string, source: string): string {
   if (!stat.isDirectory() || (stat.mode & 0o777) !== 0o700 || stat.uid !== process.getuid!()) throw new Error('UNSAFE_STORAGE');
   return dest;
  } catch { throw new Error('UNSAFE_STORAGE'); }
-}
-// The default location sits in the user's profile, which Windows already restricts to that user,
-// SYSTEM and administrators. A chosen location may be shared, so its DACL is verified instead.
-export function windowsStorageVerified(path: string): boolean {
- return process.platform === 'win32' && relative(resolve(path), defaultStorage()) !== '';
 }
 export function defaultSource(): string {
  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Kiro');
