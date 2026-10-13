@@ -4,7 +4,7 @@
 
 ## Install the published beta or build a development VSIX
 
-The published macOS beta is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and as the [v0.5.2 GitHub pre-release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2). The repository currently contains the unreleased 0.5.3 development version. To test that version, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
+The published beta is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and under [GitHub Releases](https://github.com/StefanSuess/Cyclegauge/releases). To test unreleased changes, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
 
 ```sh
 pnpm install --frozen-lockfile
@@ -15,13 +15,15 @@ Then run **Extensions: Install from VSIX...** in Kiro and select the file in `di
 
 Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. `cyclegauge.sourceRoot` exists for testing and demos with synthetic logs; normal use leaves it blank. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
 
-## Upgrading from 0.5.2 or an earlier build
+## Upgrading from 0.5.x
 
-Pre-release note: from this development version the extension stores its history in the editor's per-extension storage folder. History in the earlier `Cyclegauge` application-data directory is not moved; set `cyclegauge.storageRoot` to that directory to keep using it.
+<a id="upgrading-from-052-or-an-earlier-build"></a>
 
-Cyclegauge 0.5.2 itself stores history in the previous `EasyKiroGauge` directory. The extension now defaults to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root; on macOS `~/Library/Application Support/Kiro/User/globalStorage/stefansuess.cyclegauge`), so an upgrade with blank storage settings starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted automatically.
+Starting with 0.7.0 the extension stores its history in the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root; on macOS `~/Library/Application Support/Kiro/User/globalStorage/stefansuess.cyclegauge`). An upgrade with blank storage settings therefore starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted.
 
-To keep using your history, disable any earlier extension first, then set **user-level** `cyclegauge.storageRoot` to the directory you previously used before activating this build. On macOS the previous default is `~/Library/Application Support/EasyKiroGauge`; use the full canonical path in the setting. Use only the existing Cyclegauge-owned directory, never Kiro-owned storage. The CLI can select it with `--store-dir`. Do not run two builds against the same directory at once; this build no longer blocks a side-by-side installation.
+Earlier locations: Cyclegauge 0.5.2 used the `EasyKiroGauge` directory; 0.5.3 used the `Cyclegauge` directory (on macOS `~/Library/Application Support/EasyKiroGauge` and `~/Library/Application Support/Cyclegauge`).
+
+To keep using that history, disable any earlier extension first, then set **user-level** `cyclegauge.storageRoot` to the directory you previously used before activating this build, using the full canonical path. A chosen location must be outside Kiro's data folder; use only an existing Cyclegauge-owned directory, never Kiro-owned storage. The CLI can select it with `--store-dir`. Do not run two builds against the same directory at once; side-by-side installation is not blocked.
 
 Transfer any explicit `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` and `easykirogauge.sourceTimezone` values to the corresponding `cyclegauge.*` user settings. The old keys are no longer read; blank current settings use the default source, storage and device timezone. Replace custom `easykirogauge.showUsage` shortcuts with `cyclegauge.showUsage`, then reload the window.
 

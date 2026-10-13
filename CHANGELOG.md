@@ -1,14 +1,35 @@
 # Changelog
 
-All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x) are beta builds; see [versioning](docs/release-process.md#versioning).
+All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x, 0.7.x) are beta builds; see [versioning](docs/release-process.md#versioning).
 
-## Unreleased
+## 0.7.0 (beta, macOS, Windows, Ubuntu)
+
+Cross-platform beta: Windows storage, a new default storage location, three-OS CI with real extension-host tests, and a portable synthetic demo. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+
+**Upgrade note:** the extension's default storage location changed, so history and forecast coverage start fresh. To keep using earlier history, set `cyclegauge.storageRoot` to the directory your earlier version used: 0.5.3 used `Cyclegauge`, 0.5.2 used `EasyKiroGauge` (both under `~/Library/Application Support` on macOS). Nothing is moved or deleted. See the [upgrade guide](docs/usage.md#upgrading-from-05x).
+
+### Added
+
+- Windows storage: default locations rely on the user profile's permissions, and a chosen location gets a verified owner-only NTFS DACL (fails closed otherwise).
+- CI on Windows x64, Ubuntu x64 and macOS ARM64, including one universal candidate VSIX run in a real VS Code extension host on each.
+- A portable synthetic demo (`pnpm demo:setup`, see [the demo guide](docs/synthetic-demo.md)).
+- Documented versioning scheme and agent orchestration rules.
 
 ### Changed
 
-- The extension's default owned storage moves to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root); the CLI keeps the `Cyclegauge` application-data directory. Existing files are not moved, imported or deleted. Set `cyclegauge.storageRoot` to the earlier directory to keep using its history.
-- Windows storage is implemented: default locations rely on the user profile's permissions and a chosen location gets a verified owner-only DACL. Native Windows verification is outstanding and SC1 stays open.
-- CI verifies the unit and release suites and one universal candidate VSIX in a real VS Code extension host on Windows, Ubuntu and macOS. Windows and Linux remain unverified in native Kiro.
+- The extension's default owned storage moves to the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` under the editor's data root); the CLI keeps the `Cyclegauge` application-data directory. Existing files are not moved, imported or deleted.
+- `cyclegauge.sourceRoot` is documented as a testing and demo setting; normal use leaves it blank.
+
+### Platform status
+
+- macOS: beta, with maintainer synthetic-data testing in Kiro 1.2.56.
+- Windows 11 Pro and Ubuntu 26: beta, smoke-tested in native Kiro by the maintainer (a development candidate, 2026-10-14; Kiro versions not recorded). No itemised acceptance yet.
+- RHEL and macOS Intel are unverified.
+
+### Unchanged
+
+- Collector, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+- Advisor answers are never persisted (SC5 open). SC1 (Windows storage protection) is implemented and stays open only for itemised native Windows acceptance.
 
 ## 0.5.3 (beta, macOS)
 

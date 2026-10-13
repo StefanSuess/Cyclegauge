@@ -1,6 +1,6 @@
 # Test the plugin with invented usage
 
-Use the same setup command on **Windows, macOS and Linux**. It creates 36 invented daily observations and a fresh
+The same setup command is designed to run on **Windows, macOS and Linux**; it has been run on macOS only. It creates 36 invented daily observations and a fresh
 isolated Kiro profile, workspace, extension directory and store. Your normal profile and real logs are not used.
 
 ## Start
@@ -60,4 +60,4 @@ For formal release approval, also follow [macos-acceptance.md](macos-acceptance.
 
 Local check on 2026-10-13 (macOS, Node 26.11.1): current-checkout build and supplied-VSIX setup passed ingestion of
 36 observations, repeat-import deduplication, regular forecast and content verification. The packaged Advisor test
-also passed against a stub host. Native UI checks and Windows/Linux execution remain unverified.
+also passed against a stub host. Native UI checks were not part of that run.

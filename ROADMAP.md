@@ -75,6 +75,10 @@ The v0.3.2 baseline has 64 synthetic tests and a locally verified UI, as recorde
 
 Approved 2026-10-10 and implemented as a script-free inline-SVG view; see [M5 validation](docs/milestone-5-validation.md). The original proposal follows. It documented observed cumulative account counters, expected trajectory, lower/higher consumption scenarios, an uncalibrated scenario range, budget line, reset and conditional exhaustion markers, plus optional separate cost visualization. Unknown periods remain visibly distinct from observed endpoints and projected paths. No chart library was used. See [dashboard proposal and acceptance cases](docs/milestone-5-visual-dashboard.md).
 
+## Milestone 6 — Cross-platform readiness (implemented, 0.7.0)
+
+Delivered Windows storage (profile permissions for default locations, a verified owner-only NTFS DACL for a chosen location), the editor's per-extension storage folder as the extension default, CI on Windows, Ubuntu and macOS with one universal VSIX run in a real VS Code extension host on each, and a portable synthetic demo. Evidence: macOS is beta with maintainer synthetic-data testing in Kiro 1.2.56; Windows 11 Pro and Ubuntu 26 are beta, smoke-tested by the maintainer in native Kiro without itemised acceptance; RHEL and macOS Intel are unverified. Version numbers no longer track milestone numbers (see [versioning](docs/release-process.md#versioning)). The remaining gates are tracked in GitHub issues #58–#65.
+
 ## Future milestone — Usage efficiency insights
 
 Separately validate non-content metadata for credit/session, turns, duration, selected models, trends and reliably marked spec/non-spec workflows. Resolve session semantics, account association, duplicates and coverage before aggregation. Require outcome evidence and defensible comparators; longer sessions and non-spec work are not inherently inefficient. Do not collect/analyze prompts, source code, conversations or tool outputs. Any content analysis requires a separate explicit privacy/security design review and opt-in authorization; current AGENTS privacy safeguards remain intact. This milestone adds no metadata analysis.

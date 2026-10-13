@@ -5,11 +5,11 @@
 **Credit usage & forecasting for Kiro IDE**
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
-![Development version 0.5.3 beta](https://img.shields.io/badge/development-0.5.3%20beta-orange)
+![Development version 0.7.0 beta](https://img.shields.io/badge/development-0.7.0%20beta-orange)
 [![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![macOS beta](https://img.shields.io/badge/platform-macOS%20beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Linux unverified](https://img.shields.io/badge/Linux-unverified-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Windows verification pending](https://img.shields.io/badge/Windows-verification%20pending-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Ubuntu beta](https://img.shields.io/badge/Ubuntu-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows beta](https://img.shields.io/badge/Windows-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
 
@@ -43,9 +43,9 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 
 ## Install
 
-Cyclegauge is a **macOS beta** for Kiro IDE (extension ID `StefanSuess.cyclegauge`).
+Cyclegauge is a **beta** for Kiro IDE on macOS, Windows and Ubuntu (extension ID `StefanSuess.cyclegauge`).
 
-1. Install the published macOS beta from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or download the VSIX from the [latest published GitHub pre-release (v0.5.2)](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2) and select **Extensions: Install from VSIX...** in Kiro. Version 0.5.3 is currently the **unreleased development version**, not a GitHub release.
+1. Install the published beta from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or download the VSIX from the [latest GitHub pre-release](https://github.com/StefanSuess/Cyclegauge/releases) and select **Extensions: Install from VSIX...** in Kiro.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
@@ -55,9 +55,9 @@ To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io)
 
 **Test with invented usage:** after installing dependencies, run `pnpm demo:setup --open`. Follow the
 [five-check synthetic demo guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/synthetic-demo.md).
-Setup uses the same command across platforms; Windows currently checks the expected unsupported-storage state.
+Setup uses the same command across platforms.
 
-**Upgrading from 0.5.2 or an earlier build?** The default history directory and compatibility settings change. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-052-or-an-earlier-build) before installing to retain access to existing history.
+**Upgrading from 0.5.x?** The default history directory changes and earlier compatibility settings are no longer read. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-05x) before installing to retain access to existing history.
 
 ## Privacy
 
@@ -72,10 +72,10 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 
 | Platform | Status |
 | --- | --- |
-| macOS | Beta; maintainer-reported synthetic-data testing (Kiro 1.2.56) |
-| Ubuntu | Unverified |
+| macOS | Beta (Apple Silicon; Intel unverified); maintainer-reported synthetic-data testing (Kiro 1.2.56) |
+| Ubuntu | Beta; a development candidate was smoke-tested in native Kiro (Ubuntu 26), no itemised acceptance yet |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
-| Windows | Unverified in native Kiro; storage implemented in development, verification required |
+| Windows | Beta; a development candidate was smoke-tested in native Kiro (Windows 11 Pro), no itemised acceptance yet |
 
 Cross-platform CI and the precise remaining gates are described in [platform verification](https://github.com/StefanSuess/Cyclegauge/blob/main/docs/platform-verification.md). One universal VSIX is retained; generic VS Code host tests do not establish native Kiro support.
 
