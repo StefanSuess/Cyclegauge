@@ -36,7 +36,7 @@ export function defaultSource(): string {
  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'Kiro');
 }
 export function defaultStorage(): string {
- if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'EasyKiroGauge');
- if (process.platform === 'win32') return join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'EasyKiroGauge');
- return join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'EasyKiroGauge');
+ if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Cyclegauge');
+ if (process.platform === 'win32') return join(process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local'), 'Cyclegauge');
+ return join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'Cyclegauge');
 }

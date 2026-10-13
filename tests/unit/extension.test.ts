@@ -8,7 +8,7 @@ import { startExtension } from '../../src/extension/controller.ts';
 const syntheticLine = '2026-10-10 10:00:00.000 [info] synthetic-envelope ' + JSON.stringify({ commandName: 'GetUsageLimitsCommand', input: {}, output: { userInfo: { userId: 'synthetic-account' }, nextDateReset: '2026-11-01T00:00:00.000Z', usageBreakdownList: [{ resourceType: 'CREDIT', unit: 'INVOCATIONS', currentUsageWithPrecision: 4.35, usageLimitWithPrecision: 50, nextDateReset: '2026-11-01T00:00:00.000Z', bonuses: [], overageCredits: [] }] }, metadata: { httpStatusCode: 200 } }) + '\n';
 
 test('activation imports a synthetic account snapshot and click opens details', async () => {
- const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-easykiro-extension-')));
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-cyclegauge-extension-')));
  const root = join(base, 'Kiro'); const store = join(base, 'owned');
  const logDir = join(root, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent');
  await mkdir(logDir, { recursive: true });
@@ -34,7 +34,7 @@ test('activation imports a synthetic account snapshot and click opens details', 
 });
 
 test('unchanged snapshot becomes stale without a new observation', async () => {
- const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-easykiro-stale-')));
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-cyclegauge-stale-')));
  const root = join(base, 'Kiro'); const store = join(base, 'owned');
  const logDir = join(root, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent');
  await mkdir(logDir, { recursive: true });
@@ -52,7 +52,7 @@ test('unchanged snapshot becomes stale without a new observation', async () => {
 });
 
 test('log change refreshes the status and disposal stops later updates', async () => {
- const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-easykiro-change-')));
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-cyclegauge-change-')));
  const root = join(base, 'Kiro'); const store = join(base, 'owned');
  const dir = join(root, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent');
  await mkdir(dir, { recursive: true });
@@ -75,7 +75,7 @@ test('log change refreshes the status and disposal stops later updates', async (
 });
 
 test('detail view renders a qualified forecast and observed daily coverage from synthetic account logs', async () => {
- const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-easykiro-forecast-')));
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-cyclegauge-forecast-')));
  const root=join(base,'source'), storage=join(base,'owned');
  const dir=join(root,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
  await mkdir(dir,{recursive:true});
