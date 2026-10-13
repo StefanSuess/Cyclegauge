@@ -1,10 +1,10 @@
 # Installing and using Cyclegauge for Kiro IDE
 
-> Technical identity: extension `cyclegauge`, commands and settings `cyclegauge.*`. Old `easykirogauge.*` settings still work as a deprecated fallback and the v0.5.1 command IDs remain aliases for now. The storage folder is still named `EasyKiroGauge`. Moving from an installed EasyKiroGauge build is a manual step, see [identity-migration.md](identity-migration.md).
+> Extension ID: `StefanSuess.cyclegauge`; commands and settings use the `cyclegauge.*` prefix.
 
-## Install a VSIX (pre-release)
+## Install the published beta or build a development VSIX
 
-There is no marketplace listing yet. Build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
+The published macOS beta is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and as the [v0.5.2 GitHub pre-release](https://github.com/StefanSuess/Cyclegauge/releases/tag/v0.5.2). The repository currently contains the unreleased 0.5.3 development version. To test that version, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
 
 ```sh
 pnpm install --frozen-lockfile
@@ -13,7 +13,15 @@ pnpm package:vsix
 
 Then run **Extensions: Install from VSIX...** in Kiro and select the file in `dist/`. Reload the window if Kiro asks, then open **Cyclegauge: Show Account Credits** (command ID `cyclegauge.showUsage`) or click the status-bar item. This command only opens the local billing view.
 
-Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone` (the old `easykirogauge.*` keys are read when the new one is empty). Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
+Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
+
+## Upgrading from 0.5.2 or an earlier build
+
+Cyclegauge 0.5.2 itself stores history in the previous `EasyKiroGauge` directory. This build defaults to a new `Cyclegauge` directory, so an upgrade with blank storage settings starts with no prior history or historical forecast coverage. Existing directories are not moved, imported or deleted automatically.
+
+To keep using your history, disable any earlier extension first, then set **user-level** `cyclegauge.storageRoot` to the directory you previously used before activating this build. On macOS the previous default is `~/Library/Application Support/EasyKiroGauge`; use the full canonical path in the setting. Use only the existing Cyclegauge-owned directory, never Kiro-owned storage. The CLI can select it with `--store-dir`. Do not run two builds against the same directory at once; this build no longer blocks a side-by-side installation.
+
+Transfer any explicit `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` and `easykirogauge.sourceTimezone` values to the corresponding `cyclegauge.*` user settings. The old keys are no longer read; blank current settings use the default source, storage and device timezone. Replace custom `easykirogauge.showUsage` shortcuts with `cyclegauge.showUsage`, then reload the window.
 
 ## Requirements and command-line tool
 
@@ -41,7 +49,7 @@ Options:
 
 Default source candidates: macOS `~/Library/Application Support/Kiro`; Windows `%APPDATA%\Kiro`; Linux `${XDG_CONFIG_HOME:-~/.config}/Kiro`. Only `logs/<run>/<window>/exthost/kiro.kiroAgent/q-client.log` and numeric suffixes such as `q-client.log.1` are read. These suffixes are an explicitly supported synthetic rotation convention, not a verified Kiro rotation contract.
 
-Default owned storage: macOS `~/Library/Application Support/EasyKiroGauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/EasyKiroGauge`. The design candidate for Windows is `%LOCALAPPDATA%\EasyKiroGauge`, but this implementation **fails closed on Windows** until owner-only ACL creation and validation are implemented and verified. Existing storage must have owner-only access. Source roots, Git repositories, symlink paths and Kiro storage directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
+Default owned storage: macOS `~/Library/Application Support/Cyclegauge`; Linux `${XDG_DATA_HOME:-~/.local/share}/Cyclegauge`. The design candidate for Windows is `%LOCALAPPDATA%\Cyclegauge`, but this implementation **fails closed on Windows** until owner-only ACL creation and validation are implemented and verified. Existing storage must have owner-only access. Source roots, Git repositories, symlink paths and Kiro storage directories are rejected as store locations. On macOS, use canonical paths when a path includes system aliases such as `/tmp` or `/var`.
 
 The CLI prints observed usage, reported limit, remaining reported credits, reset UTC instant, as-of time, quality flags and fixed import diagnostic codes. A successful query exits 0 even when values are unavailable; configuration, storage or fatal collection failures exit 1 with a fixed code. JSON output follows the same policy.
 
@@ -52,4 +60,4 @@ The CLI prints observed usage, reported limit, remaining reported credits, reset
 - **Settings changes do not apply.** `cyclegauge.sourceRoot`, `cyclegauge.storageRoot` and `cyclegauge.sourceTimezone` are read when the extension activates. Reload the window after changing them.
 - **Node.js.** Node.js 24.13+ is required to build and for the CLI. The installed extension runs inside Kiro's own extension host; which Node features that host provides has only been observed on Kiro 1.2.56 (macOS), and no minimum Kiro version is established.
 - **Remote or SSH workspaces.** Not verified. The extension is declared as a UI extension that reads local files.
-- **Removing local data.** Delete the storage folder (still named `EasyKiroGauge`) listed under "Default owned storage" above. Kiro's own files are never touched.
+- **Removing local data.** Delete the storage folder listed under "Default owned storage" above. Kiro's own files are never touched.

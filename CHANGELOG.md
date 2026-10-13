@@ -4,7 +4,7 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 ## 0.5.3 (beta, macOS)
 
-Documentation, support-metadata and release-process update. No change to extension behavior, collector, store, projection, billing, forecast or Cost Advisor algorithms, data formats or storage.
+Documentation, support-metadata and release-process update, with removal of deprecated command and setting aliases and a new default storage directory. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
 
 ### Added
 
@@ -16,6 +16,9 @@ Documentation, support-metadata and release-process update. No change to extensi
 ### Changed
 
 - Documentation now describes reported credits without assuming a base-only limit.
+- Deprecated `easykirogauge.*` settings and the `easykirogauge.showUsage` command alias are removed. Transfer any explicit source, storage and timezone settings to their `cyclegauge.*` keys before upgrading.
+- The default owned storage directory changes from `EasyKiroGauge` to `Cyclegauge`, including for users upgrading from Cyclegauge 0.5.2. Existing files are not moved, imported or deleted automatically. Without an explicit storage-root setting, existing history and forecast coverage will not appear in the new directory. See the [upgrade guide](docs/usage.md#upgrading-from-052-or-an-earlier-build) to reuse prior history.
+- The side-by-side installation gate is removed. Disable the earlier extension before configuring a shared storage directory.
 
 ### Unchanged
 
