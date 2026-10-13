@@ -1,47 +1,28 @@
 # Agent workflow
 
-The orchestrator plans, delegates only when useful, integrates and opens the PR.
-Priorities: correctness and security, minimal supervision, low token use, small focused PRs.
+Read with [AGENTS.md](../AGENTS.md). Minimize **total cost** (model tokens, agent/tool calls, CI and human time) without weakening safety, correctness or release gates.
 
-## Pick the lightest strategy
+## Choose the least costly sufficient approach
 
-| Task | Strategy |
-| --- | --- |
-| Trivial (typo, one-line fix) | One agent, no orchestration, no review agent. |
-| Moderate | the orchestrator implements directly, or hands well-scoped mechanical work to `implementer` (cheap tier). |
-| Complex | Split into independently testable tasks, delegate suitable ones, integrate, then `reviewer`. |
-| High-risk (storage, source reading, billing, forecasts, packaging, workflows, security) | Stronger reasoning for design, mandatory independent `reviewer` pass. |
+- **Trivial:** One agent, direct edit; no plan document, subagent or separate reviewer.
+- **Moderate:** Work directly, or delegate narrowly scoped mechanical edits to a cheap capable implementer **only** if the handoff pays off.
+- **Complex:** Define short acceptance criteria; split/parallelize only when independent tasks justify the overhead.
+- **High-risk** (storage, data reading, billing, forecasts, packaging, CI/release, security): use stronger reasoning as needed and always obtain independent read-only review before a PR.
 
-Do not spawn subagents to demonstrate orchestration. At most two concurrent workers unless more parallelism clearly pays off.
+Choose the least expensive *currently available* model that can reliably complete each task; avoid hard-coded model maps that become stale. Escalate on real ambiguity, repeated bounded failure or high stakes. Several failed cheap attempts may cost more than one strong pass.
 
-## Rules
+Start with one worker, at most two concurrent unless more clearly saves time/cost. Don't spawn agents just to demonstrate orchestration. Read relevant files instead of the entire repo; pass delegates only the brief, necessary context and criteria. Avoid speculative refactors, oversized plans, duplicate reviews, repeated analysis, unbounded retries and verbose reports. Ask approval before new paid services, external API charges or substantial optional compute.
 
-1. For nontrivial work, write acceptance criteria first (what must be true, which tests prove it).
-2. One writer per file at a time. Parallel write tasks use separate git worktrees on separate branches.
-3. Run `pnpm typecheck`, `pnpm test`, and `python3 tests/fixtures/kiro/validate.py` plus `git diff --check` when fixtures or docs change.
-4. Review nontrivial changes with `reviewer` (no Bash or edit tools) before the PR: the orchestrator runs the checks and passes the diff, criteria and results; the author does not self-review high-risk work.
-5. Fix clear, bounded failures (a few attempts). Stop and report persistent or ambiguous blockers.
-6. Work on a feature branch and commit there; stage explicit files only (see AGENTS.md). One small PR per task.
+## Working rules
 
-## PR contents
+1. Define concise acceptance criteria and relevant tests for nontrivial changes. One writer per file; simultaneous edits need isolated branches/worktrees. Claude Code and Codex must not edit the same files together.
+2. For code, run `pnpm typecheck` and `pnpm test`. For fixtures run `python3 tests/fixtures/kiro/validate.py`; for fixture/docs changes run `git diff --check`. Add checks when relevant, especially for release changes. **Never bypass existing CI/security gates for savings.**
+3. Use read-only `reviewer` for risk/complexity when worthwhile and **always** for high-risk changes. Provide the diff, criteria and check results; the author cannot be sole high-risk reviewer.
+4. Resolve a few clear bounded failures, then report blockers instead of escalating cost indefinitely.
+5. Commit explicit intended files on a branch and open a focused PR. Never merge, tag, release, deploy, publish, change secrets or weaken security checks without explicit approval. Prefer cloud-based work; native IDE acceptance is the exception.
 
-Short summary, test results, known limitations, and decisions needing the maintainer's input.
-Public text never includes Claude Code session URLs or private thread links.
+## Agent-specific integration
 
-## Never without explicit maintainer approval
+Claude Code uses `.claude/agents/implementer.md` for inexpensive scoped changes and `.claude/agents/reviewer.md` for independent review. Codex does **not** load Claude-specific role files automatically: include the applicable instructions in delegated prompts. Fixed model names in role files are defaults, not a requirement to invoke those agents.
 
-Merge, tag, release, deploy, publish, change secrets, or relax security checks. Preserve data formats, billing semantics and privacy; no real Kiro data; work in the cloud by default (native Kiro UI tests are the exception).
-
-## Tools and model tiers
-
-Roles are tool-neutral; only the model per role differs. Codex reads this file through AGENTS.md.
-
-| Role | Claude Code | Codex |
-| --- | --- | --- |
-| Orchestrator, reviewer | Sonnet (high effort for review) | Sol |
-| High-risk design or review | Opus | Astra |
-| Implementer | Haiku (medium effort) | Luna |
-
-Codex has no `.claude/agents/` files: give its implementer or reviewer the matching file's text as the task prompt and keep the same read-only reviewer rule. Never run both tools on the same files at once.
-
-Claude Code subagents live in `.claude/agents/`: `implementer` (cheap tier, medium effort) and `reviewer` (Sonnet, high effort, tools: Read, Grep, Glob).
+Keep PR text short: summary, checks **actually** run, limitations and decisions. No private Kiro data, Claude session URLs or private thread links.

@@ -34,7 +34,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),['cyclegauge.costAdvisor','cyclegauge.showUsage','easykirogauge.showUsage']);
+  assert.deepEqual([...commands.keys()].sort(),['cyclegauge.costAdvisor','cyclegauge.showUsage']);
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   assert.deepEqual(options,{enableScripts:false,enableCommandUris:false,localResourceRoots:[]});
