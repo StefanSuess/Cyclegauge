@@ -48,6 +48,21 @@ A published Open VSX version cannot be edited. If post-publish acceptance sectio
 
 Record version, SHA-256, CI run, Kiro and macOS versions in the release notes. Do not collect telemetry; user feedback arrives through GitHub issues, which must never contain real Kiro data.
 
+## Versioning
+
+Versions are plain `major.minor.patch`. Extension registries do not accept semantic-versioning pre-release tags such as `-beta.1`, so the minor number carries that meaning, following the [VS Code recommendation](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#prerelease-extensions):
+
+| Part | Rule |
+| --- | --- |
+| Major | `0` while Cyclegauge is in initial development: defaults, settings and stored data may change between minor versions. `1` is the first release with a compatibility promise. |
+| Minor, **odd** (`0.5.x`, `0.7.x`) | Pre-release (beta) line, published with the pre-release flag. New features and behaviour changes start a new odd minor. |
+| Minor, **even** (`0.6.x`, `0.8.x`) | Stable line, published without the pre-release flag. An even minor is the stabilized form of the odd line before it and adds no features of its own. |
+| Patch | Fixes and documentation within a line; no new features. |
+
+Version numbers do not track milestone numbers. A version is never reused or republished; a correction is a higher patch.
+
+The release workflow currently publishes pre-releases only (`VSIX_NOT_PRERELEASE` blocks anything else), so a stable even-minor release needs a reviewed change to that gate first. A stable line also needs native acceptance on every platform it names as supported.
+
 ## Support links and marketplace listing
 
 The root `README.md` serves both GitHub and the extension listing. `scripts/release/build-vsix.ts` copies it and `package.json` into the staging directory; `.vscodeignore` includes both in the VSIX. The README's single **Support Cyclegauge** section is the main place to discover optional Ko-fi support. Other user guides link to the README rather than repeat the request.
