@@ -1,8 +1,8 @@
-# CI and release-candidate build for the macOS beta line.
+# Synthetic cross-platform verification and one universal release candidate.
 #
 # Rules (security checkpoint SC3): read-only token, no secrets, third-party actions pinned by commit
 # SHA, synthetic data only. Nothing here installs or runs Kiro and nothing publishes: the candidate is
-# an artifact for native macOS acceptance; publishing to Open VSX happens only through the manually
+# an artifact for separate native Kiro acceptance; publishing to Open VSX happens only through the manually
 # dispatched, environment-approved release.yml workflow.
 name: ci
 
@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-24.04]
+        os: [macos-latest, ubuntu-24.04, windows-2025]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,7 +52,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: python3 tests/fixtures/kiro/validate.py
 
-  # The candidate is built ONCE here. The macOS job below verifies that exact file by SHA-256 and the
+  # The candidate is built ONCE here. Host jobs verify that exact file by SHA-256 and the
   # build job rebuilds it independently to compare payload hashes (ZIP bytes and timestamps are not compared).
   candidate:
     name: release candidate (built once)
@@ -95,11 +95,21 @@ jobs:
           path: release/
           retention-days: 90
 
-  candidate-macos:
-    name: release candidate on macOS
+  candidate-host:
+    name: release candidate on ${{ matrix.platform }}
     needs: candidate
-    runs-on: macos-latest
-    timeout-minutes: 10
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: macOS
+          - os: ubuntu-24.04
+            platform: Ubuntu
+          - os: windows-2025
+            platform: Windows
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,12 +121,18 @@ jobs:
         with:
           name: release-candidate
           path: release
-      - name: The downloaded file is the file that was built
-        env:
-          EXPECTED: ${{ needs.candidate.outputs.sha256 }}
-        run: |
-          actual="$(shasum -a 256 release/candidate.vsix | cut -d' ' -f1)"
-          echo "candidate sha256: $actual"
-          [ -n "$EXPECTED" ] && [ "$actual" = "$EXPECTED" ]
+      - name: Install pnpm
+        run: npm install --global pnpm@${{ env.PNPM_VERSION }}
+      - run: pnpm install --frozen-lockfile
       - name: Content allowlist on the downloaded candidate
         run: node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts release/candidate.vsix --pre-release
+      - name: Verified candidate in a real VS Code extension host
+        if: runner.os != 'Linux'
+        env:
+          EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
+        run: pnpm test:host release/candidate.vsix
+      - name: Verified candidate in a real VS Code extension host (Xvfb)
+        if: runner.os == 'Linux'
+        env:
+          EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
+        run: xvfb-run -a pnpm test:host release/candidate.vsix

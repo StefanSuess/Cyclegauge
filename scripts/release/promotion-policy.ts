@@ -8,8 +8,11 @@ const TRUSTED_EVENTS = new Set(['push', 'workflow_dispatch']);
 const REQUIRED_CI_JOBS = [
   'verify (macos-latest)',
   'verify (ubuntu-24.04)',
+  'verify (windows-2025)',
   'release candidate (built once)',
   'release candidate on macOS',
+  'release candidate on Windows',
+  'release candidate on Ubuntu',
 ];
 
 export class PromotionPolicyError extends Error {

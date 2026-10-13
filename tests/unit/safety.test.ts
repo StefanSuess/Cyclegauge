@@ -34,7 +34,7 @@ test('store transaction rolls back checkpoint and billing observations together'
  assert.equal(s.snapshots().length,0); assert.equal(s.checkpoint('synthetic-source','synthetic-new',12),false);
  s.close(); await rm(f.base,{recursive:true});
 });
-test('owner-only permissions and read-only source directory with no sidecars', async () => {
+test('POSIX owner-only permissions and read-only source directory with no sidecars', { skip: process.platform === 'win32' ? 'POSIX mode bits; Windows DACLs tested in windows-storage.test.ts' : false }, async () => {
  const f = await setup(); await writeFile(f.file,envelope()+'\n'); await chmod(f.file,0o400); await chmod(f.dir,0o500);
  const before = await stat(f.dir); const s = new Store(f.storage,f.root); assert.equal((await collect(f.root,s,'UTC')).imported,1); s.close();
  assert.equal((await stat(f.dir)).mtimeMs,before.mtimeMs); assert.deepEqual(await readdir(f.dir),['q-client.log']);

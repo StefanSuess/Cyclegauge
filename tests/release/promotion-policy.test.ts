@@ -111,10 +111,17 @@ test('requires every known CI verification and candidate job to succeed', () => 
   const jobs = [
     { name: 'verify (macos-latest)', status: 'completed', conclusion: 'success' },
     { name: 'verify (ubuntu-24.04)', status: 'completed', conclusion: 'success' },
+    { name: 'verify (windows-2025)', status: 'completed', conclusion: 'success' },
     { name: 'release candidate (built once)', status: 'completed', conclusion: 'success' },
     { name: 'release candidate on macOS', status: 'completed', conclusion: 'success' },
+    { name: 'release candidate on Windows', status: 'completed', conclusion: 'success' },
+    { name: 'release candidate on Ubuntu', status: 'completed', conclusion: 'success' },
   ];
   assert.equal(validateCiJobs(jobs), true);
+  for (const job of jobs) {
+    expectCode(() => validateCiJobs(jobs.filter(candidate => candidate !== job)), 'CI_JOB_MISSING');
+    expectCode(() => validateCiJobs(jobs.map(candidate => candidate === job ? { ...candidate, conclusion: 'skipped' } : candidate)), 'CI_JOB_UNSUCCESSFUL');
+  }
   expectCode(() => validateCiJobs([...jobs, { name: 'verify (synthetic-os)', status: 'completed', conclusion: 'failure' }]), 'CI_JOB_UNSUCCESSFUL');
   expectCode(() => validateCiJobs(jobs.slice(0, 3)), 'CI_JOB_MISSING');
   expectCode(() => validateCiJobs(jobs.map((job, index) => index === 1 ? { ...job, conclusion: 'failure' } : job)), 'CI_JOB_UNSUCCESSFUL');

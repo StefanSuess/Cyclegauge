@@ -39,13 +39,11 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   assert.deepEqual(options,{enableScripts:false,enableCommandUris:false,localResourceRoots:[]});
   assert.match(panel.webview.html,/cost-advisor/);
-  if(process.platform!=='win32'){
    answers.push('plan:pro_max','consumer_prepaid','none');await commands.get('cyclegauge.costAdvisor')!();
    assert.match(panel.webview.html,/Confirmed by you/);assert.match(panel.webview.html,/Modelled estimate/);assert.match(panel.webview.html,/USD/);
    assert.ok(!/Supported estimate|Guaranteed savings/.test(panel.webview.html));
    const before=panel.webview.html;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();assert.equal(panel.webview.html,before);
    answers.push('reset');await commands.get('cyclegauge.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
-  }else{assert.match(panel.webview.html,/unavailable/i);}
   assert.ok(!panel.webview.html.includes('synthetic-bundle-account'));assert.ok(!panel.webview.html.includes(work));
   panel.visible=false;visibility({webviewPanel:panel});assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);

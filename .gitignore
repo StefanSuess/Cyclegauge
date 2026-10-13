@@ -3,6 +3,7 @@ node_modules/
 *.tsbuildinfo
 .pnpm-store/
 dist/
+.vscode-test/
 
 # Local-only files that must never be committed
 .agents/

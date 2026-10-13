@@ -43,7 +43,7 @@ The installed macOS Kiro 1.2.56 app declares Electron 44.4.3, whose documented N
 
 Milestone 1 implements the log-only account collector, local SQLite persistence and CLI described in [docs/usage.md](docs/usage.md). Milestone 2 adds the IDE extension and local UI. Milestone 3 adds account history and qualified forecasts. Session attribution, daemon and Kiro SQLite access remain deferred. TypeScript is bundled to JavaScript for VSIX; runtime has no external dependencies.
 
-The CLI base-credit allocation divides observed remaining base credits by remaining UTC 24-hour days until explicit reset. It is a budget allocation, not statistical forecasting or known daily consumption. Its freshness threshold defaults to 24 hours and is configurable. Multiple/unknown account partitions and equal-time billing conflicts withhold the selected account view. Unsupported bonuses do not establish total availability. Windows storage fails closed pending ACL implementation; Windows, Ubuntu and RHEL remain unverified.
+The CLI base-credit allocation divides observed remaining base credits by remaining UTC 24-hour days until explicit reset. It is a budget allocation, not statistical forecasting or known daily consumption. Its freshness threshold defaults to 24 hours and is configurable. Multiple/unknown account partitions and equal-time billing conflicts withhold the selected account view. Unsupported bonuses do not establish total availability. Windows storage uses owner-only NTFS DACL enforcement and fails closed if it cannot be verified; Windows, Ubuntu and RHEL remain unverified.
 
 ## Milestone 3: history, budget and forecasts
 

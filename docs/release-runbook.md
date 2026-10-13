@@ -68,3 +68,5 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 - After a partial failure (for example Open VSX published but the tag or release missing), rerun the same version: matching existing state is verified and skipped, the rest is created.
 - A conflicting or half-uploaded GitHub release asset or odd draft fails closed; delete that draft or asset by hand, then rerun. Never edit or replace a published VSIX; publish a higher version instead.
 - A read-back right after the Open VSX publish may fail while the registry catches up; rerun to verify.
+
+Cross-platform development adds required promotion checks `verify (windows-2025)`, `release candidate on Windows`, and `release candidate on Ubuntu`. The maintainer must add these to the repository ruleset before merging this CI change; this task does not modify repository protection settings. Existing required check names remain. See [platform verification](platform-verification.md).
