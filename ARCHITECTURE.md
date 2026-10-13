@@ -60,7 +60,7 @@ Kiro databases must never be copied, changed, or checkpointed. The investigation
 | Target | Candidate IDE root | Candidate CLI database | Evidence / required validation |
 | --- | --- | --- | --- |
 | macOS | `~/Library/Application Support/Kiro` | `~/Library/Application Support/kiro-cli/data.sqlite3` | Kiro 1.2.37 paths/shapes observed; synthetic collector tests pass; live VSIX status/detail verified in Kiro 1.2.56 |
-| Windows | `%APPDATA%\Kiro` | Discover or configure explicitly; no verified default | IDE root and `logs/<timestamp>/window1/exthost/kiro.kiroAgent` observed by the maintainer on 2026-10-14; `q-client.log` name and native Kiro behaviour unverified; owner-only local NTFS storage implemented; test native/WSL separation, NTFS replacement/sharing, ACLs, drive/UNC paths, case and Unicode |
+| Windows | `%APPDATA%\Kiro` | Discover or configure explicitly; no verified default | IDE root and `logs/<timestamp>/window1/exthost/kiro.kiroAgent/q-client` observed by the maintainer on 2026-10-14 (extension hidden by Explorer); native Kiro behaviour unverified; owner-only local NTFS storage implemented; test native/WSL separation, NTFS replacement/sharing, ACLs, drive/UNC paths, case and Unicode |
 | Ubuntu | `${XDG_CONFIG_HOME:-~/.config}/Kiro` | `${XDG_DATA_HOME:-~/.local/share}/kiro-cli/data.sqlite3` | IDE root `~/.config/Kiro` and `logs/<timestamp>/window1/exthost/kiro.kiroAgent/q-client.log` observed by the maintainer on 2026-10-14; CLI database path still inferred; test XDG overrides, permissions, atomic rename, watch behavior, packaging |
 | RHEL | Same XDG candidates as Ubuntu | Same inferred XDG candidate | Unverified independently of Ubuntu; test supported versions, dependencies, SELinux denials, and filesystem behavior |
 
