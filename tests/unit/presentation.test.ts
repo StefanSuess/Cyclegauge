@@ -51,7 +51,14 @@ test('presentation preserves exact amounts and private keys stay absent',()=>{
 
 // v0.5.1 progressive disclosure: concise default reading flow, one collapsed Advanced details section.
 const split=(html:string)=>{const i=html.indexOf('<section id="advanced-details"');assert.ok(i>0);return {primary:html.slice(0,i),advanced:html.slice(i)};};
-const visible=(html:string)=>html.replace(/<(title|desc|style)\b[\s\S]*?<\/\1>/g,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
+const visible=(html:string)=>{
+ let current=html,previous:string;
+ do{
+  previous=current;
+  current=current.replace(/<(title|desc|style)\b[\s\S]*?<\/\1>/g,'');
+ }while(current!==previous);
+ return current.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ');
+};
 
 test('default view is concise and exactly one Advanced details section is collapsed',()=>{
  const {html}=render(10);const {primary,advanced}=split(html);
