@@ -181,7 +181,15 @@ async function readRelease(adapter: PromotionAdapter, tagName: string): Promise<
   try { return await adapter.readRelease(tagName); } catch { return fail('PROMOTION_READ_FAILED'); }
 }
 
-async function writeThenVerify(write: () => Promise<unknown>, reread: () => Promise<unknown>, verify: (state: unknown) => void): Promise<void> {
+const DEFAULT_VERIFICATION_DELAYS_MS = [1_000, 2_000, 4_000, 8_000, 16_000];
+const OPENVSX_VERIFICATION_DELAYS_MS = Array(18).fill(10_000) as number[];
+
+async function writeThenVerify(
+  write: () => Promise<unknown>,
+  reread: () => Promise<unknown>,
+  verify: (state: unknown) => void,
+  retryDelaysMs = DEFAULT_VERIFICATION_DELAYS_MS,
+): Promise<void> {
   try { await write(); } catch { /* A raced retry is accepted only if the read proves the exact result. */ }
   for (let attempt = 0; ; attempt++) {
     const state = await reread();
@@ -190,8 +198,8 @@ async function writeThenVerify(write: () => Promise<unknown>, reread: () => Prom
       return;
     } catch (error) {
       // Retry visibility lag only; conflicts and unverifiable states still fail closed.
-      if (!(error instanceof PromotionStateError) || error.code !== 'PROMOTION_WRITE_FAILED' || attempt === 5) throw error;
-      await new Promise(resolve => setTimeout(resolve, 1000 * 2 ** attempt));
+      if (!(error instanceof PromotionStateError) || error.code !== 'PROMOTION_WRITE_FAILED' || attempt === retryDelaysMs.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, retryDelaysMs[attempt]));
     }
   }
 }
@@ -226,6 +234,7 @@ export async function promoteCandidate(
         assertOpenVsx(result, candidate.sha256);
         if (result.kind !== 'present') return fail('PROMOTION_WRITE_FAILED');
       },
+      OPENVSX_VERIFICATION_DELAYS_MS,
     );
   }
 
