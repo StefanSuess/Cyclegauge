@@ -46,6 +46,10 @@ Do not add a mandatory Kiro download job until all target binaries can be pinned
 
 ## Evidence and remaining gates
 
-Record the exact PR commit/CI run/candidate digest and runtime versions after verification. Pending: Windows and Ubuntu native Kiro smoke, default log discovery evidence on those systems, macOS Intel native validation, and final release-candidate manual acceptance. Do not close SC1 or advertise all-platform production support merely because the DACL tests or generic host tests pass.
+Observed on 2026-10-13, commit `1f88e48`, CI run 38436192620: all seven jobs passed. Unit and release suites ran on `windows-2025`, `ubuntu-24.04` and `macos-latest`; one candidate (SHA-256 `815de9eb…f0390`) passed the host test, including restart, on win32 x64, linux x64 and darwin arm64 under VS Code 1.141.0 / Electron 43.7.7 / Node 24.21.0. On Windows, the eleven DACL tests ran without skips on an elevated runner; a non-elevated Windows session has not been exercised. The first attempt of the macOS and Ubuntu host jobs failed while downloading VS Code (checksum mismatch, corrupt archive) and passed on rerun, so the editor download is a known source of spurious failures.
+
+Windows PowerShell is started for each storage check, which blocks the extension host briefly on every store open; environments that block it (Constrained Language Mode, AppLocker) stay unavailable and retry on each refresh.
+
+Pending: Windows and Ubuntu native Kiro smoke, default log discovery evidence on those systems, macOS Intel native validation, and final release-candidate manual acceptance. Do not close SC1 or advertise all-platform production support merely because the DACL tests or generic host tests pass.
 
 References: [VS Code integration CI](https://code.visualstudio.com/api/working-with-extensions/continuous-integration), [GitHub runner platforms](https://docs.github.com/en/actions/reference/runners/github-hosted-runners), [.NET directory creation with security](https://learn.microsoft.com/en-us/dotnet/api/system.io.directory.createdirectory?view=netframework-4.8.1). Documentation investigated 2026-10-13.
