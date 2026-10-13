@@ -9,7 +9,8 @@
 [![Ubuntu beta](https://img.shields.io/badge/Ubuntu-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 [![Windows beta](https://img.shields.io/badge/Windows-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
-[![CI](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI + coverage ≥80%](https://img.shields.io/github/actions/workflow/status/StefanSuess/Cyclegauge/ci.yml?branch=main&label=CI%20%2B%20coverage%20%E2%89%A580%25)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI VSIX attestations](https://img.shields.io/badge/CI%20VSIX-attestations-blue)](https://github.com/StefanSuess/Cyclegauge/attestations)
 
 [![Open VSX version](https://img.shields.io/open-vsx/v/StefanSuess/cyclegauge)](https://open-vsx.org/extension/StefanSuess/cyclegauge)
 ![Development version 0.7.0 beta](https://img.shields.io/badge/development-0.7.0%20beta-orange)
@@ -74,7 +75,7 @@ Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HE
 
 ## Release integrity
 
-For future releases, CI attests the exact VSIX after its checks pass on `main`. Before publication, the release workflow verifies the VSIX bytes and their signed provenance against this repository, the CI workflow and the selected commit. Earlier published versions predate this gate. An attestation establishes origin and integrity; it does not certify that an extension is free of malware or vulnerabilities. See the [release process](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/release-process.md).
+For future releases, CI attests the exact VSIX after its checks pass on `main`. Before publication, the release workflow verifies the VSIX bytes and their signed provenance against this repository, the CI workflow and the selected commit. [Inspect the CI VSIX attestations](https://github.com/StefanSuess/Cyclegauge/attestations). Earlier published versions predate this gate. An attestation establishes origin and integrity; it does not certify that an extension is free of malware or vulnerabilities. See the [release process](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/release-process.md).
 
 ## Platform support and limitations
 
