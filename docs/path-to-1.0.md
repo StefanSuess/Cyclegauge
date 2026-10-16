@@ -2,7 +2,11 @@
 
 Status: **proposal for maintainer decision (2026-10-17).** This document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
 
-**Direction:** value first. The first stable release is **1.0.0** (no stable 0.8). It ships the existing gauge plus the first Efficiency Analyzer slice, the workspace/ignore audit from #71 Capability A, after a 0.9.x beta. Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
+**Direction:** value first, shipped fast. Build the credit-saving workspace/ignore audit (#71 Capability A) **first**, test it quietly with a few users in a 0.9.x beta, and announce publicly only with **1.0.0**, the first stable release (no stable 0.8). Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
+
+**Launch strategy:** one strong public launch, not several weak ones. Before 1.0, feedback comes only from a small invited group (no public posts). The public announcement, write-up and demo come with 1.0, when the extension both counts *and* helps save credits.
+
+**Speed:** the audit has a time limit of about four weeks of focused work from WP0 approval to the 0.9.0 beta. If it is not solid by the end of the beta, 1.0 ships without it and the audit moves to 1.1. Heavy review (`security-reviewer`) is reserved for storage, workspace/source reading and release changes; docs and UI changes go straight to a PR after the normal checks.
 
 ## 1. Where Cyclegauge stands
 
@@ -52,11 +56,11 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP0 Scope.** Record in `ROADMAP.md`: 1.0 = current features + workspace/ignore audit (#71 A) on macOS, Windows and Ubuntu; first stable version is 1.0.0; Capabilities B–D are 1.x. Approve the audit's read allowlist (ignore files and the `kiroAgent.agentIgnoreFiles` setting only) and limits (entries, depth, time) as #71 and #74 Stage 2 describe.
 
-### Phase 1 — Quick cleanup (low risk)
+### Phase 1 — The credit-saving feature first (high risk, gated)
 
-**WP1 Outdated docs.** `SPEC.md` and `ROADMAP.md` status lines, namespace status in `release-process.md` (recheck the registry), #71's stale "0.7.0 freeze" note. Agent: `implementer` (Haiku). Check: `git diff --check`.
+**WP1 Audit Kiro Workspace.** One explicit command; nothing runs until invoked. Pick one trusted local root; enumerate bounded path/type/size metadata; evaluate `.kiroignore` and enabled ignore files with unknown states where rules cannot be established; flag large dumps, archives, logs and build output that are not ignored; show a script-free report with a copyable `.kiroignore` snippet. No auto-edit, no persistence, no network. New code lives in `src/audit/` plus a presenter; it must not depend on billing data, and billing must not depend on it. Build on the WP0 limits and #74's synthetic test list. Split into reviewable PRs: (a) bounded metadata walker, (b) ignore evaluation, (c) findings and report UI. Agent: `implementer-senior`; review: `security-reviewer`. Time limit: about four weeks to the 0.9.0 beta.
 
-### Phase 2 — Keep it working (high risk, gated)
+### Phase 2 — Keep it working (in parallel with Phase 1, disjoint files; high risk, gated)
 
 **WP2a Storage version ladder and pruning.** Ordered migration list (initially empty) with a transactional upgrade; a store from a newer version is refused with a fixed code, without changes. Prune `imports` evidence (for example: write only when codes change, or keep 30 days). Snapshot rows untouched. Synthetic tests for each case. Agent: `implementer-senior`; review: `security-reviewer`.
 
@@ -64,27 +68,25 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP2c Format drift.** One synthetic fixture per observed Kiro log variant, and **Cyclegauge: Copy Diagnostics** (plus CLI `--diagnostics`) printing fixed codes, counts and versions only. This also makes the bug template accurate. Agent: `implementer-senior`; review: `security-reviewer`.
 
-### Phase 3 — Workspace audit → 0.9.0 beta (high risk, gated)
+**WP2d Outdated docs.** `SPEC.md` and `ROADMAP.md` status lines, namespace status in `release-process.md` (recheck the registry), #71's stale "0.7.0 freeze" note. Agent: `implementer` (Haiku). Check: `git diff --check`.
 
-**WP3 Audit Kiro Workspace.** One explicit command; nothing runs until invoked. Pick one trusted local root; enumerate bounded path/type/size metadata; evaluate `.kiroignore` and enabled ignore files with unknown states where rules cannot be established; flag large dumps, archives, logs and build output that are not ignored; show a script-free report with a copyable `.kiroignore` snippet. No auto-edit, no persistence, no network. New code lives in `src/audit/` plus a presenter; it must not depend on billing data, and billing must not depend on it. Build on the WP0 limits and #74's synthetic test list. Agent: `implementer-senior`; review: `security-reviewer`. Release as **0.9.0 beta** with WP1–WP2.
+### Phase 3 — 0.9.0 beta, quiet (maintainer)
 
-### Phase 4 — Beta feedback (maintainer)
+**WP3** Publish 0.9.0 (pre-release) with WP1 and WP2. Invite 5–10 Kiro users personally (outreach approved by the maintainer); no public announcement yet. Record installs, first useful result, findings acted on and confusing results. Fix what they hit in 0.9.x patches. At the end of the beta decide: keep, simplify or drop the audit for 1.0. Smoke-test the candidate on macOS, Windows and Ubuntu.
 
-**WP4** Ask 5–10 Kiro users to try 0.9.x (with outreach approved). Record installs, first useful result, findings acted on, and confusing results. Fix what they hit in 0.9.x patches. Decide: keep, simplify or drop the audit for 1.0. Smoke-test the candidate on macOS, Windows and Ubuntu.
+### Phase 4 — Listing and launch material (low risk, during the beta)
 
-### Phase 5 — Stable channel (high risk, gated, maintainer approval)
+**WP4** Short README top for the Open VSX listing (what it does, the audit, privacy in one line, a synthetic GIF); pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
+
+### Phase 5 — Stable channel (high risk, gated, maintainer approval; can start during the beta)
 
 **WP5a** Derive "pre-release" from the minor version in one place (odd = beta, even = stable, so 1.0.x is stable) and use it in `package.json` `preview`, `ci.yml` build and verify flags, `promotion-policy.ts`, `release-state.ts` (`ovsx publish` flag, GitHub `prerelease`), `promotion-state.ts` and `version-consistency.test.ts`. Keep attestation, build-once, reproducibility and protected approval unchanged. Prove it with tests and a release-workflow dry run. Agent: `implementer-senior`; review: `security-reviewer` (mandatory).
 
 **WP5b** Candidate filename (#72) if the reviewer agrees it fits; otherwise later.
 
-### Phase 6 — Listing (low risk)
+### Phase 6 — 1.0.0 public launch
 
-**WP6** Short README top for the Open VSX listing (what it does, the audit, privacy in one line, a synthetic GIF); pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
-
-### Phase 7 — 1.0.0
-
-Promote when the exit criteria hold. Then share the write-up in Kiro communities (#74 Stage 4), with outreach approved.
+Promote when the exit criteria hold. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
 
 ### After 1.0
 
@@ -96,7 +98,7 @@ Promote when the exit criteria hold. Then share the write-up in Kiro communities
 - [ ] Storage upgrade ladder, newer-store refusal and evidence pruning tested.
 - [ ] Unsupported runtime shows a clear message; oldest checked Kiro recorded.
 - [ ] Copy Diagnostics exists and prints no values, paths or identifiers.
-- [ ] Workspace audit shipped in 0.9.x, used by beta testers, and kept, simplified or dropped based on their results.
+- [ ] Workspace audit shipped in 0.9.x within its time limit, used by the invited testers, and kept, simplified or dropped based on their results.
 - [ ] Stable channel proven by tests and a release dry run.
 - [ ] At least one 0.9.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x keeps history.
 - [ ] Smoke test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
@@ -109,9 +111,9 @@ Use the agents in `.claude/agents/` with an orchestrator, implementer, reviewer 
 | Role | Agent | Model / effort | Used for |
 | --- | --- | --- | --- |
 | Orchestrator | `release-orchestrator` (main thread: `claude --agent release-orchestrator`) | Opus, high | Picks the next approved WP, writes the brief, delegates, reviews the diff, runs checks, commits, opens the PR. Never merges, tags or publishes. |
-| Mechanical implementer | `implementer` | Haiku, medium | WP1, WP6 and other docs or mechanical edits. |
-| Code implementer | `implementer-senior` | Sonnet, high | WP2, WP3, WP5. |
+| Mechanical implementer | `implementer` | Haiku, medium | WP2d, WP4 and other docs or mechanical edits. |
+| Code implementer | `implementer-senior` | Sonnet, high | WP1, WP2a–c, WP5. |
 | Reviewer | `reviewer` | Sonnet, high | Moderate-risk diffs. |
-| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP2, WP3, WP5 (storage, workspace reading, diagnostics, release). |
+| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP1, WP2a–c, WP5 (workspace reading, storage, diagnostics, release). |
 
 One implementer at a time per file set; one review per diff, plus at most one re-review after fixes. Delegates never commit, push or delegate further.
