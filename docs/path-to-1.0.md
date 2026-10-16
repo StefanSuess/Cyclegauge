@@ -1,112 +1,106 @@
 # Path to Cyclegauge 1.0
 
-Status: **proposal for maintainer decision (2026-10-17).** This document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It complements [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71) and takes a different position on one question: **ship a stable 1.0 of the existing gauge first, then grow the Efficiency Analyzer as a post-1.0 opt-in feature.**
+Status: **proposal for maintainer decision (2026-10-17).** This document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
+
+**Direction:** value first. The first stable release is **1.0.0** (no stable 0.8). It ships the existing gauge plus the first Efficiency Analyzer slice, the workspace/ignore audit from #71 Capability A, after a 0.9.x beta. Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
 
 ## 1. Where Cyclegauge stands
 
 Observed on 2026-10-16/17 (recheck before acting):
 
-| Area | State | 1.0 gap |
+| Area | State | Gap for 1.0 |
 | --- | --- | --- |
-| Product | Status bar, detail view, qualified forecasts, trajectory chart, Cost Advisor, CLI. Over 200 synthetic unit tests, an 80 % line-coverage gate, three-OS extension-host CI. | Feature-complete for a credit gauge. |
-| Distribution | 0.7.0 on Open VSX as **pre-release only** (`preview: true`); about 830 downloads, 0 GitHub stars. | No stable channel exists. |
+| Product | Status bar, detail view, qualified forecasts, trajectory chart, Cost Advisor, CLI. Over 200 synthetic unit tests, an 80 % line-coverage gate, three-OS extension-host CI. | A good credit gauge, but Kiro already sends its own usage notifications. Nothing helps users *spend fewer* credits yet. |
+| Distribution | 0.7.0 on Open VSX as **pre-release only** (`preview: true`); about 830 downloads, 0 GitHub stars. | No stable channel. |
 | Release pipeline | Build-once candidate, payload reproducibility, SLSA attestation, protected manual promotion. | Hard-wired to pre-release: `VSIX_NOT_PRERELEASE`, `ovsx publish --pre-release`, GitHub `prerelease: true`, odd-minor test. |
-| Storage | `meta.version` must equal `1`, otherwise `STORAGE_UNAVAILABLE`. No migration path. One `imports` evidence row is appended on every collection (minute poll). `Store.snapshots()` reads all rows on each refresh. 0.7.0 moved the default location and history restarted. | No upgrade/migration promise, no retention, long-history cost unmeasured. |
-| Runtime | `src/store.ts` statically imports `node:sqlite`; bundle targets Node 24; `engines.vscode: ^1.90.0` is not a tested minimum. CI host is pinned to VS Code 1.141.0. | No declared, tested oldest Kiro version; a runtime without `node:sqlite` fails at activation instead of showing a clear state. |
-| Source format | Kiro's log format is undocumented and can change with any Kiro release. Unsupported formats produce "unavailable". | No per-Kiro-version fixture matrix, no user-facing diagnostics to triage drift. |
-| Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested; RHEL, macOS Intel unverified. | Itemised acceptance (#61) outstanding. |
-| Docs | `SPEC.md` still says "0.5.2 candidate", `ROADMAP.md` "Current release 0.5.1"; `release-process.md` says the Open VSX namespace is unverified but the registry now reports it verified; the bug-report template asks for "Show Diagnostics" output that no command produces. | Drift undermines the precision the project sells. |
-| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Needs a standing review before every release. |
+| Storage | `meta.version` must equal `1`, otherwise `STORAGE_UNAVAILABLE`. No migration path. One `imports` evidence row is appended on every collection (minute poll) and never pruned. 0.7.0 moved the default location and history restarted. | The first schema change would make every user's store unavailable; the store grows without bound. |
+| Runtime | `src/store.ts` statically imports `node:sqlite`; bundle targets Node 24; `engines.vscode: ^1.90.0` is not a tested minimum. | An older Kiro without `node:sqlite` fails at activation instead of showing a clear message. |
+| Source format | Kiro's log format is undocumented and can change with any Kiro release. | No per-Kiro-version fixtures; the bug template asks for a "Show Diagnostics" output that no command produces. |
+| Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. |
+| Docs | `SPEC.md` still says "0.5.2 candidate", `ROADMAP.md` "Current release 0.5.1"; `release-process.md` says the Open VSX namespace is unverified, but the registry now reports it verified. | Outdated status text. |
+| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown are current. |
 
-## 2. Feature first or stabilisation first?
+## 2. Why features in 1.0, and which stabilisation still matters
 
-**Stabilise first, and make 1.0 the stable release of today's scope.** Run cheap demand discovery for #71 in parallel, but do not put the Efficiency Analyzer on the 1.0 critical path.
+**Usefulness drives adoption.** A plugin that tells users something they can act on gets installed, recommended and supported. A gauge alone overlaps with Kiro's own usage alerts. The workspace audit gives Cyclegauge a result on day one (no forecast history needed): "these large files are not ignored and may end up in the agent's context; here is a `.kiroignore` snippet". That is the most tangible step from a *credit gauge* to a *credit saver*.
 
-Reasons:
+**Why Capability A and not more of #71:** it is the smallest slice that reads no file contents except ignore configuration, needs no session parsing and gives an immediate result. Hook/Steering review (Capability B) and session attribution (Capability C) follow in 1.x.
 
-1. **1.0 is a promise, not a feature count.** [Semantic Versioning](https://semver.org/#spec-item-5) defines 1.0.0 as the point where the public interface is declared; the project's own [versioning policy](release-process.md#versioning) says the same ("the first release with a compatibility promise"). Cyclegauge cannot make that promise yet: it has no storage migration path, no declared minimum runtime and no stable channel. More features enlarge the surface the promise must cover.
-2. **#71 changes the trust boundary.** Today's strongest selling point is narrow and verifiable: "reads billing fields from Kiro's logs, writes only its own store, sends nothing". The Analyzer needs workspace enumeration and, later, configuration-text reads. Shipping that inside the first stable release mixes a new, still-unvalidated permission surface into the version that is supposed to signal "safe and settled". As a 1.x opt-in command it can be judged on its own.
-3. **Pre-release status caps both goals.** For credibility and donations, the useful artifact is a stable listing plus a write-up showing how the tool earns trust (attested builds, unknowns kept unknown, privacy boundaries). A `0.x` pre-release signals "not ready" to every potential user and reviewer. Every month spent building the Analyzer first is a month at that ceiling.
-4. **The gauge is the habitual product; the audit is episodic.** A status-bar gauge is seen daily, which is what builds familiarity and goodwill. A workspace audit runs occasionally. #74 makes the same observation. Get the habitual product to stable first.
-5. **Precedent.** Successful single-purpose extensions such as GitLens started as a narrow utility and grew after it was trusted (see #74 for sources and their survivorship bias). Mature open-source practice ([Open Source Guide](https://opensource.guide/finding-users/)) is to make the existing thing easy to install, understand and trust before widening it.
-6. **The work is already known and bounded.** Every stabilisation item below comes from code or docs read in this repository. The Analyzer's value is still a hypothesis (#74 Stage 0).
+**Stabilisation that stays on the 1.0 path** is about the plugin delivering, not about ceremony:
 
-What this does **not** mean: no endless hardening. 1.0 ships when the exit criteria in section 5 are met, not when every edge case in #59–#64 is fixed. Issues that no user hits stay in the backlog with honest platform claims.
+1. **Storage upgrade path.** Without it, the first post-1.0 schema change locks every user out of their history.
+2. **Bounded store growth.** A minute-by-minute evidence row with no pruning eventually slows refreshes.
+3. **Clear runtime message.** A crash at activation looks like "the plugin is broken".
+4. **Format-drift readiness.** When Kiro changes its logs, the gauge goes blank; fixtures and a diagnostics command turn that into a fast patch.
+5. **Stable channel.** Without it, there is no 1.0.
 
-## 3. Goals: credibility and donations, honestly
+**Dropped from the critical path:** a stable 0.8 dress rehearsal (replaced by release-workflow dry runs and tests), a separate compatibility document (a short section in `docs/usage.md` is enough), full itemised platform acceptance, and #59, #60, #62, #63, #64 unless a user hits them.
 
-- **Credibility** is the realistic goal: a stable, attested, cross-platform extension with a clear privacy contract and a public technical write-up is a strong portfolio piece regardless of download numbers.
-- **Donations** to small developer tools are typically modest (#74 cites Prettier and ESLint figures). Keep the existing Ko-fi links; add no pop-ups, gated features or telemetry. Stable 1.0 and a visible listing are the only donation levers worth pulling now.
-- Measure with public aggregates only: Open VSX downloads, GitHub stars, issues from real users, voluntary feedback. No embedded analytics.
+**Remaining risk:** the audit's value is not yet validated with users. The 0.9.x beta handles this: ship it, ask a handful of users, then cut, simplify or keep it before 1.0. The project rules in AGENTS.md still apply to the audit (no file contents beyond ignore configuration, nothing sent anywhere, Kiro files read-only). They are a scope boundary, not a reason to delay.
+
+## 3. Goals: credibility and donations
+
+- **Credibility:** a stable 1.0 that saves users credits, plus a short public write-up with a synthetic demo, is the portfolio piece.
+- **Donations:** keep the existing Ko-fi links; no pop-ups, paywalls or telemetry. Donations follow usefulness; expect modest amounts (#74 cites Prettier and ESLint figures).
+- **Measure** with public numbers only: Open VSX downloads, GitHub stars, issues and feedback from real users.
 
 ## 4. Ordered work packages
 
-Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage, source reading, release/CI, security) need the `security-reviewer` before a PR. "Gated" means the WP changes a contract that AGENTS.md says requires separate maintainer approval.
+Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage, workspace or source reading, release/CI) need the `security-reviewer` before a PR. "Gated" means the WP changes a contract that AGENTS.md says requires separate maintainer approval.
 
 ### Phase 0 — Decide (maintainer, no code)
 
-**WP0 Scope decision.** Record in `ROADMAP.md`: 1.0 = current features (gauge, forecasts, chart, Cost Advisor, CLI) on the platforms that pass acceptance; #71 is post-1.0 (1.1.x beta). Name the 1.0 platforms (proposal: macOS ARM64, Windows 11 x64, Ubuntu x64; RHEL and macOS Intel explicitly unsupported unless #62 evidence arrives). Freeze features for 0.8/1.0.
+**WP0 Scope.** Record in `ROADMAP.md`: 1.0 = current features + workspace/ignore audit (#71 A) on macOS, Windows and Ubuntu; first stable version is 1.0.0; Capabilities B–D are 1.x. Approve the audit's read allowlist (ignore files and the `kiroAgent.agentIgnoreFiles` setting only) and limits (entries, depth, time) as #71 and #74 Stage 2 describe.
 
-### Phase 1 — Truthful baseline (low risk, cheap)
+### Phase 1 — Quick cleanup (low risk)
 
-**WP1 Fix documentation drift.** `SPEC.md` and `ROADMAP.md` status lines; `release-process.md` namespace verification status (recheck the registry first); #71's stale "0.7.0 candidate freeze" note; remove or correct the bug template's reference to a non-existent diagnostics command (WP4b may add one). Agent: `implementer` (Haiku). Checks: `git diff --check`.
+**WP1 Outdated docs.** `SPEC.md` and `ROADMAP.md` status lines, namespace status in `release-process.md` (recheck the registry), #71's stale "0.7.0 freeze" note. Agent: `implementer` (Haiku). Check: `git diff --check`.
 
-### Phase 2 — Compatibility contract (moderate risk, gated)
+### Phase 2 — Keep it working (high risk, gated)
 
-**WP2 Declare the public surface.** Add `docs/compatibility.md` listing what 1.0 promises to keep: extension ID, command IDs, setting keys and scopes, CLI flags and `--json` field names, storage location rules, the data-authority semantics in SPEC. Define the deprecation policy (for example: a setting or JSON field is deprecated for at least one minor before removal). Add a unit test that pins command IDs, setting keys and CLI JSON keys so accidental changes fail CI. Do not change the CLI output itself without separate approval. Agents: `implementer-senior` (Sonnet), `reviewer`.
+**WP2a Storage version ladder and pruning.** Ordered migration list (initially empty) with a transactional upgrade; a store from a newer version is refused with a fixed code, without changes. Prune `imports` evidence (for example: write only when codes change, or keep 30 days). Snapshot rows untouched. Synthetic tests for each case. Agent: `implementer-senior`; review: `security-reviewer`.
 
-### Phase 3 — Storage durability (high risk, gated)
+**WP2b Runtime guard.** Load `node:sqlite` so its absence shows "unsupported Kiro version" instead of an activation error; set `engines.vscode` to the oldest Kiro actually checked. Agent: `implementer-senior`; review: `security-reviewer`.
 
-**WP3a Measure long history.** Synthetic store with 12 months at the minute poll (snapshots plus `imports` rows), generated in a temp dir. Record DB size and refresh latency of `collect` + `snapshots()` + `history()`. Report numbers; change nothing. Agent: `implementer-senior`.
+**WP2c Format drift.** One synthetic fixture per observed Kiro log variant, and **Cyclegauge: Copy Diagnostics** (plus CLI `--diagnostics`) printing fixed codes, counts and versions only. This also makes the bug template accurate. Agent: `implementer-senior`; review: `security-reviewer`.
 
-**WP3b Bounded import evidence (only if WP3a justifies it).** For example, keep evidence rows only when codes change, or cap by age/count. Snapshot rows and forecast inputs are untouched. Agent: `implementer-senior`; review: `security-reviewer`.
+### Phase 3 — Workspace audit → 0.9.0 beta (high risk, gated)
 
-**WP3c Schema version ladder.** Replace "`version !== 1` → unavailable" with an explicit ordered migration list (initially empty), transactional upgrade, and a store written by a *newer* version reported as a fixed unsupported code without modification or deletion. Synthetic tests for v1 open, simulated v1→v2, newer-version refusal, failure rollback. Agent: `implementer-senior`; review: `security-reviewer`.
+**WP3 Audit Kiro Workspace.** One explicit command; nothing runs until invoked. Pick one trusted local root; enumerate bounded path/type/size metadata; evaluate `.kiroignore` and enabled ignore files with unknown states where rules cannot be established; flag large dumps, archives, logs and build output that are not ignored; show a script-free report with a copyable `.kiroignore` snippet. No auto-edit, no persistence, no network. New code lives in `src/audit/` plus a presenter; it must not depend on billing data, and billing must not depend on it. Build on the WP0 limits and #74's synthetic test list. Agent: `implementer-senior`; review: `security-reviewer`. Release as **0.9.0 beta** with WP1–WP2.
 
-**WP3d Recovery path.** Corrupt, locked or unsafe-permission store yields a clear status and a documented manual recovery (no automatic deletion). Document upgrade from 0.5.x/0.7.x in `docs/usage.md`.
+### Phase 4 — Beta feedback (maintainer)
 
-### Phase 4 — Runtime and source-format resilience (high risk)
+**WP4** Ask 5–10 Kiro users to try 0.9.x (with outreach approved). Record installs, first useful result, findings acted on, and confusing results. Fix what they hit in 0.9.x patches. Decide: keep, simplify or drop the audit for 1.0. Smoke-test the candidate on macOS, Windows and Ubuntu.
 
-**WP4a Minimum supported Kiro.** Decide the oldest Kiro to claim, record its Electron/Node, and verify the exact candidate there. Load `node:sqlite` so that its absence produces a fixed "unsupported runtime" status instead of an activation failure. Set `engines.vscode` to the verified floor. Agent: `implementer-senior`; review: `security-reviewer`; native check: maintainer.
+### Phase 5 — Stable channel (high risk, gated, maintainer approval)
 
-**WP4b Format-drift readiness.** Synthetic fixture per observed Kiro log variant (invented values only), and a **Cyclegauge: Copy Diagnostics** command (plus CLI `--diagnostics`) that outputs only fixed codes, counts, versions and platform metadata, never values, paths or identifiers. This makes "Kiro changed its logs" a one-issue, one-patch event instead of guesswork, and makes the bug template truthful. Agent: `implementer-senior`; review: `security-reviewer` (diagnostics are a privacy boundary).
+**WP5a** Derive "pre-release" from the minor version in one place (odd = beta, even = stable, so 1.0.x is stable) and use it in `package.json` `preview`, `ci.yml` build and verify flags, `promotion-policy.ts`, `release-state.ts` (`ovsx publish` flag, GitHub `prerelease`), `promotion-state.ts` and `version-consistency.test.ts`. Keep attestation, build-once, reproducibility and protected approval unchanged. Prove it with tests and a release-workflow dry run. Agent: `implementer-senior`; review: `security-reviewer` (mandatory).
 
-### Phase 5 — Platform acceptance (maintainer, manual)
+**WP5b** Candidate filename (#72) if the reviewer agrees it fits; otherwise later.
 
-**WP5** Complete #61 itemised acceptance on Windows and Ubuntu with the exact candidate SHA-256, Kiro version, OS and architecture. Reproduce #59, #60, #63, #64 against that candidate; fix only what reproduces on a claimed platform. Close or relabel #62 as "unsupported for 1.0" unless evidence arrives. Reconcile #21 against the implemented SC1 controls.
+### Phase 6 — Listing (low risk)
 
-### Phase 6 — Stable release channel (high risk, gated, maintainer approval)
+**WP6** Short README top for the Open VSX listing (what it does, the audit, privacy in one line, a synthetic GIF); pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
 
-**WP6a Stable channel.** Derive "pre-release" from minor parity (odd = pre-release, even and `>= 1.0` per policy) in one place and use it consistently in `package.json` `preview`, `ci.yml` build/verify flags, `promotion-policy.ts` (`VSIX_NOT_PRERELEASE` → expected-flag check), `release-state.ts` (`ovsx publish` flag, GitHub `prerelease`), `promotion-state.ts`, and `version-consistency.test.ts`. Extend the versioning table for 1.x (proposal: odd minor = beta, even minor = stable, unchanged rule). Keep attestation, build-once, reproducibility and protected approval unchanged. Agent: `implementer-senior`; review: `security-reviewer` (mandatory).
+### Phase 7 — 1.0.0
 
-**WP6b Candidate filename (#72).** Coupled references move together; bytes unchanged. Can ride with WP6a only if the reviewer agrees; otherwise separate.
+Promote when the exit criteria hold. Then share the write-up in Kiro communities (#74 Stage 4), with outreach approved.
 
-**WP6c Dress rehearsal: 0.8.0 stable.** Publish 0.8.0 (0.7 plus WP1–WP4 fixes, no new features) through the new stable path. This exercises the channel change on a version that is not 1.0.
+### After 1.0
 
-### Phase 7 — Listing and support readiness (low risk)
-
-**WP7** Short above-the-fold README for the Open VSX listing (what, why, privacy in three lines, one synthetic GIF), clear "Support Cyclegauge" section (unchanged links), `SUPPORT.md` with response expectations, pricing-catalog review checklist added to `release-runbook.md` (review before every release; first due 2026-11-09). Draft the 1.0 technical write-up (attested builds, unknowns stay unknown, privacy design) using synthetic data only. Agent: `implementer` (Haiku) for edits; maintainer approves any outreach.
-
-### Phase 8 — 1.0.0
-
-Promote when all exit criteria hold (section 5). Publish with the same pipeline; then follow the outreach steps in #74 Stage 4 with explicit maintainer approval.
-
-### Phase 9 — After 1.0: the Efficiency Analyzer
-
-Run #74 Stages 0–3 for #71 Capability A. Start Stage 0 (user conversations, no code) **now, in parallel**, so evidence exists when 1.0 ships. Implementation lands as a **1.1.x beta**, as an explicit, opt-in command that does nothing until invoked, with its own threat model and review. 1.0's privacy contract stays unchanged for users who never run it.
+1.1.x beta: Hook/Steering review (#71 B), then 1.2 stable. Session attribution (#71 C) stays research until its data semantics are proven.
 
 ## 5. 1.0 exit criteria
 
-- [ ] WP0 scope recorded; no features added after the freeze.
-- [ ] `docs/compatibility.md` published and pinned by tests.
-- [ ] Storage: migration ladder in place; newer-store refusal and recovery tested; long-history cost measured and bounded.
-- [ ] Oldest supported Kiro declared and verified on the exact candidate; unsupported runtime shows a clear state.
-- [ ] Copy Diagnostics exists and leaks nothing (reviewed).
-- [ ] Itemised native acceptance on every platform 1.0 names; others listed as unsupported.
-- [ ] Stable channel exercised by 0.8.x on Open VSX and GitHub.
-- [ ] At least 14 days on 0.8.x stable with no open P0/P1 issues, and an upgrade from 0.7.x verified (history kept or the loss explicitly documented).
-- [ ] Pricing catalog reviewed within 30 days of the 1.0 candidate.
-- [ ] All existing gates green: `pnpm typecheck`, `pnpm test`, coverage, `pnpm test:release`, three-OS host tests, attestation, exact-candidate macOS acceptance A/B/D/E.
+- [ ] WP0 scope recorded.
+- [ ] Storage upgrade ladder, newer-store refusal and evidence pruning tested.
+- [ ] Unsupported runtime shows a clear message; oldest checked Kiro recorded.
+- [ ] Copy Diagnostics exists and prints no values, paths or identifiers.
+- [ ] Workspace audit shipped in 0.9.x, used by beta testers, and kept, simplified or dropped based on their results.
+- [ ] Stable channel proven by tests and a release dry run.
+- [ ] At least one 0.9.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x keeps history.
+- [ ] Smoke test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
+- [ ] Existing gates green: `pnpm typecheck`, `pnpm test`, coverage, `pnpm test:release`, three-OS host tests, attestation, macOS acceptance A/B/D/E.
 
 ## 6. Execution model
 
@@ -115,9 +109,9 @@ Use the agents in `.claude/agents/` with an orchestrator, implementer, reviewer 
 | Role | Agent | Model / effort | Used for |
 | --- | --- | --- | --- |
 | Orchestrator | `release-orchestrator` (main thread: `claude --agent release-orchestrator`) | Opus, high | Picks the next approved WP, writes the brief, delegates, reviews the diff, runs checks, commits, opens the PR. Never merges, tags or publishes. |
-| Mechanical implementer | `implementer` | Haiku, medium | WP1, WP7 and other docs/mechanical edits. |
-| Code implementer | `implementer-senior` | Sonnet, high | WP2–WP4, WP6. |
-| Reviewer | `reviewer` | Sonnet, high | Moderate-risk diffs (WP2, WP7 if needed). |
-| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP3, WP4, WP6 (storage, source reading, diagnostics, release). |
+| Mechanical implementer | `implementer` | Haiku, medium | WP1, WP6 and other docs or mechanical edits. |
+| Code implementer | `implementer-senior` | Sonnet, high | WP2, WP3, WP5. |
+| Reviewer | `reviewer` | Sonnet, high | Moderate-risk diffs. |
+| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP2, WP3, WP5 (storage, workspace reading, diagnostics, release). |
 
 One implementer at a time per file set; one review per diff, plus at most one re-review after fixes. Delegates never commit, push or delegate further.
