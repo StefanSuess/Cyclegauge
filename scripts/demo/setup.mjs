@@ -2,9 +2,9 @@
 // Synthetic-only demo. Never reads or changes an existing Kiro profile.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { demoParentDir } from './base.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
@@ -24,7 +24,8 @@ if (major < 24 || (major === 24 && minor < 13)) {
  console.log('NODE_REQUIRED: install Node.js 24.13 or newer.'); process.exit(1);
 }
 // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
-const base = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-cyclegauge-demo-')));
+// macOS: a long $TMPDIR pushes Kiro's IPC socket past the 103-character limit, so demoParentDir falls back to /tmp.
+const base = realpathSync.native(mkdtempSync(join(demoParentDir(), 'synthetic-cyclegauge-demo-')));
 const source = join(base, 'source'), storage = join(base, 'storage');
 const home = join(base, 'home'), userData = join(base, 'user-data'), extensions = join(base, 'extensions');
 const workspace = join(base, 'workspace');
