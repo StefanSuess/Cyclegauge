@@ -11,7 +11,9 @@ import { refusal } from './audit-root.ts';
 import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
-import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
+import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
+import { decideBudgetNotice } from './budget-warning.ts';
+import type { view } from '../view.ts';
 import { LATER_DAYS, addDays, auditDue, daysBetween, isDate, utcDate } from './audit-schedule.ts';
 import { SNOOZE_DAYS, afterChoice, supportDue, type SupportChoice } from './support-schedule.ts';
 
@@ -424,7 +426,7 @@ const SUPPORT_ADVISOR_KEY = 'cyclegauge.support.advisorUsed.v1';
 const NOT_KIRO_KEY = 'cyclegauge.notKiro.shown.v1';
 const SUPPORT_DELAY_MS = 180_000;
 const inKiro = (): boolean => { try { return isKiroEditor(vscode.env.appName, vscode.env.uriScheme); } catch { return false; } };
-interface SupportLink { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void }
+interface SupportLink { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void; pause(): void }
 function registerSupport(context: vscode.ExtensionContext): SupportLink {
  let disposed = false, seen = false, shown = false, checking = false;
  let strongTimer: ReturnType<typeof setTimeout> | undefined;
@@ -496,6 +498,8 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
    strongTimer = setTimeout(() => { strongPending = false; void check(true); }, 60_000);
    strongTimer.unref?.();
   },
+  // A budget notice was shown in this window: the support prompt does not pile on top of it.
+  pause() { shown = true; },
   valueSeen() { if (seen || !kiro || !readSupportPrompts(get)) return; seen = true; void store(SUPPORT_VALUE_KEY, true); },
   // Called when a refresh really found no Kiro logs outside Kiro without a chosen source (the controller decides that, so VS Code beside an installed Kiro never sees the note):
   // one friendly note, once ever.
@@ -513,13 +517,47 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   },
  };
 }
+// Budget warning: at most one notice per window, in Kiro only and never in the extension tests. The cycle and the kinds already shown are the only
+// state (one global-state key); it is written before the notice is shown, and a failed write means no notice. Every failure is swallowed.
+const BUDGET_KEY = 'cyclegauge.budgetWarning.v1';
+interface BudgetLink { evaluate(observation: ReturnType<typeof view>, eligible: boolean, now: string): void }
+function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void): BudgetLink {
+ let disposed = false, busy = false;
+ context.subscriptions.push({ dispose() { disposed = true; } });
+ const testing = (): boolean => vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test;
+ const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
+ return {
+  evaluate(observation, eligible, now) {
+   if (disposed || busy) return;
+   busy = true; // set before the first await: renders arriving while a notice is open or being decided are ignored, so a window shows at most one
+   void (async () => {
+    let kept = false;
+    try {
+     if (!inKiro() || testing()) return;
+     let stored: unknown;
+     try { stored = context.globalState.get<unknown>(BUDGET_KEY); } catch { stored = undefined; }
+     const due = decideBudgetNotice({ view: observation, eligible, now, state: stored, enabled: readBudgetWarnings(get), percent: readBudgetWarningPercent(get) });
+     if (!due) return;
+     try { await context.globalState.update(BUDGET_KEY, due.state); } catch { return; }
+     if (disposed) return;
+     kept = true; // this window has shown its one notice
+     try { beforeShow(); } catch { /* nothing else depends on it */ }
+     const choice = await vscode.window.showInformationMessage(due.text, 'Show details', 'Turn off');
+     if (choice === 'Show details') await vscode.commands.executeCommand(commandId('showUsage'));
+     else if (choice === 'Turn off') await vscode.workspace.getConfiguration(ID_PREFIX).update('budgetWarnings', false, vscode.ConfigurationTarget.Global);
+    } catch { /* fixed and silent */ } finally { if (!kept) busy = false; }
+   })();
+  },
+ };
+}
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined;
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
- let audit: AuditLink | undefined, support: SupportLink | undefined;
+ let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined;
  try { support = registerSupport(context); } catch { /* Nor must the community prompts. */ }
+ try { budget = registerBudget(context, () => support?.pause()); } catch { /* Nor the budget warning. */ }
  try { audit = registerAudit(context, () => support?.valueSeen(), () => support?.auditSaved()); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
@@ -549,7 +587,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   setStatus(text, html, meta) {
    item.text = text;
    item.tooltip = meta?.tooltip ?? 'Open your credit budget and forecast';
-   item.backgroundColor = meta?.warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
+   item.backgroundColor = meta?.severity === 'error' ? new vscode.ThemeColor('statusBarItem.errorBackground') : meta?.warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
    detail = html;
    if (panel && panel.webview.html !== detail) panel.webview.html = detail; // identical HTML is not set again
   },
@@ -583,7 +621,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent() });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now) => budget?.evaluate(o, eligible, now) });
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;

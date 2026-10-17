@@ -14,7 +14,7 @@ macOS observations for one Kiro version do not verify any other platform or vers
 ## Known limitations
 
 - Account figures come from Kiro's existing local logs. They are the last observed values with an as-of time, not a live balance. If Kiro has not written a recent response, the view shows stale or unavailable data instead of guessing.
-- The credit limit Kiro reports is not verified as base-only or total capacity. Add-on balances, purchases and overages are not known to the extension.
+- The credit limit Kiro reports is not verified as base-only or total capacity. Add-on balances, purchases and overages are not known to the extension: a modelled overage figure is shown (projected credits over the reported limit at the bundled per-credit price), but actual overage charges remain unknown to it.
 - Consumption between observations is unknown, never assumed to be zero.
 - One account at a time. Several account partitions, or logs without a supported identity, withhold the account view; there is no account selector.
 - Kiro's log format is not a documented contract and may change. Unsupported formats produce an unavailable status.

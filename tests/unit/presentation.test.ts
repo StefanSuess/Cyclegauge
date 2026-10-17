@@ -294,3 +294,79 @@ test('the controller passes the not-Kiro flag through and does not report a fore
   extension.dispose();
  } finally { await rm(base, { recursive: true, force: true }); }
 });
+
+// Modelled overage cost lines and the status bar severity.
+const NOW = '2030-06-08T00:00:00Z';
+const at = (v: ReturnType<typeof view>, now = NOW) => present(v, [], '', '', undefined, now);
+const heroText = (html: string) => html.slice(html.indexOf('class="hero'), html.indexOf('<dl class="stats">'));
+const PROJECTED = 'If you continue at this pace: about 200 credits over the reported limit ≈ $8.00 at $0.04 per credit (price list 2026-10-10, reviewed 10 Oct 2026). This is a modelled scenario, not an invoice; whether overage applies depends on your plan and settings.';
+test('a forecast beyond the reported limit shows the modelled overage below the outlook, with the catalog price and review date', () => {
+ const r = at(view(series(10, '100'), NOW));
+ const hero = heroText(r.html);
+ assert.ok(hero.includes(`<p class="small overage">${PROJECTED}</p>`), hero);
+ assert.ok(hero.indexOf('class="lead"') < hero.indexOf('class="small overage"'));
+ assert.ok(!r.html.includes('at the last update ≈')); // nothing is above the limit yet
+ assert.ok(!/\$\d/.test(r.text) && !/\$\d/.test(r.tooltip)); // the status bar stays short
+});
+test('already-observed overage gets its own modelled line; the projected line stays separate', () => {
+ const hero = heroText(at(view(series(10, '60'), NOW)).html);
+ assert.ok(hero.includes('<p class="small overage">10 credits above the reported limit at the last update ≈ $0.40 at $0.04 per credit (modelled; whether overage applies depends on your plan and settings).</p>'), hero);
+ assert.match(hero, /If you continue at this pace: about 240 credits over the reported limit ≈ \$9\.60 /);
+ // Exactly at the limit is not above it.
+ assert.ok(!heroText(at(view(series(10, '70'), NOW)).html).includes('above the reported limit at the last update'));
+});
+test('no overage line when the forecast stays below the limit, is unavailable or stale', () => {
+ for (const html of [at(view(series(10, '1000'), NOW)).html, at(view(series(0, '1000'), NOW)).html, at(view(series(10, '1000', 1), '2030-06-01T00:00:00Z'), '2030-06-01T00:00:00Z').html, at(view(series(10, '100'), '2030-06-12T00:00:00Z')).html, at(view([], NOW)).html]) assert.ok(!html.includes('class="small overage"') && !html.includes('over the reported limit'), 'no line');
+});
+test('without a validated price the credits are shown but never a money figure', () => {
+ const hero = heroText(at(view(series(10, '100'), NOW), '2020-01-01T00:00:00Z').html); // before the catalog was verified
+ assert.ok(hero.includes('If you continue at this pace: about 200 credits over the reported limit. This is a modelled scenario, not an invoice;'), hero);
+ assert.ok(!/\$\d/.test(hero));
+ assert.ok(heroText(at(view(series(10, '60'), NOW), 'not-a-time').html).includes('10 credits above the reported limit at the last update.'));
+});
+test('the status bar severity: error when the limit is reached or will be before the reset, warning when at risk, stale or unavailable', () => {
+ const severity = (rate: number, limit: string, count = 8, now = `2030-06-${String(count).padStart(2, '0')}T00:00:00Z`) => { const r = present(view(series(rate, limit, count), now)); return [r.severity, r.warning]; };
+ assert.deepEqual(severity(10, '100'), ['error', true]); // likely to exceed
+ assert.deepEqual(severity(10, '70'), ['error', true]); // limit reached
+ assert.deepEqual(severity(10, '60'), ['error', true]); // above the limit
+ assert.deepEqual(severity(10, '25', 3), ['warning', true]); // provisional "Likely to exceed" stays a warning
+ assert.deepEqual(severity(10, '20', 3), ['error', true]); // provisional, but the observed usage has reached the limit
+ assert.deepEqual(severity(10, '321'), ['warning', true]); // at risk
+ assert.deepEqual(severity(10, '1000'), ['none', false]);
+ assert.deepEqual(severity(0, '1000'), ['none', false]);
+ assert.deepEqual(severity(10, '1000', 1), ['none', false]); // collecting
+ assert.deepEqual(severity(10, '1000', 8, '2030-06-09T00:00:00.001Z'), ['warning', true]); // stale
+ assert.deepEqual(severity(10, '1000', 8, '2030-07-01T00:00:00Z'), ['warning', true]); // unavailable
+ assert.equal(present(view([], NOW), ['no_source_logs'], '', '', undefined, NOW, true).severity, 'none'); // Kiro not detected
+ assert.equal(present(view([], NOW), ['runtime_unsupported']).severity, 'warning');
+});
+test('the controller hands the render to the budget hook with the eligibility and survives a throwing hook', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-budget-hook-')));
+ const dir = join(base, 'source', 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent'); await mkdir(dir, { recursive: true });
+ const line = (day: number) => `2030-01-0${day} 00:00:00.000 [info] synthetic-envelope ` + JSON.stringify({ commandName: 'GetUsageLimitsCommand', input: {}, output: { userInfo: { userId: 'synthetic-budget-account' }, nextDateReset: '2030-02-01T00:00:00Z', usageBreakdownList: [{ resourceType: 'CREDIT', unit: 'INVOCATIONS', currentUsageWithPrecision: day * 10, usageLimitWithPrecision: 5000, nextDateReset: '2030-02-01T00:00:00Z', bonuses: [], overageCredits: [] }] }, metadata: { httpStatusCode: 200 } }) + '\n';
+ await writeFile(join(dir, 'q-client.log'), [1, 2, 3, 4].map(line).join(''));
+ const texts: string[] = [], metas: unknown[] = [], seen: { status: string; eligible: boolean; now: string }[] = [];
+ const ui = { setStatus(t: string, _h: string, m?: unknown) { texts.push(t); metas.push(m); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'source'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', onBudget: (o, eligible, now) => { seen.push({ status: o.status, eligible, now }); throw new Error('synthetic-failure'); } });
+  assert.ok(seen.length >= 1); assert.deepEqual(seen.at(-1), { status: 'observed', eligible: true, now: '2030-01-04T00:00:00.000Z' });
+  assert.match(texts.at(-1)!, /Kiro: /); assert.ok(['none', 'warning', 'error'].includes((metas.at(-1) as { severity: string }).severity));
+  const before = seen.length; extension.rerender(); assert.equal(seen.length, before + 1); extension.dispose();
+ } finally { await rm(base, { recursive: true, force: true }); }
+});
+test('no budget hook call for Kiro not detected', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-budget-absent-')));
+ let calls = 0;
+ const ui = { setStatus() {}, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-06-15T12:00:00.000Z', notKiro: true, onBudget: () => { calls++; } });
+  assert.equal(calls, 0); extension.dispose();
+ } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+test('no observed-overage line for accounts with unsupported extra credits', () => {
+ const flagged = series(10, '60').map(p => ({ ...p, flags: ['unsupported_extra_credits'] }));
+ const html = at(view(flagged, NOW)).html;
+ assert.ok(!html.includes('above the reported limit at the last update') && !html.includes('class="small overage"'));
+ assert.ok(at(view(series(10, '60'), NOW)).html.includes('above the reported limit at the last update')); // control
+});
