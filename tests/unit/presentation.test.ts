@@ -181,10 +181,21 @@ test('workspace-check card: checked states show the count and a relative time, p
  assert.match(card({ state: 'checked', items: 0, unclear: 4, checkedAt: ago(0) }, now.toISOString()), /4 items to review · checked just now/);
  assert.match(card({ state: 'checked', items: 2 }), /2 items Kiro may read<\/p>/); // no usable time: no relative part
 });
+test('workspace-check card: the size total sits after the count, escaped and only for checked states', () => {
+ const now = new Date(2030, 5, 15, 12, 0, 0), ago = (ms: number) => new Date(now.getTime() - ms).toISOString(), MB = 1024 * 1024;
+ assert.match(card({ state: 'checked', items: 4, bytes: 240.3 * MB, lowerBound: false, checkedAt: ago(0) }, now.toISOString()), /4 items Kiro may read \(about 240\.3 MiB\) · checked just now/);
+ assert.match(card({ state: 'checked', items: 2, unclear: 3, bytes: 1.2 * 1024 * MB, lowerBound: true, checkedAt: ago(0) }, now.toISOString()), /2 items Kiro may read \(at least 1\.2 GiB\) · 3 unclear · checked just now/);
+ assert.match(card({ state: 'checked', items: 1, bytes: 512 * 1024, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read \(about 512 KiB\) · checked just now/);
+ assert.match(card({ state: 'checked', items: 1, bytes: 0, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
+ assert.match(card({ state: 'checked', items: 1, bytes: Number.NaN, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
+ assert.match(card({ state: 'never', bytes: 5 }), /Check which files Kiro can read/);
+ const hostile = card({ state: 'checked', items: 1, bytes: 1024, lowerBound: true, checkedAt: 'synthetic-not-a-time' });
+ assert.match(hostile, /1 item Kiro may read \(at least 1 KiB\)<\/p>/);
+});
 test('workspace-check card: unavailable asks for a trusted local folder; no claims of savings', () => {
  const html = card({ state: 'unavailable' });
  assert.match(html, /This folder can&#39;t be checked\. Run Check now to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
- for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
+ for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, bytes: 2048, lowerBound: true, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
 });
 test('the view has one Open Cost Advisor button, inside the Cost Advisor section and below the figures, in every state', () => {
  const section = '<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2><p>synthetic</p></section>';

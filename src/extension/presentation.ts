@@ -2,7 +2,7 @@ import type { view } from '../view.ts';
 import { compare, compareRatios } from '../decimal.ts';
 import { readable, updated, date } from './labels.ts';
 import { presentChartParts, CHART_CSS } from './chart.ts';
-import { countsText, relativeTime, type AuditSummary } from './audit-model.ts';
+import { countsText, relativeTime, sizePhrase, type AuditSummary } from './audit-model.ts';
 import { LINKS, NOT_KIRO_TEXT } from './identity.ts';
 import { overageOver } from '../cost/overage.ts';
 import { observedOverageText, projectedOverageText, rightSizeText, largerPlanText } from './budget-warning.ts';
@@ -50,7 +50,8 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
  const checked = ago ? ` · checked ${ago}` : '';
  const count = (n: number | undefined): number => n !== undefined && Number.isInteger(n) && n >= 0 ? n : 0;
  const items = count(a.items), unclear = count(a.unclear);
- const text = a.state === 'checked' ? `${countsText(items, unclear)}${checked}`
+ const size = a.state === 'checked' && typeof a.bytes === 'number' && Number.isFinite(a.bytes) && a.bytes >= 0 ? sizePhrase({ bytes: a.bytes, lowerBound: a.lowerBound === true }) : '';
+ const text = a.state === 'checked' ? `${countsText(items, unclear, size)}${checked}`
   : a.state === 'unavailable' ? "This folder can't be checked. Run Check now to see why."
   : `Check which files Kiro can read but probably doesn't need.${a.lastDate && DAY.test(a.lastDate) ? ` Last checked ${a.lastDate} (UTC).` : ''}`;
  return `<section class="audit-card" aria-labelledby="audit-heading"><h3 id="audit-heading">Workspace check</h3><p>${safe(text)}</p><p class="audit-actions"><a class="button primary" href="${AUDIT_LINK.check}">Check now</a>${a.state === 'checked' ? ` <a class="button secondary" href="${AUDIT_LINK.show}">Show</a>` : ''}</p></section>`;
