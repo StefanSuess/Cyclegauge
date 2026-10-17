@@ -602,7 +602,7 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[]};
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
@@ -614,7 +614,8 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
    getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
     ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts} as any)[key]??''}),
-   createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
+   createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}}),
+   onDidChangeConfiguration(fn:any){env.configListeners.push(fn);return disposable;}},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
@@ -625,7 +626,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
- (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
+ (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==1000&&ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
  (globalThis as any).clearTimeout=(t:any)=>{if(t&&env.timers.includes(t))t.cleared=true;else realClear(t);};
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
@@ -775,6 +776,57 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   // Only the documented keys were written.
   assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// Waits for real filesystem work (a re-check walks the synthetic workspace) with a real-time bound, not a tick count.
+const until=async(done:()=>boolean,ms=5000)=>{const end=Date.now()+ms;while(!done()&&Date.now()<end)await new Promise(r=>setTimeout(r,10));};
+// Saving an ignore file or changing Agent Ignore Files re-checks a checked workspace once, silently; nothing else does.
+test('packaged re-check after ignore changes: checked workspaces only, ignore files only, debounced and silent',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-recheck-')));
+ let s:any;
+ try{
+  const env=communityEnv(work,true);env.prompts=false;s=await communitySession(env,work);
+  const pending=()=>env.timers.filter(t=>t.ms===1000&&!t.cleared);
+  const fire=async()=>{const [t]=pending();assert.ok(t);t!.cleared=true;await t!.fn();};
+  const target=join(env.workspace,'.kiroignore');
+  const save=(path:string)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>''});};
+  const setting=(key:string)=>{for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k===key});};
+  const envFound=()=>flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).some((n:any)=>n.finding?.path==='.env');
+  // Never checked: nothing starts.
+  save(target);setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,0);
+  await s.commands.get('cyclegauge.auditWorkspace')!();await s.later();assert.ok(envFound());
+  const infos=env.infos.length;
+  // Other files, files outside the folder and other settings start nothing.
+  save(join(env.workspace,'synthetic-other'));save(join(work,'.kiroignore'));setting('files.autoSave');assert.equal(pending().length,0);
+  // A burst of saves is one silent re-check that picks up the saved rules.
+  writeFileSync(target,'/.env\n');save(target);save(target);assert.equal(pending().length,1);
+  await fire();await until(()=>!envFound());
+  assert.ok(!envFound());assert.equal(env.infos.length,infos);
+  // Changing Agent Ignore Files re-checks too, and disposal cancels a pending re-check.
+  setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,1);
+  const last=pending()[0]!;s.dispose();assert.equal(last.cleared,true);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// A re-check before the user saves a prepared Exclude edit keeps that edit, so saving it still counts as the support signal.
+test('packaged re-check keeps a prepared Exclude edit',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-recheck-keep-')));
+ let s:any;
+ try{
+  const env=communityEnv(work,true);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');
+  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
+  const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+  await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
+  const last=s.api.state.fires;
+  for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='kiroAgent.agentIgnoreFiles'});
+  const t=env.timers.find(x=>x.ms===1000&&!x.cleared)!;t.cleared=true;await t.fn();
+  await until(()=>s.api.state.fires>last);
+  assert.ok(s.api.state.fires>last);
+  const doc=s.api.state.shown.at(-1),target=join(env.workspace,'.kiroignore');
+  writeFileSync(target,doc.getText());
+  for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:target},getText:()=>doc.getText()});
+  await s.later();assert.equal(env.timers.filter(x=>x.ms===60000).length,1);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
 test('packaged earlier support signals: distinct detail days and saved accepted edits',async()=>{

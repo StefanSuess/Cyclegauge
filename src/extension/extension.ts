@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { runAudit, snippet, type AuditResult, type Finding } from '../audit/audit.ts';
+import { validIgnoreNames } from '../audit/read-ignore.ts';
 import { lstatSync, realpathSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { refusal } from './audit-root.ts';
 import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
@@ -44,13 +45,14 @@ const LAST_KEY = 'cyclegauge.audit.last.v1';
 const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
 const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
 const REMINDER_DELAY_MS = 30_000;
+const RECHECK_DELAY_MS = 1_000; // coalesces a burst of saves or setting changes into one re-check
 interface Dismissed { salt: string; hashes: string[] }
 // What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
 function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: () => void): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
- let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined;
+ let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
  let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
@@ -124,12 +126,13 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   return reason || resolved === undefined ? { reason: reason ?? 'its real location could not be resolved' } : { chosen, resolved };
  };
  // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
- const auditOnce = async (silent = false, signal?: AbortSignal): Promise<AuditResult | undefined> => {
+ // `recheckOf` pins a silent re-check to the folder already checked and keeps its prepared, unsaved Exclude edit.
+ const auditOnce = async (silent = false, signal?: AbortSignal, recheckOf?: string): Promise<AuditResult | undefined> => {
   if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
   const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
   if (folders.length === 0) { refused = true; summaryChanged(); if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
-  let folder: vscode.WorkspaceFolder | undefined = folders[0];
-  if (folders.length > 1) {
+  let folder: vscode.WorkspaceFolder | undefined = recheckOf === undefined ? folders[0] : folders.find(f => f.uri.fsPath === recheckOf);
+  if (recheckOf === undefined && folders.length > 1) {
    if (silent) return;
    const picked = await vscode.window.showQuickPick(folders.map(f => ({ label: f.name, folder: f })), { title: 'Folder to audit' });
    folder = picked?.folder;
@@ -146,7 +149,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;
-  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear(); pendingSave = undefined; checkedAt = new Date().toISOString(); refused = false;
+  if (recheckOf !== chosen) { accepted.clear(); pendingSave = undefined; }
+  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; checkedAt = new Date().toISOString(); refused = false;
   await recordAudit(outcome);
   render();
   return outcome;
@@ -270,7 +274,33 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  };
  const timer = setTimeout(() => checkReminder(), REMINDER_DELAY_MS);
  timer.unref?.();
- context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); reminderAbort?.abort(); } });
+ context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); if (recheckTimer) clearTimeout(recheckTimer); reminderAbort?.abort(); } });
+ // A checked workspace is re-checked silently when its ignore rules change, so the list and the card never show stale coverage.
+ const recheck = (): void => {
+  if (disposed || !result || root === '') return;
+  if (recheckTimer) clearTimeout(recheckTimer);
+  recheckTimer = setTimeout(() => {
+   recheckTimer = undefined;
+   if (disposed || !result) return;
+   if (running) { recheck(); return; } // after a running audit, never alongside it
+   const abort = new AbortController();
+   reminderAbort = abort; running = true;
+   void auditOnce(true, abort.signal, root).catch(() => undefined).finally(() => { running = false; reminderAbort = undefined; });
+  }, RECHECK_DELAY_MS);
+  recheckTimer.unref?.();
+ };
+ // Only `.kiroignore` and the files named by Agent Ignore Files, directly in the checked folder; the file itself is not read here.
+ const isIgnoreFile = (path: string): boolean => {
+  if (root === '' || (dirname(path) !== root && dirname(path) !== realRoot)) return false;
+  const named = validIgnoreNames(vscode.workspace.getConfiguration('kiroAgent', vscode.Uri.file(root)).get<unknown>('agentIgnoreFiles')) ?? [];
+  return ['.kiroignore', ...named].includes(basename(path));
+ };
+ if (vscode.workspace.onDidSaveTextDocument) context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
+  try { if (document.uri.scheme === 'file' && isIgnoreFile(document.uri.fsPath)) recheck(); } catch { /* a missed re-check leaves the last result */ }
+ }));
+ if (vscode.workspace.onDidChangeConfiguration) context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
+  try { if (event.affectsConfiguration('kiroAgent.agentIgnoreFiles')) recheck(); } catch { /* a missed re-check leaves the last result */ }
+ }));
  try {
   const emitter = new vscode.EventEmitter<AuditNode | undefined>();
   changed = emitter;
