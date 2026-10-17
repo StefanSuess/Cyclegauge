@@ -29,9 +29,11 @@ export function readReminderDays(get: Getter): number {
  const value = get(ID_PREFIX, 'auditReminderDays');
  return typeof value === 'number' && Number.isFinite(value) ? Math.min(REMINDER_DAYS_MAX, Math.max(0, Math.floor(value))) : REMINDER_DAYS_DEFAULT;
 }
-/** Only an explicit true enables automatic audits. */
-export function readAuditAutomatically(get: Getter): boolean {
- return get(ID_PREFIX, 'auditAutomatically') === true;
+export type AuditAutomatic = 'off' | 'onOpen' | 'onOpenAndChanges';
+/** Only an explicit mode enables automatic audits; the earlier boolean true means onOpen, anything else is off. */
+export function readAuditAutomatically(get: Getter): AuditAutomatic {
+ const value = get(ID_PREFIX, 'auditAutomatically');
+ return value === true ? 'onOpen' : value === 'onOpen' || value === 'onOpenAndChanges' ? value : 'off';
 }
 /** Prompts are on unless the user explicitly sets false. */
 export function readSupportPrompts(get: Getter): boolean {

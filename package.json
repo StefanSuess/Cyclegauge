@@ -153,9 +153,15 @@
           "scope": "application"
         },
         "cyclegauge.auditAutomatically": {
-          "type": "boolean",
-          "default": false,
-          "description": "When an audit is due, run it automatically in trusted workspaces (same limits; nothing is written or sent).",
+          "type": "string",
+          "default": "off",
+          "enum": ["off", "onOpen", "onOpenAndChanges"],
+          "enumDescriptions": [
+            "Only remind you; never run the audit by itself.",
+            "When a trusted workspace opens, re-run an audit that is more than one day old.",
+            "As onOpen, and re-check when a file matching the audit's own name patterns appears (notifies at most once a day, only for new secret files)."
+          ],
+          "description": "Run the workspace audit automatically in trusted workspaces (same limits; nothing is written or sent). The earlier value true means onOpen.",
           "scope": "application"
         },
         "cyclegauge.supportPrompts": {

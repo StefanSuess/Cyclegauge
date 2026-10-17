@@ -28,7 +28,7 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  }
  const { auditReminderDays: days, auditAutomatically: automatic } = Object.fromEntries(AUDIT_SETTING_KEYS.map(k => [k, props[`cyclegauge.${k}`]]));
  assert.deepEqual([days.type, days.default, days.minimum, days.maximum], ['number', 30, 0, 365]);
- assert.deepEqual([automatic.type, automatic.default], ['boolean', false]);
+ assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
  assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge."]);
 });
@@ -61,7 +61,7 @@ test('the reset reminder command is declared with its palette title', () => {
  assert.equal(reset?.title, 'Cyclegauge: Reset workspace audit reminder');
 });
 
-test('audit reminder settings are read strictly: clamped numbers, explicit true only', () => {
+test('audit reminder settings are read strictly: clamped numbers, known modes only', () => {
  const get = (values: Record<string, unknown>) => (p: string, k: string) => values[`${p}.${k}`];
  assert.equal(readReminderDays(get({})), 30);
  assert.equal(readReminderDays(get({ 'cyclegauge.auditReminderDays': 7 })), 7);
@@ -70,9 +70,10 @@ test('audit reminder settings are read strictly: clamped numbers, explicit true 
  assert.equal(readReminderDays(get({ 'cyclegauge.auditReminderDays': -3 })), 0);
  assert.equal(readReminderDays(get({ 'cyclegauge.auditReminderDays': 9999 })), 365);
  for (const bad of ['7', null, Number.NaN, Number.POSITIVE_INFINITY, {}, true]) assert.equal(readReminderDays(get({ 'cyclegauge.auditReminderDays': bad })), 30, String(bad));
- assert.equal(readAuditAutomatically(get({})), false);
- assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': true })), true);
- for (const bad of ['true', 1, null, {}, false]) assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': bad })), false, String(bad));
+ assert.equal(readAuditAutomatically(get({})), 'off');
+ assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': true })), 'onOpen'); // the earlier boolean
+ for (const mode of ['off', 'onOpen', 'onOpenAndChanges']) assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': mode })), mode);
+ for (const bad of ['true', 'OnOpen', 'onopenandchanges', 1, null, {}, false]) assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': bad })), 'off', String(bad));
 });
 
 test('the intended Open VSX ID is StefanSuess.cyclegauge', () => {

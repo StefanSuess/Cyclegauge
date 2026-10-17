@@ -36,6 +36,18 @@ const SECRET_PATHS = ['.vscode/sftp.json', '.idea/webservers.xml', '.docker/conf
 // Pruned by the walk (never entered) and reported as one folder: secret stores and dependency folders.
 const SECRET_DIRS = new Set(['.ssh', '.gnupg', '.aws']);
 const DEPENDENCY_DIRS = new Set(['node_modules', 'bower_components', 'jspm_packages', '.terraform', '.pnpm-store']);
+const DATABASE_EXTS = ['.sql', '.sqldump', '.dump', '.sqlite', '.sqlite3', '.db', '.bak', '.mdf', '.sdf'];
+const ARCHIVE_EXTS = ['.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.bz2', '.xz'];
+const DATA_EXTS = ['.csv', '.tsv', '.jsonl', '.ndjson', '.parquet', '.pcap', '.pcapng', '.npy', '.npz', '.pkl', '.h5', '.hdf5', '.feather', '.arrow'];
+/**
+ * One glob for the optional file watcher, built from the same lists: a new entry with one of these names may change the audit.
+ * Size-only findings ("other large files") and a few path-only rules are not watched; the next full check still finds them.
+ */
+export const WATCH_GLOB = `**/{${[...new Set([
+ ...SECRET_NAMES, '.env.*', ...SECRET_EXTS.map(e => `*${e}`), '*_rsa', '*_dsa', '*_ecdsa', '*_ed25519', 'sftp.json', 'WebServers.xml',
+ ...[...DATABASE_EXTS, ...ARCHIVE_EXTS, '.log', ...DATA_EXTS].map(e => `*${e}`),
+ ...SECRET_DIRS, '*.agilekeychain', ...DEPENDENCY_DIRS, 'Pods', ...BUILD_DIRS, 'DerivedData', 'cmake-build-*',
+])].join(',')}}`;
 const ends = (n: string, exts: string[]) => exts.some(e => n.endsWith(e));
 const base = (p: string) => p.slice(p.lastIndexOf('/') + 1);
 const parentOf = (p: string) => p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '';
@@ -43,10 +55,10 @@ function fileCategory(path: string, size: number): Category | undefined {
  const p = path.toLowerCase(), n = base(p);
  if (SECRET_NAMES.has(n) || (n.startsWith('.env.') && !ENV_EXAMPLES.has(n)) || ends(n, SECRET_EXTS) || SSH_KEY.test(n)
   || SECRET_PATHS.some(x => p === x || p.endsWith(`/${x}`))) return 'secret';
- if (size >= KIB && ends(n, ['.sql', '.sqldump', '.dump', '.sqlite', '.sqlite3', '.db', '.bak', '.mdf', '.sdf'])) return 'database';
- if (size >= 100 * KIB && ends(n, ['.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.bz2', '.xz'])) return 'archive';
+ if (size >= KIB && ends(n, DATABASE_EXTS)) return 'database';
+ if (size >= 100 * KIB && ends(n, ARCHIVE_EXTS)) return 'archive';
  if (size >= 100 * KIB && n.endsWith('.log')) return 'log';
- if (size >= MIB && ends(n, ['.csv', '.tsv', '.jsonl', '.ndjson', '.parquet', '.pcap', '.pcapng', '.npy', '.npz', '.pkl', '.h5', '.hdf5', '.feather', '.arrow'])) return 'data';
+ if (size >= MIB && ends(n, DATA_EXTS)) return 'data';
  if (size >= 5 * MIB) return 'large';
  return undefined;
 }
