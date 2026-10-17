@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,realpathSync,rmSync,existsSync,unlinkSync,symlinkSync} from 'node:fs';
 import {join} from 'node:path';
+import {createHash} from 'node:crypto';
+import * as realFsPromises from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {createRequire} from 'node:module';
 import {runInThisContext} from 'node:vm';
@@ -74,7 +76,7 @@ const auditApi=()=>{
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
-const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.reveal','cyclegauge.auditWorkspace'];
+const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 
 // The audit command is registered before the collector starts, so a failing start leaves it available. It runs only on invocation.
@@ -253,6 +255,204 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
    infos.length=0;clipboard.length=0;infoChoice=undefined;await run();assert.equal(infos.length,1);assert.equal(clipboard.length,0);
   }finally{module2.exports.deactivate();for(const d of subscriptions2)d.dispose();}
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// Audit reminder: a once-per-window check 30 s after activation. The delay is intercepted so the check runs on demand; the clock is injected
+// through the Date the bundle sees. Only the four documented workspaceState keys may be written, and never a path.
+const REMINDER_KEYS=['cyclegauge.audit.last.v1','cyclegauge.audit.snoozeUntil.v1','cyclegauge.audit.neverRemind.v1','cyclegauge.audit.dismissed.v1'];
+const reminderEnv=(work:string)=>{
+ const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),empty=join(work,'synthetic-empty'),single=join(work,'synthetic-single');
+ const logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
+ mkdirSync(logs,{recursive:true});mkdirSync(join(workspace,'dist'),{recursive:true});mkdirSync(empty,{recursive:true});mkdirSync(single,{recursive:true});writeFileSync(join(single,'.env'),'SYNTHETIC_CONTENT_SENTINEL');
+ writeFileSync(join(logs,'q-client.log'),`2030-03-31 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-04-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:4,usageLimitWithPrecision:50,nextDateReset:'2030-04-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n');
+ writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');writeFileSync(join(workspace,'dist','synthetic.js'),'x');
+ const store=new Map<string,unknown>(),written:string[]=[];
+ const env={now:'2030-03-31T12:00:00Z',trusted:true,folders:[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:workspace}}] as any[],days:undefined as unknown,automatic:undefined as unknown,
+  choice:undefined as string|undefined,onInfo:undefined as (()=>void)|undefined,cancel:false,throwState:false,failStart:true,source,workspace,empty,single,store,written,gate:undefined as Promise<void>|undefined,readdirs:[] as string[],lstats:[] as string[],configCalls:[] as {section:string;args:number}[],
+  infos:[] as {text:string;buttons:string[]}[],warnings:[] as string[],errors:[] as string[],progress:0,executed:[] as any[][],statusTexts:[] as string[],clipboard:[] as string[]};
+ return env;
+};
+const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
+ const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
+ const bundle=await builtBundle(work);
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
+  EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
+  commands:{async executeCommand(...a:any[]){env.executed.push(a);},registerCommand(id:string,fn:(...a:any[])=>unknown){if(env.failStart&&!id.startsWith('cyclegauge.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  env:{clipboard:{async writeText(t:string){env.clipboard.push(t);}}},
+  workspace:{...api.workspace,get isTrusted(){return env.trusted;},get workspaceFolders(){return env.folders;},
+   getConfiguration:(section:string,...more:unknown[])=>(env.configCalls.push({section,args:more.length}),{get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?'off':
+    ({sourceRoot:env.source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC',auditReminderDays:env.days,auditAutomatically:env.automatic} as any)[key]??''}),
+   createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
+  window:{...api.window,createStatusBarItem(){const item={set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};return item;},
+   async showWarningMessage(m:string){env.warnings.push(m);},async showErrorMessage(m:string){env.errors.push(m);},
+   async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});env.onInfo?.();return buttons.length?env.choice:undefined;},
+   async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){env.progress++;return task({},{onCancellationRequested:(fn:()=>void)=>{if(env.cancel)fn();return disposable;}});}}};
+ const workspaceState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
+  async update(k:string,v:unknown){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
+ const fixedNow=Date.parse(env.now);
+ class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
+ const timers:{fn:()=>Promise<void>;ms:number;cleared:boolean}[]=[];
+ const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
+ (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==30000)return realSet(fn,ms,...rest);const t={fn,ms,cleared:false,unref(){return t;}};timers.push(t);return t;};
+ (globalThis as any).clearTimeout=(t:any)=>{if(t&&timers.includes(t))t.cleared=true;else realClear(t);};
+ const require=createRequire(new URL('../../package.json',import.meta.url));
+ const module={exports:{} as any};
+ // The walk's file system calls are observed (and the workspace listing can be held) so a run in flight can be inspected.
+ const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
+ runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?fsHook:require(id),module,module.exports,SyntheticDate);
+ try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{(globalThis as any).setTimeout=realSet;}
+ let done=false;
+ return {commands,timers,api,provider:()=>api.state.providers.get('cyclegauge.auditView'),
+  fire:async()=>{assert.equal(timers.length,1);assert.equal(timers[0]!.ms,30000);return timers[0]!.fn();},
+  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).clearTimeout=realClear;}};
+};
+const TODAY='2030-03-31';
+// A function boundary keeps the narrowing from assert.deepEqual(env.infos, []) out of later reads.
+const infoTexts=(env:{infos:{text:string}[]})=>env.infos.map(i=>i.text);
+const firstInfo=(env:{infos:{text:string;buttons:string[]}[]})=>env.infos[0]!;
+test('packaged audit reminder: guards, first prompt, buttons and stored state',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-reminder-bundle-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=reminderEnv(work);
+  const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
+  const reset=()=>{env.infos.length=0;env.warnings.length=0;env.errors.length=0;env.progress=0;env.executed.length=0;env.store.clear();env.written.length=0;env.choice=undefined;};
+  // The timer is registered once, for 30 seconds, and disposed with the extension.
+  let s=await start();assert.equal(s.timers.length,1);assert.equal(s.timers[0]!.cleared,false);s.dispose();assert.equal(s.timers[0]!.cleared,true);
+  await s.timers[0]!.fn();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);assert.equal(env.written.length,0);
+  // Untrusted, multi-root, non-file, no folder and refused roots: silent, nothing audited, nothing written.
+  const folder=(fsPath:string,scheme='file')=>({name:'synthetic-workspace',uri:{scheme,fsPath}});
+  const quiet=async(why:string)=>{s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[],why);assert.deepEqual(env.warnings,[],why);assert.equal(env.progress,0,why);assert.equal(env.written.length,0,why);assert.equal(env.store.size,0,why);assert.deepEqual(s.provider()?.getChildren()??[],[],why);};
+  env.trusted=false;await quiet('untrusted');env.trusted=true;
+  env.folders=[folder(env.workspace),folder(env.empty)];await quiet('multi-root');
+  env.folders=[folder(env.workspace,'vscode-remote')];await quiet('remote');
+  env.folders=[];await quiet('no folder');
+  for(const refused of [env.source,join(env.source,'logs'),join(work,'synthetic-missing')]){env.folders=[folder(refused)];await quiet('refused');}
+  env.folders=[folder(env.workspace)];
+  for(const days of [0,-5]){env.days=days;await quiet(`days ${days}`);}env.days=undefined;
+  // Never audited: one prompt with three buttons; the snooze is recorded when it is shown (today + reminderDays), so it is not repeated.
+  s=await start();await s.fire();
+  assert.deepEqual(env.infos,[{text:"Cyclegauge can check this workspace for files that may end up in Kiro's context.",buttons:['Run audit','Later',"Don't ask again"]}]);
+  assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);assert.equal(env.progress,0);assert.deepEqual(s.provider().getChildren(),[]);s.dispose();
+  // The snooze (today + reminderDays) is already recorded while the prompt is open, so a prompt left unanswered is not repeated either.
+  reset();let snoozeWhileOpen:unknown;env.onInfo=()=>{snoozeWhileOpen=env.store.get('cyclegauge.audit.snoozeUntil.v1');};
+  s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-30');
+  env.infos.length=0;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  // The setting changes the period (also for Later): 10 days.
+  reset();env.days=10;env.onInfo=()=>{snoozeWhileOpen=env.store.get('cyclegauge.audit.snoozeUntil.v1');};s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-10');env.days=undefined;
+  // Later and a dismissed first prompt both wait a whole reminder period (30 days), not the 7 days of a regular reminder.
+  for(const choice of ['Later',undefined]){reset();env.choice=choice;s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.snoozeUntil.v1'),'2030-04-30',String(choice));assert.equal(env.store.has('cyclegauge.audit.neverRemind.v1'),false);assert.equal(env.progress,0);}
+  // After the snooze the prompt returns (unless it was dismissed for good).
+  env.now='2030-04-29T00:00:00Z';env.infos.length=0;env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  env.now='2030-04-30T00:00:00Z';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);env.now='2030-03-31T12:00:00Z';
+  // Don't ask again: never again, however much time passes.
+  reset();env.choice="Don't ask again";s=await start();await s.fire();s.dispose();
+  assert.equal(env.store.get('cyclegauge.audit.neverRemind.v1'),true);
+  env.infos.length=0;env.now='2031-03-31T00:00:00Z';env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);env.now='2030-03-31T12:00:00Z';
+  // Run audit: the normal command, with its progress notification; it records the date and fills the list.
+  reset();env.choice='Run audit';s=await start();await s.fire();
+  assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.deepEqual(s.provider().getChildren().map((n:any)=>n.label).slice(0,1),['Audited folder: synthetic-workspace']);
+  assert.deepEqual(infoTexts(env),["Cyclegauge can check this workspace for files that may end up in Kiro's context.",'Workspace audit: 2 findings.']);s.dispose();
+  // A command-driven run records the date too (and only a finished, not cancelled, run does).
+  reset();s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
+  reset();env.cancel=true;s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();env.cancel=false;
+  reset();env.folders=[folder(env.source)];s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();env.folders=[folder(env.workspace)];
+  // Reset: clears the snooze and the never flag, keeps the date of the last audit.
+  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.store.set('cyclegauge.audit.snoozeUntil.v1','2031-01-01');env.store.set('cyclegauge.audit.neverRemind.v1',true);
+  s=await start();await s.commands.get('cyclegauge.audit.resetReminder')!();
+  assert.deepEqual([...env.store],[['cyclegauge.audit.last.v1','2030-03-01']]);assert.deepEqual(infoTexts(env),['Audit reminder reset for this workspace.']);
+  env.infos.length=0;await s.fire();assert.equal(firstInfo(env).text,'This workspace was last audited 30 days ago.');s.dispose();
+  // Only the documented keys were written, with date-or-flag values and no path.
+  assert.ok(env.written.every(k=>REMINDER_KEYS.includes(k)),env.written.join());
+ }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged audit reminder: due reminder, automatic run and its limits',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-reminder-auto-bundle-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=reminderEnv(work);
+  const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
+  const reset=()=>{env.infos.length=0;env.warnings.length=0;env.errors.length=0;env.progress=0;env.executed.length=0;env.store.clear();env.written.length=0;env.choice=undefined;env.clipboard.length=0;};
+  const last=(v:string)=>env.store.set('cyclegauge.audit.last.v1',v);
+  // Due and not automatic: the reminder names the number of days, nothing runs, the list stays empty.
+  reset();last('2030-03-01');let s=await start();await s.fire();
+  assert.deepEqual(env.infos,[{text:'This workspace was last audited 30 days ago.',buttons:['Run audit','Later',"Don't remind me"]}]);
+  assert.equal(env.progress,0);assert.deepEqual(s.provider().getChildren(),[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');s.dispose();
+  // One day short of the period: nothing.
+  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  // Buttons: Later = +7 days, Don't remind me = never, Run audit = the command.
+  reset();last('2020-03-31');env.choice='Later';s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.snoozeUntil.v1'),'2030-04-07');
+  assert.equal(firstInfo(env).text,'This workspace was last audited 3652 days ago.');
+  reset();last('2030-03-01');env.choice="Don't remind me";s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.neverRemind.v1'),true);
+  reset();last('2030-03-01');env.choice='Run audit';s=await start();await s.fire();assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
+  // Automatic: the audit runs without a progress notification; the list is updated; findings give one message with a Show button.
+  reset();last('2030-03-01');env.automatic=true;s=await start();await s.fire();
+  assert.equal(env.progress,0);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.deepEqual(env.infos,[{text:'Workspace audit: 2 findings.',buttons:['Show']}]);
+  assert.equal(s.provider().getChildren()[0].label,'Audited folder: synthetic-workspace');assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
+  assert.ok(!JSON.stringify(s.provider().getChildren()).includes('SYNTHETIC_CONTENT_SENTINEL'));s.dispose();
+  reset();last('2030-03-01');env.choice='Show';s=await start();await s.fire();assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);s.dispose();
+  // No findings: silent. Not due: nothing runs. Never audited or snoozed: the first prompt or nothing, never a background run.
+  reset();last('2030-03-01');env.folders=[{name:'synthetic-empty',uri:{scheme:'file',fsPath:env.empty}}];s=await start();await s.fire();
+  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(s.provider().getChildren().at(-1).label,'No findings');s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
+  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-02');
+  reset();s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons.length,3);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);
+  reset();last('2030-03-01');env.store.set('cyclegauge.audit.snoozeUntil.v1','2030-04-01');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.store.set('cyclegauge.audit.neverRemind.v1',true);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.days=0;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');env.days=undefined;
+  // Invalid stored values count as absent.
+  reset();last('synthetic-not-a-date');env.store.set('cyclegauge.audit.snoozeUntil.v1','2030-99-99');env.store.set('cyclegauge.audit.neverRemind.v1','yes');s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons[2],"Don't ask again");
+  // Untrusted or a refused root never auto-run, even when due.
+  reset();last('2030-03-01');env.trusted=false;s=await start();await s.fire();s.dispose();env.trusted=true;assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await s.fire();s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
+  // A run in flight is held at the listing of the workspace. Without a dispose it walks every entry (baseline); a command invoked meanwhile is declined.
+  reset();env.lstats.length=0;env.readdirs.length=0;last('2030-03-01');let release:()=>void=()=>{};env.gate=new Promise<void>(r=>{release=r;});
+  s=await start();let pending=s.fire();while(!env.readdirs.includes(env.workspace))await new Promise(r=>setImmediate(r));
+  await s.commands.get('cyclegauge.auditWorkspace')!();
+  assert.deepEqual(infoTexts(env),['An automatic workspace audit is running; try again shortly.']);assert.equal(env.progress,0);
+  release();await pending;env.gate=undefined;s.dispose();
+  const nested=join(env.workspace,'dist','synthetic.js');
+  assert.ok(env.lstats.includes(nested),'an unaborted walk enters dist');assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  // Disposing the extension while the automatic run is in flight aborts its signal: the walk does not enter dist, and there is no list update, date or message.
+  reset();env.lstats.length=0;env.readdirs.length=0;last('2030-03-01');env.gate=new Promise<void>(r=>{release=r;});
+  s=await start();pending=s.fire();while(!env.readdirs.includes(env.workspace))await new Promise(r=>setImmediate(r));
+  s.dispose();release();await pending;env.gate=undefined;
+  assert.ok(!env.lstats.includes(nested));assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');assert.equal(env.errors.length,0);assert.deepEqual(s.provider()?.getChildren()??[],[]);
+  // The reminder settings are application-scoped: they are read without a folder, so a workspace cannot set them.
+  assert.ok(env.configCalls.some(c=>c.section==='cyclegauge'));assert.ok(env.configCalls.filter(c=>c.section==='cyclegauge').every(c=>c.args===0));
+  // One counting rule: findings the user has not ignored plus omitted ones; singular forms.
+  const hash=(salt:string,category:string,path:string)=>createHash('sha256').update(`${salt}\0${category}\0${path}`).digest('hex');
+  const salt='b'.repeat(64);
+  reset();last('2030-03-01');env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();
+  assert.deepEqual(env.infos,[{text:'Workspace audit: 1 finding.',buttons:['Show']}]);s.dispose();
+  reset();env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();
+  assert.deepEqual(env.infos,[{text:'Workspace audit: 1 finding.',buttons:[]}]);s.dispose();
+  env.folders=[{name:'synthetic-single',uri:{scheme:'file',fsPath:env.single}}];
+  reset();last('2030-03-01');s=await start();await s.fire();assert.deepEqual(env.infos,[{text:'Workspace audit: 1 finding.',buttons:['Show']}]);s.dispose();
+  reset();last('2030-03-01');env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  reset();env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();s.dispose();assert.deepEqual(env.infos,[]);
+  env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
+  reset();last('2030-03-30');env.days=1;env.automatic=false;env.choice=undefined;s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).text,'This workspace was last audited 1 day ago.');env.days=undefined;
+  // Only the documented keys were written, and no stored value holds a path or file name.
+  assert.ok(env.written.every(k=>REMINDER_KEYS.includes(k)),env.written.join());
+  const everything=JSON.stringify([...env.store]);assert.ok(!everything.includes(work)&&!everything.includes('synthetic-workspace')&&!everything.includes('.env'));
+ }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged audit reminder: a failing workspaceState never breaks activation, the gauge or the audit command',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-reminder-state-bundle-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=reminderEnv(work);env.throwState=true;env.failStart=false;env.now='2030-03-31T12:00:00Z';
+  const s=await reminderSession(env,work);open.push(s);
+  assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(s.commands.has('cyclegauge.auditWorkspace'));
+  assert.ok(env.statusTexts.length>0&&env.statusTexts.every(t=>!/unavailable|update needed/.test(t)),env.statusTexts.join('|'));
+  env.choice='Later';await s.fire();
+  assert.equal(env.infos.length,1);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);
+  await s.commands.get('cyclegauge.auditWorkspace')!();
+  assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.equal(s.provider().getChildren()[0].label,'Audited folder: synthetic-workspace');
+  env.automatic=true;env.infos.length=0;await s.fire();assert.deepEqual(env.errors,[]);
+ }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
 // node:sqlite is loaded lazily, so a runtime without it still loads the bundle, registers its commands and says an update is needed.

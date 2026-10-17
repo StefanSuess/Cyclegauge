@@ -9,7 +9,8 @@ import { refusal } from './audit-root.ts';
 import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
-import { ID_PREFIX, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand } from './identity.ts';
+import { ID_PREFIX, PANEL_VIEW_TYPE, commandId, readAuditAutomatically, readReminderDays, readSetting, registerCommand } from './identity.ts';
+import { LATER_DAYS, addDays, auditDue, daysBetween, utcDate } from './audit-schedule.ts';
 
 let stop: (() => void) | undefined;
 // What Copy Diagnostics may report: fixed states only. Kept outside runCyclegauge so the command also works after a failed start.
@@ -32,13 +33,20 @@ function registerDiagnostics(context: vscode.ExtensionContext): void {
  };
  context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'copyDiagnostics', copy));
 }
-// The audit runs only when the user invokes the command. Cyclegauge itself writes no file and no setting: Accept only prepares an
-// unsaved edit, and the only thing persisted is the salted-hash list of ignored findings in the editor's per-workspace state.
+// The audit runs when the user invokes the command, or from the reminder: a prompt once per window when the workspace has never been
+// audited or is due again (reminderDays), and, only if the user turned on cyclegauge.auditAutomatically in their own user settings, a silent
+// re-run of the same audit when it is due. Cyclegauge itself writes no file and no setting: Accept only prepares an
+// unsaved edit, and the only things persisted are, in the editor's per-workspace state, the salted-hash list of ignored findings
+// and, for the reminder, the UTC date of the last audit, a snooze date and a "never remind" flag. No path is ever stored.
 const DISMISSED_KEY = 'cyclegauge.audit.dismissed.v1';
+const LAST_KEY = 'cyclegauge.audit.last.v1';
+const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
+const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
+const REMINDER_DELAY_MS = 30_000;
 interface Dismissed { salt: string; hashes: string[] }
 function registerAudit(context: vscode.ExtensionContext): void {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
- let running = false, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
+ let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
  // Every spelling of a path that exists: as given and with symlinks resolved.
@@ -58,44 +66,63 @@ function registerAudit(context: vscode.ExtensionContext): void {
   changed?.fire(undefined);
  };
  const visible = (): Finding[] => { const d = readDismissed(); return result ? visibleFindings(result, d?.hashes ?? [], hasher(d)) : []; };
+ // Reminder state lives in workspaceState; every access is fail-silent so a broken store never affects the audit or the gauge.
+ const stored = (key: string): unknown => { try { return context.workspaceState.get<unknown>(key); } catch { return undefined; } };
+ const store = async (key: string, value: unknown): Promise<void> => { try { await context.workspaceState.update(key, value); } catch { /* the reminder is best effort */ } };
+ const recordAudit = async (o: AuditResult): Promise<void> => {
+  if ((o.status === 'complete' || o.status === 'partial') && !o.reasons.includes('cancelled')) await store(LAST_KEY, utcDate(new Date()));
+ };
+ // One counting rule for every message: findings the user has not ignored, plus those beyond the listed maximum.
+ const findingsMessage = (o: AuditResult): string => { const n = visible().length + o.omitted; return `Workspace audit: ${n} ${n === 1 ? 'finding' : 'findings'}.`; };
  const audit = async (): Promise<void> => {
-  if (running) { await vscode.window.showInformationMessage('A workspace audit is already running.'); return; }
+  if (running) { await vscode.window.showInformationMessage(reminderAbort ? 'An automatic workspace audit is running; try again shortly.' : 'A workspace audit is already running.'); return; }
   running = true;
   try {
    let outcome: AuditResult | undefined;
    try { outcome = await auditOnce(); } finally { running = false; }
    if (!outcome) return;
    if (viewReady) try { await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); } catch { /* the list is still updated */ }
-   if (outcome.findings.length === 0) return;
-   const message = `Workspace audit: ${outcome.findings.length + outcome.omitted} findings.`;
+   if (visible().length === 0) return;
+   const message = findingsMessage(outcome);
    if (viewReady) { notify(message); return; } // not awaited: the notification resolves only when dismissed, and it offers no buttons
    // The list is unavailable: offer the clipboard only. Prompted after the run is released, so it never blocks the next audit.
    if (await vscode.window.showInformationMessage(message, 'Copy suggestions') === 'Copy suggestions') await vscode.env.clipboard.writeText(snippet(visible().filter(f => f.suggestion !== '')));
   } catch { try { await vscode.window.showErrorMessage('The workspace audit failed.'); } catch { /* nothing more to report */ } }
  };
- const auditOnce = async (): Promise<AuditResult | undefined> => {
-  if (!vscode.workspace.isTrusted) { await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
-  const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
-  if (folders.length === 0) { await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
-  let folder: vscode.WorkspaceFolder | undefined = folders[0];
-  if (folders.length > 1) {
-   const picked = await vscode.window.showQuickPick(folders.map(f => ({ label: f.name, folder: f })), { title: 'Folder to audit' });
-   folder = picked?.folder;
-  }
-  if (!folder) return;
+ // The folder as given and with symlinks resolved, or the fixed reason it must not be audited.
+ const folderCheck = (folder: vscode.WorkspaceFolder): { chosen: string; resolved: string } | { reason: string } => {
   const chosen = folder.uri.fsPath;
   let resolved: string | undefined;
   try { resolved = realpathSync.native(chosen); } catch { /* refused below */ }
   const reason = resolved === undefined ? 'its real location could not be resolved'
    : refusal([chosen, resolved], [defaultSource(), configured('sourceRoot')].flatMap(forms), [context.globalStorageUri.fsPath, defaultStorage(), configured('storageRoot')].flatMap(forms), forms(homedir()));
-  if (reason || resolved === undefined) { await vscode.window.showWarningMessage(`This folder can't be audited: ${reason}.`); return; }
+  return reason || resolved === undefined ? { reason: reason ?? 'its real location could not be resolved' } : { chosen, resolved };
+ };
+ // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
+ const auditOnce = async (silent = false, signal?: AbortSignal): Promise<AuditResult | undefined> => {
+  if (!vscode.workspace.isTrusted) { if (!silent) await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
+  const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
+  if (folders.length === 0) { if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
+  let folder: vscode.WorkspaceFolder | undefined = folders[0];
+  if (folders.length > 1) {
+   if (silent) return;
+   const picked = await vscode.window.showQuickPick(folders.map(f => ({ label: f.name, folder: f })), { title: 'Folder to audit' });
+   folder = picked?.folder;
+  }
+  if (!folder) return;
+  const checked = folderCheck(folder);
+  if ('reason' in checked) { if (!silent) await vscode.window.showWarningMessage(`This folder can't be audited: ${checked.reason}.`); return; }
+  const { chosen, resolved } = checked;
   const setting = vscode.workspace.getConfiguration('kiroAgent', folder.uri).get<unknown>('agentIgnoreFiles');
-  const outcome = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Auditing workspace…', cancellable: true }, async (_progress, token) => {
-   const abort = new AbortController();
-   token.onCancellationRequested(() => abort.abort());
-   return runAudit(chosen, setting, { signal: abort.signal });
-  });
+  const outcome = silent ? await runAudit(chosen, setting, { signal })
+   : await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Auditing workspace…', cancellable: true }, async (_progress, token) => {
+    const abort = new AbortController();
+    token.onCancellationRequested(() => abort.abort());
+    return runAudit(chosen, setting, { signal: abort.signal });
+   });
+  if (silent && disposed) return;
   result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear();
+  await recordAudit(outcome);
   render();
   return outcome;
  };
@@ -176,6 +203,44 @@ function registerAudit(context: vscode.ExtensionContext): void {
   notify('Suggestions copied. Review them before adding.');
  });
  register('audit.clearDismissed', async () => { await context.workspaceState.update(DISMISSED_KEY, undefined); render(); });
+ // The only way back from "never remind": clears the snooze and the flag; the date of the last audit is kept.
+ register('audit.resetReminder', async () => { await store(SNOOZE_KEY, undefined); await store(NEVER_KEY, undefined); notify('Audit reminder reset for this workspace.'); });
+ // Once per window, shortly after activation. Every failure here is swallowed: it must never affect the gauge or the audit command.
+ const checkReminder = async (): Promise<void> => {
+  try {
+   if (disposed || running || !vscode.workspace.isTrusted) return;
+   const all = vscode.workspace.workspaceFolders ?? [];
+   const folder = all.length === 1 && all[0]!.uri.scheme === 'file' ? all[0]! : undefined;
+   if (!folder || 'reason' in folderCheck(folder)) return;
+   // Application scope, read without a folder: only the user's own settings count, never a workspace's.
+   const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
+   const days = readReminderDays(get), automatic = readAuditAutomatically(get), today = utcDate(new Date());
+   const last = stored(LAST_KEY), due = auditDue({ today, last, snoozeUntil: stored(SNOOZE_KEY), neverRemind: stored(NEVER_KEY), reminderDays: days, automatic });
+   if (due === 'none') return;
+   if (due === 'auto') {
+    const abort = new AbortController();
+    reminderAbort = abort; running = true;
+    let outcome: AuditResult | undefined;
+    try { outcome = await auditOnce(true, abort.signal); } finally { running = false; reminderAbort = undefined; }
+    if (!outcome || disposed || visible().length === 0) return;
+    const message = findingsMessage(outcome);
+    if (viewReady) { if (await vscode.window.showInformationMessage(message, 'Show') === 'Show') await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); }
+    else if (await vscode.window.showInformationMessage(message, 'Copy suggestions') === 'Copy suggestions') await vscode.env.clipboard.writeText(snippet(visible().filter(f => f.suggestion !== '')));
+    return;
+   }
+   let text = 'Cyclegauge can check this workspace for files that may end up in Kiro\'s context.', never = "Don't ask again";
+   if (due === 'first') await store(SNOOZE_KEY, addDays(today, days)); // shown at most once per reminder period
+   else { const ago = daysBetween(last as string, today); text = `This workspace was last audited ${ago} ${ago === 1 ? 'day' : 'days'} ago.`; never = "Don't remind me"; }
+   const choice = await vscode.window.showInformationMessage(text, 'Run audit', 'Later', never);
+   if (disposed) return;
+   if (choice === 'Run audit') await audit();
+   else if (choice === never) await store(NEVER_KEY, true);
+   else await store(SNOOZE_KEY, addDays(today, due === 'first' ? days : LATER_DAYS)); // the first prompt waits a whole period
+  } catch { /* fixed and silent */ }
+ };
+ const timer = setTimeout(() => checkReminder(), REMINDER_DELAY_MS);
+ timer.unref?.();
+ context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); reminderAbort?.abort(); } });
  try {
   const emitter = new vscode.EventEmitter<AuditNode | undefined>();
   changed = emitter;

@@ -57,6 +57,30 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.ok(extraSetting.problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ // The two audit reminder settings must keep exactly their application scope (the user's own settings, never a workspace's), type, default and range; anything else fails closed.
+ const edited = (edit: (props: Record<string, any>) => void) => pack(e => e.map(x => {
+  if (x.name !== 'extension/package.json') return x;
+  const m = JSON.parse(x.data.toString('utf8'));
+  edit(m.contributes.configuration.properties);
+  return { ...x, data: Buffer.from(JSON.stringify(m)) };
+ }));
+ assert.deepEqual(edited(() => {}).problems, []);
+ const days = 'cyclegauge.auditReminderDays', auto = 'cyclegauge.auditAutomatically';
+ assert.ok(edited(p => { p[days].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[days].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[auto].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[auto].scope = 'window'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { delete p[auto].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[days].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[auto].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[days].default = 31; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[auto].default = true; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[days].maximum = 9999; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[days].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[auto]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ assert.ok(edited(p => { p['cyclegauge.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ // The existing machine-scoped keys may not move to resource scope.
+ assert.ok(edited(p => { p['cyclegauge.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 

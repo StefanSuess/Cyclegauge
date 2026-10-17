@@ -26,6 +26,11 @@ export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
 /** Intended Open VSX identity. */
 export const EXPECTED_ID = 'StefanSuess.cyclegauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
+// The audit reminder settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
+const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number }> = {
+ auditReminderDays: { type: 'number', default: 30, minimum: 0, maximum: 365 },
+ auditAutomatically: { type: 'boolean', default: false },
+};
 
 export interface FileHash { name: string; bytes: number; sha256: string }
 export interface VerifyResult { ok: boolean; problems: string[]; files: FileHash[]; version: string }
@@ -66,9 +71,14 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
    if (!manifest.engines?.vscode) problems.push('MANIFEST_ENGINE');
    if (manifest.icon !== 'assets/branding/cyclegauge-icon-256.png') problems.push('MANIFEST_ICON');
    const props = manifest.contributes?.configuration?.properties ?? {};
-   if (Object.keys(props).sort().join(',') !== SETTING_KEYS.map(key => `cyclegauge.${key}`).sort().join(',')) problems.push('MANIFEST_SETTING_PROPERTIES');
+   if (Object.keys(props).sort().join(',') !== [...SETTING_KEYS, ...Object.keys(USER_SETTINGS)].map(key => `cyclegauge.${key}`).sort().join(',')) problems.push('MANIFEST_SETTING_PROPERTIES');
    // Workspace settings must not be able to redirect the source or storage roots.
    for (const key of SETTING_KEYS) if (props[`cyclegauge.${key}`]?.scope !== 'machine') problems.push('MANIFEST_SETTING_SCOPE');
+   for (const [key, expected] of Object.entries(USER_SETTINGS)) {
+    const p = props[`cyclegauge.${key}`];
+    if (p?.scope !== 'application') problems.push('MANIFEST_SETTING_SCOPE');
+    if (p?.type !== expected.type || p?.default !== expected.default || p?.minimum !== expected.minimum || p?.maximum !== expected.maximum) problems.push('MANIFEST_SETTING_TYPE');
+   }
   } catch { problems.push('MANIFEST_JSON'); }
  }
  const vsixManifest = get('extension.vsixmanifest')?.toString('utf8');
