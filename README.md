@@ -45,6 +45,7 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 - **Qualified forecasts:** a provisional estimate (at least 3 comparable snapshots over 48 hours) and a regular forecast (8 snapshots over 7 days), both needing fresh data without long gaps. They are labeled scenarios, not guarantees.
 - **Cost Advisor:** automatic conditional plan comparisons from your forecast, with session-only answers. Numerical estimates show modelled pre-tax USD list-price differences for the next full billing cycle; 1/3/6-cycle details and hypothetical 75/100/125% usage sensitivity stay expandable. Plan hints are unconfirmed, and estimates are not guaranteed savings or invoices. Use **Cyclegauge: Cost Advisor** or the lightbulb status item while the detail view is open.
 - **Workspace audit:** the **Kiro Workspace Audit** view summarizes how many files in a trusted local folder Kiro may read but probably doesn't need (secrets, database dumps, build output and similar). **Exclude from Kiro** prepares a `.kiroignore` line for you to review and save, **Not a problem — hide** hides an item, a **Workspace check** card in the credit view shows the result without any paths, and an optional reminder (or opt-in automatic re-run) keeps it current. Findings are potential risks, not measured credit use.
+- **Not Kiro?** In an editor other than Kiro, Cyclegauge shows "Kiro not detected" in the status bar and explains once that the credit view stays empty there (the workspace audit still works).
 - **Diagnostics:** **Cyclegauge: Copy Diagnostics** (or CLI `--diagnostics`) produces a short report of fixed codes and counts to review before pasting into an issue.
 - **Command-line tool:** print the same figures in a terminal, optionally as JSON.
 
@@ -108,6 +109,8 @@ Cyclegauge is free, open source, and independently developed. It will stay compl
 If you've found it useful and would like to say thanks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/stefansuess). ☕
 
 Support is entirely optional. Knowing that someone appreciates my work means a lot. Thank you!
+
+The credit view has a quiet footer to rate Cyclegauge on Open VSX, star it on GitHub, support it on Ko-fi or share it. Inside Kiro it may also ask once in a while whether it is useful to you; Rate, Star or Support pause that for 120 days, and you can turn the prompt off any time with the user setting `cyclegauge.supportPrompts` or **Don't ask again**. Links open only when you click them; nothing is tracked or sent.
 
 ## License
 

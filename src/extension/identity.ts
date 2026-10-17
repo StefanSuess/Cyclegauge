@@ -4,6 +4,12 @@ export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
 // Non-string settings (application scope: user settings only): the audit reminder and its opt-in automatic re-run.
 export const AUDIT_SETTING_KEYS = ['auditReminderDays', 'auditAutomatically'] as const;
+// The community prompts' user setting (application scope, boolean, default on).
+export const SUPPORT_SETTING_KEYS = ['supportPrompts'] as const;
+// Fixed constants: the only external addresses the extension ever opens, and only when the user clicks. No data, no query strings.
+export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev' } as const;
+export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
+export const NOT_KIRO_TEXT = 'Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
 export const REMINDER_DAYS_DEFAULT = 30;
 export const REMINDER_DAYS_MAX = 365;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;
@@ -26,4 +32,12 @@ export function readReminderDays(get: Getter): number {
 /** Only an explicit true enables automatic audits. */
 export function readAuditAutomatically(get: Getter): boolean {
  return get(ID_PREFIX, 'auditAutomatically') === true;
+}
+/** Prompts are on unless the user explicitly sets false. */
+export function readSupportPrompts(get: Getter): boolean {
+ return get(ID_PREFIX, 'supportPrompts') !== false;
+}
+/** Kiro IDE by product name or URL scheme; any other editor (or unreadable metadata) is not Kiro. */
+export function isKiroEditor(appName: unknown, uriScheme: unknown): boolean {
+ return (typeof appName === 'string' && /kiro/i.test(appName)) || uriScheme === 'kiro';
 }

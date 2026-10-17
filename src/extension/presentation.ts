@@ -3,6 +3,7 @@ import { compare, compareRatios } from '../decimal.ts';
 import { readable, updated, date } from './labels.ts';
 import { presentChartParts, CHART_CSS } from './chart.ts';
 import { countsText, relativeTime, type AuditSummary } from './audit-model.ts';
+import { LINKS, NOT_KIRO_TEXT } from './identity.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -29,10 +30,13 @@ const explanations: Record<string,string> = {
  storage_newer:'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.',
 };
 
-// The links of this view are exactly three Cyclegauge commands (Cost Advisor and the two audit commands); none carries arguments.
+// The command links of this view are exactly four Cyclegauge commands (Cost Advisor, the two audit commands and Share); none carries arguments.
+// The footer's three web links are fixed constants and only ever followed on a click.
 // The workspace-check card shows counts and times only, never a path or folder name.
 const ADVISOR_LINK = 'command:cyclegauge.costAdvisor';
 const AUDIT_LINK = { check: 'command:cyclegauge.auditWorkspace', show: 'command:cyclegauge.audit.show' } as const;
+const SHARE_LINK = 'command:cyclegauge.share';
+const FOOTER = `<footer class="community muted small"><a href="${LINKS.rate}">★ Rate on Open VSX</a> · <a href="${LINKS.star}">Star on GitHub</a> · <a href="${LINKS.support}">☕ Support</a> · <a href="${SHARE_LINK}">Share</a></footer>`;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 function auditCard(a: AuditSummary | undefined, now: string): string {
  try { return buildAuditCard(a, now); } catch { return ''; } // the card can never take the gauge down
@@ -50,7 +54,7 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
 }
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString()) {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false) {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -58,6 +62,8 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const eligible=!stale && o.status==='observed' && f.status==='qualified' && !!selected;
  const blocked=diagnostics.find(c=>c==='runtime_unsupported' || c==='storage_newer');
  const reason=blocked ?? f.reasons[0] ?? o.status;
+ // Outside Kiro without a chosen source, an empty source is expected rather than a fault.
+ const absent=notKiro && !blocked && diagnostics.includes('no_source_logs');
  const tier=stale ? 'Forecast paused — stale data' : f.tier==='provisional' && eligible ? 'Provisional estimate – limited history' : eligible ? 'Regular forecast' : collecting ? 'Forecast not ready yet — more history needed' : 'Forecast unavailable';
  const budget=o.availablePerDay;
  const exhausted=eligible && selected.exhaustionStatus==='already_exhausted_as_of';
@@ -76,11 +82,11 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const whole=(s:string)=>{const v=Number(s);return Number.isFinite(v) ? String(Math.round(v)) : s;};
  const resetDate=o.resetAt ? date(o.resetAt) : null;
  const lastsLine=eligible && selected.projectedUsageAtReset!==null && o.baseLimit!==null && !exhausted && !exhaustion ? `At the observed pace you will use about ${whole(selected.projectedUsageAtReset)} of ${whole(o.baseLimit)} reported credits by the reset${resetDate ? ` on ${resetDate}` : ''}.` : '';
- const explanation=eligible ? exhausted ? above ? 'Observed usage was above the reported credit limit at the last account update. The counter alone does not establish overage charges, purchased balance or billing eligibility.' : 'Observed usage had reached the reported credit limit at the last account update.' : exhaustion ? `Estimated to run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}, if the observed rate continues.` : selected.exhaustionStatus==='zero_observed_rate' ? 'No exhaustion date at the observed zero rate. Future usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then if the observed rate continues.')+'' : 'Your reported credits are not projected to run out before reset if the observed rate continues.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
+ const explanation=absent ? NOT_KIRO_TEXT : eligible ? exhausted ? above ? 'Observed usage was above the reported credit limit at the last account update. The counter alone does not establish overage charges, purchased balance or billing eligibility.' : 'Observed usage had reached the reported credit limit at the last account update.' : exhaustion ? `Estimated to run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}, if the observed rate continues.` : selected.exhaustionStatus==='zero_observed_rate' ? 'No exhaustion date at the observed zero rate. Future usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then if the observed rate continues.')+'' : 'Your reported credits are not projected to run out before reset if the observed rate continues.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
  // A provisional estimate is never styled or headlined as reassuringly as a regular forecast.
  const early=eligible && f.tier==='provisional' && outlook==='On track';
- const heading=early ? 'Looks on track so far' : outlook;
- const tone=stale || (!eligible && !collecting) ? 'warn' : !eligible || early ? 'neutral' : exhausted || over ? 'bad' : tight ? 'warn' : 'ok';
+ const heading=absent ? 'Kiro not detected' : early ? 'Looks on track so far' : outlook;
+ const tone=absent ? 'neutral' : stale || (!eligible && !collecting) ? 'warn' : !eligible || early ? 'neutral' : exhausted || over ? 'bad' : tight ? 'warn' : 'ok';
  const icon={ok:'✓',warn:'!',bad:'✕',neutral:'…'}[tone];
  const usedPct=o.usage!==null && o.baseLimit!==null && compare(o.baseLimit,'0')>0 ? Math.max(0,Math.min(100,Math.round(Number(o.usage)/Number(o.baseLimit)*100))) : null;
  const limitations=eligible && f.tier==='provisional' ? 'This limited window may not represent future usage. A regular forecast needs at least 7 days and 8 comparable updates.' : '';
@@ -115,6 +121,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .lead{font-size:1.05rem;margin:10px 0 14px}.bar{height:10px;border-radius:5px;background:var(--vscode-panel-border);overflow:hidden;margin:6px 0 16px}.bar>span{display:block;height:100%;background:var(--tone)}.bar-label{margin:-10px 0 16px}
  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:0}.stat dt{color:var(--vscode-descriptionForeground);font-size:.9rem}.stat dd{margin:0;font-size:1.35rem;font-weight:600;overflow-wrap:anywhere}.stat dd.small{font-size:.9rem;font-weight:400}
  .top-actions{margin:0 0 12px}.audit-card h3{margin:0 0 4px;font-size:1rem}.audit-card p{margin:4px 0}.audit-actions{display:flex;flex-wrap:wrap;gap:8px}a.button{display:inline-block;padding:2px 10px;border:1px solid var(--vscode-button-border,var(--vscode-panel-border));border-radius:4px;text-decoration:none}
+ .community{margin:20px 0 4px;text-align:center}
  .meta{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--vscode-panel-border)}
  .badge{display:inline-block;padding:1px 9px;border:1px solid var(--vscode-panel-border);border-radius:12px;font-size:.85rem}.verdict{font-size:1.05rem;font-weight:600;margin:10px 0}.plan-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.plan-row strong{font-size:1.2rem}.action{border:1px dashed var(--vscode-panel-border);border-radius:8px;padding:8px 12px;margin:10px 0}
  table{border-collapse:collapse;width:100%}th,td{text-align:left;vertical-align:top;padding:9px 0;border-bottom:1px solid var(--vscode-panel-border);overflow-wrap:anywhere}th{width:45%;font-weight:400;color:var(--vscode-descriptionForeground);padding-right:16px}
@@ -140,7 +147,9 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${chart.advanced}
  <h3>Observed history</h3><p>Only retained, comparable account updates support the forecast. Missing days stay unknown.</p><table>${windowRows}${row('Reported credit limit (CREDIT)',o.baseLimit)}</table><details><summary>Recent account updates and daily changes</summary><table>${h.points.slice(-8).map(p=>row(p.observedAt,p.usage)).join('')}</table><h4>Daily observed changes (UTC)</h4><table>${h.days.slice(-14).map(d=>row(d.day+(d.complete ? ' (complete)' : ' (partial/unknown)'),d.netChange)).join('')}</table><p class="muted small">Partial values cover only supported intervals within that day. Cross-day changes are never distributed across missing days.</p></details>
  <h3>Data quality / notes</h3><p>The daily budget summary is truncated to one decimal; the exact allowance is in the technical details. Daily budget is an allocation of the remaining reported capacity at the last observation across the time left until reset, using 24-hour days. The reported credit limit is not verified as base-only or total capacity; it may include purchased add-on credits, and usage can exceed it. Usage since that account update is unknown. Extra credits, purchased balances and total availability remain unknown.</p><p class="muted small">Forecast policy v${f.policy.version}: provisional estimates need 3 comparable updates over at least 48 hours; regular in-cycle forecasts need 8 over at least 7 days. Pooled 7/14/28/84-day estimates need enough observed time, updates on enough different days and no single dominant interval; unobserved time is never counted as zero. Positive gaps over 36 hours are barriers for in-cycle methods, and the latest update must be fresh (${f.policy.maxAgeHours} hours).</p><h4>Technical details</h4><table>${details}</table><h4>Forecast methods</h4><table>${methods}</table><h4>Gaps and quality barriers</h4><table>${h.coverage.gaps.slice(-8).map(g=>row(`${g.from} to ${g.to}`,readable(g.reason))).join('')}</table><p class="muted small">Unknown periods are not zero. Interval net changes are not gross charges. Exact rolling boundaries must be observed; no daily consumption is invented.</p>
- </details></section></main></body></html>`;
- if(blocked)return {text:'$(warning) Kiro: update needed',tooltip:explanations[blocked],warning:true,html};
- return {text:`${warning ? '$(warning)' : '$(gauge)'} Kiro: ${status}`,tooltip,warning,html};
+ </details></section>
+ ${FOOTER}</main></body></html>`;
+ if(absent)return {text:'$(info) Kiro not detected',tooltip:NOT_KIRO_TEXT,warning:false,html,forecast:false};
+ if(blocked)return {text:'$(warning) Kiro: update needed',tooltip:explanations[blocked],warning:true,html,forecast:false};
+ return {text:`${warning ? '$(warning)' : '$(gauge)'} Kiro: ${status}`,tooltip,warning,html,forecast:eligible};
 }

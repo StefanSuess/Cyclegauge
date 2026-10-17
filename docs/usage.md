@@ -15,6 +15,15 @@ Then run **Extensions: Install from VSIX...** in Kiro and select the file in `di
 
 Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sourceTimezone`. Blank settings use the platform's default IDE/app-owned locations and device timezone. `cyclegauge.sourceRoot` exists for testing and demos with synthetic logs; normal use leaves it blank. Offset-free historical log timestamps may be ambiguous if the device timezone changed. Stale or unavailable values are labeled. CLI and Crew session metering and add-on balance aggregation are not read.
 
+| Setting | Scope | Default | Purpose |
+| --- | --- | --- | --- |
+| `cyclegauge.sourceRoot` | machine | empty | Synthetic logs for tests and demos; empty reads Kiro's standard data folder |
+| `cyclegauge.storageRoot` | machine | empty | Private Cyclegauge storage folder; empty uses the editor's per-extension storage |
+| `cyclegauge.sourceTimezone` | machine | empty | IANA timezone for offset-free log timestamps; empty uses the device timezone |
+| `cyclegauge.auditReminderDays` | user | 30 | Days between workspace audit reminders; 0 turns them off |
+| `cyclegauge.auditAutomatically` | user | off | Run a due workspace audit silently |
+| `cyclegauge.supportPrompts` | user | on | Occasionally ask whether you'd rate, star or support Cyclegauge; off stops it |
+
 ## Upgrading from 0.5.x
 
 <a id="upgrading-from-052-or-an-earlier-build"></a>
@@ -59,9 +68,15 @@ Suggestions include unclear findings, so review them before saving. "No safe rul
 
 Reminders and automatic runs: about 30 seconds after Kiro starts, Cyclegauge checks once whether the open workspace (a single trusted local folder) is due. A workspace that was never audited gets one prompt; afterwards you are reminded after `cyclegauge.auditReminderDays` days (default 30, 0 turns reminders off), with **Run audit**, **Later** (7 days) and **Don't remind me**. If you turn on `cyclegauge.auditAutomatically` (default off), a due audit runs silently with the same limits and only notifies you when it finds something; a never-audited workspace still asks first. Both settings apply only from your user settings, so a repository cannot turn automatic runs on or reminders off. Per workspace only the last audit date, a snooze date and a do-not-remind flag are stored. **Cyclegauge: Reset workspace audit reminder** clears the snooze and the flag.
 
-The credit view (**Show Account Credits**) has a small **Workspace check** card below the main figures: it shows the number of items and when the check ran (or an invitation to check with the last check date in UTC, or "This folder can't be checked. Run Check now to see why."), with **Check now** and, once checked, **Show**. It shows no folder name or path and claims no measured savings. A **Cost Advisor** button at the top of the view opens the same Cost Advisor as the editor-title button and the status bar item. The view still runs no scripts; its only links are these three Cyclegauge commands (`cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace`, `cyclegauge.audit.show`), enabled through the webview's command allowlist, none with arguments.
+The credit view (**Show Account Credits**) has a small **Workspace check** card below the main figures: it shows the number of items and when the check ran (or an invitation to check with the last check date in UTC, or "This folder can't be checked. Run Check now to see why."), with **Check now** and, once checked, **Show**. It shows no folder name or path and claims no measured savings. A **Cost Advisor** button at the top of the view opens the same Cost Advisor as the editor-title button and the status bar item. The view still runs no scripts; its only command links are these four Cyclegauge commands (`cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace`, `cyclegauge.audit.show`, `cyclegauge.share`), enabled through the webview's command allowlist, none with arguments. A quiet footer line also links to rating Cyclegauge on Open VSX, starring it on GitHub and supporting it on Ko-fi (fixed addresses, opened only when you click), plus **Share**, which copies a short fixed text with the Open VSX link to your clipboard.
 
 The audit, Copy Diagnostics and the gauge of an earlier 0.9.0 candidate were tested by the maintainer in native Kiro on macOS; the audit view wording, the Workspace check card, the Exclude and hide actions and reminders have not yet been verified in native Kiro, and no 0.9.0 testing on Windows or Ubuntu is recorded. Earlier (0.7.0) testing is described in the changelog.
+
+## Support prompts
+
+Besides the footer in the credit view, Cyclegauge may ask once per window, inside Kiro only, whether it is useful to you, with **Rate**, **Star on GitHub**, **Support ☕**, **Not now** and **Don't ask again**. It appears about 3 minutes after Kiro starts, at least 7 days after you first used Cyclegauge, and only after the credit view has shown a forecast or the audit has listed a finding. Rate, Star or Support pause it for 120 days; **Not now** or closing the message pauses it for 60 days; **Don't ask again** stops it. Turn it off at any time with the user setting `cyclegauge.supportPrompts` (a workspace cannot change it). **Cyclegauge: Reset support prompts** (command `cyclegauge.support.reset`, not listed in the Command Palette) clears the saved dates and flags. Prompt state is only dates and flags in the editor's global storage. Nothing is sent anywhere; a link opens only when you click it.
+
+In an editor that is not Kiro (and without `cyclegauge.sourceRoot`), a one-time note explains that Cyclegauge is built for Kiro, the status bar shows "Kiro not detected" when no Kiro logs exist, and the credit view says the same. The workspace audit still works.
 
 ## Diagnostics
 

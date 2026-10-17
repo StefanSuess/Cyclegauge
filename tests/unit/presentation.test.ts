@@ -154,7 +154,9 @@ test('provisional on-track forecasts are neutral, passed resets are labelled, us
 
 // Workspace-check card: counts and times only; its two links are the only links in the view and carry no arguments.
 const card = (audit: AuditSummary | undefined, now = '2030-06-15T12:00:00.000Z') => present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', audit, now).html;
-const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map(m => m[1]);
+const allHrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map(m => m[1]);
+// The footer is covered by its own test; the card tests look at the command links only.
+const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('command:') && h !== 'command:cyclegauge.share');
 const ADVISOR = 'command:cyclegauge.costAdvisor';
 const ALLOWED = ['command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show'];
 const cardHrefs = (html: string) => hrefs(html).filter(h => h !== ADVISOR);
@@ -216,5 +218,52 @@ test('the controller reads the summary on every render, re-renders on request an
   summary = () => { throw new Error('synthetic-failure'); }; extension.rerender();
   assert.ok(!htmls.at(-1)!.includes('Workspace check')); assert.match(htmls.at(-1)!, /id="status-heading"/); assert.deepEqual(hrefs(htmls.at(-1)!), [ADVISOR]);
   extension.dispose(); const after = htmls.length; extension.rerender(); assert.equal(htmls.length, after);
+ } finally { await rm(base, { recursive: true, force: true }); }
+});
+
+// Community footer: three fixed https constants plus the Share command, in every state; nothing else is linked, no arguments, no scripts.
+const FOOTER_LINKS = ['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.share'];
+test('the footer links exactly the three web constants and the share command, below the main content', () => {
+ for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 2, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
+  const html = card(s);
+  assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:cyclegauge.') || h === 'command:cyclegauge.share'), FOOTER_LINKS);
+  for (const h of allHrefs(html)) assert.ok([ADVISOR, ...ALLOWED, ...FOOTER_LINKS].includes(h!), h);
+  assert.match(html, /<footer class="community muted small"><a href="https:\/\/open-vsx\.org[^"]*">★ Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*">☕ Support<\/a> · <a href="command:cyclegauge\.share">Share<\/a><\/footer><\/main>/);
+  assert.ok(html.indexOf('<footer') > html.indexOf('id="advanced-details"'));
+  assert.equal((html.match(/<footer/g) ?? []).length, 1);
+  assert.ok(!/<script|javascript:|\?utm_|[?&]ref=|\sonclick=/i.test(html)); assert.match(html, /default-src 'none'; style-src 'unsafe-inline'/);
+ }
+ for (const h of FOOTER_LINKS) assert.ok(!/[?#%&=({\[]/.test(h.replace(/^https:\/\//, '').replace(/^command:/, '')), h);
+});
+
+// Outside Kiro without a chosen source, the empty source is expected and says so; everywhere else nothing changes.
+const empty = (notKiro: boolean, codes: string[] = ['no_source_logs']) => present(view([], '2030-06-08T00:00:00Z'), codes, '', '', undefined, '2030-06-08T00:00:00Z', notKiro);
+test('not in Kiro and no source logs: "Kiro not detected" in the status bar and the detail view', () => {
+ const r = empty(true);
+ assert.equal(r.text, '$(info) Kiro not detected'); assert.equal(r.warning, false);
+ assert.equal(r.tooltip, 'Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.');
+ assert.match(r.html, /Cyclegauge is built for Kiro IDE\. This editor has no Kiro credit logs, so the credit view stays empty\. The workspace audit still works\./);
+ assert.match(r.html, /Kiro not detected<\/h2>/); assert.match(r.html, /class="hero neutral"/); assert.equal(r.forecast, false);
+ assert.match(r.html, /<footer class="community/);
+});
+test('the notice does not apply inside Kiro, with other codes or when the flag is off', () => {
+ assert.equal(empty(false).text, '$(warning) Kiro: Unavailable'); assert.ok(!empty(false).html.includes('Kiro not detected'));
+ assert.equal(present(view([], '2030-06-08T00:00:00Z'), ['no_source_logs']).text, empty(false).text);
+ assert.ok(!empty(true, ['source_unavailable']).text.includes('not detected'));
+ assert.ok(!empty(true, []).text.includes('not detected'));
+ assert.match(empty(true, ['no_source_logs', 'runtime_unsupported']).text, /update needed/);
+ // With data present the normal view is unchanged even if the flag is set.
+ const withData = present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', undefined, '2030-06-08T00:00:00Z', true);
+ assert.equal(withData.text, render(10).text); assert.equal(withData.forecast, true);
+});
+test('the controller passes the not-Kiro flag through and does not report a forecast when there is none', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-forecast-hook-')));
+ const texts: string[] = []; let calls = 0;
+ const ui = { setStatus(t: string) { texts.push(t); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-06-15T12:00:00.000Z', notKiro: true, onForecast: () => { calls++; throw new Error('synthetic-failure'); } });
+  assert.equal(calls, 0); assert.equal(texts.at(-1), '$(info) Kiro not detected');
+  extension.rerender(); assert.equal(texts.at(-1), '$(info) Kiro not detected');
+  extension.dispose();
  } finally { await rm(base, { recursive: true, force: true }); }
 });
