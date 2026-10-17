@@ -33,14 +33,15 @@ test('invalid stored values count as absent, and a missing first-use date is nev
  for (const firstSeen of [undefined, 'synthetic-not-a-date', '2030-02-30', 5, null]) assert.equal(supportDue({ ...base, firstSeen }), false, String(firstSeen));
  assert.equal(supportDue({ ...base, today: 'synthetic-not-a-date' }), false);
 });
-test('Rate, Star and Support snooze for 120 days', () => {
- for (const choice of ['Rate', 'Star on GitHub', 'Support ☕']) assert.deepEqual(afterChoice(choice, '2030-03-31'), { next: '2030-07-29' }, choice);
+test('Rate and Support snooze for 120 days', () => {
+ for (const choice of ['Rate', 'Support']) assert.deepEqual(afterChoice(choice, '2030-03-31'), { next: '2030-07-29' }, choice);
 });
-test('Not now, a dismissed prompt and any unknown answer snooze for 60 days', () => {
- for (const choice of ['Not now', undefined, 'synthetic-other']) assert.deepEqual(afterChoice(choice, '2030-03-31'), { next: '2030-05-30' }, String(choice));
+test('Later, a dismissed prompt and retired choices snooze for 60 days', () => {
+ for (const choice of ['Later', undefined, 'Star on GitHub', "Don't ask again", 'synthetic-other']) assert.deepEqual(afterChoice(choice, '2030-03-31'), { next: '2030-05-30' }, String(choice));
 });
-test("Don't ask again sets never and no date", () => {
- assert.deepEqual(afterChoice("Don't ask again", '2030-03-31'), { never: true });
+test('legacy never flag still suppresses prompts until reset clears it', () => {
+ assert.equal(supportDue({ ...base, never: true }), false);
+ assert.deepEqual(afterChoice('Later', '2030-03-31'), { next: '2030-05-30' });
 });
 test('a snooze set by a choice makes the prompt not due until it ends', () => {
  const next = afterChoice('Rate', '2030-03-31').next;

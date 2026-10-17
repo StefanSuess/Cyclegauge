@@ -4,7 +4,7 @@ export const MIN_DAYS_BEFORE_FIRST = 7;
 export const SNOOZE_DAYS = 60;
 export const SNOOZE_DAYS_AFTER_ACTION = 120;
 /** The buttons of the prompt; a dismissed prompt is `undefined`. */
-export type SupportChoice = 'Rate' | 'Star on GitHub' | 'Support ☕' | 'Not now' | "Don't ask again";
+export type SupportChoice = 'Rate' | 'Support' | 'Later';
 export interface SupportDueInput { today: string; firstSeen?: unknown; next?: unknown; never?: unknown; valueSeen?: unknown; auditSaved?: unknown; detailDays?: unknown; advisorUsed?: unknown; enabled: boolean; kiro: boolean }
 
 /** Whether any value signal is due; all signals share the editor, setting and snooze gates. */
@@ -16,9 +16,8 @@ export function supportDue(i: SupportDueInput): boolean {
   || (typeof i.detailDays === 'number' && Number.isInteger(i.detailDays) && i.detailDays === 3)
   || (age >= MIN_DAYS_BEFORE_FIRST && i.valueSeen === true);
 }
-/** The state change after a choice: a snooze date, or never. A dismissed or unknown answer is "Not now". */
-export function afterChoice(choice: SupportChoice | string | undefined, today: string): { next?: string; never?: true } {
- if (choice === "Don't ask again") return { never: true };
- const acted = choice === 'Rate' || choice === 'Star on GitHub' || choice === 'Support ☕';
+/** A rating or support action snoozes longer; Later, dismissal and unknown choices use the standard snooze. */
+export function afterChoice(choice: SupportChoice | string | undefined, today: string): { next?: string } {
+ const acted = choice === 'Rate' || choice === 'Support';
  return { next: addDays(today, acted ? SNOOZE_DAYS_AFTER_ACTION : SNOOZE_DAYS) };
 }
