@@ -9,6 +9,22 @@ const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd detai
 const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby scope data-kind x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set(['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
 const SVG = 'http://www.w3.org/2000/svg';
+// Literal DOM sinks make the permitted grammar explicit even if an inbound model is hostile.
+const HTML_ELEMENTS: Record<string, () => Element> = {
+ main: () => document.createElement('main'), section: () => document.createElement('section'), article: () => document.createElement('article'), div: () => document.createElement('div'),
+ h1: () => document.createElement('h1'), h2: () => document.createElement('h2'), h3: () => document.createElement('h3'), h4: () => document.createElement('h4'),
+ p: () => document.createElement('p'), span: () => document.createElement('span'), dl: () => document.createElement('dl'), dt: () => document.createElement('dt'), dd: () => document.createElement('dd'),
+ details: () => document.createElement('details'), summary: () => document.createElement('summary'), table: () => document.createElement('table'), caption: () => document.createElement('caption'),
+ thead: () => document.createElement('thead'), tbody: () => document.createElement('tbody'), tr: () => document.createElement('tr'), th: () => document.createElement('th'), td: () => document.createElement('td'),
+ footer: () => document.createElement('footer'), ul: () => document.createElement('ul'), li: () => document.createElement('li'), figure: () => document.createElement('figure'),
+ figcaption: () => document.createElement('figcaption'), strong: () => document.createElement('strong'), em: () => document.createElement('em'), small: () => document.createElement('small'), br: () => document.createElement('br'),
+};
+const SVG_ELEMENTS: Record<string, () => Element> = {
+ svg: () => document.createElementNS(SVG, 'svg'), defs: () => document.createElementNS(SVG, 'defs'), pattern: () => document.createElementNS(SVG, 'pattern'),
+ line: () => document.createElementNS(SVG, 'line'), rect: () => document.createElementNS(SVG, 'rect'), circle: () => document.createElementNS(SVG, 'circle'),
+ polygon: () => document.createElementNS(SVG, 'polygon'), path: () => document.createElementNS(SVG, 'path'), text: () => document.createElementNS(SVG, 'text'),
+ title: () => document.createElementNS(SVG, 'title'), desc: () => document.createElementNS(SVG, 'desc'),
+};
 
 function valid(node: unknown, depth = 0, budget = { n: 0 }): node is DomNode {
  if (!node || typeof node !== 'object' || ++budget.n > 20_000 || depth > 80) return false;
@@ -42,7 +58,9 @@ function create(node: DomNode, svg: boolean, links: Element[]): Node {
   return anchor;
  }
  const inSvg = svg || node.tag === 'svg';
- const element = inSvg ? document.createElementNS(SVG, node.tag) : document.createElement(node.tag);
+ const factories = inSvg ? SVG_ELEMENTS : HTML_ELEMENTS;
+ if (!Object.hasOwn(factories, node.tag)) throw new Error('DASHBOARD_TAG');
+ const element = factories[node.tag]!();
  for (const [name, value] of Object.entries(node.attrs)) element.setAttribute(name, value);
  for (const child of node.children) element.appendChild(create(child, inSvg, links));
  return element;

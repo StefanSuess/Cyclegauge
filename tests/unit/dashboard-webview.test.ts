@@ -53,14 +53,27 @@ async function start(initial: string) {
   const link = e('a');link.setAttribute('href', href);reserve.appendChild(link);
  }
  const root = e('html');root.setAttribute('data-cg-load', '7');
- const sent: unknown[] = []; let onMessage: ((event: { data: unknown }) => void) | undefined, scroll: [number, number] | undefined;
+ const sent: unknown[] = [], created: string[] = []; let onMessage: ((event: { data: unknown }) => void) | undefined, scroll: [number, number] | undefined;
  const document = { documentElement: root, activeElement: undefined as FakeNode | undefined,
   querySelector: (selector: string) => selector === 'main' ? main : selector === '#cg-link-reserve' ? reserve : null,
-  createTextNode: t, createElement: (tag: string) => { assert.notEqual(tag, 'a', 'browser must never create an anchor');return e(tag); }, createElementNS: (_ns: string, tag: string) => e(tag) };
+  createTextNode: t, createElement: (tag: string) => { assert.notEqual(tag, 'a', 'browser must never create an anchor');created.push(tag);return e(tag); }, createElementNS: (ns: string, tag: string) => { assert.equal(ns, 'http://www.w3.org/2000/svg');created.push(`svg:${tag}`);return e(tag); } };
  const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(_type: string, fn: typeof onMessage) { onMessage = fn; } };
  runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), Object, Number, Set, Array });
- return { main, reserve, document, sent, scroll: () => scroll, send(model: unknown, version = 1, schema = 1) { onMessage!({ data: { type: 'model', schema, version, model } }); } };
+ return { main, reserve, document, sent, created, scroll: () => scroll, send(model: unknown, version = 1, schema = 1) { onMessage!({ data: { type: 'model', schema, version, model } }); } };
 }
+
+test('hostile tags never reach element creation or receive an ACK; allowed SVG stays namespaced', async () => {
+ const initial = '<!doctype html><html><body><main><svg><circle cx="1" cy="2"/></svg></main></body></html>';
+ const app = await start(initial);
+ for (const tag of ['script', 'iframe', 'img', 'foreignObject']) {
+  app.send({ kind: 'element', tag: 'main', attrs: {}, children: [{ kind: 'element', tag, attrs: {}, children: [] }] });
+ }
+ assert.equal(app.sent.length, 1, 'unsafe models receive no ACK');
+ assert.deepEqual(app.created, [], 'unsafe models create no nodes');
+ app.send(buildDomModel(initial.replace('</svg>', '<rect width="3" height="4"/></svg>')));
+ assert.deepEqual(app.created, ['svg:rect']);
+ assert.deepEqual(JSON.parse(JSON.stringify(app.sent.at(-1))), { type: 'ack', version: 1 });
+});
 
 test('browser bundle reconciles added rows without replacing details, focus or scroll', async () => {
  const initial = html('<tr><td>10</td></tr>');
