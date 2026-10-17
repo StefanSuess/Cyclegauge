@@ -405,7 +405,9 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   // No findings: silent. Not due: nothing runs. Never audited or snoozed: the first prompt or nothing, never a background run.
   reset();last('2030-03-01');env.folders=[{name:'synthetic-empty',uri:{scheme:'file',fsPath:env.empty}}];s=await start();await s.fire();
   assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(s.provider().getChildren()[0].label,'No risky files found');s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
-  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-02');
+  // Automatic modes re-run an audit that is at least one UTC day old (well inside the reminder period), but not one from today.
+  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  reset();last(TODAY);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);
   reset();s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons.length,3);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);
   reset();last('2030-03-01');env.store.set('cyclegauge.audit.snoozeUntil.v1','2030-04-01');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
   reset();last('2030-03-01');env.store.set('cyclegauge.audit.neverRemind.v1',true);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
@@ -602,19 +604,19 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[]};
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
  const bundle=await builtBundle(work);
- const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{},extensions:{getExtension:()=>undefined},
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{base:any;pattern:string;constructor(base:any,pattern:string){this.base=base;this.pattern=pattern;}},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
   commands:{async executeCommand(){},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
    getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
-    ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts} as any)[key]??''}),
-   createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}}),
+    ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts,auditAutomatically:env.automatic} as any)[key]??''}),
+   createFileSystemWatcher:(pattern:any,...flags:unknown[])=>{const w={pattern,flags,listeners:[] as any[],disposed:false,onDidCreate(fn:any){w.listeners.push(fn);return disposable;},onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){w.disposed=true;}};env.watchers.push(w);return w;},
    onDidChangeConfiguration(fn:any){env.configListeners.push(fn);return disposable;}},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
@@ -626,7 +628,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
- (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==1000&&ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
+ (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==1000&&ms!==5000&&ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
  (globalThis as any).clearTimeout=(t:any)=>{if(t&&env.timers.includes(t))t.cleared=true;else realClear(t);};
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
@@ -805,6 +807,49 @@ test('packaged re-check after ignore changes: checked workspaces only, ignore fi
   // Changing Agent Ignore Files re-checks too, and disposal cancels a pending re-check.
   setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,1);
   const last=pending()[0]!;s.dispose();assert.equal(last.cleared,true);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// onOpenAndChanges: one narrow watcher for the single trusted folder; new matching files lead to one silent re-check, and a new
+// secrets finding to at most one notice a day. Other modes, pruned folders and non-secret files never notify.
+test('packaged watch mode: narrow watcher, debounced re-check and one daily notice for new secret files',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-watch-')));
+ let s:any;
+ try{
+  const env=communityEnv(work,true);env.prompts=false;
+  const auditWatchers=()=>env.watchers.filter(w=>typeof w.pattern?.pattern==='string'&&w.pattern.pattern.startsWith('**/{'));
+  const pending=()=>env.timers.filter(t=>t.ms===5000&&!t.cleared);
+  const fire=async()=>{const [t]=pending();assert.ok(t);t!.cleared=true;await t!.fn();};
+  const create=(rel:string)=>{const p=join(env.workspace,...rel.split('/'));mkdirSync(join(p,'..'),{recursive:true});writeFileSync(p,'');for(const w of auditWatchers())for(const fn of w.listeners)fn({scheme:'file',fsPath:p});};
+  const notices=()=>env.infos.filter(i=>/may contain secrets/.test(i.text));
+  for(const mode of [undefined,'off','onOpen',true,'OnOpenAndChanges']){env.automatic=mode;s=await communitySession(env,work);assert.equal(auditWatchers().length,0,String(mode));s.dispose();}
+  env.automatic='onOpenAndChanges';s=await communitySession(env,work);
+  const [w]=auditWatchers();assert.equal(auditWatchers().length,1);assert.deepEqual(w.flags,[false,true,true]);
+  const store=s.api.state.store,LAST='cyclegauge.audit.last.v1',SNOOZE='cyclegauge.audit.snoozeUntil.v1';
+  // Same consent as automatic runs: never audited, or snoozed, means a new file starts nothing.
+  create('synthetic-0.pem');assert.equal(pending().length,0);
+  store.set(LAST,'2030-01-03');store.set(SNOOZE,'2030-01-05');create('synthetic-0.pem');assert.equal(pending().length,0);store.delete(SNOOZE);
+  assert.equal(w.pattern.base.uri.fsPath,env.workspace);assert.ok(w.pattern.pattern.includes('*.pem')&&w.pattern.pattern.includes('.env'));
+  // Inside a folder the audit never enters, or outside the folder: nothing.
+  create('node_modules/synthetic.pem');for(const fn of w.listeners)fn({scheme:'file',fsPath:join(work,'synthetic-outside.pem')});assert.equal(pending().length,0);
+  // A burst of new files is one re-check after it settles; the new key is a secrets finding, so one notice with Show.
+  create('synthetic-a.pem');create('synthetic-b.log');assert.equal(pending().length,1);
+  await fire();await until(()=>notices().length>0);
+  assert.deepEqual(notices(),[{text:'A new file that may contain secrets appeared in this workspace. Kiro may read it.',buttons:['Show']}]);
+  // The same UTC day: re-checked, but no second notice.
+  create('synthetic-c.ppk');await fire();await until(()=>flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).some((n:any)=>n.finding?.path==='synthetic-c.ppk'));
+  assert.equal(notices().length,1);
+  // Turning the mode off removes the watcher and cancels the re-check it had scheduled.
+  create('synthetic-f.pem');const scheduled=pending()[0]!;
+  env.automatic='onOpen';for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='cyclegauge.auditAutomatically'});
+  assert.equal(w.disposed,true);assert.equal(scheduled.cleared,true);s.dispose();
+  // A new non-secret file never notifies; disposal cancels a pending re-check and the watcher.
+  env.infos.length=0;env.automatic='onOpenAndChanges';s=await communitySession(env,work);s.api.state.store.set('cyclegauge.audit.last.v1','2030-01-03');
+  create('synthetic-d.log');await fire();await until(()=>false,300);assert.equal(notices().length,0);
+  // A secret that was already in the previous result and is recreated (save by rename) is not new, even on a fresh day budget.
+  await s.commands.get('cyclegauge.auditWorkspace')!();env.infos.length=0;
+  create('.env');await fire();await until(()=>false,300);assert.equal(notices().length,0);
+  create('synthetic-e.pem');const t=pending()[0]!;const [w2]=auditWatchers().filter(x=>!x.disposed);s.dispose();assert.equal(t.cleared,true);assert.equal(w2.disposed,true);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 

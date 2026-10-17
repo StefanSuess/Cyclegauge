@@ -72,7 +72,10 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { p[auto].scope = 'window'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { delete p[auto].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { p[days].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[auto].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[auto].type = 'boolean'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[auto].default = 'onOpen'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[auto].enum = [...p[auto].enum, 'always']; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[auto].enum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[days].default = 31; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[auto].default = true; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[days].maximum = 9999; }).problems.includes('MANIFEST_SETTING_TYPE'));

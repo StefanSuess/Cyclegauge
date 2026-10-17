@@ -2,6 +2,7 @@
 // local time zones never matter. Anything that is not a valid date is treated as absent.
 export type AuditDue = 'none' | 'first' | 'remind' | 'auto';
 export const LATER_DAYS = 7;
+export const AUTO_DAYS = 1; // automatic modes re-run an audit that is at least one UTC day old
 export const DEFAULT_REMINDER_DAYS = 30;
 export const MAX_REMINDER_DAYS = 365;
 const DAY_MS = 86_400_000;
@@ -29,11 +30,14 @@ export function daysBetween(from: string, to: string): number | undefined {
 export interface AuditDueInput { today: string; last?: unknown; snoozeUntil?: unknown; neverRemind?: unknown; reminderDays: number; automatic: boolean }
 /**
  * What the once-per-window check should do. 'first': never audited (prompt once); 'remind': audited reminderDays or more ago;
- * 'auto': the same, with automatic re-runs enabled; 'none': nothing. A future `last` (clock change) is not due.
+ * 'auto': automatic re-runs are enabled and the last audit is at least one UTC day old; 'none': nothing. A future `last`
+ * (clock change) is not due. Turning reminders off (0), a snooze and "don't remind me" also stop automatic runs.
  */
 export function auditDue(i: AuditDueInput): AuditDue {
  if (i.neverRemind === true || !isDate(i.today) || !Number.isFinite(i.reminderDays) || i.reminderDays <= 0) return 'none';
  if (isDate(i.snoozeUntil) && i.today < i.snoozeUntil) return 'none';
  if (!isDate(i.last)) return 'first';
- return daysBetween(i.last, i.today)! >= i.reminderDays ? (i.automatic ? 'auto' : 'remind') : 'none';
+ const age = daysBetween(i.last, i.today)!;
+ if (i.automatic) return age >= AUTO_DAYS ? 'auto' : 'none';
+ return age >= i.reminderDays ? 'remind' : 'none';
 }

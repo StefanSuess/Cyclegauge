@@ -24,7 +24,11 @@ test('an audit is due exactly reminderDays later, not one day earlier', () => {
  assert.equal(auditDue({ ...base, last: '2030-03-01' }), 'remind'); // 30 days
  assert.equal(auditDue({ ...base, last: '2029-01-01' }), 'remind');
  assert.equal(auditDue({ ...base, last: '2030-03-01', automatic: true }), 'auto');
- assert.equal(auditDue({ ...base, last: '2030-03-02', automatic: true }), 'none');
+ // Automatic modes re-run an audit that is at least one UTC day old, independent of the reminder period.
+ assert.equal(auditDue({ ...base, last: '2030-03-02', automatic: true }), 'auto');
+ assert.equal(auditDue({ ...base, last: '2030-03-30', automatic: true }), 'auto');
+ assert.equal(auditDue({ ...base, last: '2030-03-31', automatic: true }), 'none');
+ assert.equal(auditDue({ ...base, last: '2030-04-15', automatic: true }), 'none');
  assert.equal(auditDue({ ...base, last: '2030-03-31' }), 'none');
  assert.equal(auditDue({ ...base, last: '2030-04-15' }), 'none'); // a last date in the future (clock change) is not due
  assert.equal(auditDue({ ...base, last: '2030-03-30', reminderDays: 1 }), 'remind');
