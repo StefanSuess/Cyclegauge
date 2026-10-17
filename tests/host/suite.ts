@@ -15,7 +15,8 @@ function state() {
  try {
   return {
    rows: db.prepare('SELECT body FROM snapshots ORDER BY observed').all().map(r => JSON.parse(r.body as string)),
-   imports: (db.prepare('SELECT COUNT(*) AS n FROM imports').get() as { n: number }).n,
+   // Unchanged import codes refresh the latest evidence row's time, so polling is visible without new rows.
+   lastImport: (db.prepare('SELECT MAX(ingested) AS t FROM imports').get() as { t: string | null }).t ?? '',
   };
  } finally { db.close(); }
 }
@@ -60,9 +61,9 @@ export async function run(): Promise<void> {
    await until(() => state().rows.length === 2, 20_000);
    assert.equal(state().rows[1].usage, '2.25');
    phase = 'polling-timer';
-   const imports = state().imports;
+   const lastImport = state().lastImport;
    // No further filesystem changes: the real minute timer must perform another import.
-   await until(() => state().imports > imports, 75_000);
+   await until(() => state().lastImport > lastImport, 75_000);
    phase = 'polling-deduplication';
    assert.equal(state().rows.length, 2);
   } else {
