@@ -332,7 +332,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
    void Promise.resolve(vscode.window.showInformationMessage('Link copied — thanks for sharing!')).catch(() => undefined);
   } catch { try { await vscode.window.showErrorMessage('The link could not be copied.'); } catch { /* nothing more to report */ } }
  });
- // The only way back from "Don't ask again": clears the support state (the first-use date is recorded again on the next start).
+ // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
   for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
@@ -349,11 +349,11 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
    if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
    if (disposed) return;
    shown = true;
-   const choice = await vscode.window.showInformationMessage('Is Cyclegauge useful to you? A rating or a star helps others find it.', 'Rate', 'Star on GitHub', 'Support ☕', 'Not now', "Don't ask again") as SupportChoice | undefined;
+   const choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined;
    if (disposed) return;
-   if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Star on GitHub') open(LINKS.star); else if (choice === 'Support ☕') open(LINKS.support);
+   if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Support') open(LINKS.support);
    const after = afterChoice(choice, today);
-   if (after.never) await store(SUPPORT_NEVER_KEY, true); else if (after.next) await store(SUPPORT_NEXT_KEY, after.next);
+   if (after.next) await store(SUPPORT_NEXT_KEY, after.next);
   } catch { /* fixed and silent */ } finally { checking = false; }
  };
  const detailDays = (): string[] => { const v = stored(SUPPORT_DETAIL_KEY); return Array.isArray(v) ? [...new Set(v.filter((day): day is string => isDate(day) && day <= utcDate(new Date())))].sort().slice(-3) : []; };

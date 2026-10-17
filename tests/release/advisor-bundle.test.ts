@@ -590,9 +590,9 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
 // delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
 const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1','cyclegauge.support.detailDays.v1','cyclegauge.support.advisorUsed.v1'];
 const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1'];
-const SUPPORT_TEXT='Is Cyclegauge useful to you? A rating or a star helps others find it.';
+const SUPPORT_TEXT='Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.';
 const NOT_KIRO='Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
-const SUPPORT_BUTTONS=['Rate','Star on GitHub','Support ☕','Not now',"Don't ask again"];
+const SUPPORT_BUTTONS=['Rate','Support','Later'];
 const communityEnv=(work:string,withLogs:boolean)=>{
  const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
  mkdirSync(logs,{recursive:true});mkdirSync(workspace,{recursive:true});mkdirSync(join(work,'synthetic-home'),{recursive:true});writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');
@@ -677,18 +677,20 @@ test('packaged support prompt: only when due, once per window, each button sets 
   // Less than seven days after first use: nothing, and nothing is written.
   env.written.length=0;await s.fire();assert.deepEqual(env.infos,[]);assert.equal(env.written.length,0);
   s.dispose();assert.equal(s.support()[0]!.cleared,true);env.infos.length=0;await s.support()[0]!.fn();assert.deepEqual(env.infos,[]);
-  // Seven days after first use it is due: one prompt with five buttons; the 60-day snooze is already stored while it is open, so a second check shows nothing.
+  // Seven days after first use it is due: one prompt with three buttons; the 60-day snooze is already stored while it is open, so a second check shows nothing.
   seed('2029-12-28');s=await start();env.written.length=0;await s.fire();
   assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);assert.equal(env.store.get('cyclegauge.support.next.v1'),'2030-03-05');
   env.infos.length=0;await s.support()[0]!.fn();await s.later();assert.deepEqual(env.infos,[]);s.dispose();
   seed('2029-12-29');s=await start();await s.fire();assert.equal(env.infos.length,0);s.dispose(); // six days: not yet
   // Each button.
-  for(const [choice,link,next] of [['Rate',COMMUNITY_LINKS[0],'2030-05-04'],['Star on GitHub',COMMUNITY_LINKS[1],'2030-05-04'],['Support ☕',COMMUNITY_LINKS[2],'2030-05-04'],['Not now',undefined,'2030-03-05'],[undefined,undefined,'2030-03-05']] as const){
+  for(const [choice,link,next] of [['Rate',COMMUNITY_LINKS[0],'2030-05-04'],['Support',COMMUNITY_LINKS[2],'2030-05-04'],['Later',undefined,'2030-03-05'],[undefined,undefined,'2030-03-05']] as const){
    seed('2029-12-01');env.choice=choice;s=await start();await s.fire();s.dispose();
    assert.deepEqual(env.opened,link?[link]:[],String(choice));assert.equal(env.store.get('cyclegauge.support.next.v1'),next,String(choice));assert.equal(env.store.has('cyclegauge.support.never.v1'),false,String(choice));
   }
-  seed('2029-12-01');env.choice="Don't ask again";s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.support.never.v1'),true);assert.deepEqual(env.opened,[]);
-  // Never means never, even years later; a snooze holds until its date.
+  // A legacy never flag still suppresses prompts, and reset remains its compatibility exit.
+  seed('2029-12-01',{'cyclegauge.support.never.v1':true});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  env.now='2030-01-04T00:00:00Z';s=await start();await s.commands.get('cyclegauge.support.reset')!();await s.later();s.dispose();assert.equal(env.store.has('cyclegauge.support.never.v1'),false);
+  // A snooze holds until its date.
   env.infos.length=0;env.now='2035-01-04T00:00:00Z';env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);env.now='2030-01-04T00:00:00Z';
   seed('2029-12-01',{'cyclegauge.support.next.v1':'2030-01-05'});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   env.now='2030-01-05T00:00:00Z';env.infos.length=0;s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);env.now='2030-01-04T00:00:00Z';

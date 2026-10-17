@@ -102,15 +102,11 @@ Figures are the last values Kiro logged, shown with an as-of time. They are not 
 - [Changelog](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/CHANGELOG.md)
 - [Roadmap](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/ROADMAP.md) and [version history](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/version-history.md)
 
-## ❤️ Support Cyclegauge
+**Finding Cyclegauge useful?**
 
-Cyclegauge is free, open source, and independently developed. It will stay completely free, with no paid features.
+[Leave a review on Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) · [Star on GitHub](https://github.com/StefanSuess/Cyclegauge) · [Support development ☕](https://ko-fi.com/stefansuess)
 
-If you've found it useful and would like to say thanks, you can [buy me a coffee on Ko-fi](https://ko-fi.com/stefansuess). ☕
-
-Support is entirely optional. Knowing that someone appreciates my work means a lot. Thank you!
-
-The credit view has a quiet footer to rate Cyclegauge on Open VSX, star it on GitHub, support it on Ko-fi or share it. Inside Kiro it may also ask once in a while whether it is useful to you; Rate, Star or Support pause that for 120 days, and you can turn the prompt off any time with the user setting `cyclegauge.supportPrompts` or **Don't ask again**. Links open only when you click them; nothing is tracked or sent.
+Cyclegauge is free and open source, with no paid features. Support is entirely optional.
 
 ## License
 
