@@ -1,6 +1,6 @@
 # Path to Cyclegauge 1.0
 
-Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updated 2026-10-17: 0.9.0 beta → 0.11.0 beta → 1.0.0 stable.** Beyond the recorded [ROADMAP](../ROADMAP.md) decisions, this document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
+Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updated 2026-10-17: 0.9.0 beta → 0.11.0 beta → 0.13.0 beta → 1.0.0 stable; 1.0 scope extended to a feature-complete vertical slice on 2026-10-17 (see ROADMAP "1.0 killer features").** Beyond the recorded [ROADMAP](../ROADMAP.md) decisions, this document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
 
 **Direction:** value first, shipped fast. Build the credit-saving workspace/ignore audit (#71 Capability A) **first**, test it quietly with a few users in a 0.9.x beta, add the interactive dashboard in a **0.11.0** beta (the last feature beta), and announce publicly only with **1.0.0**, the first stable release (no stable 0.8 or 0.10). 1.0.0 adds no new features. Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
 
@@ -28,7 +28,7 @@ Observed on 2026-10-16/17 (recheck before acting):
 
 **Usefulness drives adoption.** A plugin that tells users something they can act on gets installed, recommended and supported. A gauge alone overlaps with Kiro's own usage alerts. The workspace audit gives Cyclegauge a result on day one (no forecast history needed): "these large files are not ignored and may end up in the agent's context; here is a `.kiroignore` snippet". That is the most tangible step from a *credit gauge* to a *credit saver*.
 
-**Why Capability A and not more of #71:** it is the smallest slice that reads no file contents except ignore configuration, needs no session parsing and gives an immediate result. Hook/Steering review (Capability B) and session attribution (Capability C) follow in 1.x.
+**1.0 is a vertical slice with a "wow" factor (maintainer decision, 2026-10-17).** Not everything has to be perfect, but 1.0 should show the whole idea: Cyclegauge warns before credits run out, shows what overages would cost in dollars, shows the pace and the trend against the last cycle, finds files Kiro does not need (with their total size), and reviews Hooks and Steering for avoidable credit use. The workspace audit (Capability A) came first because it reads no file contents except ignore configuration and gives an immediate result. Hook/Steering review (Capability B, plus the Steering part of Capability A) is now part of 1.0. Session attribution (Capability C) stays research until its data semantics are proven.
 
 **Stabilisation that stays on the 1.0 path** is about the plugin delivering, not about ceremony:
 
@@ -53,10 +53,11 @@ Observed on 2026-10-16/17 (recheck before acting):
 | Release | Channel | Content | Gate |
 | --- | --- | --- | --- |
 | **0.9.0** | Pre-release (beta) | Workspace audit (WP1a–e) with plain-language sidebar and detail-view card (WP1f), community prompts (WP1g), storage ladder, runtime guard, diagnostics (WP2). | Native macOS test of the exact candidate, then the maintainer runs the release workflow (dry run, then live). |
-| **0.11.0** | Pre-release (beta), last feature beta | Interactive dashboard: scripts with a nonce CSP, a validated message protocol and accessibility; chart hovers, inline Cost Advisor form, live updates. Fixes from 0.9 feedback. | Own design and `security-reviewer` review before implementation; separate scope approval. |
-| **1.0.0** | Stable | No new features: stable channel in the release pipeline (WP5a), native tests on macOS, Windows and Ubuntu, then the public launch (write-up, demo, community posts). | Exit criteria in section 5. |
+| **0.11.0** | Pre-release (beta) | Budget warning (WP7), overage cost projection with upgrade comparison (WP8), plan right-sizing hint (WP8b), audit size total (WP1i), results summary (WP12), shareable cycle recap (WP14), first-minute walkthrough (WP15), and the interactive dashboard (WP6) with the cycle comparison and today's pace: scripts with a nonce CSP, a validated message protocol and accessibility; chart hovers, inline Cost Advisor form, live updates. Fixes from 0.9 feedback. | WP6 needs its own design and `security-reviewer` review before implementation. |
+| **0.13.0** | Pre-release (beta), last feature beta | Hook and Steering review (WP10); the context/message reminder (WP11) and the model choice hint (WP13) if their evidence checks succeed. | WP10 needs its own design, explicit content-read approval and `security-reviewer` review. |
+| **1.0.0** | Stable | No new features beyond 0.13.x: stable channel in the release pipeline (WP5a), native tests on macOS, Windows and Ubuntu, then the public launch (write-up, demo, community posts). | Exit criteria in section 5. |
 
-Not in 1.0: Hook/Steering analysis (#71 B) and session attribution (#71 C).
+Not in 1.0: session attribution (#71 C) and analysis of prompt or conversation content.
 
 ## 4. Ordered work packages
 
@@ -88,9 +89,35 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP6** Turn the credit detail view into an interactive dashboard: scripts with a per-load nonce CSP, a validated, allowlisted message protocol between webview and extension, and keyboard and screen-reader accessibility. Features: chart hovers, an inline Cost Advisor form and live updates. Also fold in fixes from 0.9 feedback. Needs its own design document and approval before implementation. Agent: `implementer-senior`; review: `security-reviewer` (mandatory, webview scripts are a new trust boundary). This is the last feature beta before 1.0.
 
+### Phase 3c — 1.0 killer features (scope approved 2026-10-17; each WP still needs its implementation go-ahead)
+
+**WP7 Budget warning.** Cyclegauge speaks up before credits run out: one notice per billing cycle when the forecast says the reported limit will be reached before the reset ("At this pace your credits run out on 24 Oct, 8 days before the reset"), and when usage passes 80 % and 100 % of the reported limit; the status bar turns to a warning, then an error colour. User-level settings turn it off and set the thresholds. Uses only the existing forecast and snapshots; observations are labelled with their as-of time. Agent: `implementer-senior`; review: `reviewer`.
+
+**WP8 Overage cost projection.** When the forecast exceeds the reported limit: "If you continue at this pace: about N credits over the limit ≈ $X at $0.04 per credit". Uses the reviewed pricing catalog (price per credit, catalog version and review date shown); labelled as a modelled scenario, not an invoice; credits and money stay distinct with decimal precision; unknown overage settings stay unknown. Shown in the detail view and, with WP7, in the warning. **Upgrade vs. overage:** next to the overage cost, the Cost Advisor's existing plan comparison shows whether a larger plan would cost less and last until the reset ("switching to Pro+ costs $20 more and lasts until the reset"), as a modelled comparison. Agent: `implementer-senior`; review: `reviewer`.
+
+**WP8b Plan right-sizing hint.** Near the end of a cycle, when the forecast leaves a large part of the reported limit unused, and only after the same pattern in two consecutive cycles: "you will leave about 2,000 credits unused; a smaller plan would cost about $20 a month less", from the Cost Advisor's existing comparison and the reviewed catalog. Once per cycle, easy to turn off. Agent: `implementer-senior`; review: `reviewer`.
+
+**WP1i Audit size total.** The audit view and Workspace check card show the total size of the files Kiro may read but probably does not need ("about 240 MB"), as an exposure figure, never as a credit saving. Agent: `implementer`; review: `reviewer`.
+
+**WP6 additions.** The dashboard design includes a comparison with the previous billing cycle at the same day ("last cycle at this point: 410 credits, now 330") and today's pace against the daily budget, labelled with the as-of time of the last observation. CSV export of the user's own history is optional if it fits.
+
+**WP12 Your results with Cyclegauge.** A small summary in the dashboard built only from what is known: the total size and number of findings the user excluded (and how many were possible secrets); the observed change in average daily use against the user's first two weeks with Cyclegauge, stated as an observation whose cause is open; and, when a plan change is visible in the reported limit after a Cyclegauge hint, the monthly price difference from the catalog. No estimated or "saved" credit figure is shown, because whether and how much Kiro would have read is unknown. Agent: `implementer-senior`; review: `reviewer`.
+
+**WP14 Cycle recap to share ("Kiro Wrapped").** At each reset, a shareable card for the finished cycle: credits used, pace trend, data excluded from Kiro, the busiest day and whether the credits lasted until the reset, with the Open VSX link. **Copy as image** renders it locally in the dashboard; the user sees exactly what is shared, and it contains no account, device or session identifiers and no paths. Optional and easy to dismiss. Part of the WP6 dashboard design. Agent: `implementer-senior`; review: `security-reviewer` together with WP6.
+
+**WP15 First-minute experience.** A short walkthrough after installation that offers the workspace check right away (a result without any history) and says when the forecast will appear, so new users see value in the first minute. Uses the editor's walkthrough contribution; nothing runs without the user's click. Agent: `implementer-senior`; review: `reviewer`.
+
+**WP10 Hook and Steering review (#71 B and the Steering part of #71 A).** With explicit permission to read Kiro configuration text in the workspace, inspect bounded `.kiro/steering/*.md` and `AGENTS.md` (size, inclusion mode such as always vs. fileMatch vs. manual) and Kiro Hook definitions (trigger type and patterns, prompt size) without executing hooks or triggering Kiro. Flag always-included large Steering, broad or overlapping Hook triggers and hooks that start agent work on every save; suggest narrower inclusion or triggers as a reviewable preview, never written automatically. Needs its own design (exact read allowlist and limits), explicit maintainer approval for the content read, and `security-reviewer`. Agent: `implementer-senior`.
+
+**WP11 Context/message reminder (conditional).** A reminder when a session has sent many messages or its context is nearly full. First a data proof: establish from synthetic fixtures and documentation, under AGENTS.md rules, whether Kiro's local data exposes message counts or context fill, with additive vs. cumulative semantics. Ships in 0.13.0 only if that proof succeeds and the maintainer approves the session-data access; otherwise it moves to 1.1 by documented decision. No prompt or conversation content is read or analysed.
+
+**WP13 Model choice hint (conditional).** If the selected Kiro model can be read from a documented editor setting and Kiro publishes per-model credit multipliers, show a hint such as "your selected model uses about twice the credits of Auto per request", citing the published source and its date. First an evidence check of the setting and the multipliers; ships in 0.13.0 only if both are documented, otherwise it moves to 1.1 by documented decision.
+
+**Order (agreed 2026-10-17).** (1) Native test of everything still open (ignore re-check, new name patterns, watcher, support prompt) and the quiet 0.9.0 beta, which the maintainer releases, so real feedback arrives while 0.11 is built. (2) In parallel, the evidence checks behind WP10, WP11 and WP13 (Kiro's documented Steering and Hook formats, local message or context data, the model setting and published multipliers), because they decide early whether those features are possible. (3) WP7 and WP8: most value, low risk, no webview; WP7 must warn *before* the limit, from the forecast, to stand apart from Kiro's own usage notifications. (4) WP15 and WP1i. (5) WP6 design including WP12 and WP14, then its implementation. (6) WP10 design, for 0.13. (7) WP5a no later than in parallel with 0.13. (8) WP4 shortly before the launch. Before 0.11 ships, review the pricing catalog against Kiro's official prices (its review falls due on 2026-11-09), because WP8, WP8b and WP12 show dollar amounts.
+
 ### Phase 4 — Listing and launch material (low risk, during the beta)
 
-**WP4** Short README top for the Open VSX listing (what it does, the audit, privacy in one line, a synthetic GIF); pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
+**WP4** Short README top for the Open VSX listing that leads with value (warnings, overage costs, the audit, Hook/Steering review; a synthetic GIF). Privacy and security are a baseline, not a selling point: at most one line; pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
 
 ### Phase 5 — Stable channel (high risk, gated, maintainer approval; can start during the beta)
 
@@ -100,11 +127,11 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 ### Phase 6 — 1.0.0 public launch
 
-1.0.0 adds no features beyond 0.11.x. Promote when the exit criteria hold, after native tests of the exact candidate on macOS, Windows and Ubuntu. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
+1.0.0 adds no features beyond 0.13.x. Promote when the exit criteria hold, after native tests of the exact candidate on macOS, Windows and Ubuntu. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
 
 ### After 1.0
 
-1.1.x beta: Hook/Steering review (#71 B), then 1.2 stable. Session attribution (#71 C) stays research until its data semantics are proven.
+A terminal status line (an opt-in status file in Cyclegauge's own storage that shell prompts can read, or a published CLI) is a candidate for 1.x and needs its own approval. Session attribution (#71 C) stays research until its data semantics are proven; the context/message reminder moves here if its data proof did not succeed before 1.0.
 
 ## 5. 1.0 exit criteria
 
@@ -112,10 +139,12 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 - [ ] Storage upgrade ladder, newer-store refusal and evidence pruning tested.
 - [ ] Unsupported runtime shows a clear message; oldest checked Kiro recorded.
 - [ ] Copy Diagnostics exists and prints no values, paths or identifiers.
-- [ ] Interactive dashboard shipped in 0.11.x with its security review, or deferred to 1.1 by maintainer decision.
+- [ ] Interactive dashboard (with cycle comparison and pace) shipped in 0.11.x with its security review, or deferred to 1.1 by maintainer decision.
+- [ ] Budget warning, overage cost projection with upgrade comparison, plan right-sizing hint, audit size total, results summary, shareable cycle recap and first-minute walkthrough shipped in a 0.11.x beta.
+- [ ] Hook and Steering review shipped in 0.13.x with its security review; context/message reminder and model choice hint each shipped or moved to 1.1 by documented decision.
 - [ ] Workspace audit shipped in 0.9.x within its time limit, used by the invited testers, and kept, simplified or dropped based on their results.
 - [ ] Stable channel proven by tests and a release dry run.
-- [ ] At least one 0.11.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x and 0.9.x keeps history.
+- [ ] At least one 0.13.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x, 0.9.x and 0.11.x keeps history.
 - [ ] Native test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
 - [ ] Existing gates green: `pnpm typecheck`, `pnpm test`, coverage, `pnpm test:release`, three-OS host tests, attestation, macOS acceptance A/B/D/E.
 
@@ -126,9 +155,9 @@ Use the agents in `.claude/agents/` with an orchestrator, implementer, reviewer 
 | Role | Agent | Model / effort | Used for |
 | --- | --- | --- | --- |
 | Orchestrator | `release-orchestrator` (main thread: `claude --agent release-orchestrator`) | Opus, high | Picks the next approved WP, writes the brief, delegates, reviews the diff, runs checks, commits, opens the PR. Never merges, tags or publishes. |
-| Mechanical implementer | `implementer` | Haiku, medium | WP2d, WP4 and other docs or mechanical edits. |
-| Code implementer | `implementer-senior` | Sonnet, high | WP1, WP2a–c, WP5, WP6. |
+| Mechanical implementer | `implementer` | Haiku, medium | WP2d, WP4, WP1i and other docs or mechanical edits. |
+| Code implementer | `implementer-senior` | Sonnet, high | WP1, WP2a–c, WP5, WP6, WP7, WP8, WP8b, WP10–WP15. |
 | Reviewer | `reviewer` | Sonnet, high | Moderate-risk diffs. |
-| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP1, WP2a–c, WP5, WP6 (workspace reading, storage, diagnostics, release). |
+| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP1, WP2a–c, WP5, WP6, WP10, WP11 (workspace or configuration reading, session data, storage, diagnostics, release, webview scripts). |
 
 One implementer at a time per file set; one review per diff, plus at most one re-review after fixes. Delegates never commit, push or delegate further.
