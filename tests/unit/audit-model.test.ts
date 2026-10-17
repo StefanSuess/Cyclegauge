@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { auditTree, dismissHash, escapeText, findingKey, formatSize, kiroignoreAppend, revealTarget, visibleFindings, KIROIGNORE_HEADER, type AuditNode } from '../../src/extension/audit-model.ts';
 import type { AuditResult, Finding } from '../../src/audit/audit.ts';
 
@@ -99,7 +99,7 @@ test('kiroignoreAppend: new file, existing with and without trailing newline, he
  assert.equal(kiroignoreAppend('/a  \n', ['/a']), `${KIROIGNORE_HEADER}\n/a\n`); // only exact lines count as present
 });
 test('revealTarget: always reveals in the Explorer inside the root and refuses escapes', () => {
- const root = join('/', 'synthetic-root');
+ const root = resolve('/', 'synthetic-root'); // resolve adds the drive letter on Windows, like revealTarget
  const f = (path: string) => ({ path });
  assert.deepEqual(revealTarget(root, f('logs/a.log')), { kind: 'reveal', path: join(root, 'logs', 'a.log') });
  assert.deepEqual(revealTarget(root, f('dist')), { kind: 'reveal', path: join(root, 'dist') });
