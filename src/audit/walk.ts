@@ -21,7 +21,7 @@ export interface WalkResult {
  incomplete?: string; // root-relative directory ('' = root) whose listing was halted part-way by an entry, time or cancel limit
  counts: { files: number; dirs: number; symlinks: number; special: number; unreadable: number };
 }
-export const PRUNE = new Set(['.git', '.hg', '.svn', 'node_modules', '.kiro', '.ssh', '.gnupg', '.aws']);
+export const PRUNE = new Set(['.git', '.hg', '.svn', 'node_modules', 'bower_components', 'jspm_packages', '.terraform', '.pnpm-store', '.kiro', '.ssh', '.gnupg', '.aws']);
 const nodeFs: WalkFs = {
  lstat: async path => { const s = await lstat(path, { bigint: true }); return { isFile: () => s.isFile(), isDirectory: () => s.isDirectory(), isSymbolicLink: () => s.isSymbolicLink(), size: Number(s.size), dev: s.dev, ino: s.ino }; },
  readdir: path => readdir(path, { withFileTypes: true }),
