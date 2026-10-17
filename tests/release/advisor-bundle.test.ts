@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,realpathSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,realpathSync,rmSync,existsSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 import {createRequire} from 'node:module';
@@ -108,4 +108,31 @@ test('packaged audit command survives a failing start, refuses untrusted workspa
   assert.deepEqual(errors,['The workspace audit failed.']);panels.length=0;infos.length=0;await commands.get('cyclegauge.auditWorkspace')!();assert.deepEqual(infos,['Workspace audit: 2 findings.']);
   warnings.length=0;trusted=false;for(const d of subscriptions)d.dispose();assert.equal(commands.size,0);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// node:sqlite is loaded lazily, so a runtime without it still loads the bundle, registers its commands and says an update is needed.
+test('packaged bundle has no top-level node:sqlite require and still starts without it',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-runtime-bundle-')));
+ const subscriptions:any[]=[];let extension:any;const original=process.getBuiltinModule;
+ try{
+  const bundle=await builtBundle(work);
+  assert.ok(!/require\(\s*["']node:sqlite["']\s*\)/.test(bundle),'node:sqlite must not be required when the bundle loads');
+  const source=join(work,'source'),storage=join(work,'owned');mkdirSync(source,{recursive:true});
+  const commands=new Map<string,()=>unknown>(),items:any[]=[],panels:any[]=[];const disposable={dispose(){}};
+  const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ThemeColor:class{},Uri:{file:(fsPath:string)=>({fsPath})},RelativePattern:class{},extensions:{getExtension:()=>undefined},
+   commands:{registerCommand(id:string,fn:()=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+   workspace:{getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'UTC'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
+   window:{createStatusBarItem(){const item:any={text:'',show(){},hide(){},dispose(){}};items.push(item);return item;},
+    createWebviewPanel(_t:string,_title:string,_c:number,o:any){const p={options:o,webview:{html:''},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};panels.push(p);return p;}}};
+  const require=createRequire(new URL('../../package.json',import.meta.url));
+  const module={exports:{} as any};
+  (process as {getBuiltinModule?:unknown}).getBuiltinModule=()=>undefined;
+  runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>{if(id==='vscode')return vscode;if(/^(node:)?sqlite$/.test(id))throw new Error('synthetic-no-sqlite');return require(id);},module,module.exports);
+  extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});
+  assert.ok(commands.has('cyclegauge.showUsage'));assert.ok(commands.has('cyclegauge.auditWorkspace'));
+  assert.equal(items[0].text,'$(warning) Kiro: update needed');
+  await commands.get('cyclegauge.showUsage')!();
+  assert.match(panels[0].webview.html,/does not provide the SQLite support/);
+  assert.equal(existsSync(storage),false);
+ }finally{process.getBuiltinModule=original;extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });

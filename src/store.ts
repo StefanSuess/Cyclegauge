@@ -1,4 +1,4 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHmac } from 'node:crypto';
 import { writeFileSync, readFileSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,11 +12,21 @@ export type Migration = (db: DatabaseSync) => void;
 export const MIGRATIONS: readonly Migration[] = Object.freeze([]);
 export const STORE_VERSION = 1 + MIGRATIONS.length;
 export const MAX_IMPORT_ROWS = 10_000;
-/** Test-only overrides; production callers use the defaults. */
-export interface StoreOptions { migrations?: readonly Migration[]; maxImportRows?: number }
+/** Test-only overrides; production callers use the defaults. `sqlite` replaces the loader for the `node:sqlite` module. */
+export interface StoreOptions { migrations?: readonly Migration[]; maxImportRows?: number; sqlite?: () => unknown }
+type DatabaseConstructor = new (path: string) => DatabaseSync;
+// node:sqlite is loaded lazily so that a runtime without it still loads the extension bundle; the check runs before any filesystem work.
+const builtinSqlite = (): unknown => process.getBuiltinModule?.('node:sqlite');
+function databaseConstructor(load: () => unknown): DatabaseConstructor {
+ let ctor: unknown;
+ try { ctor = (load() as { DatabaseSync?: unknown } | undefined)?.DatabaseSync; } catch { /* fixed code below */ }
+ if (typeof ctor !== 'function') throw new Error('RUNTIME_UNSUPPORTED');
+ return ctor as DatabaseConstructor;
+}
 export class Store {
  private db: DatabaseSync; private secret: Buffer; private maxImports: number;
  constructor(directory: string, source: string, profile = false, options: StoreOptions = {}) {
+  const Database = databaseConstructor(options.sqlite ?? builtinSqlite);
   const root = prepareStorage(directory, source, profile);
   const verifyAcl = !profile;
   const secureFile = (name: string, initial: Buffer) => {
@@ -41,7 +51,7 @@ export class Store {
    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('UNSAFE_STORAGE'); }
   }
   this.maxImports = options.maxImportRows ?? MAX_IMPORT_ROWS;
-  this.db = new DatabaseSync(dbPath);
+  this.db = new Database(dbPath);
   let open = false;
   try {
    this.db.exec('PRAGMA busy_timeout=3000');
