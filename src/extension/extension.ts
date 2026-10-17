@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { refusal } from './audit-root.ts';
-import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode } from './audit-model.ts';
+import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { ID_PREFIX, PANEL_VIEW_TYPE, commandId, readAuditAutomatically, readReminderDays, readSetting, registerCommand } from './identity.ts';
@@ -44,9 +44,12 @@ const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
 const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
 const REMINDER_DELAY_MS = 30_000;
 interface Dismissed { salt: string; hashes: string[] }
-function registerAudit(context: vscode.ExtensionContext): void {
+// What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
+interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
+function registerAudit(context: vscode.ExtensionContext): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
+ let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined;
  let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
  // Every spelling of a path that exists: as given and with symlinks resolved.
@@ -62,8 +65,9 @@ function registerAudit(context: vscode.ExtensionContext): void {
  const hasher = (d: Dismissed | undefined) => (category: string, path: string) => dismissHash(d?.salt ?? '', category, path);
  const render = (): void => {
   const d = readDismissed();
-  roots = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted) : [];
+  roots = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted, checkedAt) : [];
   changed?.fire(undefined);
+  summaryChanged();
  };
  const visible = (): Finding[] => { const d = readDismissed(); return result ? visibleFindings(result, d?.hashes ?? [], hasher(d)) : []; };
  // Reminder state lives in workspaceState; every access is fail-silent so a broken store never affects the audit or the gauge.
@@ -72,8 +76,14 @@ function registerAudit(context: vscode.ExtensionContext): void {
  const recordAudit = async (o: AuditResult): Promise<void> => {
   if ((o.status === 'complete' || o.status === 'partial') && !o.reasons.includes('cancelled')) await store(LAST_KEY, utcDate(new Date()));
  };
- // One counting rule for every message: findings the user has not ignored, plus those beyond the listed maximum.
- const findingsMessage = (o: AuditResult): string => { const n = visible().length + o.omitted; return `Workspace audit: ${n} ${n === 1 ? 'finding' : 'findings'}.`; };
+ // One counting rule for every message: items the user has not hidden, plus those beyond the listed maximum.
+ const counts = (o: AuditResult) => countFindings(visible(), o.omitted);
+ const findingsMessage = (o: AuditResult): string => { const { items, unclear } = counts(o); return viewReady ? `${countsText(items, unclear)} — see the Kiro Workspace Audit view.` : `${countsText(items, unclear)}.`; };
+ const summary = (): AuditSummary => {
+  const last = stored(LAST_KEY), lastDate = typeof last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(last) ? last : undefined;
+  if (refused || result?.status === 'unavailable') return { state: 'unavailable', lastDate };
+  return result ? { state: 'checked', ...counts(result), checkedAt, lastDate } : { state: 'never', lastDate };
+ };
  const audit = async (): Promise<void> => {
   if (running) { await vscode.window.showInformationMessage(reminderAbort ? 'An automatic workspace audit is running; try again shortly.' : 'A workspace audit is already running.'); return; }
   running = true;
@@ -82,7 +92,8 @@ function registerAudit(context: vscode.ExtensionContext): void {
    try { outcome = await auditOnce(); } finally { running = false; }
    if (!outcome) return;
    if (viewReady) try { await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); } catch { /* the list is still updated */ }
-   if (visible().length === 0) return;
+   if (outcome.status === 'unavailable') return;
+   if (visible().length + outcome.omitted === 0) { notify(outcome.status === 'partial' ? 'No risky files found, but the check was partial.' : 'No risky files found.'); return; }
    const message = findingsMessage(outcome);
    if (viewReady) { notify(message); return; } // not awaited: the notification resolves only when dismissed, and it offers no buttons
    // The list is unavailable: offer the clipboard only. Prompted after the run is released, so it never blocks the next audit.
@@ -100,9 +111,9 @@ function registerAudit(context: vscode.ExtensionContext): void {
  };
  // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
  const auditOnce = async (silent = false, signal?: AbortSignal): Promise<AuditResult | undefined> => {
-  if (!vscode.workspace.isTrusted) { if (!silent) await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
+  if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
   const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
-  if (folders.length === 0) { if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
+  if (folders.length === 0) { refused = true; summaryChanged(); if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
   let folder: vscode.WorkspaceFolder | undefined = folders[0];
   if (folders.length > 1) {
    if (silent) return;
@@ -111,7 +122,7 @@ function registerAudit(context: vscode.ExtensionContext): void {
   }
   if (!folder) return;
   const checked = folderCheck(folder);
-  if ('reason' in checked) { if (!silent) await vscode.window.showWarningMessage(`This folder can't be audited: ${checked.reason}.`); return; }
+  if ('reason' in checked) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage(`This folder can't be audited: ${checked.reason}.`); return; }
   const { chosen, resolved } = checked;
   const setting = vscode.workspace.getConfiguration('kiroAgent', folder.uri).get<unknown>('agentIgnoreFiles');
   const outcome = silent ? await runAudit(chosen, setting, { signal })
@@ -121,7 +132,7 @@ function registerAudit(context: vscode.ExtensionContext): void {
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;
-  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear();
+  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear(); checkedAt = new Date().toISOString(); refused = false;
   await recordAudit(outcome);
   render();
   return outcome;
@@ -195,6 +206,8 @@ function registerAudit(context: vscode.ExtensionContext): void {
  register('audit.accept', async arg => { const f = findingOf(arg); if (f) await prepare([f]); });
  register('audit.acceptAll', async () => { if (result) await prepare(visible()); else notify('Run the workspace audit first.'); });
  register('audit.dismiss', dismiss);
+ // The credit view's "Show" button: the existing list if there is one, otherwise the audit itself (which then focuses the list).
+ register('audit.show', async () => { if (result && viewReady) await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); else await audit(); });
  register('audit.reveal', reveal);
  register('audit.copy', async () => {
   const findings = visible().filter(f => f.suggestion !== '');
@@ -253,20 +266,28 @@ function registerAudit(context: vscode.ExtensionContext): void {
     // An explicit icon and no resourceUri, so the editor adds no file decorations.
     item.iconPath = new vscode.ThemeIcon(node.icon);
     if (node.action === 'openIgnoreSetting') item.command = { command: 'workbench.action.openSettings', title: 'Open Agent Ignore Files setting', arguments: ['kiroAgent.agentIgnoreFiles'] };
-    if (node.action === 'clearDismissed') item.command = { command: commandId('audit.clearDismissed'), title: 'Show ignored again' };
+    if (node.action === 'clearDismissed') item.command = { command: commandId('audit.clearDismissed'), title: 'Show hidden items again' };
     return item;
    },
   };
   context.subscriptions.push(emitter, vscode.window.registerTreeDataProvider(`${ID_PREFIX}.auditView`, provider));
   viewReady = true;
  } catch { /* Without the list, a finished audit falls back to a notification with a Copy suggestions button. */ }
+ // The credit view is re-rendered only when what it shows (state, counts, time of the check) actually changed.
+ const keyOf = (a: AuditSummary): string => [a.state, a.items, a.unclear, a.checkedAt].join('|');
+ let shown = '';
+ return { summary, onChange(fn) {
+  try { shown = keyOf(summary()); } catch { /* the first change renders */ }
+  summaryChanged = () => { try { const key = keyOf(summary()); if (key === shown) return; shown = key; fn(); } catch { /* the credit view never affects the audit */ } };
+ } };
 }
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined;
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
- try { registerAudit(context); } catch { /* The audit must never stop the gauge from starting. */ }
+ let audit: AuditLink | undefined;
+ try { audit = registerAudit(context); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -274,8 +295,8 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
- // The webview stays script-free and command-URI-free, so the Cost Advisor needs a native entry point that does not
- // rely only on the easy-to-overlook editor title bar button: a status bar item shown while the panel is open.
+ // The webview stays script-free and its only command links are the Cost Advisor and the two audit commands below, so the Cost Advisor needs a native
+ // entry point that does not rely only on the easy-to-overlook editor title bar button: a status bar item shown while the panel is open.
  const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
  advisorItem.name = 'Cyclegauge Cost Advisor';
  advisorItem.text = '$(lightbulb) Cost Advisor';
@@ -297,11 +318,11 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
    item.tooltip = meta?.tooltip ?? 'Open your credit budget and forecast';
    item.backgroundColor = meta?.warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
    detail = html;
-   if (panel) panel.webview.html = detail;
+   if (panel && panel.webview.html !== detail) panel.webview.html = detail; // identical HTML is not set again
   },
   showDetails(html) {
-   if (panel) { panel.reveal(); panel.webview.html = html; advisorItem.show(); return; }
-   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: false, localResourceRoots: [] });
+   if (panel) { panel.reveal(); if (panel.webview.html !== html) panel.webview.html = html; advisorItem.show(); return; }
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show')], localResourceRoots: [] });
    panel.webview.html = html;
    advisorItem.show();
    disposables.push(panel.onDidChangeViewState(e => { if (e.webviewPanel.visible) advisorItem.show(); else advisorItem.hide(); }));
@@ -329,7 +350,8 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary });
+  audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;
   context.subscriptions.push({ dispose: controller.dispose });

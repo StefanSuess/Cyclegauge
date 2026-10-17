@@ -3,6 +3,7 @@ import { snapshotFacts, storeStateFor, type DiagnosticsInput, type StoreState } 
 import { collect } from '../collector.ts';
 import { view } from '../view.ts';
 import { present } from './presentation.ts';
+import type { AuditSummary } from './audit-model.ts';
 import {calculateCosts,type NativeCostInput} from './cost-inputs.ts';
 import {AdvisorInputs,reviewAdvisor} from './advisor-inputs.ts';
 import {presentAdvisor} from './advisor-presentation.ts';
@@ -19,7 +20,9 @@ export interface ExtensionUi {
  onCostCommand?(id: 'advisor', callback: () => Promise<void>): void;
  dispose(): void;
 }
-export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number }
+export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number;
+ // Counts and times of the workspace check for the detail view's card; read on every render and never allowed to affect the gauge.
+ auditSummary?: () => AuditSummary }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
  let store: Store | undefined;
@@ -42,7 +45,9 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   }catch{
    advisorHtml=presentAdvisor({hint:{plan:null,confidence:'none',reasons:[]},context:{planSource:'unknown',plan:null,billingConfirmed:false,addOns:'unknown',assumptions:[]},horizons:[],advice:[],singleAccount:advisor.isSingleAccount,failed:true,limit:null});
   }
-  const presentation=present(observation,codes,'',advisorHtml);
+  let audit:AuditSummary|undefined;
+  try{audit=options.auditSummary?.();}catch{audit=undefined;}
+  const presentation=present(observation,codes,'',advisorHtml,audit,now());
   detail=presentation.html;
   if(!disposed)ui.setStatus(presentation.text,detail,presentation);
  };
@@ -92,5 +97,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  // No IO: the status kept in memory by the last refresh.
  const diagnostics=():DiagnosticsInput=>({store:facts.store,status:observation.status,forecast:observation.forecast.tier,snapshots:facts.snapshots,accounts:facts.accounts,unassociated:facts.unassociated,
   observedAgeMs:facts.latestMs===undefined?null:Date.parse(now())-facts.latestMs,importCodes:facts.importCodes});
- return { refresh, diagnostics, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
+ // Re-renders with the current workspace-check summary; no collection and no IO.
+ const rerender=()=>{if(!disposed)render();};
+ return { refresh, diagnostics, rerender, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
 }

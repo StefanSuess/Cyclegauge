@@ -4,7 +4,7 @@ Condensed notes that used to sit in the README. Detailed evidence lives in the p
 
 ## Release summary
 
-- **0.9.0** Beta: workspace audit with a native view, Accept/Ignore actions and reminders (opt-in automatic re-run), diagnostics report (command and CLI `--diagnostics`), "update needed" message on unsupported runtimes, storage migration path; storage location and store version unchanged from 0.7.0 by design (no native upgrade test recorded). See [CHANGELOG.md](../CHANGELOG.md).
+- **0.9.0** Beta: workspace audit with a native view (Exclude from Kiro / Not a problem / Show in Explorer), reminders (opt-in automatic re-run), a workspace-check card and Cost Advisor button in the credit view, diagnostics report (command and CLI `--diagnostics`), "update needed" message on unsupported runtimes, storage migration path; storage location and store version unchanged from 0.7.0 by design (no native upgrade test recorded). See [CHANGELOG.md](../CHANGELOG.md).
 - **0.7.0** Cross-platform beta: Windows storage, new default storage location (no migration), three-OS CI with extension-host tests, synthetic demo. See [CHANGELOG.md](../CHANGELOG.md).
 - **0.5.3** Documentation, optional Ko-fi support metadata and release-pipeline update; no behavior change. See [CHANGELOG.md](../CHANGELOG.md).
 - **0.5.2** First public Cyclegauge beta under the new extension identity `StefanSuess.cyclegauge`. The contemporaneous changelog records that native acceptance of the exact candidate remained pending; Windows storage remains disabled, and Linux/RHEL remain unverified. See [CHANGELOG.md](../CHANGELOG.md) for its release notes and limitations.
