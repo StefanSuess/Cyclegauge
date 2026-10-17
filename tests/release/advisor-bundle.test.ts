@@ -69,7 +69,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
 // Native-API stand-ins for the audit sidebar: an in-memory document store (nothing is read back from or written to disk by edits),
 // a recording tree-view registry and a Map-backed workspaceState.
 const auditApi=()=>{
- const state={providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0};
+ const state={providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0,saveListeners:[] as any[]};
  class EventEmitter{listeners:any[]=[];event=(fn:any)=>{this.listeners.push(fn);return {dispose(){}};};fire(v:any){state.fires++;for(const l of this.listeners)l(v);}dispose(){}}
  class TreeItem{id?:string;description?:string;tooltip?:unknown;contextValue?:string;iconPath?:any;command?:any;resourceUri?:unknown;label:string;collapsibleState:number;constructor(label:string,collapsibleState:number){this.label=label;this.collapsibleState=collapsibleState;}}
  class ThemeIcon{id:string;constructor(id:string){this.id=id;}}
@@ -78,7 +78,7 @@ const auditApi=()=>{
  const key=(u:any)=>`${u.scheme}:${u.fsPath}`;
  return {state,Uri:{file:(p:string)=>uri(p)},EventEmitter,TreeItem,ThemeIcon,WorkspaceEdit,TreeItemCollapsibleState:{None:0,Collapsed:1,Expanded:2},
   workspaceState:{get:(k:string)=>state.store.get(k),async update(k:string,v:unknown){if(v===undefined)state.store.delete(k);else state.store.set(k,structuredClone(v));}},
-  workspace:{async openTextDocument(u:any){if(u.content!==undefined){const c={uri:{scheme:'untitled',fsPath:''},text:u.content,language:u.language,getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.contentDocs.push(c);return c;}let d=state.docs.get(key(u));if(!d){d={uri:u,text:u.scheme==='file'?readFileSync(u.fsPath,'utf8'):'',getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.docs.set(key(u),d);}return d;},
+  workspace:{onDidSaveTextDocument(fn:any){state.saveListeners.push(fn);return {dispose(){state.saveListeners=state.saveListeners.filter(x=>x!==fn);}};},async openTextDocument(u:any){if(u.content!==undefined){const c={uri:{scheme:'untitled',fsPath:''},text:u.content,language:u.language,getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.contentDocs.push(c);return c;}let d=state.docs.get(key(u));if(!d){d={uri:u,text:u.scheme==='file'?readFileSync(u.fsPath,'utf8'):'',getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.docs.set(key(u),d);}return d;},
    async applyEdit(e:any){for(const i of e.inserts){const d=state.docs.get(key(i.uri));d.text=d.text.slice(0,i.position.offset)+i.text+d.text.slice(i.position.offset);}state.edits.push(e);return true;}},
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
@@ -309,11 +309,11 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  // The walk's file system calls are observed (and the workspace listing can be held) so a run in flight can be inspected.
  const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?fsHook:require(id),module,module.exports,SyntheticDate);
- try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{(globalThis as any).setTimeout=realSet;}
+ try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{/* restored on disposal so delayed signal timers remain controllable */}
  let done=false;
  return {commands,timers,api,provider:()=>api.state.providers.get('cyclegauge.auditView'),
   fire:async()=>{assert.equal(timers.length,1);assert.equal(timers[0]!.ms,30000);return timers[0]!.fn();},
-  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).clearTimeout=realClear;}};
+  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;}};
 };
 const TODAY='2030-03-31';
 // A function boundary keeps the narrowing from assert.deepEqual(env.infos, []) out of later reads.
@@ -588,7 +588,7 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
 
 // Community prompts: footer, share command, the support prompt and the "not Kiro" notice. The bundle sees an injected clock (Date), the 3-minute
 // delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
-const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1'];
+const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1','cyclegauge.support.detailDays.v1','cyclegauge.support.advisorUsed.v1'];
 const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1'];
 const SUPPORT_TEXT='Is Cyclegauge useful to you? A rating or a star helps others find it.';
 const NOT_KIRO='Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
@@ -601,8 +601,8 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  // Kiro's standard data folder as the bundle resolves it under the synthetic HOME (set per session).
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
-  home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[]};
+  globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
@@ -612,12 +612,12 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
   commands:{async executeCommand(){},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
-   getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?'off':
+   getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
     ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts} as any)[key]??''}),
    createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
-   async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
+   async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
    async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
@@ -625,7 +625,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
- (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==30000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
+ (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
  (globalThis as any).clearTimeout=(t:any)=>{if(t&&env.timers.includes(t))t.cleared=true;else realClear(t);};
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
@@ -634,10 +634,10 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
  const later=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));};
  let done=false;
- try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{(globalThis as any).setTimeout=realSet;}
+ try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:env.globalStorage},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{/* restored on disposal so delayed signal timers remain controllable */}
  return {commands,api,later,support:()=>env.timers.filter(t=>t.ms===180000),
   fire:async()=>{const t=env.timers.filter(x=>x.ms===180000);assert.equal(t.length,1);await t[0]!.fn();await later();},
-  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).clearTimeout=realClear;for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}};
+  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}};
 };
 const hrefsOf=(html:string)=>[...html.matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
 
@@ -773,4 +773,82 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   // Only the documented keys were written.
   assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged earlier support signals: distinct detail days and saved accepted edits',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-earlier-')));
+ let s:any;
+ try {
+  const env=communityEnv(work,false);env.store.set('cyclegauge.support.firstSeen.v1','2030-01-01');
+  for(const day of ['02','02','03','04']) {
+   env.now=`2030-01-${day}T00:00:00Z`;s=await communitySession(env,work);
+   await s.commands.get('cyclegauge.showUsage')!();await s.later();
+   if(day!=='04')assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+   s.dispose();
+  }
+  assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
+  assert.deepEqual(env.store.get('cyclegauge.support.detailDays.v1'),['2030-01-02','2030-01-03','2030-01-04']);
+  env.store.clear();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.infos.length=0;env.timers.length=0;
+  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
+  const provider=s.api.state.providers.get('cyclegauge.auditView');
+  const node=flatTree(provider.getChildren()).find((n:any)=>n.finding?.suggestion);
+  await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
+  assert.equal(env.timers.filter(t=>t.ms===60000).length,0);
+  const doc=s.api.state.shown.at(-1);const target=join(env.workspace,'.kiroignore');
+  const saved={uri:{scheme:'file',fsPath:target},getText:()=>doc.getText()};
+  for(const fn of s.api.state.saveListeners)fn({...saved,uri:{scheme:'file',fsPath:join(env.workspace,'synthetic-other')}});
+  assert.equal(env.timers.filter(t=>t.ms===60000).length,0);
+  writeFileSync(target,doc.getText());
+  for(const fn of s.api.state.saveListeners)fn(saved);
+  await s.later();assert.equal(env.timers.filter(t=>t.ms===60000).length,1);
+  env.infos.length=0;await s.fire();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+  await env.timers.find(t=>t.ms===60000)!.fn();await s.later();
+  assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged medium signals ignore future days, cancelled Advisor and reset',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-medium-')));let s:any;
+ try {
+  const env=communityEnv(work,true);env.store.set('cyclegauge.support.firstSeen.v1','2030-01-03');
+  env.store.set('cyclegauge.support.detailDays.v1',['2030-01-05','2030-01-06','2030-01-07']);
+  s=await communitySession(env,work);await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+  await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
+  env.answers.push('reset');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
+  env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();
+  assert.equal(env.store.get('cyclegauge.support.advisorUsed.v1'),true);assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
+  await s.commands.get('cyclegauge.support.reset')!();assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);
+  env.infos.length=0;env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged saved exclusion with auto-save preserves existing ignore text',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-save-')));let s:any;
+ try {
+  const env=communityEnv(work,false);env.autoSave='afterDelay';env.store.set('cyclegauge.support.firstSeen.v1','2030-01-03');
+  const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
+  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
+  const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+  await s.commands.get('cyclegauge.audit.accept')!(node);const proposal=s.api.state.contentDocs.at(-1).getText();
+  const text='# synthetic-existing\n'+proposal;writeFileSync(path,text);
+  for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>text});await s.later();
+  assert.equal(env.timers.filter(t=>t.ms===60000).length,1);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged test override requires the isolated synthetic demo profile and explicit opt-in',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-cyclegauge-demo-')));let s:any;
+ const oldFlag=process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST,oldSource=process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;
+ try {
+  const env=communityEnv(work,false);process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST='1';process.env.CYCLEGAUGE_SYNTHETIC_SOURCE=env.source;
+  for(const isolated of [false,true]) {
+   env.store.clear();env.infos.length=0;env.timers.length=0;if(isolated)env.globalStorage=join(work,'user-data','global');
+   s=await communitySession(env,work);await s.commands.get('cyclegauge.support.reset')!();await s.commands.get('cyclegauge.auditWorkspace')!();
+   const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+   await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.shown.at(-1),path=join(env.workspace,'.kiroignore');writeFileSync(path,doc.getText());
+   for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>doc.getText()});await s.later();
+   env.infos.length=0;await env.timers.find(t=>t.ms===60000)!.fn();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,isolated?1:0);
+   s.dispose();rmSync(path);
+  }
+ }finally{s?.dispose();if(oldFlag===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST;else process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST=oldFlag;if(oldSource===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;else process.env.CYCLEGAUGE_SYNTHETIC_SOURCE=oldSource;rmSync(work,{recursive:true,force:true});}
 });

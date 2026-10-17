@@ -48,3 +48,15 @@ test('a snooze set by a choice makes the prompt not due until it ends', () => {
  assert.equal(supportDue({ ...base, today: '2030-07-28', next }), false);
  assert.equal(supportDue({ ...base, today: '2030-07-29', next }), true);
 });
+
+test('value signals permit an earlier prompt while all global gates remain binding', () => {
+ const early = { ...base, firstSeen: '2030-03-30', valueSeen: false };
+ for (const signal of [{ auditSaved: true }, { detailDays: 3 }, { advisorUsed: true }]) {
+  assert.equal(supportDue({ ...early, ...signal }), true);
+  for (const gate of [{ enabled: false }, { kiro: false }, { never: true }, { next: '2030-04-01' }, { firstSeen: '2030-04-01' }]) assert.equal(supportDue({ ...early, ...signal, ...gate }), false);
+ }
+ assert.equal(supportDue({ ...early, firstSeen: early.today, auditSaved: true }), false);
+ assert.equal(supportDue({ ...early, firstSeen: early.today, advisorUsed: true }), true);
+ assert.equal(supportDue({ ...early, detailDays: 2 }), false);
+ for (const signal of [{ auditSaved: 'true' }, { advisorUsed: 1 }, { detailDays: '3' }, { detailDays: Infinity }, { detailDays: 2.5 }]) assert.equal(supportDue({ ...early, ...signal }), false);
+});

@@ -23,7 +23,7 @@ if (!executable || !existsSync(executable)) {
  process.exit(1);
 }
 const home = join(base, 'home');
-const env = { ...process.env, HOME: home, USERPROFILE: home,
+const env = { ...process.env, CYCLEGAUGE_SYNTHETIC_SOURCE: join(base, 'source'), HOME: home, USERPROFILE: home,
  APPDATA: join(home, 'AppData', 'Roaming'), LOCALAPPDATA: join(home, 'AppData', 'Local'),
  XDG_CONFIG_HOME: home, XDG_DATA_HOME: home, XDG_STATE_HOME: home, XDG_CACHE_HOME: home };
 delete env.VSCODE_IPC_HOOK_CLI;

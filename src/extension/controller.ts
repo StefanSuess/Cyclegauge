@@ -28,7 +28,8 @@ export interface ExtensionOptions { source: string; storage: string; profileStor
  // Called when a render shows a provisional or regular forecast; used only for the support prompt and never allowed to affect the gauge.
  onForecast?: () => void;
  // Called when a render shows "Kiro not detected" (notKiro and no source logs); same rules as onForecast.
- onAbsent?: () => void }
+ onAbsent?: () => void;
+ onAdvisorUsed?: () => void }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
  let store: Store | undefined;
@@ -91,10 +92,11 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   await refresh();if(disposed)return;
   const ticket=advisor.begin();
   try{
-   const value=await reviewAdvisor(ui.costInput,planHint(observation.baseLimit,reviewedCatalog),advisor.value);
+   let reset = false;
+   const value=await reviewAdvisor({ ...ui.costInput, async pick(title, items) { const choice = await ui.costInput!.pick(title, items); if (choice === 'reset') reset = true; return choice; } },planHint(observation.baseLimit,reviewedCatalog),advisor.value);
    if(!value||disposed)return;
    await refresh();if(disposed)return;
-   if(advisor.commit(ticket,value)){render();ui.showDetails(detail);}
+   if(advisor.commit(ticket,value)){render();ui.showDetails(detail);try{if(!reset)options.onAdvisorUsed?.();}catch{/* support never affects the Advisor */}}
   }catch{/* Native input failures never expose answers or affect the budget. */}
  };
  ui.onCostCommand?.('advisor',review);
