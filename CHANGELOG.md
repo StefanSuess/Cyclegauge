@@ -4,11 +4,12 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 ## 0.9.0 (beta, macOS, Windows, Ubuntu)
 
-Adds an on-request workspace audit and a diagnostics report, a clear "update needed" message on unsupported runtimes, and a storage migration path. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+Adds a workspace audit with a native view, Accept/Ignore actions and reminders, a diagnostics report, a clear "update needed" message on unsupported runtimes, and a storage migration path. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
 
 ### Added
 
-- **Cyclegauge: Audit Kiro Workspace.** Checks a trusted local workspace folder for files that could add cost or risk if Kiro reads them (secrets and credentials, databases and dumps, large archives, logs and data files, build output, dependencies and other large files) and whether the workspace ignore files already cover them. It runs only when you invoke it. It reads only file names and sizes plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`); it writes no files and sends nothing (the clipboard is used only if you choose Copy suggestions), and file contents are never read. Results that cannot be established are shown as unknown rather than guessed. The report offers copyable `.kiroignore` suggestions, and notes when a `.kiroignore` exists but is not listed in Agent Ignore Files. Detection is by file name and size only. Findings are potential risks, not measured credit use; review suggestions before adding them, because ignoring files can hide them from Kiro.
+- **Cyclegauge: Audit Kiro Workspace** and the **Kiro Workspace Audit** view in the Explorer. Checks a trusted local workspace folder for files that could add cost or risk if Kiro reads them (secrets and credentials, databases and dumps, large archives, logs and data files, build output, dependencies and other large files) and whether the workspace ignore files already cover them. It runs when you start it, or automatically only if you opt in. It reads only file names and sizes plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`); it writes no files and sends nothing, and file contents are never read. Results that cannot be established are shown as unknown rather than guessed. Each finding has **Accept** (prepares an unsaved `.kiroignore` change that you review and save; with auto-save on, the lines open in a separate tab), **Ignore** (hidden per workspace; only salted hashes are stored) and **Show in Explorer**; the view also offers Accept all and Copy suggestions, and notes when a `.kiroignore` exists but is not listed in Agent Ignore Files.
+- Audit reminders: a one-time prompt for a never-audited workspace and a reminder after `cyclegauge.auditReminderDays` (default 30, 0 = off). Opt-in `cyclegauge.auditAutomatically` (default off) re-runs a due audit silently. Both are user-level settings only; per workspace only the last audit date, a snooze date and a do-not-remind flag are stored. Detection is by file name and size only. Findings are potential risks, not measured credit use; review suggestions before adding them, because ignoring files can hide them from Kiro.
 - **Cyclegauge: Copy Diagnostics** and CLI `--diagnostics`: a short report of fixed codes, counts and platform metadata to review and paste into an issue.
 - A clear "Kiro: update needed" status-bar message on runtimes without SQLite and for data written by a newer Cyclegauge, instead of a generic failure.
 
@@ -23,7 +24,7 @@ Adds an on-request workspace audit and a diagnostics report, a clear "update nee
 - macOS: beta; earlier (0.7.0) maintainer synthetic-data testing in Kiro 1.2.56.
 - Windows 11 Pro and Ubuntu 26: beta; earlier (0.7.0) smoke test in native Kiro by the maintainer (a development candidate, 2026-10-14; Kiro versions not recorded). No itemised acceptance yet.
 - RHEL and macOS Intel are unverified.
-- The new 0.9.0 features (audit, diagnostics, update-needed message, migration path) have not been verified in native Kiro on any platform.
+- An earlier 0.9.0 candidate (audit report, Copy Diagnostics, gauge) was tested by the maintainer in native Kiro on macOS. The audit view, Accept/Ignore, reminders, the update-needed message and the migration path have not yet been verified in native Kiro, and no 0.9.0 testing on Windows or Ubuntu is recorded.
 
 ### Unchanged
 

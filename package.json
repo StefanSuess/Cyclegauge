@@ -88,6 +88,10 @@
       {
         "command": "cyclegauge.audit.clearDismissed",
         "title": "Cyclegauge: Show Ignored Audit Findings Again"
+      },
+      {
+        "command": "cyclegauge.audit.resetReminder",
+        "title": "Cyclegauge: Reset workspace audit reminder"
       }
     ],
     "views": {
@@ -124,6 +128,20 @@
           "default": "",
           "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone.",
           "scope": "machine"
+        },
+        "cyclegauge.auditReminderDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 365,
+          "description": "Remind you to audit a workspace after this many days. 0 turns reminders off.",
+          "scope": "application"
+        },
+        "cyclegauge.auditAutomatically": {
+          "type": "boolean",
+          "default": false,
+          "description": "When an audit is due, run it automatically in trusted workspaces (same limits; nothing is written or sent).",
+          "scope": "application"
         }
       }
     },
