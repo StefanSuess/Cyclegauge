@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { view } from '../../src/view.ts';
-import { decideBudgetNotice, readBudgetState, type BudgetInput } from '../../src/extension/budget-warning.ts';
+import { decideBudgetNotice, largerPlanText, readBudgetState, rightSizeText, type BudgetInput } from '../../src/extension/budget-warning.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
 
 const RESET = '2030-07-01T00:00:00.000Z';
@@ -143,4 +143,69 @@ test('the displayed percent is computed exactly and can never be below the thres
   const m = decide(flat(usage, limit), { percent })!;
   assert.ok(m.text.startsWith(`You have used ${percent}% `), m.text);
  }
+});
+
+// Plan hints (from the Cost Advisor's estimate) and the right-sizing notice.
+const RIGHTSIZE = { current: 'pro_plus', plan: 'pro', saving: '20', unusedCredits: '1444.99', hint: true } as const;
+const LARGER = { current: 'pro', next: 'pro_plus', feeDiff: '20', creditDiff: '1000', hint: true, reviewedOn: '2026-10-10T00:00:00Z' } as const;
+// Eight daily updates ending on the given day of June 2030, 10 credits a day, a 5000-credit limit; reset 2030-07-01.
+const endingOn = (day: number, now = `2030-06-${String(day)}T00:00:00Z`) => view(Array.from({ length: 8 }, (_, i) => snapshot(`2030-06-${String(day - 7 + i).padStart(2, '0')}T00:00:00Z`, String((i + 1) * 10), { limit: '5000' })), now);
+const late = (day: number, extra: Partial<BudgetInput> = {}) => { const v = endingOn(day); return decideBudgetNotice({ view: v, eligible: true, now: `2030-06-${day}T00:00:00Z`, state: undefined, enabled: true, percent: 80, ...extra }); };
+
+test('right-sizing: due only in the last seven days before the reset, once per cycle, with the hint prefix when the plan is not confirmed', () => {
+ const insights = { larger: null, rightsize: RIGHTSIZE };
+ assert.equal(late(23, { insights }), null); // 8 days left
+ const n = late(24, { insights })!; // 7 days left
+ assert.equal(n.kind, 'rightsize');
+ assert.equal(n.text, 'If you are on Pro+: You will likely leave about 1444 credits unused this cycle, and the last cycle also fit within Pro. Pro would cost about $20 a month less (modelled).');
+ assert.deepEqual(n.state, { cycle: RESET, done: ['rightsize'] });
+ assert.equal(late(24, { insights, state: n.state }), null);
+ assert.equal(late(30, { insights })!.kind, 'rightsize'); // 1 day left
+ assert.equal(late(24, { insights: { larger: null, rightsize: { ...RIGHTSIZE, hint: false } } })!.text.startsWith('You will likely leave'), true);
+ assert.equal(late(24), null); assert.equal(late(24, { insights: { larger: null, rightsize: null } }), null);
+ assert.equal(late(24, { insights, enabled: false }), null);
+ assert.equal(late(24, { insights, state: { cycle: '2030-06-01T00:00:00.000Z', done: ['rightsize'] } })!.kind, 'rightsize'); // a new cycle starts over
+ // Only fresh observations: a stale view gives nothing.
+ assert.equal(decideBudgetNotice({ view: endingOn(24, '2030-06-26T00:00:00Z'), eligible: true, now: '2030-06-26T00:00:00Z', state: undefined, enabled: true, percent: 80, insights }), null);
+});
+
+test('the right-sizing notice is decided only while the presentation shows an eligible forecast', () => {
+ const insights = { larger: null, rightsize: RIGHTSIZE };
+ assert.equal(late(25, { insights })!.kind, 'rightsize');
+ assert.equal(late(25, { insights, eligible: false }), null);
+});
+
+test('right-sizing is the lowest severity: it never follows another kind in the same cycle and yields to a due one', () => {
+ const insights = { larger: null, rightsize: RIGHTSIZE };
+ for (const done of [['percent'], ['forecast'], ['limit']] as const) assert.equal(late(25, { insights, state: { cycle: RESET, done } }), null, done.join());
+ // A percent notice that is due at the same time wins and the right-sizing notice counts as handled.
+ const v = view(Array.from({ length: 8 }, (_, i) => snapshot(`2030-06-${18 + i}T00:00:00Z`, '85', { limit: '100' })), '2030-06-25T00:00:00Z');
+ const both = decideBudgetNotice({ view: v, eligible: true, now: '2030-06-25T00:00:00Z', state: undefined, enabled: true, percent: 80, insights })!;
+ assert.equal(both.kind, 'percent'); assert.deepEqual(both.state.done, ['percent', 'rightsize']);
+ // Handled kinds stored by earlier versions (without 'rightsize') still read correctly.
+ assert.deepEqual(readBudgetState({ cycle: RESET, done: ['limit', 'forecast', 'percent'] }, RESET).done, ['limit', 'forecast', 'percent']);
+});
+
+test('the next-larger-plan comparison is appended to forecast and limit notices that carry an overage cost, and only then', () => {
+ const plain = decide(rate(10, '100'))!;
+ const withLarger = decide(rate(10, '100'), { insights: { larger: LARGER, rightsize: null } })!;
+ assert.equal(withLarger.kind, 'forecast');
+ assert.equal(withLarger.text, `${plain.text} For comparison, if you are on Pro: Pro+ costs $20 a month more and includes 1000 more credits.`);
+ const confirmed = decide(rate(10, '100'), { insights: { larger: { ...LARGER, hint: false }, rightsize: null } })!;
+ assert.equal(confirmed.text, `${plain.text} For comparison: Pro+ costs $20 a month more and includes 1000 more credits.`);
+ // No recommendation or saving claim, just the two list-price facts.
+ assert.ok(!/save|cheaper|switch|recommend/i.test(withLarger.text.slice(plain.text.length)));
+ const limit = decide(rate(10, '70'), { insights: { larger: LARGER, rightsize: null } })!;
+ assert.ok(limit.kind === 'limit' && limit.text.endsWith(' For comparison, if you are on Pro: Pro+ costs $20 a month more and includes 1000 more credits.'));
+ assert.ok(!decide(rate(10, '100'), { insights: { larger: null, rightsize: null } })!.text.includes('For comparison'));
+ // Without an overage cost (the percent notice, a limit notice from a provisional forecast) nothing is appended.
+ assert.ok(!decide(flat('85', '100'), { insights: { larger: LARGER, rightsize: null } })!.text.includes('For comparison'));
+ const provisional = view(series(i => String(i * 25), '100').slice(0, 5), '2030-06-05T00:00:00Z');
+ assert.ok(!decide(provisional, { now: '2030-06-05T00:00:00Z', insights: { larger: LARGER, rightsize: null } })!.text.includes('For comparison'));
+});
+
+test('amounts follow the rounding direction: the extra fee rounds up, the saving and the unused credits round down', () => {
+ assert.ok(largerPlanText({ ...LARGER, feeDiff: '20.001' }, true).includes('costs $20.01 a month more'));
+ assert.ok(rightSizeText({ ...RIGHTSIZE, saving: '20.009', unusedCredits: '1999.999' }).includes('about 1999 credits unused'));
+ assert.ok(rightSizeText({ ...RIGHTSIZE, saving: '20.009', unusedCredits: '1999.999' }).includes('about $20 a month less'));
 });

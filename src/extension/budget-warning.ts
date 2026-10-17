@@ -3,12 +3,15 @@
 import type { view } from '../view.ts';
 import { compare } from '../decimal.ts';
 import { overageOver, type Overage } from '../cost/overage.ts';
+import { formatUsd } from '../cost/estimate.ts';
+import type { PlanComparison, PlanInsights, RightSizing } from '../cost/plan-hints.ts';
+import { planNames } from './cost-inputs.ts';
 import { decimalToRational, formatRational } from '../cost/money.ts';
 import { daysBetween, isDate } from './audit-schedule.ts';
 import { date } from './labels.ts';
 
 /** Most severe first. */
-export const NOTICE_KINDS = ['limit', 'forecast', 'percent'] as const;
+export const NOTICE_KINDS = ['limit', 'forecast', 'percent', 'rightsize'] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 /** The only persisted value: the billing cycle (observed reset instant) and the kinds already handled in it. */
 export interface BudgetState { cycle: string; done: NoticeKind[] }
@@ -19,6 +22,8 @@ export interface BudgetInput {
  eligible: boolean;
  now: string;
  state: unknown;
+ /** Plan hints from the Cost Advisor's estimate; absent or empty means none. */
+ insights?: PlanInsights;
  enabled: boolean;
  /** 0 turns the percent notice off. */
  percent: number;
@@ -43,6 +48,21 @@ export function observedOverageText(o: Overage): string {
  const head = `${creditsText(o.credits)} credits above the reported limit at the last update`;
  return o.money === null ? `${head}.` : `${head} ≈ ${moneyText(o)} at $${o.pricePerCredit} per credit (modelled; whether overage applies depends on your plan and settings).`;
 }
+
+const planPrefix = (hint: boolean, current: PlanComparison['current']): string => hint ? `If you are on ${planNames[current]}: ` : '';
+/** Two list-price facts about the next larger plan, with no recommendation; the short form is for notices (the plan prefix only when the plan is a hint). */
+export function largerPlanText(c: PlanComparison, short = false): string {
+ const facts = `${planNames[c.next]} costs $${formatUsd(c.feeDiff, 'up')} a month more${short ? '' : ` than ${planNames[c.current]}`} and includes ${c.creditDiff} more credits`;
+ const lead = c.hint ? `For comparison, if you are on ${planNames[c.current]}: ` : 'For comparison: ';
+ return short ? `${lead}${facts}.` : `${lead}${facts} (list prices, price list reviewed ${dayText(c.reviewedOn)}).`;
+}
+/** Right-sizing hint: forecast and the last completed cycle both fit a smaller plan. */
+export function rightSizeText(r: RightSizing): string {
+ const unused = formatRational(decimalToRational(r.unusedCredits), 0, 'floor'); // never claims more unused credits than forecast
+ return `${planPrefix(r.hint, r.current)}You will likely leave about ${unused} credits unused this cycle, and the last cycle also fit within ${planNames[r.plan]}. ${planNames[r.plan]} would cost about $${formatUsd(r.saving, 'down')} a month less (modelled).`;
+}
+/** The right-sizing notice is only due in the last week before the reset. */
+export const RIGHTSIZE_DAYS = 7;
 
 /** Days until the reset in plain words; empty when it cannot be established. */
 function resetIn(resetAt: string, now: string): string {
@@ -80,6 +100,8 @@ export function decideBudgetNotice(i: BudgetInput): BudgetNotice | null {
   if (!due.has('limit') && daysBefore !== undefined && daysBefore >= 0) due.add('forecast');
   // usage / limit >= percent / 100, compared exactly.
   if (percent > 0 && compareShare(o.usage, o.baseLimit, percent)) due.add('percent');
+  // Gated like the other forecast-based kinds: only while the presentation itself shows a fresh, qualified forecast.
+  if (i.insights?.rightsize && i.eligible && Math.ceil((resetMs - nowMs) / 86_400_000) <= RIGHTSIZE_DAYS) due.add('rightsize');
   if (due.size === 0) return null;
   const state = readBudgetState(i.state, o.resetAt);
   const shown = NOTICE_KINDS.find(k => due.has(k) && !state.done.includes(k) && !state.done.some(d => NOTICE_KINDS.indexOf(d) < NOTICE_KINDS.indexOf(k)));
@@ -89,9 +111,12 @@ export function decideBudgetNotice(i: BudgetInput): BudgetNotice | null {
   const resetPart = when ? `; the reset is ${when}` : '';
   // Projected overage, only with a validated price: appended to the notices that say the limit is reached.
   const over = selected && f.tier === 'regular' && selected.projectedUsageAtReset ? overageOver(selected.projectedUsageAtReset, o.baseLimit, i.now) : null;
-  const cost = over?.money ? ` If you continue at this pace: about ${creditsText(over.credits)} credits over the limit ≈ ${moneyText(over)} by the reset, at $${over.pricePerCredit} per credit (price list reviewed ${dayText(over.reviewedOn!)}; modelled, not an invoice; whether overage applies depends on your plan and settings).` : '';
+  const larger = i.insights?.larger ? ` ${largerPlanText(i.insights.larger, true)}` : '';
+  const cost = over?.money ? ` If you continue at this pace: about ${creditsText(over.credits)} credits over the limit ≈ ${moneyText(over)} by the reset, at $${over.pricePerCredit} per credit (price list reviewed ${dayText(over.reviewedOn!)}; modelled, not an invoice; whether overage applies depends on your plan and settings).${larger}` : '';
   let text: string;
-  if (shown === 'forecast') {
+  if (shown === 'rightsize') {
+   text = rightSizeText(i.insights!.rightsize!);
+  } else if (shown === 'forecast') {
     text = `At this pace your Kiro credits run out on ${dayText(day!)}, ${daysBefore === 0 ? 'on the day of the reset' : `${plural(daysBefore!, 'day')} before the reset`}.${cost}`;
   } else if (shown === 'percent') {
     text = `You have used ${sharePercent(o.usage, o.baseLimit)}% of your reported Kiro credits (${used} of ${limit})${resetPart}.`;

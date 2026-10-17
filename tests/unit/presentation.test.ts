@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { view } from '../../src/view.ts';
-import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { present } from '../../src/extension/presentation.ts';
+import { largerPlanText, rightSizeText } from '../../src/extension/budget-warning.ts';
 import { startExtension } from '../../src/extension/controller.ts';
 import type { AuditSummary } from '../../src/extension/audit-model.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
@@ -369,4 +370,47 @@ test('no observed-overage line for accounts with unsupported extra credits', () 
  const html = at(view(flagged, NOW)).html;
  assert.ok(!html.includes('above the reported limit at the last update') && !html.includes('class="small overage"'));
  assert.ok(at(view(series(10, '60'), NOW)).html.includes('above the reported limit at the last update')); // control
+});
+
+// Plan hints (computed by the controller) shown in the credit view.
+const LARGER_LINE = 'For comparison, if you are on Pro: Pro+ costs $20 a month more than Pro and includes 1000 more credits (list prices, price list reviewed 10 Oct 2026).';
+const RIGHTSIZE_LINE = 'If you are on Pro+: You will likely leave about 1444 credits unused this cycle, and the last cycle also fit within Pro. Pro would cost about $20 a month less (modelled).';
+const larger = { current: 'pro', next: 'pro_plus', feeDiff: '20', creditDiff: '1000', hint: true, reviewedOn: '2026-10-10T00:00:00Z' } as const;
+const rightsize = { current: 'pro_plus', plan: 'pro', saving: '20', unusedCredits: '1444.5', hint: true } as const;
+const withHints = (v: ReturnType<typeof view>, insights: Parameters<typeof present>[7]) => present(v, [], '', '', undefined, NOW, false, insights);
+test('the next-larger-plan comparison follows the projected overage line; observed overage comes after it', () => {
+ const hero = heroText(withHints(view(series(10, '60'), NOW), { larger, rightsize: null }).html);
+ const lines = [...hero.matchAll(/<p class="small overage">([^<]*)<\/p>/g)].map(m => m[1]!);
+ assert.equal(lines.length, 3);
+ assert.ok(lines[0]!.startsWith('If you continue at this pace: about 240 credits over the reported limit'), lines[0]);
+ assert.equal(lines[1], LARGER_LINE);
+ assert.ok(lines[2]!.startsWith('10 credits above the reported limit at the last update'));
+ // A confirmed plan has no prefix; no hints, or no projected overage line, means no comparison.
+ assert.ok(heroText(withHints(view(series(10, '100'), NOW), { larger: { ...larger, hint: false }, rightsize: null }).html).includes('<p class="small overage">For comparison: Pro+ costs $20 a month more than Pro and includes 1000 more credits'));
+ assert.ok(!heroText(at(view(series(10, '100'), NOW)).html).includes('For comparison'));
+ assert.ok(!heroText(withHints(view(series(10, '100'), NOW), { larger: null, rightsize: null }).html).includes('For comparison'));
+ assert.ok(!heroText(withHints(view(series(10, '1000'), NOW), { larger, rightsize: null }).html).includes('For comparison')); // no projected overage line
+ assert.ok(!/save|cheaper|recommend/i.test(lines[1]!));
+});
+test('the right-sizing line is shown whenever the condition holds, not only near the reset, and a confirmed plan has no prefix', () => {
+ const early = withHints(view(series(10, '1000'), NOW), { larger: null, rightsize }); // 23 days before the reset
+ assert.ok(heroText(early.html).includes(`<p class="small overage">${RIGHTSIZE_LINE}</p>`));
+ const confirmed = withHints(view(series(10, '1000'), NOW), { larger: null, rightsize: { ...rightsize, hint: false } });
+ assert.ok(heroText(confirmed.html).includes('<p class="small overage">You will likely leave about 1444 credits unused this cycle, and the last cycle also fit within Pro. Pro would cost about $20 a month less (modelled).</p>'));
+ assert.ok(!heroText(at(view(series(10, '1000'), NOW)).html).includes('You will likely leave'));
+});
+test('plan hint lines hold only constants and formatted decimals, go through the same escaping, and a malformed hint is left out', async () => {
+ const plans = ['free', 'pro', 'pro_plus', 'pro_max', 'power'] as const;
+ for (const hint of [true, false]) for (let k = 0; k < plans.length - 1; k++) {
+  const texts = [largerPlanText({ current: plans[k]!, next: plans[k + 1]!, feeDiff: '20.5', creditDiff: '1000', hint, reviewedOn: '2026-10-10T00:00:00Z' }), largerPlanText({ current: plans[k]!, next: plans[k + 1]!, feeDiff: '20', creditDiff: '1000', hint, reviewedOn: '2026-10-10T00:00:00Z' }, true), rightSizeText({ current: plans[k + 1]!, plan: plans[k]!, saving: '20', unusedCredits: '1444.5', hint })];
+  for (const t of texts) assert.ok(!/[<>"&']/.test(t), t);
+ }
+ // The view escapes every note line the same way as the rest of its text.
+ const source = await readFile(new URL('../../src/extension/presentation.ts', import.meta.url), 'utf8');
+ assert.ok(source.includes('noteLines.map(l=>`<p class="small overage">${safe(l)}</p>`)'));
+ // A hint that cannot be formatted (never produced by the controller) is omitted instead of breaking or injecting anything into the view.
+ const odd = { ...larger, next: '<img src=x onerror=synthetic>' as never, feeDiff: '"><script>' };
+ const html = withHints(view(series(10, '100'), NOW), { larger: odd, rightsize: null }).html;
+ assert.ok(!html.includes('<img') && !html.includes('<script') && !html.includes('For comparison'));
+ assert.ok(heroText(html).includes('about 200 credits over the reported limit')); // the rest of the view is intact
 });

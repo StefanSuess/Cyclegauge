@@ -9,6 +9,8 @@ import {AdvisorInputs,reviewAdvisor} from './advisor-inputs.ts';
 import {presentAdvisor} from './advisor-presentation.ts';
 import {planHint,advisorProfile,classifyAdvice} from '../cost/advisor.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
+import {estimateSavings} from '../cost/estimate.ts';
+import {planInsights,NO_INSIGHTS,type PlanInsights} from '../cost/plan-hints.ts';
 
 export interface ExtensionUi {
  setStatus(text: string, detail: string, meta?: { tooltip: string; warning: boolean; severity?: 'none' | 'warning' | 'error' }): void;
@@ -30,7 +32,7 @@ export interface ExtensionOptions { source: string; storage: string; profileStor
  // Called when a render shows "Kiro not detected" (notKiro and no source logs); same rules as onForecast.
  onAbsent?: () => void;
  // Called after each render with the latest observation, whether its forecast is fresh and qualified, and the render time; used only for the budget warning and never allowed to affect the gauge.
- onBudget?: (observation: ReturnType<typeof view>, eligible: boolean, now: string) => void;
+ onBudget?: (observation: ReturnType<typeof view>, eligible: boolean, now: string, insights: PlanInsights) => void;
  onAdvisorUsed?: () => void }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
@@ -46,22 +48,26 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  const now=()=> (options.now ?? (() => new Date().toISOString()))();
  const render=()=>{
   let advisorHtml:string;
+  let insights:PlanInsights=NO_INSIGHTS;
   try{
    const hint=planHint(observation.baseLimit,reviewedCatalog);
    const built=advisorProfile({limit:observation.baseLimit,usage:observation.usage,asOf:observation.forecast.asOf??null,resetAt:observation.forecast.resetAt??null},advisor.value,hint);
    const horizons=built.profile?calculateCosts({mode:'personalized',profile:built.profile,monthlyCredits:'0',beforeReset:undefined,demandMode:'forecast'},observation.forecast,observation.history,now()):[];
-   advisorHtml=presentAdvisor({hint,context:built.context,horizons,advice:horizons.map(h=>classifyAdvice(h.result,built.context)),singleAccount:advisor.isSingleAccount,limit:observation.baseLimit});
+   const advice=horizons.map(h=>classifyAdvice(h.result,built.context));
+   advisorHtml=presentAdvisor({hint,context:built.context,horizons,advice,singleAccount:advisor.isSingleAccount,limit:observation.baseLimit});
+   // Read-only reuse of the advisor's 1-month estimate; a failure here never touches the gauge or the advisor view.
+   try{insights=planInsights({view:observation,estimate:horizons.length?estimateSavings(horizons[0].result,built.context,advice[0],1):null,planSource:built.context.planSource,plan:built.context.plan,now:now()});}catch{insights=NO_INSIGHTS;}
   }catch{
    advisorHtml=presentAdvisor({hint:{plan:null,confidence:'none',reasons:[]},context:{planSource:'unknown',plan:null,billingConfirmed:false,addOns:'unknown',assumptions:[]},horizons:[],advice:[],singleAccount:advisor.isSingleAccount,failed:true,limit:null});
   }
   let audit:AuditSummary|undefined;
   try{audit=options.auditSummary?.();}catch{audit=undefined;}
-  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true);
+  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights);
   detail=presentation.html;
   if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
   if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
   if(!disposed)ui.setStatus(presentation.text,detail,presentation);
-  if(!disposed&&!presentation.absent)try{options.onBudget?.(observation,presentation.forecast,now());}catch{/* nor the budget warning */}
+  if(!disposed&&!presentation.absent)try{options.onBudget?.(observation,presentation.forecast,now(),insights);}catch{/* nor the budget warning */}
  };
  const refresh = async () => {
   if (disposed) return;
