@@ -27,6 +27,36 @@ To keep using that history, disable any earlier extension first, then set **user
 
 Transfer any explicit `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` and `easykirogauge.sourceTimezone` values to the corresponding `cyclegauge.*` user settings. The old keys are no longer read; blank current settings use the default source, storage and device timezone. Replace custom `easykirogauge.showUsage` shortcuts with `cyclegauge.showUsage`, then reload the window.
 
+## Upgrading from 0.7.x
+
+By design, the storage location and store version are unchanged from 0.7.0, so existing history and forecast coverage should carry over without changing settings. A native upgrade test has not been recorded.
+
+## Workspace audit
+
+Run **Cyclegauge: Audit Kiro Workspace** (command ID `cyclegauge.auditWorkspace`) from the command palette. It audits a trusted, local workspace folder (you choose one if several are open) and shows a report. It runs only when you invoke it, and a progress notification lets you cancel.
+
+What it does: it walks the folder reading only file names and sizes, plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`). It never reads other file contents, and it writes no files and sends nothing (the clipboard is used only if you choose Copy suggestions). Global ignore files are not read.
+
+Reading the report:
+
+- Findings are grouped by kind (secrets and credentials, databases and dumps, archives, logs, large data files, build output, dependencies, other large files). They are potential risks, not measured credit use, and being in the workspace does not mean Kiro read the file.
+- **Not covered** means no workspace ignore file excludes the path. **Unknown** means coverage could not be established (for example a scan limit was reached or the setting could not be read); unknown is never treated as covered or as safe.
+- A **Partial** result lists the reason, such as a file-count or time limit. Scan limits are 50,000 entries, depth 24 and 10 seconds.
+- Detection is by file name and size only. A clean result does not prove there are no secrets.
+- The contents of folders such as `.git`, `.ssh`, `.aws` and `node_modules` are not scanned, and symbolic links are skipped.
+- Only the first 200 findings are listed; the rest are counted.
+- Some folders are refused: a filesystem root, your home folder or one containing it, folders overlapping Kiro data or Cyclegauge storage, folders inside `.kiro`, or inside `.git`, `.ssh`, `.aws`, `node_modules`-type or `kiro-cli` folders, symbolic links, and untrusted workspaces. Only local folders are offered.
+
+Copy suggestions: after the audit, choose **Copy suggestions** in the notification to copy `.kiroignore` lines. Copy suggestions covers only the listed findings and includes Unknown ones, so review them before adding. "No safe suggestion" appears when a path has unsafe characters or a rule would also match other files. Add them to your `.kiroignore`. According to Kiro's documentation (not verified by Cyclegauge), for Kiro IDE to use that file `.kiroignore` must be listed in `kiroAgent.agentIgnoreFiles`; the report tells you when a `.kiroignore` exists but is not listed. Ignoring files can hide files Kiro needs, so add only what you want excluded.
+
+The new 0.9.0 features (audit, diagnostics, update-needed message, migration path) have not been verified in native Kiro on any platform. Earlier (0.7.0) testing is described in the changelog.
+
+## Diagnostics
+
+Run **Cyclegauge: Copy Diagnostics** (`cyclegauge.copyDiagnostics`) to open the report in an unsaved document and copy it to the clipboard. The extension command writes no file. Alternatively run the CLI with `--diagnostics`: it first performs the normal import into Cyclegauge's own store and writes nothing else.
+
+The report contains only fixed codes, counts and platform metadata: Cyclegauge, editor and editor version, Node and Electron versions, platform, architecture, SQLite availability, store state and version, whether storage, source and timezone are default or chosen, status and forecast tier, gauge state, whether the audit is available, counts of snapshots, accounts and unassociated snapshots, a collection result (CLI only), a freshness bracket, import codes and a discovered-log count. It contains no paths, identifiers, amounts or log content. Review it before pasting it into an issue.
+
 ## Requirements and command-line tool
 
 Node.js **24.13 or newer**. Runtime uses built-in modules only; TypeScript and Node type definitions are development dependencies. Install development tools with `pnpm install --frozen-lockfile`.
@@ -49,6 +79,7 @@ Options:
 | `--source-timezone <IANA>` | Interpret offset-free source timestamps |
 | `--store-dir <directory>` | Dedicated private app-owned directory outside the source `logs/` and Git repositories |
 | `--max-age-hours <hours>` | Observation freshness threshold, default 24; operational policy, not measured service latency |
+| `--diagnostics` | Print the diagnostics report (fixed codes and counts); first performs the normal import into Cyclegauge's own store |
 | `--json` | Local billing/quality query output without account, source or deduplication keys |
 
 Default source candidates: macOS `~/Library/Application Support/Kiro`; Windows `%APPDATA%\Kiro`; Linux `${XDG_CONFIG_HOME:-~/.config}/Kiro`. Only `logs/<run>/<window>/exthost/kiro.kiroAgent/q-client.log` and numeric suffixes such as `q-client.log.1` are read. These suffixes are an explicitly supported synthetic rotation convention, not a verified Kiro rotation contract.
@@ -62,6 +93,7 @@ The CLI prints observed usage, reported limit, remaining reported credits, reset
 - **"Collecting data" for a long time.** The extension only reads usage that Kiro has already written to its logs. Wait for the next scan, which runs every minute and when log files change. A forecast additionally needs several observations over days; see [forecasting.md](forecasting.md).
 - **"Unavailable".** The logs could not be read or have an unsupported format, the storage location is not safe (for example on Windows a chosen storage location that cannot be verified is refused, or a path containing a symlink), or several accounts were detected. No numbers are invented in these cases.
 - **Settings changes do not apply.** `cyclegauge.sourceRoot`, `cyclegauge.storageRoot` and `cyclegauge.sourceTimezone` are read when the extension activates. Reload the window after changing them.
+- **"Kiro: update needed".** The runtime has no SQLite support, or the stored data was written by a newer Cyclegauge. Update Kiro or Cyclegauge; stored data is never modified. **Cyclegauge: Copy Diagnostics** shows which case applies.
 - **Node.js.** Node.js 24.13+ is required to build and for the CLI. The installed extension runs inside Kiro's own extension host; which Node features that host provides has only been observed on Kiro 1.2.56 (macOS), and no minimum Kiro version is established.
 - **Remote or SSH workspaces.** Not verified. The extension is declared as a UI extension that reads local files.
 - **Removing local data.** Delete the storage folder listed under "Default owned storage" above. Kiro's own files are never touched.

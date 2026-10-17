@@ -13,7 +13,7 @@
 [![CI VSIX attestations](https://img.shields.io/badge/CI%20VSIX-attestations-blue)](https://github.com/StefanSuess/Cyclegauge/attestations)
 
 [![Open VSX version](https://img.shields.io/open-vsx/v/StefanSuess/cyclegauge)](https://open-vsx.org/extension/StefanSuess/cyclegauge)
-![Development version 0.7.0 beta](https://img.shields.io/badge/development-0.7.0%20beta-orange)
+![Development version 0.9.0 beta](https://img.shields.io/badge/development-0.9.0%20beta-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
 
 Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
@@ -44,6 +44,8 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 - **Usage trajectory chart:** observed usage, the reported limit, the reset, and (when there is enough history) scenario lines. Unknown periods are hatched, never filled with zero. Accessible text and a data table accompany the chart.
 - **Qualified forecasts:** a provisional estimate (at least 3 comparable snapshots over 48 hours) and a regular forecast (8 snapshots over 7 days), both needing fresh data without long gaps. They are labeled scenarios, not guarantees.
 - **Cost Advisor:** automatic conditional plan comparisons from your forecast, with session-only answers. Numerical estimates show modelled pre-tax USD list-price differences for the next full billing cycle; 1/3/6-cycle details and hypothetical 75/100/125% usage sensitivity stay expandable. Plan hints are unconfirmed, and estimates are not guaranteed savings or invoices. Use **Cyclegauge: Cost Advisor** or the lightbulb status item while the detail view is open.
+- **Workspace audit (on request):** **Cyclegauge: Audit Kiro Workspace** lists files in a trusted local folder that could add risk if Kiro reads them and whether your ignore files cover them, with copyable `.kiroignore` suggestions. Findings are potential risks, not measured credit use.
+- **Diagnostics:** **Cyclegauge: Copy Diagnostics** (or CLI `--diagnostics`) produces a short report of fixed codes and counts to review before pasting into an issue.
 - **Command-line tool:** print the same figures in a terminal, optionally as JSON.
 
 ## Install
@@ -69,6 +71,7 @@ Setup uses the same command across platforms.
 - **Read-only.** Kiro's files and databases are never modified. Cyclegauge does not run Kiro commands or call Kiro services.
 - **Local only.** No telemetry and no network code. Derived numbers are kept in the extension's own private directory.
 - **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
+- **Workspace audit (on request only).** The audit runs only when you invoke it. It reads only file names and sizes and the ignore files listed in Agent Ignore Files, never other file contents. It writes no files and sends nothing (the clipboard is used only if you choose Copy suggestions). Review suggestions before adding them; ignoring files can hide them from Kiro. Global ignore files are not read.
 - **Script-free view.** The detail view runs no scripts.
 
 Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md). Never post real Kiro data in issues or pull requests.
