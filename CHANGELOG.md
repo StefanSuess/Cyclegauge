@@ -1,6 +1,34 @@
 # Changelog
 
-All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x, 0.7.x) are beta builds; see [versioning](docs/release-process.md#versioning).
+All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x, 0.7.x, 0.9.x) are beta builds; see [versioning](docs/release-process.md#versioning).
+
+## 0.9.0 (beta, macOS, Windows, Ubuntu)
+
+Adds an on-request workspace audit and a diagnostics report, a clear "update needed" message on unsupported runtimes, and a storage migration path. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+
+### Added
+
+- **Cyclegauge: Audit Kiro Workspace.** Checks a trusted local workspace folder for files that could add cost or risk if Kiro reads them (secrets and credentials, databases and dumps, large archives, logs and data files, build output, dependencies and other large files) and whether the workspace ignore files already cover them. It runs only when you invoke it. It reads only file names and sizes plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`); it writes no files and sends nothing (the clipboard is used only if you choose Copy suggestions), and file contents are never read. Results that cannot be established are shown as unknown rather than guessed. The report offers copyable `.kiroignore` suggestions, and notes when a `.kiroignore` exists but is not listed in Agent Ignore Files. Detection is by file name and size only. Findings are potential risks, not measured credit use; review suggestions before adding them, because ignoring files can hide them from Kiro.
+- **Cyclegauge: Copy Diagnostics** and CLI `--diagnostics`: a short report of fixed codes, counts and platform metadata to review and paste into an issue.
+- A clear "Kiro: update needed" status-bar message on runtimes without SQLite and for data written by a newer Cyclegauge, instead of a generic failure.
+
+### Changed
+
+- The store has an ordered schema migration path. A store written by a newer Cyclegauge is refused and never modified.
+- Import evidence is bounded to 10,000 rows; unchanged codes refresh the latest row's time instead of adding rows. Pruning removes only old import-evidence rows, never snapshots or sources.
+- The bundle loads SQLite lazily.
+
+### Platform status
+
+- macOS: beta; earlier (0.7.0) maintainer synthetic-data testing in Kiro 1.2.56.
+- Windows 11 Pro and Ubuntu 26: beta; earlier (0.7.0) smoke test in native Kiro by the maintainer (a development candidate, 2026-10-14; Kiro versions not recorded). No itemised acceptance yet.
+- RHEL and macOS Intel are unverified.
+- The new 0.9.0 features (audit, diagnostics, update-needed message, migration path) have not been verified in native Kiro on any platform.
+
+### Unchanged
+
+- Collector, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+- The history location is unchanged from 0.7.0, by design: the storage location and store version are unchanged, so history should carry over; a native upgrade test has not been recorded. Advisor answers are never persisted (SC5 open).
 
 ## 0.7.0 (beta, macOS, Windows, Ubuntu)
 
