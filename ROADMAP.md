@@ -1,6 +1,6 @@
 # Cyclegauge roadmap
 
-Current release: **0.5.1** (UI-only simplification of 0.5.0). Milestones 0–3, 4A, 4B, 4C (0.4.1) and 5 (0.5.0 usage chart) are implemented; synthetic and local UI evidence is recorded in the per-milestone validation documents. Remaining work (session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights) is deferred and unauthorized. Sections labeled “approval” or “boundary” below are dated historical records and are superseded by later approvals where stated.
+Current release: **0.7.0** beta (macOS, Windows, Ubuntu). Next: the 0.9.0 beta with the workspace audit, then 1.0.0; see [path to 1.0](docs/path-to-1.0.md). Milestones 0–3, 4A, 4B, 4C (0.4.1), 5 (0.5.0 usage chart) and 6 (0.7.0) are implemented; synthetic and local UI evidence is recorded in the per-milestone validation documents. Remaining work (session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights) is deferred and unauthorized. Sections labeled “approval” or “boundary” below are dated historical records and are superseded by later approvals where stated.
 
 ## Path to 1.0 — scope decision (approved 2026-10-17)
 
