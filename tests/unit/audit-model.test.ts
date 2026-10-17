@@ -109,7 +109,8 @@ test('revealTarget: always reveals in the Explorer inside the root and refuses e
  // Only '/' separates segments; on Windows a backslash or colon could mean a separator, a drive or a stream.
  for (const path of ['a\\..\\..\\x', 'a\\b', 'C:x', 'a/b:stream', '..\\x']) {
   assert.equal(revealTarget(root, f(path), 'win32').kind, 'refuse', path);
-  assert.equal(revealTarget(root, f(path), 'linux').kind, path.includes('..') && path.split('/').includes('..') ? 'refuse' : 'reveal', path);
+  // A POSIX backslash is an ordinary name character; only meaningful on a POSIX host, where join() treats it so too.
+  if (process.platform !== 'win32') assert.equal(revealTarget(root, f(path), 'linux').kind, path.includes('..') && path.split('/').includes('..') ? 'refuse' : 'reveal', path);
  }
 });
 test('tree ids are opaque: no id contains a finding path or folder name', () => {
