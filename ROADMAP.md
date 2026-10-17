@@ -8,6 +8,8 @@ The maintainer approved the value-first plan in [path to 1.0](docs/path-to-1.0.m
 
 Audit boundary: the audit runs only when the user invokes its command. It may enumerate bounded file metadata (relative path, type, size) under one chosen trusted local root, and may read only workspace ignore files (`.kiroignore` and the files named by the `kiroAgent.agentIgnoreFiles` setting) plus that setting's value. It reads no other file contents, follows no symlinks or junctions, writes nothing, persists nothing and sends nothing. Each work package still lands as its own reviewed PR; this decision does not approve merges, releases or outreach.
 
+Audit boundary update (approved 2026-10-17 after native testing of the 0.9.0 candidate; 0.9.0 stays unpublished and is extended): findings move to a native sidebar list with per-finding **Accept**, **Ignore** and **Show file**. *Accept* prepares the `.kiroignore` change as an unsaved edit (or an unsaved new file) that the user reviews and saves; Cyclegauge writes no workspace or settings file itself, and adding `.kiroignore` to Agent Ignore Files is offered by opening the setting. *Ignore* hides a finding for that workspace; only salted SHA-256 hashes of category and relative path are kept in the editor's per-workspace storage, never paths. A reminder appears when a workspace has not been audited for a configurable number of days (default 30, 0 = off); only the date of the last audit is stored per workspace. An opt-in setting (default off) may re-run the audit automatically when it is due, in a trusted workspace only and with the same read limits.
+
 ## Milestone 0 — Discovery and data contracts (complete)
 
 - Document locally observed Kiro 1.2.37 formats and their limitations.

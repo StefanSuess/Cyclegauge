@@ -65,7 +65,7 @@ function overreaches(f: Finding, others: { path: string; lower: string; kinds: b
  return false;
 }
 export function snippet(findings: Finding[]): string {
- return ['# Suggested by Cyclegauge — review before adding', ...[...new Set(findings.map(f => f.suggestion).filter(x => x !== ''))].sort()].join('\n');
+ return ['# Suggested by Cyclegauge - review before adding', ...[...new Set(findings.map(f => f.suggestion).filter(x => x !== ''))].sort()].join('\n');
 }
 interface Cand { path: string; isDir: boolean; size?: number; category?: Category; counted: boolean }
 const finite = (v: unknown, min: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= min;

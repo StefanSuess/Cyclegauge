@@ -53,11 +53,55 @@
       },
       {
         "command": "cyclegauge.auditWorkspace",
-        "title": "Cyclegauge: Audit Kiro Workspace"
+        "title": "Cyclegauge: Audit Kiro Workspace",
+        "icon": "$(refresh)"
       },
       {
         "command": "cyclegauge.copyDiagnostics",
         "title": "Cyclegauge: Copy Diagnostics"
+      },
+      {
+        "command": "cyclegauge.audit.accept",
+        "title": "Cyclegauge: Accept Audit Suggestion",
+        "icon": "$(check)"
+      },
+      {
+        "command": "cyclegauge.audit.dismiss",
+        "title": "Cyclegauge: Ignore Audit Finding",
+        "icon": "$(close)"
+      },
+      {
+        "command": "cyclegauge.audit.reveal",
+        "title": "Cyclegauge: Show in Explorer",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "cyclegauge.audit.acceptAll",
+        "title": "Cyclegauge: Accept All Audit Suggestions",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "cyclegauge.audit.copy",
+        "title": "Cyclegauge: Copy Audit Suggestions",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "cyclegauge.audit.clearDismissed",
+        "title": "Cyclegauge: Show Ignored Audit Findings Again"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "cyclegauge.auditView",
+          "name": "Kiro Workspace Audit"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "cyclegauge.auditView",
+        "contents": "Find large, generated or sensitive-looking files that Kiro could read in this workspace. The audit runs only when you ask, reads file names and sizes plus workspace ignore files, and writes nothing.\n[Run workspace audit](command:cyclegauge.auditWorkspace)"
       }
     ],
     "configuration": {
@@ -89,6 +133,59 @@
           "command": "cyclegauge.costAdvisor",
           "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@0"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "cyclegauge.auditWorkspace",
+          "when": "view == cyclegauge.auditView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "cyclegauge.audit.acceptAll",
+          "when": "view == cyclegauge.auditView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "cyclegauge.audit.copy",
+          "when": "view == cyclegauge.auditView",
+          "group": "navigation@3"
+        },
+        {
+          "command": "cyclegauge.audit.clearDismissed",
+          "when": "view == cyclegauge.auditView",
+          "group": "1_actions@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "cyclegauge.audit.accept",
+          "when": "view == cyclegauge.auditView && viewItem == finding-suggestible",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.audit.dismiss",
+          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
+          "group": "inline@2"
+        },
+        {
+          "command": "cyclegauge.audit.reveal",
+          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
+          "group": "inline@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "cyclegauge.audit.accept",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.audit.dismiss",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.audit.reveal",
+          "when": "false"
         }
       ]
     }

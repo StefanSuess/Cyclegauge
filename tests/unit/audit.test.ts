@@ -184,7 +184,7 @@ test('suggestions are root-anchored, escaped, one line each, and match their own
  if (process.platform !== 'win32') files['synthetic\\back.pem'] = 1;
  const r = await runAudit('/synthetic-root', NAMES, { walkFs: fakeWalk(files), readFs: realRead() });
  const lines = snippet(r.findings).split('\n');
- assert.equal(lines[0], '# Suggested by Cyclegauge — review before adding');
+ assert.equal(lines[0], '# Suggested by Cyclegauge - review before adding');
  assert.equal(lines.length, 1 + r.findings.length); assert.deepEqual(lines.slice(1), [...lines.slice(1)].sort());
  const sug = (p: string) => r.findings.find(f => f.path === p)!.suggestion;
  assert.equal(sug('synthetic*name.log'), '/synthetic\\*name.log'); assert.equal(sug('#synthetic.pem'), '/\\#synthetic.pem'); assert.equal(sug('!synthetic.pem'), '/\\!synthetic.pem');
@@ -200,7 +200,7 @@ test('findings whose names contain control, format or separator characters get n
  const r = await runAudit('/synthetic-root', NAMES, { walkFs: fakeWalk(files), readFs: realRead() });
  for (const n of odd) assert.equal(r.findings.find(f => f.path === n)!.suggestion, '', JSON.stringify(n));
  assert.equal(r.findings.find(f => f.path === 'synthetic-dir\u200f/x/dist')!.suggestion, ''); assert.equal(r.findings.find(f => f.path === 'synthetic-plain.pem')!.suggestion, '/synthetic-plain.pem');
- assert.equal(snippet(r.findings), '# Suggested by Cyclegauge — review before adding\n/synthetic-plain.pem');
+ assert.equal(snippet(r.findings), '# Suggested by Cyclegauge - review before adding\n/synthetic-plain.pem');
 });
 test('a lookalike name next to a real folder never produces a rule that covers the folder', async () => {
  const t = await temp(); await put(t.root, 'src/synthetic.txt', 'x'); await put(t.root, 'sr\u200b', '', 5 * MIB);
@@ -216,8 +216,8 @@ test('a suggestion that might also cover a case-only sibling is dropped', async 
 });
 test('snippet joins unique, sorted suggestions below a review comment', () => {
  const f = (suggestion: string): Finding => ({ path: 'p', isDir: false, category: 'log', coverage: 'not_covered', suggestion });
- assert.equal(snippet([f('/b.log'), f('/a.log'), f('/b.log')]), '# Suggested by Cyclegauge — review before adding\n/a.log\n/b.log');
- assert.equal(snippet([]), '# Suggested by Cyclegauge — review before adding');
+ assert.equal(snippet([f('/b.log'), f('/a.log'), f('/b.log')]), '# Suggested by Cyclegauge - review before adding\n/a.log\n/b.log');
+ assert.equal(snippet([]), '# Suggested by Cyclegauge - review before adding');
 });
 test('unavailable roots return only a fixed code', async () => {
  const t = await temp(); await put(t.base, 'synthetic-file.txt', 'x');
