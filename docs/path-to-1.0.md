@@ -1,8 +1,8 @@
 # Path to Cyclegauge 1.0
 
-Status: **proposal for maintainer decision (2026-10-17).** This document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
+Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updated 2026-10-17: 0.9.0 beta → 0.11.0 beta → 1.0.0 stable.** Beyond the recorded [ROADMAP](../ROADMAP.md) decisions, this document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
 
-**Direction:** value first, shipped fast. Build the credit-saving workspace/ignore audit (#71 Capability A) **first**, test it quietly with a few users in a 0.9.x beta, and announce publicly only with **1.0.0**, the first stable release (no stable 0.8). Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
+**Direction:** value first, shipped fast. Build the credit-saving workspace/ignore audit (#71 Capability A) **first**, test it quietly with a few users in a 0.9.x beta, add the interactive dashboard in a **0.11.0** beta (the last feature beta), and announce publicly only with **1.0.0**, the first stable release (no stable 0.8 or 0.10). 1.0.0 adds no new features. Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
 
 **Launch strategy:** one strong public launch, not several weak ones. Before 1.0, feedback comes only from a small invited group (no public posts). The public announcement, write-up and demo come with 1.0, when the extension both counts *and* helps save credits.
 
@@ -45,8 +45,18 @@ Observed on 2026-10-16/17 (recheck before acting):
 ## 3. Goals: credibility and donations
 
 - **Credibility:** a stable 1.0 that saves users credits, plus a short public write-up with a synthetic demo, is the portfolio piece.
-- **Donations:** keep the existing Ko-fi links; no pop-ups, paywalls or telemetry. Donations follow usefulness; expect modest amounts (#74 cites Prettier and ESLint figures).
+- **Donations:** Ko-fi links plus the approved community prompts (ROADMAP "Community prompts", 2026-10-17: a quiet footer and an occasional support prompt that is easy to turn off); no paywalls or telemetry. Donations follow usefulness; expect modest amounts (#74 cites Prettier and ESLint figures).
 - **Measure** with public numbers only: Open VSX downloads, GitHub stars, issues and feedback from real users.
+
+## Release sequence (agreed 2026-10-17)
+
+| Release | Channel | Content | Gate |
+| --- | --- | --- | --- |
+| **0.9.0** | Pre-release (beta) | Workspace audit (WP1a–e) with plain-language sidebar and detail-view card (WP1f), community prompts (WP1g), storage ladder, runtime guard, diagnostics (WP2). | Native macOS test of the exact candidate, then the maintainer runs the release workflow (dry run, then live). |
+| **0.11.0** | Pre-release (beta), last feature beta | Interactive dashboard: scripts with a nonce CSP, a validated message protocol and accessibility; chart hovers, inline Cost Advisor form, live updates. Fixes from 0.9 feedback. | Own design and `security-reviewer` review before implementation; separate scope approval. |
+| **1.0.0** | Stable | No new features: stable channel in the release pipeline (WP5a), native tests on macOS, Windows and Ubuntu, then the public launch (write-up, demo, community posts). | Exit criteria in section 5. |
+
+Not in 1.0: Hook/Steering analysis (#71 B) and session attribution (#71 C).
 
 ## 4. Ordered work packages
 
@@ -74,6 +84,10 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP3** Publish 0.9.0 (pre-release) with WP1 and WP2. Invite 5–10 Kiro users personally (outreach approved by the maintainer); no public announcement yet. Record installs, first useful result, findings acted on and confusing results. Fix what they hit in 0.9.x patches. At the end of the beta decide: keep, simplify or drop the audit for 1.0. Smoke-test the candidate on macOS, Windows and Ubuntu.
 
+### Phase 3b — 0.11.0 beta: interactive dashboard (high risk, gated)
+
+**WP6** Turn the credit detail view into an interactive dashboard: scripts with a per-load nonce CSP, a validated, allowlisted message protocol between webview and extension, and keyboard and screen-reader accessibility. Features: chart hovers, an inline Cost Advisor form and live updates. Also fold in fixes from 0.9 feedback. Needs its own design document and approval before implementation. Agent: `implementer-senior`; review: `security-reviewer` (mandatory, webview scripts are a new trust boundary). This is the last feature beta before 1.0.
+
 ### Phase 4 — Listing and launch material (low risk, during the beta)
 
 **WP4** Short README top for the Open VSX listing (what it does, the audit, privacy in one line, a synthetic GIF); pricing-catalog review step in `release-runbook.md`; a short upgrade section in `docs/usage.md` listing what 1.x keeps stable (command IDs, setting keys, CLI JSON fields, storage location). Draft the launch write-up with synthetic data. Agent: `implementer` (Haiku).
@@ -86,7 +100,7 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 ### Phase 6 — 1.0.0 public launch
 
-Promote when the exit criteria hold. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
+1.0.0 adds no features beyond 0.11.x. Promote when the exit criteria hold, after native tests of the exact candidate on macOS, Windows and Ubuntu. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
 
 ### After 1.0
 
@@ -98,10 +112,11 @@ Promote when the exit criteria hold. This is the first public announcement: the 
 - [ ] Storage upgrade ladder, newer-store refusal and evidence pruning tested.
 - [ ] Unsupported runtime shows a clear message; oldest checked Kiro recorded.
 - [ ] Copy Diagnostics exists and prints no values, paths or identifiers.
+- [ ] Interactive dashboard shipped in 0.11.x with its security review, or deferred to 1.1 by maintainer decision.
 - [ ] Workspace audit shipped in 0.9.x within its time limit, used by the invited testers, and kept, simplified or dropped based on their results.
 - [ ] Stable channel proven by tests and a release dry run.
-- [ ] At least one 0.9.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x keeps history.
-- [ ] Smoke test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
+- [ ] At least one 0.11.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x and 0.9.x keeps history.
+- [ ] Native test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
 - [ ] Existing gates green: `pnpm typecheck`, `pnpm test`, coverage, `pnpm test:release`, three-OS host tests, attestation, macOS acceptance A/B/D/E.
 
 ## 6. Execution model
@@ -112,8 +127,8 @@ Use the agents in `.claude/agents/` with an orchestrator, implementer, reviewer 
 | --- | --- | --- | --- |
 | Orchestrator | `release-orchestrator` (main thread: `claude --agent release-orchestrator`) | Opus, high | Picks the next approved WP, writes the brief, delegates, reviews the diff, runs checks, commits, opens the PR. Never merges, tags or publishes. |
 | Mechanical implementer | `implementer` | Haiku, medium | WP2d, WP4 and other docs or mechanical edits. |
-| Code implementer | `implementer-senior` | Sonnet, high | WP1, WP2a–c, WP5. |
+| Code implementer | `implementer-senior` | Sonnet, high | WP1, WP2a–c, WP5, WP6. |
 | Reviewer | `reviewer` | Sonnet, high | Moderate-risk diffs. |
-| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP1, WP2a–c, WP5 (workspace reading, storage, diagnostics, release). |
+| High-risk reviewer | `security-reviewer` | Opus, high | Mandatory for WP1, WP2a–c, WP5, WP6 (workspace reading, storage, diagnostics, release). |
 
 One implementer at a time per file set; one review per diff, plus at most one re-review after fixes. Delegates never commit, push or delegate further.
