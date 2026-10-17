@@ -9,10 +9,12 @@ import {createRequire} from 'node:module';
 import {runInThisContext} from 'node:vm';
 import {buildVsix} from '../../scripts/release/build-vsix.ts';
 import {readZip} from '../../scripts/release/zip.ts';
+import {buildDomModel} from '../../src/extension/dashboard-shell.ts';
 
 let built:Promise<string>|undefined;
 // The shipped bundle is built once per run; only its text is kept.
 const builtBundle=(work:string)=>built??=(async()=>{const vsix=join(work,'candidate.vsix');await buildVsix(vsix,true);return readZip(readFileSync(vsix)).find(e=>e.name==='extension/dist/extension.cjs')!.data.toString();})();
+const visibleHrefs=(html:string)=>[...html.slice(0,html.indexOf('</main>')+7).matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
 // Exercise the shipped bundle with an invented source and explicit roots. No IDE or real profile is opened.
 test('packaged Advisor native commands, conditional figure, cancellation and panel lifecycle',async()=>{
  // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
@@ -25,7 +27,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   writeFileSync(join(logs,'q-client.log'),lines.join(''));
   const bundle=await builtBundle(work);
   const commands=new Map<string,()=>unknown>(),items:any[]=[],answers:(string|undefined)[]=[];
-  let panel:any,options:any,disposed:()=>void=()=>{},visibility:(e:any)=>void=()=>{};
+  let panel:any,options:any,disposed:()=>void=()=>{},visibility:(e:any)=>void=()=>{},receive:(m:any)=>void=()=>{},htmlSets=0;const sent:any[]=[];
   const disposable={dispose(){}};
   const api=auditApi();
   const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
@@ -33,10 +35,10 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
    commands:{...api.commands,registerCommand(id:string,fn:()=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
    workspace:{...api.workspace,getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'UTC'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
    window:{...api.window,createStatusBarItem(){const item={text:'',command:'',visible:false,show(){this.visible=true;},hide(){this.visible=false;},dispose(){this.visible=false;}};items.push(item);return item;},
-    createWebviewPanel(_type:string,_title:string,_column:number,o:any){options=o;panel={visible:true,webview:{html:''},reveal(){this.visible=true;visibility({webviewPanel:this});},onDidDispose(fn:()=>void){disposed=fn;return disposable;},onDidChangeViewState(fn:(e:any)=>void){visibility=fn;return disposable;},dispose(){disposed();}};return panel;},
+    createWebviewPanel(_type:string,_title:string,_column:number,o:any){options=o;panel={visible:true,webview:{_html:'',get html(){return this._html;},set html(v:string){this._html=v;htmlSets++;},postMessage(m:any){sent.push(m);return Promise.resolve(true);},onDidReceiveMessage(fn:(m:any)=>void){receive=fn;return disposable;}},reveal(){this.visible=true;visibility({webviewPanel:this});},onDidDispose(fn:()=>void){disposed=fn;return disposable;},onDidChangeViewState(fn:(e:any)=>void){visibility=fn;return disposable;},dispose(){disposed();}};return panel;},
     async showQuickPick(choices:any[]){const id=answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){throw new Error('synthetic-unexpected-warning');}}};
   const require=createRequire(new URL('../../package.json',import.meta.url));
-  const fixedNow=Date.parse('2030-01-04T00:00:00Z');
+  let fixedNow=Date.parse('2030-01-04T00:00:00Z');
   class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
@@ -46,19 +48,26 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   // Scripts stay off; the only command links are exactly four Cyclegauge commands, listed explicitly; the footer adds three fixed web links.
-  assert.deepEqual(options,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
-  const allLinks=()=>[...panel.webview.html.matchAll(/href="([^"]*)"/g)].map((m:RegExpMatchArray)=>m[1]!);
+  assert.deepEqual(options,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  const allLinks=()=>visibleHrefs(panel.webview.html);
   const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
   for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
   assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));
   assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
-  assert.match(panel.webview.html,/Workspace check/);assert.ok(!/<script/i.test(panel.webview.html));
+  assert.match(panel.webview.html,/Workspace check/);assert.match(panel.webview.html,/<script nonce=/);
   assert.match(panel.webview.html,/cost-advisor/);
+  assert.doesNotThrow(()=>buildDomModel(panel.webview.html),[...new Set([...panel.webview.html.slice(panel.webview.html.indexOf('<main>'),panel.webview.html.lastIndexOf('</main>')+7).matchAll(/<([A-Za-z][\w-]*)\b/g)].map(m=>m[1]))].sort().join(','));
+  const load=Number(/data-cg-load="(\d+)"/.exec(panel.webview.html)![1]);receive({type:'ready',load});const initial=sent.at(-1);receive({type:'ack',version:initial.version});
+  const day5=`2030-01-05 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:50,usageLimitWithPrecision:5000,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
+  writeFileSync(join(logs,'q-client.log'),lines.join('')+day5);fixedNow=Date.parse('2030-01-05T00:00:00Z');
+  const sets=htmlSets;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();
+  assert.equal(htmlSets,sets,'a new observed snapshot updates in place');assert.ok(sent.at(-1).version>initial.version);assert.ok(JSON.stringify(sent.at(-1).model).includes('2030-01-05'));receive({type:'ack',version:sent.at(-1).version});
+  fixedNow+=2100;
    answers.push('plan:pro_max','consumer_prepaid','none');await commands.get(linkIds().find((h:string)=>h==='command:cyclegauge.costAdvisor')!.slice('command:'.length))!();
    assert.match(panel.webview.html,/Confirmed by you/);assert.match(panel.webview.html,/Modelled estimate/);assert.match(panel.webview.html,/USD/);
    assert.ok(!/Supported estimate|Guaranteed savings/.test(panel.webview.html));
-   const before=panel.webview.html;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();assert.equal(panel.webview.html,before);
-   answers.push('reset');await commands.get('cyclegauge.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
+   fixedNow+=2100;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();assert.match(panel.webview.html,/Confirmed by you/);
+   fixedNow+=2100;answers.push('reset');await commands.get('cyclegauge.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
   assert.ok(!panel.webview.html.includes('synthetic-bundle-account'));assert.ok(!panel.webview.html.includes(work));
   panel.visible=false;visibility({webviewPanel:panel});assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
@@ -115,12 +124,14 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
     async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){await gate;if(failProgress)throw new Error('synthetic-progress-failure /private/synthetic-path');return task({},{onCancellationRequested:()=>disposable});}}};
   const require=createRequire(new URL('../../package.json',import.meta.url));
   const module={exports:{} as any};
-  runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports);
+  let commandNow=Date.now();
+  class CommandDate extends Date {constructor(...args:any[]){super(args.length?args[0]:commandNow);}static now(){return commandNow;}}
+  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,CommandDate);
   extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState});
   assert.deepEqual([...commands.keys()].sort(),AUDIT_COMMANDS);
   const provider=st.providers.get('cyclegauge.auditView');assert.ok(provider);
   const roots=()=>provider.getChildren() as any[];const infoTexts=()=>infos.map(i=>i.text);
-  const run=()=>commands.get('cyclegauge.auditWorkspace')!();
+  const run=()=>{commandNow+=2100;return commands.get('cyclegauge.auditWorkspace')!();};
   const find=(label:string)=>flatTree(roots()).find(n=>n.label===label);
   const state=()=>st.store.get('cyclegauge.audit.dismissed.v1') as {salt:string;hashes:string[]}|undefined;
   // Untrusted: nothing is audited and the list stays empty (the view then shows its welcome text).
@@ -236,8 +247,8 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   // A second invocation while one is in progress is declined; the lock is released afterwards.
   let release:()=>void=()=>{};gate=new Promise<void>(r=>{release=r;});infos.length=0;
   const first=run();await new Promise(r=>setImmediate(r));
-  await run();assert.deepEqual(infoTexts(),['A workspace audit is already running.']);
-  release();await first;gate=undefined;assert.equal(infos.length,2);
+  await run();assert.deepEqual(infoTexts(),[]); // The command guard drops a concurrent invocation before the audit handler.
+  release();await first;gate=undefined;assert.equal(infos.length,1);
   // Folders overlapping the configured source or storage roots are refused, and nothing is audited or replaced.
   infos.length=0;warnings.length=0;const kept=JSON.stringify(roots());
   for(const path of [source,join(source,'logs'),join(work,'synthetic-owned','x'),join(work,'synthetic-missing')]){
@@ -253,7 +264,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   // If the list cannot be registered, the commands stay available and a finished audit offers one clipboard-only button.
   failProvider=true;trusted=true;infos.length=0;clipboard.length=0;const edits2=st.edits.length;
   const module2={exports:{} as any},subscriptions2:any[]=[];
-  runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module2,module2.exports);
+  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module2,module2.exports,CommandDate);
   await module2.exports.activate({subscriptions:subscriptions2,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState});
   try{
    assert.deepEqual([...commands.keys()].sort(),AUDIT_COMMANDS);assert.equal(st.providers.size,0);st.executed.length=0;
@@ -292,13 +303,13 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
     ({sourceRoot:env.source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC',auditReminderDays:env.days,auditAutomatically:env.automatic} as any)[key]??''}),
    createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
   window:{...api.window,createStatusBarItem(){const item={set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};return item;},
-   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{_h:'',get html(){return this._h;},set html(v:string){env.htmlSets++;this._h=v;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
+   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{_h:'',get html(){return this._h;},set html(v:string){env.htmlSets++;this._h=v;},postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showWarningMessage(m:string){env.warnings.push(m);},async showErrorMessage(m:string){env.errors.push(m);},
    async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});env.onInfo?.();return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){env.progress++;return task({},{onCancellationRequested:(fn:()=>void)=>{if(env.cancel)fn();return disposable;}});}}};
  const workspaceState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
   async update(k:string,v:unknown){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
- const fixedNow=Date.parse(env.now);
+ let fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const timers:{fn:()=>Promise<void>;ms:number;cleared:boolean}[]=[];
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
@@ -311,7 +322,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?fsHook:require(id),module,module.exports,SyntheticDate);
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{/* restored on disposal so delayed signal timers remain controllable */}
  let done=false;
- return {commands,timers,api,provider:()=>api.state.providers.get('cyclegauge.auditView'),
+ return {commands,timers,api,advance:()=>{fixedNow+=2100;},provider:()=>api.state.providers.get('cyclegauge.auditView'),
   fire:async()=>{assert.equal(timers.length,1);assert.equal(timers[0]!.ms,30000);return timers[0]!.fn();},
   dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;}};
 };
@@ -457,11 +468,11 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   const env=reminderEnv(work);env.failStart=false;
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const html=()=>env.panels.at(-1).webview.html as string;
-  const hrefs=()=>[...html().matchAll(/href="([^"]*)"/g)].map(m=>m[1]!).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
+  const hrefs=()=>visibleHrefs(html()).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
   const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'];
   // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly four commands.
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
-  assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
+  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);
   assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.costAdvisor']);
   // "Show" with no result runs the audit (and then focuses the list); the open panel now shows the count and the new button.
@@ -470,18 +481,18 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show','command:cyclegauge.costAdvisor']);
   for(const h of hrefs())assert.ok(ALLOWED.includes(h.slice('command:'.length)),h);
-  assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work)&&!/<script/i.test(html()));
+  assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work));
   // With a result, "Show" only focuses the list. The card follows what the user hides.
-  env.progress=0;env.executed.length=0;await s.commands.get('cyclegauge.audit.show')!();
+  env.progress=0;env.executed.length=0;s.advance();await s.commands.get('cyclegauge.audit.show')!();
   assert.equal(env.progress,0);assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);
   const salt='a'.repeat(64),hash=(c:string,p:string)=>createHash('sha256').update(`${salt}\0${c}\0${p}`).digest('hex');
   env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash('secret','.env')]});await s.commands.get('cyclegauge.auditWorkspace')!();
   assert.match(html(),/1 item Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // The panel is re-rendered only when the summary changed: the same audit again (same counts and time) sets no HTML; hiding an item does.
-  const sets=env.htmlSets;await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.htmlSets,sets);
+  const sets=env.htmlSets;s.advance();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.htmlSets,sets);
   env.store.delete('cyclegauge.audit.dismissed.v1');await s.commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // Later renders (the minute timer's refresh) keep the card; an unavailable run says so and drops the Show button.
-  env.trusted=false;await s.commands.get('cyclegauge.auditWorkspace')!();
+  env.trusted=false;s.advance();await s.commands.get('cyclegauge.auditWorkspace')!();
   assert.match(html(),/This folder can&#39;t be checked\. Run Check now to see why\./);assert.ok(!hrefs().includes('command:cyclegauge.audit.show'));env.trusted=true;s.dispose();
   // A broken workspaceState never takes the card or the gauge down.
   env.throwState=true;s=await start();await s.commands.get('cyclegauge.showUsage')!();assert.match(html(),/id="status-heading"/);assert.match(html(),/Workspace check/);env.throwState=false;s.dispose();
@@ -516,7 +527,7 @@ test('packaged bundle has no top-level node:sqlite require and still starts with
    commands:{registerCommand(id:string,fn:()=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
    workspace:{getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'UTC'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
    window:{createStatusBarItem(){const item:any={text:'',show(){},hide(){},dispose(){}};items.push(item);return item;},
-    createWebviewPanel(_t:string,_title:string,_c:number,o:any){const p={options:o,webview:{html:''},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};panels.push(p);return p;}}};
+    createWebviewPanel(_t:string,_title:string,_c:number,o:any){const p={options:o,webview:{html:'',postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};panels.push(p);return p;}}};
   const require=createRequire(new URL('../../package.json',import.meta.url));
   const module={exports:{} as any};
   (process as {getBuiltinModule?:unknown}).getBuiltinModule=()=>undefined;
@@ -538,7 +549,7 @@ const diagnosticsHarness=(work:string,source:string,storage:string,allow:(id:str
   env:{appName:editor.appName,clipboard:{async writeText(t:string){clipboard.push(t);}}},
   workspace:{getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'Europe/Berlin'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}}),
    async openTextDocument(o:any){opened.push(o);return {untitled:true,...o};}},
-  window:{createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},createWebviewPanel(_t:string,_title:string,_c:number,o:any){return {options:o,webview:{html:''},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};},
+  window:{createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},createWebviewPanel(_t:string,_title:string,_c:number,o:any){return {options:o,webview:{html:'',postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};},
    async showTextDocument(d:any){shown.push(d);},async showInformationMessage(m:string){infos.push(m);},async showErrorMessage(m:string){errors.push(m);}}};
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
@@ -621,13 +632,13 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
    createFileSystemWatcher:(pattern:any,...flags:unknown[])=>{const w={pattern,flags,listeners:[] as any[],disposed:false,onDidCreate(fn:any){w.listeners.push(fn);return disposable;},onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){w.disposed=true;}};env.watchers.push(w);return w;},
    onDidChangeConfiguration(fn:any){env.configListeners.push(fn);return disposable;}},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
-   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
+   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:'',postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
    async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('cyclegauge.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
   async update(k:string,v:unknown){if(env.throwState||env.failWrites)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
- const fixedNow=Date.parse(env.now);
+ let fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
  (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==1000&&ms!==5000&&ms!==30000&&ms!==60000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
@@ -640,11 +651,11 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const later=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));};
  let done=false;
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:env.globalStorage},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{/* restored on disposal so delayed signal timers remain controllable */}
- return {commands,api,later,support:()=>env.timers.filter(t=>t.ms===180000),
+ return {commands,api,later,advance:()=>{fixedNow+=2100;},support:()=>env.timers.filter(t=>t.ms===180000),
   fire:async()=>{const t=env.timers.filter(x=>x.ms===180000);assert.equal(t.length,1);await t[0]!.fn();await later();},
   dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}};
 };
-const hrefsOf=(html:string)=>[...html.matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
+const hrefsOf=visibleHrefs;
 
 test('packaged footer and Share: four command links, three fixed web links, a fixed clipboard text',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-footer-')));
@@ -654,11 +665,11 @@ test('packaged footer and Share: four command links, three fixed web links, a fi
   const s=await communitySession(env,work);open.push(s);
   assert.ok(s.commands.has('cyclegauge.share'));assert.ok(s.commands.has('cyclegauge.support.reset'));
   await s.commands.get('cyclegauge.showUsage')!();
-  assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
   const html:string=env.panels.at(-1).webview.html;
   assert.deepEqual(hrefsOf(html).filter(h=>!h.startsWith('command:')),COMMUNITY_LINKS);
   for(const h of hrefsOf(html).filter(h=>h.startsWith('command:')))assert.ok(env.panelOptions.enableCommandUris.includes(h.slice('command:'.length)),h);
-  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.ok(!/<script/i.test(html));assert.ok(!/utm_|[?&]ref=/.test(html));
+  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
   assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Share<\/a>/);
   // Share copies a fixed text with no user data and confirms in one friendly line.
   env.infos.length=0;await s.commands.get('cyclegauge.share')!();await s.later();
@@ -945,11 +956,11 @@ test('packaged medium signals ignore future days, cancelled Advisor and reset',a
   s=await communitySession(env,work);await s.commands.get('cyclegauge.showUsage')!();await s.later();
   assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
   await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
-  env.answers.push('reset');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
-  env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();
+  s.advance();env.answers.push('reset');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
+  s.advance();env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();
   assert.equal(env.store.get('cyclegauge.support.advisorUsed.v1'),true);assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
   await s.commands.get('cyclegauge.support.reset')!();assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);
-  env.infos.length=0;env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+  s.advance();env.infos.length=0;env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 test('packaged saved exclusion with auto-save preserves existing ignore text',async()=>{

@@ -292,9 +292,9 @@
     "test:host": "node --disable-warning=ExperimentalWarning scripts/test-extension-host.ts",
     "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
     "test:coverage": "node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=80 --test tests/unit/*.test.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.webview.json",
     "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
-    "build:extension": "esbuild src/extension/extension.ts --bundle --platform=node --format=cjs --target=node24 --external:vscode --outfile=dist/extension.cjs",
+    "build:extension": "node --disable-warning=ExperimentalWarning scripts/build-extension.ts dist/extension.cjs",
     "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/",
     "test:release": "node --disable-warning=ExperimentalWarning --test tests/release/*.test.ts",
     "release:build": "node --disable-warning=ExperimentalWarning scripts/release/build-vsix.ts",
@@ -305,7 +305,7 @@
     "@types/vscode": "1.90.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "^4.0.0",
-    "esbuild": "^0.28.2",
+    "esbuild": "0.28.2",
     "typescript": "^5.9.0"
   },
   "preview": true

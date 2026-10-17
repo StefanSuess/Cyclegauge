@@ -1,0 +1,1 @@
+{"compilerOptions":{"target":"ES2024","module":"ESNext","moduleResolution":"Bundler","lib":["ES2024","DOM"],"types":[],"strict":true,"noEmit":true,"erasableSyntaxOnly":true},"include":["src/extension/dashboard-webview.ts"]}

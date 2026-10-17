@@ -110,7 +110,7 @@ test('chart default shows a compact legend and a shorter frame only when history
  assert.match(primary,/<details class="chart-help"><summary>How to read this chart/);
  assert.match(advanced,/id="chart-summary"/);assert.match(advanced,/<summary>Chart data table/);
  assert.match(primary,/<desc id="chart-desc">[^<]*Expected trajectory/);
- assert.ok(!/<script/i.test(full));assert.match(full,/default-src 'none'; style-src 'unsafe-inline'/);
+ assert.ok(!/<script/i.test(full));assert.ok(!/\sstyle=/i.test(full));
  assert.match(full,/<svg[^>]*role="img"/);assert.match(full,/prefers-color-scheme|var\(--vscode-/);
 });
 

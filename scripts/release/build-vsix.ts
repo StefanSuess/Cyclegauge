@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain } from '../is-main.ts';
+import { buildExtension } from '../build-extension.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STAGED = ['package.json', 'README.md', 'LICENSE', 'CHANGELOG.md', '.vscodeignore', 'assets/branding/cyclegauge-icon-256.png'];
@@ -42,11 +43,7 @@ export async function buildVsix(output: string, preRelease = false): Promise<voi
    copyFileSync(join(root, file), join(stage, file));
   }
   mkdirSync(join(stage, 'dist'));
-  const { build } = await import('esbuild');
-  await build({
-   entryPoints: ['src/extension/extension.ts'], bundle: true, platform: 'node', format: 'cjs', target: 'node24',
-   external: ['vscode'], outfile: join(stage, 'dist', 'extension.cjs'), absWorkingDir: root, logLevel: 'silent', legalComments: 'none',
-  });
+  await buildExtension(join(stage, 'dist', 'extension.cjs'));
   const require = createRequire(join(root, 'package.json'));
   const vscePackage = require.resolve('@vscode/vsce/package.json');
   const bin = JSON.parse(readFileSync(vscePackage, 'utf8')).bin as Record<string, string>;

@@ -45,13 +45,15 @@ test('a clean report has the header and exactly the allowlisted fields', () => {
  const text = formatDiagnostics(buildDiagnostics({ surface: 'extension', editor: 'Synthetic Editor-1.2', editorVersion: '1.99.0', platform: 'darwin', arch: 'arm64', node: '24.13.0', electron: '39.0.0-beta.1', sqlite: true, store: 'ok',
   storage: 'default', source: 'chosen', timezone: 'device', gauge: 'running', status: 'observed', forecast: 'provisional', snapshots: 3, accounts: 1, observedAgeMs: 5_400_000, importCodes: { no_source_logs: 1, source_changed: 2 }, discoveredLogs: 4, audit: true }));
  assert.ok(text.startsWith(DIAGNOSTICS_HEADER + '\n')); assert.ok(text.endsWith('\n'));
- assert.deepEqual(Object.keys(fields(text)), ['cyclegauge', 'surface', 'editor', 'editor_version', 'platform', 'arch', 'node', 'electron', 'sqlite', 'store_version', 'store', 'storage', 'source', 'timezone', 'gauge', 'status', 'forecast', 'snapshots', 'accounts', 'unassociated', 'freshness', 'import_codes', 'discovered_logs', 'audit']);
+ assert.deepEqual(Object.keys(fields(text)), ['cyclegauge', 'surface', 'editor', 'editor_version', 'platform', 'arch', 'node', 'electron', 'sqlite', 'store_version', 'store', 'storage', 'source', 'timezone', 'gauge', 'status', 'forecast', 'snapshots', 'accounts', 'unassociated', 'freshness', 'import_codes', 'discovered_logs', 'audit', 'rejected_messages']);
  assert.deepEqual(fields(text), { cyclegauge: fields(text).cyclegauge, surface: 'extension', editor: 'Synthetic Editor-1.2', editor_version: '1.99.0', platform: 'darwin', arch: 'arm64', node: '24.13.0', electron: '39.0.0-beta.1', sqlite: 'available',
   store_version: String(STORE_VERSION), store: 'ok', storage: 'default', source: 'chosen', timezone: 'device', gauge: 'running', status: 'observed', forecast: 'provisional', snapshots: '3', accounts: '1', unassociated: 'unavailable', freshness: '1-24h',
-  import_codes: 'no_source_logs=1, source_changed=2', discovered_logs: '4', audit: 'available' });
+  import_codes: 'no_source_logs=1, source_changed=2', discovered_logs: '4', audit: 'available', rejected_messages: '0' });
  assert.match(fields(text).cyclegauge, /^\d+\.\d+\.\d+/);
  for (const [age, label] of [[null, 'none'], [0, '<1h'], [-5, '<1h'], [3_599_999, '<1h'], [3_600_000, '1-24h'], [86_400_000, '1-24h'], [86_400_001, '>24h']] as const) assert.equal(fields(formatDiagnostics(buildDiagnostics({ observedAgeMs: age }))).freshness, label);
  assert.equal(fields(formatDiagnostics(buildDiagnostics({}))).import_codes, 'none');
+ assert.equal(fields(formatDiagnostics(buildDiagnostics({ rejectedMessages: 7 }))).rejected_messages, '7');
+ assert.equal(fields(formatDiagnostics(buildDiagnostics({ rejectedMessages: 'synthetic-private' }))).rejected_messages, 'unavailable');
 });
 
 test('accounts count only associated partitions and unassociated snapshots are counted separately', () => {
