@@ -50,7 +50,13 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
  const text = a.state === 'checked' ? `${countsText(items, unclear)}${checked}`
   : a.state === 'unavailable' ? "This folder can't be checked. Run Check now to see why."
   : `Check which files Kiro can read but probably doesn't need.${a.lastDate && DAY.test(a.lastDate) ? ` Last checked ${a.lastDate} (UTC).` : ''}`;
- return `<section class="audit-card" aria-labelledby="audit-heading"><h3 id="audit-heading">Workspace check</h3><p>${safe(text)}</p><p class="audit-actions"><a class="button" href="${AUDIT_LINK.check}">Check now</a>${a.state === 'checked' ? ` <a class="button" href="${AUDIT_LINK.show}">Show</a>` : ''}</p></section>`;
+ return `<section class="audit-card" aria-labelledby="audit-heading"><h3 id="audit-heading">Workspace check</h3><p>${safe(text)}</p><p class="audit-actions"><a class="button primary" href="${AUDIT_LINK.check}">Check now</a>${a.state === 'checked' ? ` <a class="button secondary" href="${AUDIT_LINK.show}">Show</a>` : ''}</p></section>`;
+}
+
+// The advisor section itself has no command links; its one button is added here, inside the section when it is present.
+function withAdvisorButton(advisorHtml: string): string {
+ const button = `<p class="advisor-actions"><a class="button primary" href="${ADVISOR_LINK}">Open Cost Advisor</a></p>`;
+ return advisorHtml.endsWith('</section>') ? `${advisorHtml.slice(0, -'</section>'.length)}${button}</section>` : `${advisorHtml}${button}`;
 }
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
@@ -120,7 +126,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .hero h2{font-size:1.8rem;line-height:1.2;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px}.status-icon{display:inline-flex;align-items:center;justify-content:center;width:1.4em;height:1.4em;border-radius:50%;border:2px solid var(--tone);color:var(--tone);font-size:.7em;font-weight:700}.tag{font-size:.8rem;font-weight:400;border:1px solid var(--vscode-panel-border);border-radius:12px;padding:1px 9px;color:var(--vscode-descriptionForeground)}
  .lead{font-size:1.05rem;margin:10px 0 14px}.bar{height:10px;border-radius:5px;background:var(--vscode-panel-border);overflow:hidden;margin:6px 0 16px}.bar>span{display:block;height:100%;background:var(--tone)}.bar-label{margin:-10px 0 16px}
  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:0}.stat dt{color:var(--vscode-descriptionForeground);font-size:.9rem}.stat dd{margin:0;font-size:1.35rem;font-weight:600;overflow-wrap:anywhere}.stat dd.small{font-size:.9rem;font-weight:400}
- .top-actions{margin:0 0 12px}.audit-card h3{margin:0 0 4px;font-size:1rem}.audit-card p{margin:4px 0}.audit-actions{display:flex;flex-wrap:wrap;gap:8px}a.button{display:inline-block;padding:2px 10px;border:1px solid var(--vscode-button-border,var(--vscode-panel-border));border-radius:4px;text-decoration:none}
+ .audit-card h3{margin:0 0 4px;font-size:1rem}.audit-card p{margin:4px 0}.audit-actions,.advisor-actions{display:flex;flex-wrap:wrap;gap:8px}a.button{display:inline-block;padding:4px 12px;border:1px solid var(--vscode-button-border,transparent);border-radius:4px;text-decoration:none;font-weight:500;cursor:pointer}a.button.primary{background:var(--vscode-button-background);color:var(--vscode-button-foreground)}a.button.primary:hover{background:var(--vscode-button-hoverBackground)}a.button.secondary{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}a.button.secondary:hover{background:var(--vscode-button-secondaryHoverBackground)}
  .community{margin:20px 0 4px;text-align:center}
  .meta{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--vscode-panel-border)}
  .badge{display:inline-block;padding:1px 9px;border:1px solid var(--vscode-panel-border);border-radius:12px;font-size:.85rem}.verdict{font-size:1.05rem;font-weight:600;margin:10px 0}.plan-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.plan-row strong{font-size:1.2rem}.action{border:1px dashed var(--vscode-panel-border);border-radius:8px;padding:8px 12px;margin:10px 0}
@@ -128,18 +134,17 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  summary{cursor:pointer;margin:10px 0;font-weight:500}details>summary{list-style-position:inside}.advanced>summary{font-size:1.05rem;font-weight:600;margin:0}.advanced[open]>summary{margin-bottom:12px}.advanced h3{margin:20px 0 8px;font-size:1.05rem;border-top:1px solid var(--vscode-panel-border);padding-top:14px}
  .estimate{border:1px solid var(--vscode-panel-border);border-left:5px solid var(--neutral);border-radius:8px;padding:12px 16px;margin:12px 0}.estimate-supported{border-left-color:var(--ok)}.estimate-modelled{border-left-color:var(--warn)}.estimate-comparison_only{border-left-color:var(--neutral)}.estimate p{margin:6px 0}.estimate .tier{margin-top:0}.estimate .figure{font-size:1rem}.estimate .figure strong{font-size:1.6rem;margin-right:6px}.estimate .verdict{font-size:1rem;font-weight:500}
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
- @media(max-width:540px){.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
- @media(forced-colors:active){.hero{border-left-color:Highlight}.bar>span{background:Highlight}}
+ @media(max-width:540px){.stats{grid-template-columns:minmax(0,1fr)}.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
+ @media(forced-colors:active){a.button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>span{background:Highlight}}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
- <p class="top-actions"><a class="button" href="${ADVISOR_LINK}">Cost Advisor</a></p>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
  <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}
  ${usedPct===null ? '' : `<div class="bar" role="img" aria-label="${usedPct}% of the reported credit limit used"><span style="width:${usedPct}%"></span></div><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
  ${auditCard(audit, now)}
- ${advisorHtml}
+ ${withAdvisorButton(advisorHtml)}
  ${chart.main}
  ${costHtml}
  <section id="advanced-details" aria-label="Advanced details"><details class="advanced"><summary>Advanced details</summary><p class="muted small">Forecast methods and evidence, coverage, exact UTC timestamps, qualifiers, chart data and billing assumptions.</p>

@@ -461,12 +461,12 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);
-  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace']);
+  assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.costAdvisor']);
   // "Show" with no result runs the audit (and then focuses the list); the open panel now shows the count and the new button.
   env.executed.length=0;await s.commands.get('cyclegauge.audit.show')!();
   assert.equal(env.progress,1);assert.ok(env.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
   assert.match(html(),/2 items Kiro may read · checked just now/);
-  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show']);
+  assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show','command:cyclegauge.costAdvisor']);
   for(const h of hrefs())assert.ok(ALLOWED.includes(h.slice('command:'.length)),h);
   assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work)&&!/<script/i.test(html()));
   // With a result, "Show" only focuses the list. The card follows what the user hides.
