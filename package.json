@@ -50,6 +50,10 @@
         "command": "cyclegauge.costAdvisor",
         "title": "Cyclegauge: Cost Advisor",
         "icon": "$(lightbulb)"
+      },
+      {
+        "command": "cyclegauge.auditWorkspace",
+        "title": "Cyclegauge: Audit Kiro Workspace"
       }
     ],
     "configuration": {
