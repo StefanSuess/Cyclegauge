@@ -26,11 +26,13 @@ export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
 /** Intended Open VSX identity. */
 export const EXPECTED_ID = 'StefanSuess.cyclegauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
-// The audit reminder and community prompt settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
+// The audit reminder, community prompt and budget warning settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
 const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number; enum?: string[] }> = {
  auditReminderDays: { type: 'number', default: 30, minimum: 0, maximum: 365 },
  auditAutomatically: { type: 'string', default: 'off', enum: ['off', 'onOpen', 'onOpenAndChanges'] },
  supportPrompts: { type: 'boolean', default: true },
+ budgetWarnings: { type: 'boolean', default: true },
+ budgetWarningPercent: { type: 'number', default: 80, minimum: 0, maximum: 100 },
 };
 
 export interface FileHash { name: string; bytes: number; sha256: string }

@@ -4,6 +4,8 @@ import { readable, updated, date } from './labels.ts';
 import { presentChartParts, CHART_CSS } from './chart.ts';
 import { countsText, relativeTime, type AuditSummary } from './audit-model.ts';
 import { LINKS, NOT_KIRO_TEXT } from './identity.ts';
+import { overageOver } from '../cost/overage.ts';
+import { observedOverageText, projectedOverageText } from './budget-warning.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -82,12 +84,20 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const allowance=budget===null ? '' : ` • ${compact(budget)}/day`;
  const status=stale ? 'Stale data' : !eligible ? collecting ? 'Collecting data' : 'Unavailable' : exhausted ? f.tier==='provisional' ? 'Provisional • exhausted' : above ? 'Above reported limit' : 'Reported limit reached' : f.tier==='provisional' ? `Provisional${exhaustion ? ` • empty ${date(exhaustion)}` : allowance}` : over ? `Likely to exceed${exhaustion ? ` • empty ${date(exhaustion)}` : allowance}` : `${tight ? 'At risk' : 'On track'}${allowance}`;
  const warning=stale || over || tight || (!eligible && !collecting);
+ // The reported limit is reached, or the forecast says it will be before the reset: stronger than a warning.
+ // A provisional "Likely to exceed" stays a warning; only observed usage at the limit or a regular forecast is an error.
+ const severity: 'none' | 'warning' | 'error' = exhausted || (over && f.tier==='regular') ? 'error' : warning ? 'warning' : 'none';
  const resetMs=o.resetAt ? Date.parse(o.resetAt) : NaN, evalMs=f.evaluatedAt ? Date.parse(f.evaluatedAt) : NaN;
  const daysLeft=Number.isFinite(resetMs) && Number.isFinite(evalMs) ? Math.ceil((resetMs-evalMs)/86400000) : null;
  const resetIn=daysLeft===null ? '' : daysLeft<0 ? 'passed' : daysLeft===0 ? 'today' : daysLeft===1 ? 'in 1 day' : `in ${daysLeft} days`;
  const whole=(s:string)=>{const v=Number(s);return Number.isFinite(v) ? String(Math.round(v)) : s;};
  const resetDate=o.resetAt ? date(o.resetAt) : null;
  const lastsLine=eligible && selected.projectedUsageAtReset!==null && o.baseLimit!==null && !exhausted && !exhaustion ? `At the observed pace you will use about ${whole(selected.projectedUsageAtReset)} of ${whole(o.baseLimit)} reported credits by the reset${resetDate ? ` on ${resetDate}` : ''}.` : '';
+ // Modelled overage cost lines (exact decimals, catalog price only); never an invoice and absent when nothing exceeds the reported limit.
+ const overageLines=[
+  eligible && selected.projectedUsageAtReset!==null ? overageOver(selected.projectedUsageAtReset,o.baseLimit,now) : null,
+  above && !o.flags.includes('unsupported_extra_credits') ? overageOver(o.usage,o.baseLimit,now) : null,
+ ].map((v,i)=>v ? (i===0 ? projectedOverageText(v) : observedOverageText(v)) : '').filter(Boolean);
  const explanation=absent ? NOT_KIRO_TEXT : eligible ? exhausted ? above ? 'Observed usage was above the reported credit limit at the last account update. The counter alone does not establish overage charges, purchased balance or billing eligibility.' : 'Observed usage had reached the reported credit limit at the last account update.' : exhaustion ? `Estimated to run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}, if the observed rate continues.` : selected.exhaustionStatus==='zero_observed_rate' ? 'No exhaustion date at the observed zero rate. Future usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then if the observed rate continues.')+'' : 'Your reported credits are not projected to run out before reset if the observed rate continues.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
  // A provisional estimate is never styled or headlined as reassuringly as a regular forecast.
  const early=eligible && f.tier==='provisional' && outlook==='On track';
@@ -139,7 +149,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
- <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}
+ <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${overageLines.map(l=>`<p class="small overage">${safe(l)}</p>`).join('')}
  ${usedPct===null ? '' : `<div class="bar" role="img" aria-label="${usedPct}% of the reported credit limit used"><span style="width:${usedPct}%"></span></div><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
@@ -154,7 +164,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  <h3>Data quality / notes</h3><p>The daily budget summary is truncated to one decimal; the exact allowance is in the technical details. Daily budget is an allocation of the remaining reported capacity at the last observation across the time left until reset, using 24-hour days. The reported credit limit is not verified as base-only or total capacity; it may include purchased add-on credits, and usage can exceed it. Usage since that account update is unknown. Extra credits, purchased balances and total availability remain unknown.</p><p class="muted small">Forecast policy v${f.policy.version}: provisional estimates need 3 comparable updates over at least 48 hours; regular in-cycle forecasts need 8 over at least 7 days. Pooled 7/14/28/84-day estimates need enough observed time, updates on enough different days and no single dominant interval; unobserved time is never counted as zero. Positive gaps over 36 hours are barriers for in-cycle methods, and the latest update must be fresh (${f.policy.maxAgeHours} hours).</p><h4>Technical details</h4><table>${details}</table><h4>Forecast methods</h4><table>${methods}</table><h4>Gaps and quality barriers</h4><table>${h.coverage.gaps.slice(-8).map(g=>row(`${g.from} to ${g.to}`,readable(g.reason))).join('')}</table><p class="muted small">Unknown periods are not zero. Interval net changes are not gross charges. Exact rolling boundaries must be observed; no daily consumption is invented.</p>
  </details></section>
  ${FOOTER}</main></body></html>`;
- if(absent)return {text:'$(info) Kiro not detected',tooltip:NOT_KIRO_TEXT,warning:false,html,forecast:false,absent:true};
- if(blocked)return {text:'$(warning) Kiro: update needed',tooltip:explanations[blocked],warning:true,html,forecast:false,absent:false};
- return {text:`${warning ? '$(warning)' : '$(gauge)'} Kiro: ${status}`,tooltip,warning,html,forecast:eligible,absent:false};
+ if(absent)return {text:'$(info) Kiro not detected',tooltip:NOT_KIRO_TEXT,warning:false,severity:'none' as const,html,forecast:false,absent:true};
+ if(blocked)return {text:'$(warning) Kiro: update needed',tooltip:explanations[blocked],warning:true,severity:'warning' as const,html,forecast:false,absent:false};
+ return {text:`${warning ? '$(warning)' : '$(gauge)'} Kiro: ${status}`,tooltip,warning,severity,html,forecast:eligible,absent:false};
 }

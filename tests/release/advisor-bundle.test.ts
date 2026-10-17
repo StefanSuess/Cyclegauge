@@ -604,24 +604,25 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[]};
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
  const bundle=await builtBundle(work);
- const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{base:any;pattern:string;constructor(base:any,pattern:string){this.base=base;this.pattern=pattern;}},extensions:{getExtension:()=>undefined},
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ConfigurationTarget:{Global:1},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{base:any;pattern:string;constructor(base:any,pattern:string){this.base=base;this.pattern=pattern;}},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
-  commands:{async executeCommand(){},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  commands:{async executeCommand(id:string){env.executed.push(id);},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
    getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
-    ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts,auditAutomatically:env.automatic} as any)[key]??''}),
+    ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts,auditAutomatically:env.automatic,budgetWarnings:env.budget,budgetWarningPercent:env.budgetPercent} as any)[key]??'',
+    async update(key:string,value:unknown,target:unknown){env.updates.push({section,key,value,target});}}),
    createFileSystemWatcher:(pattern:any,...flags:unknown[])=>{const w={pattern,flags,listeners:[] as any[],disposed:false,onDidCreate(fn:any){w.listeners.push(fn);return disposable;},onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){w.disposed=true;}};env.watchers.push(w);return w;},
    onDidChangeConfiguration(fn:any){env.configListeners.push(fn);return disposable;}},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
-   async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
+   async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('cyclegauge.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
   async update(k:string,v:unknown){if(env.throwState||env.failWrites)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
@@ -950,4 +951,84 @@ test('packaged test override requires the isolated synthetic demo profile and ex
    s.dispose();rmSync(path);
   }
  }finally{s?.dispose();if(oldFlag===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST;else process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST=oldFlag;if(oldSource===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;else process.env.CYCLEGAUGE_SYNTHETIC_SOURCE=oldSource;rmSync(work,{recursive:true,force:true});}
+});
+
+// Budget warning: the packaged bundle shows at most one notice per window, once per billing cycle and kind, only in Kiro, never in the extension tests,
+// and writes its single state key before showing it. The invented account has a limit of 100 credits and resets on 2030-02-01.
+const BUDGET_KEY='cyclegauge.budgetWarning.v1';
+const BUDGET_BUTTONS=['Show details','Turn off'];
+const BUDGET_NOW='2030-01-08T00:30:00Z';
+const FORECAST_TEXT='At this pace your Kiro credits run out on 10 Jan 2030, 22 days before the reset. If you continue at this pace: about 215 credits over the limit ≈ $8.60 by the reset, at $0.04 per credit (price list reviewed 10 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).';
+const budgetLine=(stamp:string,usage:number,limit=100)=>`${stamp} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-budget-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:limit,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
+const budgetLogPath=(env:ReturnType<typeof communityEnv>)=>join(env.source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent','q-client.log');
+const budgetData=(env:ReturnType<typeof communityEnv>,usages:number[],limit=100)=>writeFileSync(budgetLogPath(env),usages.map((u,i)=>budgetLine(`2030-01-0${i+1} 00:00:00.000`,u,limit)).join(''));
+const budgetInfos=(env:ReturnType<typeof communityEnv>)=>env.infos.filter(i=>i.buttons.join()===BUDGET_BUTTONS.join());
+
+test('packaged budget warning: one notice per window, once per cycle and kind, state written first, buttons and settings',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-budget-warning-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,false);env.now=BUDGET_NOW;
+  const start=async()=>{const s=await communitySession(env,work);open.push(s);return s;};
+  const clear=()=>{env.infos.length=0;env.atShow.length=0;env.executed.length=0;env.updates.length=0;env.written.length=0;env.errors.length=0;env.timers.length=0;};
+  const wipe=()=>{clear();rmSync(env.globalStorage,{recursive:true,force:true});env.store.clear();env.choice=undefined;env.budget=undefined;env.budgetPercent=undefined;env.failWrites=false;env.throwState=false;env.mode=1;env.appName='Kiro';env.uriScheme='kiro';};
+  // Forecast: the notice is due, its state is stored BEFORE it is shown, and a dismissal changes nothing else.
+  budgetData(env,[5,15,25,35,45,55,65,75]);
+  let s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.deepEqual(env.infos,[{text:FORECAST_TEXT,buttons:BUDGET_BUTTONS}]);
+  const stored=env.store.get(BUDGET_KEY) as {cycle:string;done:string[]};
+  assert.deepEqual(Object.keys(stored).sort(),['cycle','done']);assert.deepEqual(stored.done,['forecast']);assert.equal(Date.parse(stored.cycle),Date.parse('2030-02-01T00:00:00Z'));
+  assert.deepEqual(env.atShow,[stored]);assert.equal(env.written.filter(k=>k===BUDGET_KEY).length,1);
+  assert.deepEqual(env.executed,[]);assert.deepEqual(env.updates,[]);
+  // Never more than one notice per window: the limit is reached while the window is open and nothing more is shown.
+  writeFileSync(budgetLogPath(env),budgetLine('2030-01-08 00:10:00.000',100),{flag:'a'});
+  const watcher=env.watchers.find(w=>String(w.pattern?.pattern).includes('q-client.log'));assert.ok(watcher);
+  env.infos.length=0;watcher.listeners[0]();await new Promise(r=>setTimeout(r,1300));await s.later();
+  assert.deepEqual(budgetInfos(env),[]);assert.deepEqual((env.store.get(BUDGET_KEY) as any).done,['forecast']);
+  s.dispose();
+  // A new window in the same cycle: the forecast was handled, the more severe limit notice is shown now and "Show details" opens the credit view.
+  clear();env.choice='Show details';s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.equal(budgetInfos(env).length,1);assert.match(budgetInfos(env)[0]!.text,/^You have reached the reported Kiro credit limit \(100 of 100\); the reset is in 24 days\./);
+  assert.deepEqual((env.store.get(BUDGET_KEY) as any).done,['limit','forecast','percent']);assert.deepEqual(env.executed,['cyclegauge.showUsage']);assert.deepEqual(env.updates,[]);
+  s.dispose();
+  // Handled kinds are not repeated in later windows of the cycle, and nothing is written.
+  clear();env.choice=undefined;s=await start();await s.later();assert.deepEqual(budgetInfos(env),[]);assert.deepEqual(env.written.filter(k=>k===BUDGET_KEY),[]);s.dispose();
+  // A new billing cycle starts over.
+  env.store.set(BUDGET_KEY,{cycle:'2029-12-01T00:00:00.000Z',done:['forecast','limit','percent']});clear();s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.equal(budgetInfos(env).length,1);assert.equal((env.store.get(BUDGET_KEY) as any).cycle.slice(0,10),'2030-02-01');s.dispose();
+  // Turn off sets the user setting off globally.
+  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.choice='Turn off';s=await start();await until(()=>env.updates.length>0);
+  assert.deepEqual(env.updates,[{section:'cyclegauge',key:'budgetWarnings',value:false,target:1}]);assert.deepEqual(env.executed,[]);s.dispose();
+  // The setting off: no notice and no state.
+  wipe();env.budget=false;s=await start();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();
+  // Anything but an explicit false leaves it on.
+  wipe();env.budget='false';s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);s.dispose();
+  // Percent: the early notice at the configured share, and 0 turns only that notice off.
+  wipe();budgetData(env,[85,85,85,85,85,85,85,85]);s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.deepEqual(budgetInfos(env).map(i=>i.text),['You have used 85% of your reported Kiro credits (85 of 100); the reset is in 24 days.']);assert.deepEqual((env.store.get(BUDGET_KEY) as any).done,['percent']);s.dispose();
+  wipe();env.budgetPercent=0;s=await start();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();
+  wipe();env.budgetPercent=90;s=await start();await s.later();assert.deepEqual(env.infos,[]);s.dispose();
+  wipe();env.budgetPercent=85;s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);s.dispose();
+  // A state that cannot be written, or neither read nor written, shows nothing (fail closed).
+  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.failWrites=true;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);s.dispose();
+  wipe();env.throwState=true;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.ok(env.statusTexts.every(t=>!/unavailable|update needed/.test(t)));s.dispose();
+  // Stale data (the last update is more than a day old) gives no notice.
+  wipe();env.now='2030-01-10T00:00:00Z';s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();env.now=BUDGET_NOW;
+  // A provisional forecast (five updates) is too early for a forecast notice, even though it would be exhausted before the reset.
+  wipe();budgetData(env,[10,20,30,40,50]);env.now='2030-01-05T00:30:00Z';s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();env.now=BUDGET_NOW;
+  // Extra credits are not supported: no notice rests on the reported limit.
+  wipe();budgetData(env,[100,100,100,100,100,100,100,100]);writeFileSync(budgetLogPath(env),readFileSync(budgetLogPath(env),'utf8').replaceAll('overageCredits":[]','overageCredits":[{"synthetic":1}]'));
+  s=await start();await s.later();await s.later();assert.deepEqual(budgetInfos(env),[]);s.dispose();
+  // Only in Kiro and never in the extension tests: nothing shown, nothing stored.
+  wipe();env.appName='Visual Studio Code';env.uriScheme='vscode';s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();
+  wipe();env.mode=3;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();
+  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.appName='Synthetic Editor';env.uriScheme='kiro';s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);assert.ok(!JSON.stringify(env.store.get(BUDGET_KEY)).includes(work)&&!JSON.stringify(env.store.get(BUDGET_KEY)).includes('synthetic'));s.dispose(); // Kiro by URL scheme alone; the state holds no path or identifier
+  const texts=():string[]=>env.infos.map((i:{text:string})=>i.text);
+  // No pile-up: after a budget notice, the support prompt (otherwise due) does not appear in this window; without a budget notice it does.
+  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.choice='Show details';s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.equal(budgetInfos(env).length,1);assert.deepEqual(env.executed,['cyclegauge.showUsage']);env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[]);s.dispose();
+  wipe();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.budget=false;s=await start();await s.fire();assert.deepEqual(texts(),[SUPPORT_TEXT]);s.dispose();
+  // Only the one documented budget key was written, holding no path, identifier or amount.
+  assert.ok(env.written.every(k=>k===BUDGET_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });

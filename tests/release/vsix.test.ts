@@ -91,6 +91,22 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { p[prompts].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[prompts].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[prompts]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ // The budget warning settings are held to the same standard, including the percent range.
+ const warnings = 'cyclegauge.budgetWarnings', percent = 'cyclegauge.budgetWarningPercent';
+ for (const key of [warnings, percent]) {
+  assert.ok(edited(p => { p[key].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
+  assert.ok(edited(p => { p[key].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
+  assert.ok(edited(p => { delete p[key].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
+  assert.ok(edited(p => { delete p[key]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
+ }
+ assert.ok(edited(p => { p[warnings].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[warnings].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[warnings].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[percent].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[percent].default = 90; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[percent].minimum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[percent].maximum = 1000; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[percent].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  // The existing machine-scoped keys may not move to resource scope.
  assert.ok(edited(p => { p['cyclegauge.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);

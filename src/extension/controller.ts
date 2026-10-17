@@ -11,7 +11,7 @@ import {planHint,advisorProfile,classifyAdvice} from '../cost/advisor.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
 
 export interface ExtensionUi {
- setStatus(text: string, detail: string, meta?: { tooltip: string; warning: boolean }): void;
+ setStatus(text: string, detail: string, meta?: { tooltip: string; warning: boolean; severity?: 'none' | 'warning' | 'error' }): void;
  showDetails(detail: string): void;
  onClick(callback: () => void): void;
  onChange(callback: () => void): void;
@@ -29,6 +29,8 @@ export interface ExtensionOptions { source: string; storage: string; profileStor
  onForecast?: () => void;
  // Called when a render shows "Kiro not detected" (notKiro and no source logs); same rules as onForecast.
  onAbsent?: () => void;
+ // Called after each render with the latest observation, whether its forecast is fresh and qualified, and the render time; used only for the budget warning and never allowed to affect the gauge.
+ onBudget?: (observation: ReturnType<typeof view>, eligible: boolean, now: string) => void;
  onAdvisorUsed?: () => void }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
@@ -59,6 +61,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
   if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
   if(!disposed)ui.setStatus(presentation.text,detail,presentation);
+  if(!disposed&&!presentation.absent)try{options.onBudget?.(observation,presentation.forecast,now());}catch{/* nor the budget warning */}
  };
  const refresh = async () => {
   if (disposed) return;

@@ -169,6 +169,20 @@
           "default": true,
           "description": "Occasionally ask whether you'd rate, star or support Cyclegauge.",
           "scope": "application"
+        },
+        "cyclegauge.budgetWarnings": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, or when usage passes the percent below or reaches the limit (each at most once per billing cycle).",
+          "scope": "application"
+        },
+        "cyclegauge.budgetWarningPercent": {
+          "type": "number",
+          "default": 80,
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Show a budget notice once you have used this percent of your reported Kiro credits. 0 turns this notice off.",
+          "scope": "application"
         }
       }
     },

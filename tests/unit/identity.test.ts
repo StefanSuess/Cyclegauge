@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { AUDIT_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readReminderDays, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
+import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
 
 const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const stub = (log: string[]) => (id: string) => { log.push(id); return { dispose() {} }; };
@@ -17,12 +17,12 @@ test('manifest identity and commands use the Cyclegauge names', () => {
 
 test('only current settings are declared under the Cyclegauge prefix', () => {
  const props = manifest.contributes.configuration.properties;
- assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
+ assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
  for (const k of SETTING_KEYS) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'machine');
  }
- for (const k of [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS]) {
+ for (const k of [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS]) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'application');
  }
@@ -31,6 +31,9 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
  assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge."]);
+ const { budgetWarnings: budget, budgetWarningPercent: percent } = Object.fromEntries(BUDGET_SETTING_KEYS.map(k => [k, props[`cyclegauge.${k}`]]));
+ assert.deepEqual([budget.type, budget.default, budget.scope], ['boolean', true, 'application']);
+ assert.deepEqual([percent.type, percent.default, percent.minimum, percent.maximum, percent.scope], ['number', 80, 0, 100, 'application']);
 });
 
 test('the share and support commands are declared; the support reset is visible in the palette', () => {
@@ -76,6 +79,17 @@ test('audit reminder settings are read strictly: clamped numbers, known modes on
  for (const bad of ['true', 'OnOpen', 'onopenandchanges', 1, null, {}, false]) assert.equal(readAuditAutomatically(get({ 'cyclegauge.auditAutomatically': bad })), 'off', String(bad));
 });
 
+test('budget warning settings are read strictly: on unless explicitly false, whole percent 0..100 with the default for anything else', () => {
+ const get = (values: Record<string, unknown>) => (p: string, k: string) => values[`${p}.${k}`];
+ assert.equal(readBudgetWarnings(get({})), true);
+ assert.equal(readBudgetWarnings(get({ 'cyclegauge.budgetWarnings': true })), true);
+ assert.equal(readBudgetWarnings(get({ 'cyclegauge.budgetWarnings': false })), false);
+ for (const other of ['false', 0, null, '']) assert.equal(readBudgetWarnings(get({ 'cyclegauge.budgetWarnings': other })), true, String(other));
+ assert.equal(readBudgetWarningPercent(get({})), 80);
+ for (const [value, expected] of [[0, 0], [1, 1], [50, 50], [79.9, 79], [100, 100], [-5, 0], [250, 100]] as const) assert.equal(readBudgetWarningPercent(get({ 'cyclegauge.budgetWarningPercent': value })), expected, String(value));
+ for (const bad of ['50', null, Number.NaN, Number.POSITIVE_INFINITY, {}, true, undefined]) assert.equal(readBudgetWarningPercent(get({ 'cyclegauge.budgetWarningPercent': bad })), 80, String(bad));
+});
+
 test('the intended Open VSX ID is StefanSuess.cyclegauge', () => {
  assert.equal(`${manifest.publisher}.${manifest.name}`, 'StefanSuess.cyclegauge');
 });
@@ -109,7 +123,7 @@ test('VSIX allowlist ships exactly manifest, readme, license, changelog, bundle 
  assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!LICENSE', '!CHANGELOG.md', '!dist/extension.cjs', '!assets/branding/cyclegauge-icon-256.png']);
  assert.equal(manifest.license, 'MIT');
  assert.equal(manifest.preview, true);
- for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
+ for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
  assert.equal(manifest.icon, 'assets/branding/cyclegauge-icon-256.png');
  assert.ok((await readFile(new URL(`../../${manifest.icon}`, import.meta.url))).length > 0);
  assert.match(await readFile(new URL('../../LICENSE', import.meta.url), 'utf8'), /MIT License/);

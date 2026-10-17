@@ -23,6 +23,8 @@ Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sou
 | `cyclegauge.auditReminderDays` | user | 30 | Days between workspace audit reminders; 0 turns them off |
 | `cyclegauge.auditAutomatically` | user | `off` | `onOpen`: silently re-run an audit older than one day when the workspace opens; `onOpenAndChanges`: also re-check when matching files appear |
 | `cyclegauge.supportPrompts` | user | on | Occasionally ask whether you'd rate or support Cyclegauge; off stops it |
+| `cyclegauge.budgetWarnings` | user | on | Budget notices inside Kiro (see Budget warnings); off stops them |
+| `cyclegauge.budgetWarningPercent` | user | 80 | Share of the reported credit limit (0 to 100) at which the early notice appears; 0 turns only that notice off |
 
 ## Upgrading from 0.5.x
 
@@ -74,6 +76,18 @@ After a workspace has been checked in this window, saving `.kiroignore` (or a fi
 The credit view (**Show Account Credits**) has a small **Workspace check** card below the main figures: it shows the number of items and when the check ran (or an invitation to check with the last check date in UTC, or "This folder can't be checked. Run Check now to see why."), with **Check now** and, once checked, **Show**. It shows no folder name or path and claims no measured savings. A **Cost Advisor** button at the top of the view opens the same Cost Advisor as the editor-title button and the status bar item. The view still runs no scripts; its only command links are these four Cyclegauge commands (`cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace`, `cyclegauge.audit.show`, `cyclegauge.share`), enabled through the webview's command allowlist, none with arguments. A quiet footer line also links to rating Cyclegauge on Open VSX, starring it on GitHub and supporting it on Ko-fi (fixed addresses, opened only when you click), plus **Share**, which copies a short fixed text with the Open VSX link to your clipboard.
 
 The audit, Copy Diagnostics and the gauge of an earlier 0.9.0 candidate were tested by the maintainer in native Kiro on macOS; the audit view wording, the Workspace check card, the Exclude and hide actions, reminders, the footer links, Share, the support prompt, the re-check after ignore changes and the onOpenAndChanges watcher have not yet been verified in native Kiro, the "Kiro not detected" note and status have not been verified in any non-Kiro editor, and no 0.9.0 testing on Windows or Ubuntu is recorded. Earlier (0.7.0) testing is described in the changelog.
+
+## Budget warnings
+
+Inside Kiro, Cyclegauge can tell you early when your reported credits are running low, with a short message and two buttons: **Show details** (opens the credit view) and **Turn off** (sets `cyclegauge.budgetWarnings` to off in your user settings). There are three notices, all based only on a fresh account update (never on stale data):
+
+- **Forecast**: a regular, current forecast (not a provisional early estimate) says the reported limit is reached before the reset: "At this pace your Kiro credits run out on {date}, {n} days before the reset."
+- **Percent**: you have used the configured share of the reported limit (`cyclegauge.budgetWarningPercent`, default 80; 0 turns this notice off): "You have used {p}% of your reported Kiro credits ({used} of {limit}); the reset is in {n} days."
+- **Limit**: usage has reached the reported limit: "You have reached the reported Kiro credit limit ({used} of {limit}); the reset is in {n} days."
+
+Each notice appears at most once per billing cycle (identified by the observed reset time) and at most one notice per window; if several are due at once, only the most severe (limit, then forecast, then percent) is shown and the others count as handled. The status bar item turns red instead of yellow when the limit is reached or a regular forecast says it will be reached before the reset (a provisional estimate stays yellow); this colour is part of the gauge and is independent of `cyclegauge.budgetWarnings`. Accounts whose data includes extra credits, which Cyclegauge does not support, get no budget notices. Both settings are user-level only (a workspace cannot change them). The only state kept is the cycle and which notices were shown (see [privacy and storage](privacy-and-storage.md)); nothing is sent anywhere.
+
+When the forecast or the observed usage goes beyond the reported limit, the credit view and the forecast and limit notices add a modelled cost, for example "If you continue at this pace: about 200 credits over the reported limit ≈ $8.00 at $0.04 per credit (price list 2026-10-10, reviewed 10 Oct 2026)"; the notices carry the same figure with the price and review date and the same qualifiers, and only after a regular forecast. It is projected credits over the limit times the per-credit price from Cyclegauge's reviewed price list, rounded to whole cents, and shown only when that price list is valid; otherwise only the credits are shown. It is a modelled scenario, not an invoice: whether overage applies depends on your plan and settings, and the reported limit is not verified as base-only or total capacity. Usage already above the limit at the last update gets its own line ("{n} credits above the reported limit at the last update ≈ $x ... (modelled; whether overage applies depends on your plan and settings)"), which is left out for accounts with extra credits. No plan comparison is made here; the Cost Advisor remains separate.
 
 ## Support prompts
 
