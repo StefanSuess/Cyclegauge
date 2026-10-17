@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm, realpath, access } from 'node:fs/promise
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { Store, STORE_VERSION } from '../../src/store.ts';
 import { startExtension } from '../../src/extension/controller.ts';
@@ -111,7 +112,7 @@ test('CLI prints only the fixed RUNTIME_UNSUPPORTED code on an unsupported runti
  // A preload hides node:sqlite from process.getBuiltinModule in the child only; no production hook is involved.
  const preload = join(f.base, 'synthetic-preload.mjs');
  await writeFile(preload, "const original = process.getBuiltinModule; process.getBuiltinModule = id => id === 'node:sqlite' ? undefined : original(id);\n");
- const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--import', preload, resolve('src/cli.ts'), '--source-root', f.root, '--store-dir', f.storage, '--source-timezone', 'UTC'], { encoding: 'utf8' });
+ const r = spawnSync(process.execPath, ['--disable-warning=ExperimentalWarning', '--import', pathToFileURL(preload).href, resolve('src/cli.ts'), '--source-root', f.root, '--store-dir', f.storage, '--source-timezone', 'UTC'], { encoding: 'utf8' });
  assert.equal(r.status, 1); assert.equal(r.stdout.trim(), 'RUNTIME_UNSUPPORTED'); assert.equal(r.stderr, '');
  assert.equal(await exists(f.storage), false);
  await rm(f.base, { recursive: true });
