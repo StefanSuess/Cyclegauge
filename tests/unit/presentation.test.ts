@@ -185,12 +185,15 @@ test('workspace-check card: unavailable asks for a trusted local folder; no clai
  assert.match(html, /This folder can&#39;t be checked\. Run Check now to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
  for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
 });
-test('the view has a Cost Advisor link near the top in every state', () => {
+test('the view has one Open Cost Advisor button, inside the Cost Advisor section and below the figures, in every state', () => {
+ const section = '<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2><p>synthetic</p></section>';
  for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 1 }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
-  const html = card(s);
-  assert.equal(hrefs(html)[0], ADVISOR); assert.match(html, /<p class="top-actions"><a class="button secondary" href="command:cyclegauge\.costAdvisor">Cost Advisor<\/a><\/p>/);
-  assert.ok(html.indexOf('top-actions"') < html.indexOf('class="hero'));
-  assert.equal(hrefs(html).filter(h => h === ADVISOR).length, 1);
+  for (const html of [card(s), present(view(series(10), '2030-06-08T00:00:00Z'), [], '', section, s, '2030-06-15T12:00:00.000Z').html]) {
+   assert.equal(hrefs(html).filter(h => h === ADVISOR).length, 1);
+   assert.match(html, /<p class="advisor-actions"><a class="button primary" href="command:cyclegauge\.costAdvisor">Open Cost Advisor<\/a><\/p>/);
+   assert.ok(html.indexOf('class="hero') < html.indexOf('advisor-actions"')); assert.ok(!html.includes('top-actions'));
+  }
+  assert.match(present(view(series(10), '2030-06-08T00:00:00Z'), [], '', section, s).html, /<p>synthetic<\/p><p class="advisor-actions">.*?<\/p><\/section>/);
  }
 });
 test('workspace-check card: only the three allowed command links, none with arguments, no other href, no path or folder name, script-free', () => {

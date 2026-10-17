@@ -186,9 +186,9 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
    +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p></details>`
   :'';
  const action=context.planSource==='confirmed'
-  ?`<strong>Change your plan or answers:</strong> use the light-bulb <strong>Cost Advisor</strong> item in the status bar.`
+  ?`<strong>Change your plan or answers:</strong> use <strong>Open Cost Advisor</strong> below or the light-bulb item in the status bar.`
   :card?''
-  :`<strong>Not your plan? Confirm or correct it:</strong> use the light-bulb <strong>Cost Advisor</strong> item in the status bar and pick your plan. The figures above update immediately.`;
+  :`<strong>Not your plan? Confirm or correct it:</strong> use <strong>Open Cost Advisor</strong> below or the light-bulb item in the status bar and pick your plan. The figures above update immediately.`;
  return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
   +`<p class="plan-row"><span class="label">${context.planSource==='confirmed'?'Your plan':'Likely plan'}</span> ${planText} ${planLine}</p>${planNote?`<p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`:''}`
   +verdictBlock
