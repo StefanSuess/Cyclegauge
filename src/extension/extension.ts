@@ -293,11 +293,12 @@ const SUPPORT_VALUE_KEY = 'cyclegauge.support.valueSeen.v1';
 const NOT_KIRO_KEY = 'cyclegauge.notKiro.shown.v1';
 const SUPPORT_DELAY_MS = 180_000;
 const inKiro = (): boolean => { try { return isKiroEditor(vscode.env.appName, vscode.env.uriScheme); } catch { return false; } };
-interface SupportLink { valueSeen(): void }
+interface SupportLink { valueSeen(): void; absent(): void }
 function registerSupport(context: vscode.ExtensionContext): SupportLink {
  let disposed = false, seen = false;
  const stored = (key: string): unknown => { try { return context.globalState.get<unknown>(key); } catch { return undefined; } };
- const store = async (key: string, value: unknown): Promise<void> => { try { await context.globalState.update(key, value); } catch { /* best effort */ } };
+ // True only when the write succeeded: a prompt whose "shown" mark cannot be saved is not shown, so a failing state cannot repeat it every window.
+ const store = async (key: string, value: unknown): Promise<boolean> => { try { await context.globalState.update(key, value); return true; } catch { return false; } };
  const open = (url: string): void => { try { void Promise.resolve(vscode.env.openExternal(vscode.Uri.parse(url))).catch(() => undefined); } catch { /* nothing to open */ } };
  const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
  const register = (suffix: string, fn: () => Promise<void>) => context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
@@ -321,7 +322,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
    if (disposed) return;
    const today = utcDate(new Date());
    if (!supportDue({ today, firstSeen: stored(SUPPORT_FIRST_KEY), next: stored(SUPPORT_NEXT_KEY), never: stored(SUPPORT_NEVER_KEY), valueSeen: seen || stored(SUPPORT_VALUE_KEY), enabled: readSupportPrompts(get), kiro: inKiro() })) return;
-   await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)); // a prompt left open or closed with the window is not repeated for a while
+   if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
    const choice = await vscode.window.showInformationMessage('Is Cyclegauge useful to you? A rating or a star helps others find it.', 'Rate', 'Star on GitHub', 'Support ☕', 'Not now', "Don't ask again") as SupportChoice | undefined;
    if (disposed) return;
    if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Star on GitHub') open(LINKS.star); else if (choice === 'Support ☕') open(LINKS.support);
@@ -330,23 +331,29 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   } catch { /* fixed and silent */ }
  };
  if (kiro) {
-  if (!isDate(stored(SUPPORT_FIRST_KEY))) void store(SUPPORT_FIRST_KEY, utcDate(new Date()));
+  if (readSupportPrompts(get) && !isDate(stored(SUPPORT_FIRST_KEY))) void store(SUPPORT_FIRST_KEY, utcDate(new Date()));
   const timer = setTimeout(() => void check(), SUPPORT_DELAY_MS);
   timer.unref?.();
   context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); } });
- } else {
-  // Outside Kiro, unless a source was chosen (demos, tests): one friendly note, once ever.
-  try {
-   const testing = vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test;
-   if (!testing && readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), 'sourceRoot') === '' && stored(NOT_KIRO_KEY) !== true) {
+ }
+ let noted = false;
+ return {
+  valueSeen() { if (seen || !kiro || !readSupportPrompts(get)) return; seen = true; void store(SUPPORT_VALUE_KEY, true); },
+  // Called when a refresh really found no Kiro logs outside Kiro without a chosen source (the controller decides that, so VS Code beside an installed Kiro never sees the note):
+  // one friendly note, once ever.
+  absent() {
+   if (noted || kiro) return;
+   noted = true;
+   try {
+    const testing = vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test;
+    if (testing || stored(NOT_KIRO_KEY) === true) return;
     void (async () => {
-     await store(NOT_KIRO_KEY, true);
+     if (!(await store(NOT_KIRO_KEY, true))) return;
      if (await vscode.window.showInformationMessage(NOT_KIRO_TEXT, 'Learn about Kiro', 'Got it') === 'Learn about Kiro') open(LINKS.kiro);
     })().catch(() => undefined);
-   }
-  } catch { /* fixed and silent */ }
- }
- return { valueSeen() { if (seen || !kiro) return; seen = true; void store(SUPPORT_VALUE_KEY, true); } };
+   } catch { /* fixed and silent */ }
+  },
+ };
 }
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined;
@@ -418,7 +425,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onForecast: () => support?.valueSeen() });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent() });
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;

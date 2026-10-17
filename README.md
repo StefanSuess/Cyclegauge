@@ -73,7 +73,7 @@ Setup uses the same command across platforms.
 - **Local only.** No telemetry and no network code. Derived numbers are kept in the extension's own private directory.
 - **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
 - **Workspace audit.** Runs when you start it, or automatically only if you turn that on in your user settings. It reads only file names and sizes and the ignore files listed in Agent Ignore Files, never other file contents or global ignore files. It writes no files and sends nothing: Exclude from Kiro prepares an unsaved change that you save yourself. Per workspace it stores only the last audit date, reminder state and salted hashes of items you hid. Review suggestions before saving them; excluding files can hide them from Kiro.
-- **Script-free view.** The detail view runs no scripts; its only links are three Cyclegauge commands (Cost Advisor, check workspace, show workspace audit), none with arguments.
+- **Script-free view.** The detail view runs no scripts; its only command links are four Cyclegauge commands (Cost Advisor, check workspace, show workspace audit, share), none with arguments, plus three fixed web links in the footer (rate, star, support) that open only when you click them.
 
 Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md). Never post real Kiro data in issues or pull requests.
 

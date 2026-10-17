@@ -106,7 +106,7 @@
       },
       {
         "command": "cyclegauge.support.reset",
-        "title": "Cyclegauge: Reset support prompts"
+        "title": "Cyclegauge: Reset Support Prompts"
       }
     ],
     "views": {
@@ -224,10 +224,6 @@
         },
         {
           "command": "cyclegauge.audit.reveal",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.support.reset",
           "when": "false"
         }
       ]

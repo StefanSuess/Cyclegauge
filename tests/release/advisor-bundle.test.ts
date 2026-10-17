@@ -596,8 +596,11 @@ const SUPPORT_BUTTONS=['Rate','Star on GitHub','Support ☕','Not now',"Don't as
 const communityEnv=(work:string,withLogs:boolean)=>{
  const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
  mkdirSync(logs,{recursive:true});mkdirSync(workspace,{recursive:true});mkdirSync(join(work,'synthetic-home'),{recursive:true});writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');
- if(withLogs)writeFileSync(join(logs,'q-client.log'),[1,2,3,4].map(day=>`2030-01-0${day} 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:day*10,usageLimitWithPrecision:5000,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n').join(''));
- return {now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
+ const logText=()=>[1,2,3,4].map(day=>`2030-01-0${day} 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:day*10,usageLimitWithPrecision:5000,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n').join('');
+ if(withLogs)writeFileSync(join(logs,'q-client.log'),logText());
+ // Kiro's standard data folder as the bundle resolves it under the synthetic HOME (set per session).
+ const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
+ return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
   timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[]};
 };
@@ -618,7 +621,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
    async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
-  async update(k:string,v:unknown){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
+  async update(k:string,v:unknown){if(env.throwState||env.failWrites)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
  const fixedNow=Date.parse(env.now);
  class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
  const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
@@ -700,10 +703,16 @@ test('packaged support prompt: only when due, once per window, each button sets 
   // A broken global state never breaks activation, the gauge or the prompt check.
   seed(undefined);env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.every(t=>!/unavailable|update needed/.test(t)),env.statusTexts.join('|'));
   await s.fire();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);env.throwState=false;s.dispose();
+  // The setting off: neither the first-use date nor the value flag is recorded.
+  seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.equal(env.store.size,0);assert.equal(env.written.length,0);assert.deepEqual(env.infos,[]);
+  // A global state that reads fine but cannot be written: the prompt is not shown (its snooze could not be saved), so it cannot repeat in every window.
+  seed('2029-12-01',{'cyclegauge.support.valueSeen.v1':true});env.failWrites=true;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);env.failWrites=false;
   // Not Kiro (even with a chosen source): no timer, nothing recorded, no prompt and no notice.
   seed(undefined);env.appName='Visual Studio Code';env.uriScheme='vscode';s=await start();assert.equal(s.support().length,0);assert.equal(env.store.size,0);assert.deepEqual(env.infos,[]);s.dispose();
   // Kiro recognised by its URL scheme alone.
   seed('2029-12-01');env.appName='Synthetic Editor';env.uriScheme='kiro';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);
+  // Only the documented keys were ever written.
+  assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
   // Only the documented keys were ever written (checked in the audit test below).
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -752,6 +761,13 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   }
   // With a chosen source the status stays "Kiro: ..." in a non-Kiro editor too (demos and tests).
   outside();env.sourceRoot=env.source;reset();s=await start();assert.ok(env.statusTexts.at(-1)!.startsWith('$(warning) Kiro:'),env.statusTexts.at(-1));assert.ok(!env.statusTexts.includes('$(info) Kiro not detected'));s.dispose();
+  // Kiro installed beside this editor: its default folder has logs, so nothing is "not detected" and no note is shown (the note needs a refresh that really found no logs).
+  outside();reset();env.placeDefaultLogs();s=await start();
+  assert.deepEqual(notices(),[]);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false);assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),env.statusTexts.join('|'));
+  await s.commands.get('cyclegauge.showUsage')!();assert.ok(!env.panels.at(-1).webview.html.includes(NOT_KIRO));s.dispose();
+  rmSync(join(work,'synthetic-home'),{recursive:true,force:true});mkdirSync(join(work,'synthetic-home'));
+  // A global state that cannot be written: the note is not shown (it could not be remembered), so it cannot repeat in every window.
+  outside();reset();env.failWrites=true;s=await start();assert.deepEqual(notices(),[]);assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');s.dispose();env.failWrites=false;
   // A broken global state is silent.
   outside();reset();env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.deepEqual(env.errors,[]);s.dispose();env.throwState=false;
   // Only the documented keys were written.

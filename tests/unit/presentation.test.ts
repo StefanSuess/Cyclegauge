@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { view } from '../../src/view.ts';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { present } from '../../src/extension/presentation.ts';
@@ -255,6 +255,30 @@ test('the notice does not apply inside Kiro, with other codes or when the flag i
  // With data present the normal view is unchanged even if the flag is set.
  const withData = present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', undefined, '2030-06-08T00:00:00Z', true);
  assert.equal(withData.text, render(10).text); assert.equal(withData.forecast, true);
+});
+test('a throwing forecast hook never stops the gauge from rendering a forecast', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-forecast-throw-')));
+ const dir = join(base, 'source', 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent'); await mkdir(dir, { recursive: true });
+ const line = (day: number) => `2030-01-0${day} 00:00:00.000 [info] synthetic-envelope ` + JSON.stringify({ commandName: 'GetUsageLimitsCommand', input: {}, output: { userInfo: { userId: 'synthetic-hook-account' }, nextDateReset: '2030-02-01T00:00:00Z', usageBreakdownList: [{ resourceType: 'CREDIT', unit: 'INVOCATIONS', currentUsageWithPrecision: day * 10, usageLimitWithPrecision: 5000, nextDateReset: '2030-02-01T00:00:00Z', bonuses: [], overageCredits: [] }] }, metadata: { httpStatusCode: 200 } }) + '\n';
+ await writeFile(join(dir, 'q-client.log'), [1, 2, 3, 4].map(line).join(''));
+ const texts: string[] = []; let calls = 0;
+ const ui = { setStatus(t: string) { texts.push(t); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'source'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', onForecast: () => { calls++; throw new Error('synthetic-failure'); } });
+  assert.ok(calls >= 1); assert.match(texts.at(-1)!, /Kiro: (Provisional|On track|At risk)/);
+  extension.rerender(); assert.ok(calls >= 2); assert.match(texts.at(-1)!, /Kiro: /); extension.dispose();
+ } finally { await rm(base, { recursive: true, force: true }); }
+});
+test('a throwing absent hook never stops the gauge from showing "Kiro not detected"', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-absent-throw-')));
+ const texts: string[] = []; let calls = 0;
+ const ui = { setStatus(t: string) { texts.push(t); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', notKiro: true, onAbsent: () => { calls++; throw new Error('synthetic-failure'); } });
+  assert.ok(calls >= 1); assert.equal(texts.at(-1), '$(info) Kiro not detected'); extension.dispose();
+  const normal = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', onAbsent: () => { calls += 100; } });
+  assert.ok(calls < 100); normal.dispose();
+ } finally { await rm(base, { recursive: true, force: true }); }
 });
 test('the controller passes the not-Kiro flag through and does not report a forecast when there is none', async () => {
  const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-forecast-hook-')));

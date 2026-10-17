@@ -33,12 +33,12 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge."]);
 });
 
-test('the share and support commands are declared; the support reset is hidden from the palette', () => {
+test('the share and support commands are declared; the support reset is visible in the palette', () => {
  const titles = Object.fromEntries(manifest.contributes.commands.map((c: any) => [c.command, c.title]));
  assert.equal(titles[commandId('share')], 'Cyclegauge: Share Cyclegauge');
- assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset support prompts');
+ assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset Support Prompts');
  const hidden = manifest.contributes.menus.commandPalette.filter((c: any) => c.when === 'false').map((c: any) => c.command);
- assert.ok(hidden.includes(commandId('support.reset'))); assert.ok(!hidden.includes(commandId('share')));
+ assert.ok(!hidden.includes(commandId('support.reset'))); assert.ok(!hidden.includes(commandId('share')));
 });
 
 test('support prompts are on unless explicitly false; Kiro is recognised by name or scheme', () => {
