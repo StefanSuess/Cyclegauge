@@ -5,7 +5,8 @@ import { presentChartParts, CHART_CSS } from './chart.ts';
 import { countsText, relativeTime, type AuditSummary } from './audit-model.ts';
 import { LINKS, NOT_KIRO_TEXT } from './identity.ts';
 import { overageOver } from '../cost/overage.ts';
-import { observedOverageText, projectedOverageText } from './budget-warning.ts';
+import { observedOverageText, projectedOverageText, rightSizeText, largerPlanText } from './budget-warning.ts';
+import { NO_INSIGHTS, type PlanInsights } from '../cost/plan-hints.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -62,7 +63,7 @@ function withAdvisorButton(advisorHtml: string): string {
 }
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false) {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS) {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -97,7 +98,11 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const overageLines=[
   eligible && selected.projectedUsageAtReset!==null ? overageOver(selected.projectedUsageAtReset,o.baseLimit,now) : null,
   above && !o.flags.includes('unsupported_extra_credits') ? overageOver(o.usage,o.baseLimit,now) : null,
- ].map((v,i)=>v ? (i===0 ? projectedOverageText(v) : observedOverageText(v)) : '').filter(Boolean);
+ ].map((v,i)=>v ? (i===0 ? projectedOverageText(v) : observedOverageText(v)) : '');
+ // Plan hints (controller) are already empty unless every condition holds. The next-larger-plan comparison follows the projected overage line.
+ const attempt=(text:()=>string)=>{try{return text();}catch{return '';}}; // a hint can never take the view down
+ const hintLines=[overageLines[0] && insights.larger ? attempt(()=>largerPlanText(insights.larger!)) : '',insights.rightsize ? attempt(()=>rightSizeText(insights.rightsize!)) : ''];
+ const noteLines=[overageLines[0],hintLines[0],overageLines[1],hintLines[1]].filter(Boolean);
  const explanation=absent ? NOT_KIRO_TEXT : eligible ? exhausted ? above ? 'Observed usage was above the reported credit limit at the last account update. The counter alone does not establish overage charges, purchased balance or billing eligibility.' : 'Observed usage had reached the reported credit limit at the last account update.' : exhaustion ? `Estimated to run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}, if the observed rate continues.` : selected.exhaustionStatus==='zero_observed_rate' ? 'No exhaustion date at the observed zero rate. Future usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then if the observed rate continues.')+'' : 'Your reported credits are not projected to run out before reset if the observed rate continues.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
  // A provisional estimate is never styled or headlined as reassuringly as a regular forecast.
  const early=eligible && f.tier==='provisional' && outlook==='On track';
@@ -149,7 +154,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
- <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${overageLines.map(l=>`<p class="small overage">${safe(l)}</p>`).join('')}
+ <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${noteLines.map(l=>`<p class="small overage">${safe(l)}</p>`).join('')}
  ${usedPct===null ? '' : `<div class="bar" role="img" aria-label="${usedPct}% of the reported credit limit used"><span style="width:${usedPct}%"></span></div><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>

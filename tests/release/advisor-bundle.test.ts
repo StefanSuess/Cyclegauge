@@ -959,7 +959,7 @@ const BUDGET_KEY='cyclegauge.budgetWarning.v1';
 const BUDGET_BUTTONS=['Show details','Turn off'];
 const BUDGET_NOW='2030-01-08T00:30:00Z';
 const FORECAST_TEXT='At this pace your Kiro credits run out on 10 Jan 2030, 22 days before the reset. If you continue at this pace: about 215 credits over the limit ≈ $8.60 by the reset, at $0.04 per credit (price list reviewed 10 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).';
-const budgetLine=(stamp:string,usage:number,limit=100)=>`${stamp} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-budget-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:limit,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
+const budgetLine=(stamp:string,usage:number,limit=100,reset='2030-02-01T00:00:00Z')=>`${stamp} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-budget-account'},nextDateReset:reset,usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:limit,nextDateReset:reset,bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
 const budgetLogPath=(env:ReturnType<typeof communityEnv>)=>join(env.source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent','q-client.log');
 const budgetData=(env:ReturnType<typeof communityEnv>,usages:number[],limit=100)=>writeFileSync(budgetLogPath(env),usages.map((u,i)=>budgetLine(`2030-01-0${i+1} 00:00:00.000`,u,limit)).join(''));
 const budgetInfos=(env:ReturnType<typeof communityEnv>)=>env.infos.filter(i=>i.buttons.join()===BUDGET_BUTTONS.join());
@@ -1030,5 +1030,79 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   wipe();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.budget=false;s=await start();await s.fire();assert.deepEqual(texts(),[SUPPORT_TEXT]);s.dispose();
   // Only the one documented budget key was written, holding no path, identifier or amount.
   assert.ok(env.written.every(k=>k===BUDGET_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// Plan hints in the packaged bundle. Three invented billing cycles on a 2000-credit account: the cycle before the last one ends at 200, the last one at `last`,
+// and the current one (reset 2030-03-01) runs at 20 credits a day. The advisor treats the 2000-credit limit as a Pro+ hint and finds Pro cheaper.
+const HINT_RESETS=['2030-01-01T00:00:00Z','2030-02-01T00:00:00Z','2030-03-01T00:00:00Z'];
+const hintData=(env:ReturnType<typeof communityEnv>,o:{last?:number;currentDays?:number;withFirst?:boolean;limit?:number}={})=>{
+ const {last=600,currentDays=23,withFirst=true,limit=2000}=o;
+ const lines=[
+  ...(withFirst?[budgetLine('2029-12-30 00:00:00.000',100,limit,HINT_RESETS[0]),budgetLine('2029-12-31 00:00:00.000',200,limit,HINT_RESETS[0])]:[]),
+  budgetLine('2030-01-01 06:00:00.000',20,limit,HINT_RESETS[1]),budgetLine('2030-01-15 00:00:00.000',last/2,limit,HINT_RESETS[1]),budgetLine('2030-01-31 12:00:00.000',last,limit,HINT_RESETS[1]),
+  ...Array.from({length:currentDays},(_,d)=>budgetLine(`2030-02-${String(d+1).padStart(2,'0')} 06:00:00.000`,d*20,limit,HINT_RESETS[2])),
+ ];
+ writeFileSync(budgetLogPath(env),lines.join(''));
+};
+const RIGHTSIZE_TEXT=/^If you are on Pro\+: You will likely leave about \d+ credits unused this cycle, and the last cycle also fit within Pro\. Pro would cost about \$20 a month less \(modelled\)\.$/;
+
+test('packaged right-sizing hint: shown in the credit view whenever it holds, as a notice only in the last week, once per cycle',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-rightsize-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,false);
+  const start=async()=>{const s=await communitySession(env,work);open.push(s);return s;};
+  const wipe=()=>{env.infos.length=0;env.atShow.length=0;env.executed.length=0;env.updates.length=0;env.written.length=0;env.timers.length=0;env.panels.length=0;rmSync(env.globalStorage,{recursive:true,force:true});env.store.clear();env.choice=undefined;env.budget=undefined;env.budgetPercent=undefined;};
+  const detail=async(s:Awaited<ReturnType<typeof start>>)=>{await s.commands.get('cyclegauge.showUsage')!();return env.panels.at(-1).webview.html as string;};
+  const lineIn=(html:string)=>html.match(/<p class="small overage">(If you are on Pro\+: You will likely[^<]*)<\/p>/)?.[1];
+  // 6 days before the reset: the notice and the line.
+  wipe();hintData(env);env.now='2030-02-23T06:30:00Z';let s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.equal(budgetInfos(env).length,1);assert.match(budgetInfos(env)[0]!.text,RIGHTSIZE_TEXT);
+  const stored=env.store.get(BUDGET_KEY) as {cycle:string;done:string[]};assert.deepEqual(stored.done,['rightsize']);assert.equal(Date.parse(stored.cycle),Date.parse(HINT_RESETS[2]!));assert.deepEqual(env.atShow,[stored]);
+  assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();
+  // Once per cycle: a later window shows the line but no second notice.
+  env.infos.length=0;s=await start();await s.later();await s.later();assert.deepEqual(budgetInfos(env),[]);assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();
+  // Setting off: no notice, the line stays (it is part of the credit view).
+  wipe();hintData(env);env.budget=false;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();
+  // 13 days before the reset: no notice yet, but the line is already there.
+  wipe();hintData(env,{currentDays:15});env.now='2030-02-15T06:30:00Z';s=await start();await s.later();await s.later();assert.deepEqual(budgetInfos(env),[]);assert.equal(env.store.has(BUDGET_KEY),false);assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();
+  // The last cycle ended above the smaller plan's 1000 credits, or there is no completed cycle with backed usage: nothing, no line.
+  for(const o of [{last:1200},{withFirst:false}]){wipe();hintData(env,o);env.now='2030-02-23T06:30:00Z';s=await start();await s.later();await s.later();assert.deepEqual(budgetInfos(env),[],JSON.stringify(o));assert.equal(lineIn(await detail(s)),undefined,JSON.stringify(o));s.dispose();}
+  // Not Kiro (with a chosen source): the line is part of the view, but there is no notice and nothing is stored.
+  wipe();hintData(env);env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot=join(env.source);s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();env.appName='Kiro';env.uriScheme='kiro';
+  assert.ok(env.written.every(k=>k===BUDGET_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged next-larger-plan comparison: beside the projected overage and on the forecast notice, with list-price facts only',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-larger-plan-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,false);env.now='2030-01-08T00:30:00Z';
+  const wipe=()=>{env.infos.length=0;env.panels.length=0;env.timers.length=0;rmSync(env.globalStorage,{recursive:true,force:true});env.store.clear();env.choice=undefined;};
+  const run=async(limit:number,perDay:number,notice=true)=>{
+   wipe();writeFileSync(budgetLogPath(env),[0,1,2,3,4,5,6,7].map(i=>budgetLine(`2030-01-0${i+1} 00:00:00.000`,i*perDay,limit)).join(''));
+   const s=await communitySession(env,work);open.push(s);if(notice)await until(()=>env.infos.length>0);await s.later();await s.later();
+   await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;s.dispose();
+   return {notice:budgetInfos(env)[0]?.text??'',html};
+  };
+  const COST=/credits over the limit ≈ \$[\d.]+ by the reset, at \$0\.04 per credit \(price list reviewed 10 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings\)\./;
+  // A 1000-credit account (a Pro hint) at 50 credits a day is forecast to pass its limit.
+  const pro=await run(1000,50);
+  assert.match(pro.notice,/^At this pace your Kiro credits run out on /);assert.match(pro.notice,COST);
+  assert.ok(pro.notice.endsWith(' For comparison, if you are on Pro: Pro+ costs $20 a month more and includes 1000 more credits.'),pro.notice);
+  const lines=[...pro.html.matchAll(/<p class="small overage">([^<]*)<\/p>/g)].map(m=>m[1]!);
+  assert.equal(lines.length,2);assert.match(lines[0]!,/^If you continue at this pace: about \d+ credits over the reported limit/);
+  assert.equal(lines[1],'For comparison, if you are on Pro: Pro+ costs $20 a month more than Pro and includes 1000 more credits (list prices, price list reviewed 10 Oct 2026).');
+  assert.ok(!/save|cheaper|recommend|switch/i.test(lines[1]!+pro.notice.slice(pro.notice.indexOf('For comparison'))));
+  // The largest plan has nothing larger; an account whose limit matches no plan has no known plan.
+  for(const [limit,perDay] of [[10000,500],[100,10]] as const){
+   const other=await run(limit,perDay);
+   assert.match(other.notice,/^At this pace your Kiro credits run out on /);assert.ok(!other.notice.includes('For comparison')&&!other.html.includes('For comparison'),String(limit));
+   assert.match(other.html,/If you continue at this pace: about \d+ credits over the reported limit/);
+  }
+  // Without a projected overage there is no line (and no notice).
+  const calm=await run(1000,5,false);assert.equal(calm.notice,'');assert.ok(!calm.html.includes('For comparison'));
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });

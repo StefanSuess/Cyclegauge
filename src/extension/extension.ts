@@ -14,6 +14,7 @@ import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInpu
 import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
 import { decideBudgetNotice } from './budget-warning.ts';
 import type { view } from '../view.ts';
+import type { PlanInsights } from '../cost/plan-hints.ts';
 import { LATER_DAYS, addDays, auditDue, daysBetween, isDate, utcDate } from './audit-schedule.ts';
 import { SNOOZE_DAYS, afterChoice, supportDue, type SupportChoice } from './support-schedule.ts';
 
@@ -520,14 +521,14 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
 // Budget warning: at most one notice per window, in Kiro only and never in the extension tests. The cycle and the kinds already shown are the only
 // state (one global-state key); it is written before the notice is shown, and a failed write means no notice. Every failure is swallowed.
 const BUDGET_KEY = 'cyclegauge.budgetWarning.v1';
-interface BudgetLink { evaluate(observation: ReturnType<typeof view>, eligible: boolean, now: string): void }
+interface BudgetLink { evaluate(observation: ReturnType<typeof view>, eligible: boolean, now: string, insights: PlanInsights): void }
 function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void): BudgetLink {
  let disposed = false, busy = false;
  context.subscriptions.push({ dispose() { disposed = true; } });
  const testing = (): boolean => vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test;
  const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
  return {
-  evaluate(observation, eligible, now) {
+  evaluate(observation, eligible, now, insights) {
    if (disposed || busy) return;
    busy = true; // set before the first await: renders arriving while a notice is open or being decided are ignored, so a window shows at most one
    void (async () => {
@@ -536,7 +537,7 @@ function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void
      if (!inKiro() || testing()) return;
      let stored: unknown;
      try { stored = context.globalState.get<unknown>(BUDGET_KEY); } catch { stored = undefined; }
-     const due = decideBudgetNotice({ view: observation, eligible, now, state: stored, enabled: readBudgetWarnings(get), percent: readBudgetWarningPercent(get) });
+     const due = decideBudgetNotice({ view: observation, eligible, now, insights, state: stored, enabled: readBudgetWarnings(get), percent: readBudgetWarningPercent(get) });
      if (!due) return;
      try { await context.globalState.update(BUDGET_KEY, due.state); } catch { return; }
      if (disposed) return;
@@ -621,7 +622,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now) => budget?.evaluate(o, eligible, now) });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;
