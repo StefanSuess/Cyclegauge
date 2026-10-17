@@ -44,6 +44,7 @@ export async function run(): Promise<void> {
   const commands = await vscode.commands.getCommands(true);
   assert.ok(commands.includes('cyclegauge.showUsage')); assert.ok(commands.includes('cyclegauge.costAdvisor'));
   assert.ok(commands.includes('cyclegauge.auditWorkspace')); // registered only; the audit runs only when a user invokes it
+  assert.ok(commands.includes('cyclegauge.copyDiagnostics')); // registered only; not executed here
   phase = 'panel';
   await vscode.commands.executeCommand('cyclegauge.showUsage');
   await until(() => vscode.window.tabGroups.all.some(group => group.tabs.some(tab => tab.label === 'Your credit budget')), 5_000);

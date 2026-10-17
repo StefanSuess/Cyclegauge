@@ -1,4 +1,5 @@
 import { Store } from '../store.ts';
+import { snapshotFacts, storeStateFor, type DiagnosticsInput, type StoreState } from '../diagnostics.ts';
 import { collect } from '../collector.ts';
 import { view } from '../view.ts';
 import { present } from './presentation.ts';
@@ -28,6 +29,8 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  const advisor=new AdvisorInputs();
  let observation= view([],(options.now ?? (() => new Date().toISOString()))());
  let codes:string[]=[];
+ // Latest fixed status for Copy Diagnostics: codes and counts only, never snapshot values or identifiers.
+ let facts:{store:StoreState;importCodes:Record<string,number>;snapshots?:number;accounts?:number;unassociated?:number;latestMs?:number}={store:'not_opened',importCodes:{}};
  const now=()=> (options.now ?? (() => new Date().toISOString()))();
  const render=()=>{
   let advisorHtml:string;
@@ -57,12 +60,14 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     const single=partitions.size===1&&snapshots.every(s=>s.associated)&&observation.status!=='conflicting_snapshots';
     advisor.observe(single?snapshots[0].partition:null,single?'single':snapshots.length?'ambiguous':'unavailable');
     codes=Object.keys(imported.codes);
+    // Computed on its own: a failure here can never make the gauge unavailable.
+    try{facts={store:'ok',importCodes:{...imported.codes},...snapshotFacts(snapshots)};}catch{facts={store:'ok',importCodes:{}};}
     render();
    } catch (e) {
     // Only two fixed codes are surfaced; everything else stays the generic 'unavailable'.
-    const message=(e as Error)?.message;
-    const code=message==='RUNTIME_UNSUPPORTED'?'runtime_unsupported':message==='STORAGE_NEWER'?'storage_newer':'unavailable';
+    const code=storeStateFor(e);
     advisor.observe(null,'unavailable');
+    facts={store:code,importCodes:{}};
     observation=view([],now());codes=[code];render();
    }
   })();
@@ -84,5 +89,8 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  ui.onChange(() => { void refresh(); });
  ui.everyMinute(() => { void refresh(); });
  await refresh();
- return { refresh, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
+ // No IO: the status kept in memory by the last refresh.
+ const diagnostics=():DiagnosticsInput=>({store:facts.store,status:observation.status,forecast:observation.forecast.tier,snapshots:facts.snapshots,accounts:facts.accounts,unassociated:facts.unassociated,
+  observedAgeMs:facts.latestMs===undefined?null:Date.parse(now())-facts.latestMs,importCodes:facts.importCodes});
+ return { refresh, diagnostics, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
 }
