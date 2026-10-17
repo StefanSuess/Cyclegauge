@@ -1,6 +1,7 @@
 // Technical identity of the extension. No vscode import: unit-testable and shared by the manifest test.
 export const ID_PREFIX = 'cyclegauge';
 export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
+export const AUDIT_VIEW_TYPE = `${ID_PREFIX}.audit`;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;
 
