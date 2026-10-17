@@ -44,9 +44,11 @@ test('refuses when any spelling of the root overlaps any spelling of a protected
  assert.match(refusal([viaAlias, real], [join(alias)], [], home)!, /Kiro data/); await rm(dir, { recursive: true });
 });
 test('refuses folders inside scanner-pruned or Kiro CLI folders, at any depth', () => {
- for (const name of ['.git', '.hg', '.svn', 'node_modules', '.ssh', '.gnupg', '.aws', 'Node_Modules']) assert.match(check(p('work', name, 'synthetic-project'))!, /never audited/, name);
+ for (const name of ['.git', '.hg', '.svn', 'node_modules', 'bower_components', 'jspm_packages', '.terraform', '.pnpm-store', '.ssh', '.gnupg', '.aws', 'Node_Modules']) assert.match(check(p('work', name, 'synthetic-project'))!, /never audited/, name);
  assert.match(check(p('work', 'kiro-cli', 'x'))!, /never audited/); assert.match(check([p('work', 'ok'), p('real', '.ssh')])!, /never audited/);
  assert.equal(check(p('work', 'synthetic-node_modules-copy')), undefined); assert.equal(check(p('work', 'kiro-cli-copy')), undefined);
+ // Folded into a dependency entry by the audit, but walked, so a project inside them may still be audited.
+ assert.equal(check(p('work', 'Pods', 'synthetic-project')), undefined); assert.equal(check(p('work', '.yarn', 'cache', 'synthetic-project')), undefined);
  if (process.platform === 'darwin' || process.platform === 'win32') assert.match(check(p('work', 'Kiro-CLI', 'x'))!, /never audited/); else assert.equal(check(p('work', 'Kiro-CLI', 'x')), undefined);
 });
 test('storage defaults are protected like any other storage path', () => { assert.match(refusal([p('cyclegauge-default', 'x')], [], [p('cyclegauge-default')], home)!, /Cyclegauge storage/); });

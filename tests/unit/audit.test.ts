@@ -158,6 +158,49 @@ test('categorises by name, case-insensitively, with size thresholds', async () =
   assert.deepEqual(r.findings.map(f => f.category), expected ? [expected] : [], `${path} ${size}`);
  }
 });
+// Extended name patterns (informed by public name-based lists, written as our own): one synthetic case per pattern plus near misses.
+test('extended file name patterns classify by name, path and size only', async () => {
+ const table: [string, number, string | undefined][] = [
+  ...['id_dsa', 'id_ecdsa', 'synthetic_rsa', 'synthetic_dsa', 'synthetic_ecdsa', 'synthetic_ed25519', 'credentials.xml', '.git-credentials', '.netrc', '_netrc', '.pgpass', '.htpasswd',
+   '.dockercfg', '.s3cfg', 'sftp-config.json', '.ftpconfig', '.remote-sync.json', '.history', '.bash_history', '.zsh_history', '.mysql_history', '.psql_history', '.irb_history',
+   'synthetic.ppk', 'synthetic.jks', 'synthetic.pkcs12', 'synthetic.kdbx', 'synthetic.kdb', 'synthetic.keychain', 'synthetic.psafe3', 'synthetic.kwallet',
+   'synthetic.ovpn', 'terraform.tfstate', 'terraform.tfstate.backup', 'config/master.key', '.vscode/sftp.json', '.idea/WebServers.xml', 'synthetic-sub/.docker/config.json']
+   .map((p): [string, number, string] => [p, 1, 'secret']),
+  ['synthetic_rsa.pub', 1, undefined], ['synthetic-rsa', 1, undefined], ['.vscode/settings.json', 1, undefined], ['synthetic-docker/config.json', 1, undefined],
+  ['settings.py', 1, undefined], ['database.yml', 1, undefined], ['.npmrc', 1, undefined], ['terraform.tfvars', 1, undefined], ['synthetic.asc', 1, undefined],
+  ...['synthetic.mdf', 'synthetic.sdf', 'synthetic.sqldump'].flatMap((p): [string, number, string | undefined][] => [[p, KIB, 'database'], [p, KIB - 1, undefined]]),
+  ...['synthetic.pcap', 'synthetic.pcapng', 'synthetic.npy', 'synthetic.npz', 'synthetic.pkl', 'synthetic.h5', 'synthetic.hdf5', 'synthetic.feather', 'synthetic.arrow']
+   .flatMap((p): [string, number, string | undefined][] => [[p, MIB, 'data'], [p, MIB - 1, undefined]]),
+ ];
+ for (const [path, size, expected] of table) {
+  const r = await runAudit('/synthetic-root', NAMES, { walkFs: fakeWalk({ [path]: size }), readFs: realRead() });
+  assert.deepEqual(r.findings.map(f => f.category), expected ? [expected] : [], `${path} ${size}`);
+ }
+});
+test('secret stores and dependency folders are reported once as folders; new build folders aggregate', async () => {
+ const builds = ['.gradle', '.pytest_cache', '.mypy_cache', '.ruff_cache', '.tox', '.parcel-cache', '.svelte-kit', '.angular', '.output', '.vercel', '.dart_tool', '.expo',
+  'DerivedData', 'storybook-static', 'elm-stuff', '.stack-work', 'cmake-build-debug'];
+ const files: Record<string, number> = {
+  '.ssh/synthetic.pem': 1, 'synthetic-sub/.gnupg/synthetic-ring': 1, '.aws/credentials.json': 1, 'synthetic.agilekeychain/data/default/synthetic.js': 1, 'dist/synthetic-2.agilekeychain/synthetic.js': 1,
+  'bower_components/synthetic/index.js': 1, 'jspm_packages/synthetic.js': 1, '.terraform/synthetic-provider': 1, '.pnpm-store/synthetic': 1,
+  'Pods/synthetic/x.m': 3, 'Pods/synthetic/y.m': 4, 'pods/synthetic-deploy.yaml': 1, '.yarn/cache/synthetic.zip': 2, '.yarn/releases/synthetic.cjs': 1,
+  'bower_components/.env': 1, 'dist/bower_components/synthetic.js': 1, 'dist/.ssh/synthetic.pem': 1, 'Pods/.env': 1,
+ };
+ for (const b of builds) files[`${b}/synthetic.bin`] = 1;
+ const r = await runAudit('/synthetic-root', NAMES, { walkFs: fakeWalk(files), readFs: realRead() });
+ const of = (c: string) => shape(r).filter(x => x.startsWith(`${c}:`));
+ assert.deepEqual(of('secret'), ['secret:.aws/:not_covered', 'secret:.ssh/:not_covered', 'secret:Pods/.env:not_covered', 'secret:dist/.ssh/:not_covered', 'secret:dist/synthetic-2.agilekeychain/:not_covered',
+  'secret:synthetic-sub/.gnupg/:not_covered', 'secret:synthetic.agilekeychain/:not_covered']);
+ assert.deepEqual(of('dependency'), ['dependency:.pnpm-store/:not_covered', 'dependency:.terraform/:not_covered', 'dependency:.yarn/cache/:not_covered', 'dependency:Pods/:not_covered',
+  'dependency:bower_components/:not_covered', 'dependency:jspm_packages/:not_covered']);
+ assert.equal(r.findings.find(f => f.path === 'Pods')!.size, 8); assert.equal(r.findings.find(f => f.path === '.yarn/cache')!.size, 2);
+ assert.deepEqual(of('build').map(x => x.slice('build:'.length, x.indexOf('/:'))).sort(), [...builds, 'dist'].sort());
+ // dist holds no walked file of its own, but the dependency folder pruned inside it still makes it appear, without a size.
+ assert.equal('size' in r.findings.find(f => f.path === 'dist')!, false);
+ assert.ok(!r.findings.some(f => f.path.startsWith('pods') || f.path.startsWith('.yarn/releases')));
+ // Pruned folders are never entered: a key, a credential file and an .env inside them are not listed one by one.
+ for (const f of r.findings) assert.ok(!/^(dist\/)?(\.ssh|\.aws|bower_components)\//.test(f.path), f.path);
+});
 test('build output folders report once at the topmost matching ancestor', async () => {
  const names = ['dist', 'BUILD', 'out', 'target', '.next', '.nuxt', 'coverage', '.turbo', '.cache', '__pycache__', '.venv', 'venv'];
  const files: Record<string, number> = { 'dist/.env': 5, 'a/Build/b/dist/x.js': 7, 'a/Build/y.js': 1, 'synthetic-src/dist/q.js': 1, 'synthetic-src/dist/node_modules/p.js': 1, 'build': 5, 'synthetic-dist/z.js': 1 };
