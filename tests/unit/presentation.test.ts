@@ -1,7 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { view } from '../../src/view.ts';
+import { mkdtemp, realpath, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { present } from '../../src/extension/presentation.ts';
+import { startExtension } from '../../src/extension/controller.ts';
+import type { AuditSummary } from '../../src/extension/audit-model.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
 const series=(rate:number,limit='1000',count=8)=>Array.from({length:count},(_,i)=>snapshot(`2030-06-${String(i+1).padStart(2,'0')}T00:00:00Z`,String(i*rate),{limit}));
 const render=(rate:number,limit='1000',count=8,now=`2030-06-${String(count).padStart(2,'0')}T00:00:00Z`)=>present(view(series(rate,limit,count),now));
@@ -145,4 +150,71 @@ test('provisional on-track forecasts are neutral, passed resets are labelled, us
  assert.match(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html),/class="hero warn"/);
  assert.ok(!/class="hero ok"/.test(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html)));
  assert.match(hero(render(10,'60').html),/aria-label="100% of the reported credit limit used"/);
+});
+
+// Workspace-check card: counts and times only; its two links are the only links in the view and carry no arguments.
+const card = (audit: AuditSummary | undefined, now = '2030-06-15T12:00:00.000Z') => present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', audit, now).html;
+const hrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map(m => m[1]);
+const ADVISOR = 'command:cyclegauge.costAdvisor';
+const ALLOWED = ['command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show'];
+const cardHrefs = (html: string) => hrefs(html).filter(h => h !== ADVISOR);
+test('workspace-check card: never checked offers only Check now', () => {
+ const html = card({ state: 'never' });
+ assert.match(html, /<h3 id="audit-heading">Workspace check<\/h3>/); assert.match(html, /Check which files Kiro can read but probably doesn&#39;t need\./);
+ assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']); assert.match(html, />Check now<\/a>/); assert.ok(!html.includes('>Show</a>'));
+ assert.ok(html.indexOf('class="stats"') < html.indexOf('class="audit-card"'));
+ assert.match(card({ state: 'never', lastDate: '2030-03-01' }), /Last checked 2030-03-01 \(UTC\)\./);
+ assert.ok(!card({ state: 'never', lastDate: '<b>synthetic</b>' }).includes('Last checked'));
+});
+test('workspace-check card: checked states show the count and a relative time, plus Show', () => {
+ const now = new Date(2030, 5, 15, 12, 0, 0), ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
+ const some = card({ state: 'checked', items: 3, checkedAt: ago(5 * 60_000) }, now.toISOString());
+ assert.match(some, /3 items Kiro may read · checked 5 min ago/); assert.deepEqual(cardHrefs(some), ALLOWED); assert.match(some, />Check now<\/a>/); assert.match(some, />Show<\/a>/);
+ assert.match(card({ state: 'checked', items: 1, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
+ const none = card({ state: 'checked', items: 0, checkedAt: ago(26 * 3_600_000) }, now.toISOString());
+ assert.match(none, /No risky files found · checked (yesterday|2 days ago|today)/); assert.deepEqual(cardHrefs(none), ALLOWED);
+ const mixedCard = card({ state: 'checked', items: 2, unclear: 3, checkedAt: ago(0) }, now.toISOString());
+ assert.match(mixedCard, /2 items Kiro may read · 3 unclear · checked just now/);
+ assert.match(card({ state: 'checked', items: 0, unclear: 4, checkedAt: ago(0) }, now.toISOString()), /4 items to review · checked just now/);
+ assert.match(card({ state: 'checked', items: 2 }), /2 items Kiro may read<\/p>/); // no usable time: no relative part
+});
+test('workspace-check card: unavailable asks for a trusted local folder; no claims of savings', () => {
+ const html = card({ state: 'unavailable' });
+ assert.match(html, /This folder can&#39;t be checked\. Run Check now to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
+ for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
+});
+test('the view has a Cost Advisor link near the top in every state', () => {
+ for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 1 }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
+  const html = card(s);
+  assert.equal(hrefs(html)[0], ADVISOR); assert.match(html, /<p class="top-actions"><a class="button" href="command:cyclegauge\.costAdvisor">Cost Advisor<\/a><\/p>/);
+  assert.ok(html.indexOf('top-actions"') < html.indexOf('class="hero'));
+  assert.equal(hrefs(html).filter(h => h === ADVISOR).length, 1);
+ }
+});
+test('workspace-check card: only the three allowed command links, none with arguments, no other href, no path or folder name, script-free', () => {
+ const states: AuditSummary[] = [{ state: 'never' }, { state: 'checked', items: 4, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'checked', items: 0 }, { state: 'unavailable' }];
+ for (const s of states) {
+  const html = card(s); for (const h of hrefs(html)) { assert.ok([ADVISOR, ...ALLOWED].includes(h!), h); assert.ok(!/[?#%&=({\[]/.test(h!.slice('command:'.length)), h); }
+  assert.ok(!/<script|javascript:|src=|\sonclick=|<form|<iframe/i.test(html)); assert.match(html, /Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"/);
+ }
+ // Even a malicious summary cannot put a name or path into the card: only the number and the time are used.
+ const evil = card({ state: 'checked', items: 2, checkedAt: '2030-06-15T11:59:00Z', folder: '/synthetic/private/folder', name: 'synthetic-folder' } as AuditSummary & Record<string, unknown>);
+ assert.ok(!evil.includes('synthetic-folder') && !evil.includes('/synthetic/private'));
+ assert.deepEqual(hrefs(card(undefined)), [ADVISOR]); assert.ok(!card(undefined).includes('class="audit-card"'));
+ // Garbage never throws and never removes the figures.
+ const garbage = card({ state: 'checked', items: Number.NaN, checkedAt: 'synthetic-not-a-time' }); assert.match(garbage, /No risky files found<\/p>/); assert.match(garbage, /id="status-heading"/);
+});
+test('the controller reads the summary on every render, re-renders on request and drops the card when the getter throws', async () => {
+ const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-audit-card-')));
+ const htmls: string[] = []; let summary: () => AuditSummary = () => ({ state: 'never' });
+ const ui = { setStatus(_t: string, html: string) { htmls.push(html); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
+ try {
+  const extension = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-06-15T12:00:00.000Z', auditSummary: () => summary() });
+  assert.match(htmls.at(-1)!, /Workspace check/);
+  summary = () => ({ state: 'checked', items: 7, checkedAt: '2030-06-15T11:58:00.000Z' }); const count = htmls.length; extension.rerender();
+  assert.equal(htmls.length, count + 1); assert.match(htmls.at(-1)!, /7 items Kiro may read · checked 2 min ago/);
+  summary = () => { throw new Error('synthetic-failure'); }; extension.rerender();
+  assert.ok(!htmls.at(-1)!.includes('Workspace check')); assert.match(htmls.at(-1)!, /id="status-heading"/); assert.deepEqual(hrefs(htmls.at(-1)!), [ADVISOR]);
+  extension.dispose(); const after = htmls.length; extension.rerender(); assert.equal(htmls.length, after);
+ } finally { await rm(base, { recursive: true, force: true }); }
 });

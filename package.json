@@ -62,32 +62,39 @@
       },
       {
         "command": "cyclegauge.audit.accept",
-        "title": "Cyclegauge: Accept Audit Suggestion",
-        "icon": "$(check)"
+        "title": "Exclude from Kiro",
+        "icon": "$(eye-closed)"
       },
       {
         "command": "cyclegauge.audit.dismiss",
-        "title": "Cyclegauge: Ignore Audit Finding",
+        "title": "Not a problem — hide",
         "icon": "$(close)"
       },
       {
         "command": "cyclegauge.audit.reveal",
-        "title": "Cyclegauge: Show in Explorer",
+        "title": "Show in Explorer",
         "icon": "$(go-to-file)"
       },
       {
         "command": "cyclegauge.audit.acceptAll",
-        "title": "Cyclegauge: Accept All Audit Suggestions",
+        "title": "Exclude all from Kiro",
+        "category": "Cyclegauge",
         "icon": "$(check-all)"
       },
       {
         "command": "cyclegauge.audit.copy",
-        "title": "Cyclegauge: Copy Audit Suggestions",
+        "title": "Copy .kiroignore lines",
+        "category": "Cyclegauge",
         "icon": "$(copy)"
       },
       {
         "command": "cyclegauge.audit.clearDismissed",
-        "title": "Cyclegauge: Show Ignored Audit Findings Again"
+        "title": "Show hidden items again",
+        "category": "Cyclegauge"
+      },
+      {
+        "command": "cyclegauge.audit.show",
+        "title": "Cyclegauge: Show Workspace Audit"
       },
       {
         "command": "cyclegauge.audit.resetReminder",
@@ -105,7 +112,7 @@
     "viewsWelcome": [
       {
         "view": "cyclegauge.auditView",
-        "contents": "Find large, generated or sensitive-looking files that Kiro could read in this workspace. The audit runs only when you ask, reads file names and sizes plus workspace ignore files, and writes nothing.\n[Run workspace audit](command:cyclegauge.auditWorkspace)"
+        "contents": "Check which files in this workspace Kiro can read but probably doesn't need — like secrets, database dumps or build output.\n[Check workspace](command:cyclegauge.auditWorkspace)"
       }
     ],
     "configuration": {

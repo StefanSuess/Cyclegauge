@@ -2,6 +2,7 @@ import type { view } from '../view.ts';
 import { compare, compareRatios } from '../decimal.ts';
 import { readable, updated, date } from './labels.ts';
 import { presentChartParts, CHART_CSS } from './chart.ts';
+import { countsText, relativeTime, type AuditSummary } from './audit-model.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -28,8 +29,28 @@ const explanations: Record<string,string> = {
  storage_newer:'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.',
 };
 
+// The links of this view are exactly three Cyclegauge commands (Cost Advisor and the two audit commands); none carries arguments.
+// The workspace-check card shows counts and times only, never a path or folder name.
+const ADVISOR_LINK = 'command:cyclegauge.costAdvisor';
+const AUDIT_LINK = { check: 'command:cyclegauge.auditWorkspace', show: 'command:cyclegauge.audit.show' } as const;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+function auditCard(a: AuditSummary | undefined, now: string): string {
+ try { return buildAuditCard(a, now); } catch { return ''; } // the card can never take the gauge down
+}
+function buildAuditCard(a: AuditSummary | undefined, now: string): string {
+ if (!a) return '';
+ const ago = a.state === 'checked' ? relativeTime(a.checkedAt, new Date(now)) : '';
+ const checked = ago ? ` · checked ${ago}` : '';
+ const count = (n: number | undefined): number => n !== undefined && Number.isInteger(n) && n >= 0 ? n : 0;
+ const items = count(a.items), unclear = count(a.unclear);
+ const text = a.state === 'checked' ? `${countsText(items, unclear)}${checked}`
+  : a.state === 'unavailable' ? "This folder can't be checked. Run Check now to see why."
+  : `Check which files Kiro can read but probably doesn't need.${a.lastDate && DAY.test(a.lastDate) ? ` Last checked ${a.lastDate} (UTC).` : ''}`;
+ return `<section class="audit-card" aria-labelledby="audit-heading"><h3 id="audit-heading">Workspace check</h3><p>${safe(text)}</p><p class="audit-actions"><a class="button" href="${AUDIT_LINK.check}">Check now</a>${a.state === 'checked' ? ` <a class="button" href="${AUDIT_LINK.show}">Show</a>` : ''}</p></section>`;
+}
+
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '') {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString()) {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -93,6 +114,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .hero h2{font-size:1.8rem;line-height:1.2;margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:10px}.status-icon{display:inline-flex;align-items:center;justify-content:center;width:1.4em;height:1.4em;border-radius:50%;border:2px solid var(--tone);color:var(--tone);font-size:.7em;font-weight:700}.tag{font-size:.8rem;font-weight:400;border:1px solid var(--vscode-panel-border);border-radius:12px;padding:1px 9px;color:var(--vscode-descriptionForeground)}
  .lead{font-size:1.05rem;margin:10px 0 14px}.bar{height:10px;border-radius:5px;background:var(--vscode-panel-border);overflow:hidden;margin:6px 0 16px}.bar>span{display:block;height:100%;background:var(--tone)}.bar-label{margin:-10px 0 16px}
  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin:0}.stat dt{color:var(--vscode-descriptionForeground);font-size:.9rem}.stat dd{margin:0;font-size:1.35rem;font-weight:600;overflow-wrap:anywhere}.stat dd.small{font-size:.9rem;font-weight:400}
+ .top-actions{margin:0 0 12px}.audit-card h3{margin:0 0 4px;font-size:1rem}.audit-card p{margin:4px 0}.audit-actions{display:flex;flex-wrap:wrap;gap:8px}a.button{display:inline-block;padding:2px 10px;border:1px solid var(--vscode-button-border,var(--vscode-panel-border));border-radius:4px;text-decoration:none}
  .meta{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--vscode-panel-border)}
  .badge{display:inline-block;padding:1px 9px;border:1px solid var(--vscode-panel-border);border-radius:12px;font-size:.85rem}.verdict{font-size:1.05rem;font-weight:600;margin:10px 0}.plan-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.plan-row strong{font-size:1.2rem}.action{border:1px dashed var(--vscode-panel-border);border-radius:8px;padding:8px 12px;margin:10px 0}
  table{border-collapse:collapse;width:100%}th,td{text-align:left;vertical-align:top;padding:9px 0;border-bottom:1px solid var(--vscode-panel-border);overflow-wrap:anywhere}th{width:45%;font-weight:400;color:var(--vscode-descriptionForeground);padding-right:16px}
@@ -103,11 +125,13 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  @media(forced-colors:active){.hero{border-left-color:Highlight}.bar>span{background:Highlight}}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
+ <p class="top-actions"><a class="button" href="${ADVISOR_LINK}">Cost Advisor</a></p>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
  <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}
  ${usedPct===null ? '' : `<div class="bar" role="img" aria-label="${usedPct}% of the reported credit limit used"><span style="width:${usedPct}%"></span></div><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
+ ${auditCard(audit, now)}
  ${advisorHtml}
  ${chart.main}
  ${costHtml}

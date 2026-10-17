@@ -117,4 +117,4 @@ M4A was accepted; Task 5 and responsive ordinary comparisons are approved and im
 
 ## 0.5.2 Advisor presentation boundary
 
-`src/cost/advisor.ts` builds conditional engine inputs; `src/cost/estimate.ts` reads exact engine results over matched full cycles. Neither accesses storage, VS Code or networks. `AdvisorInputs` binds session-only answers to the existing private account partition, clearing on account change or ambiguity and rejecting late editors. Native commands invoke the script-free renderer; there is no command-URI bridge or persistence (SC5 open).
+`src/cost/advisor.ts` builds conditional engine inputs; `src/cost/estimate.ts` reads exact engine results over matched full cycles. Neither accesses storage, VS Code or networks. `AdvisorInputs` binds session-only answers to the existing private account partition, clearing on account change or ambiguity and rejecting late editors. Native commands invoke the script-free renderer; the detail view stays script-free and enables command links only for `cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace` and `cyclegauge.audit.show` through the webview command allowlist.
