@@ -169,3 +169,48 @@ test('result contains no absolute paths', async () => {
  assert.ok(all.length > 0); for (const p of all) { assert.ok(!p.startsWith(t.root)); assert.ok(!p.startsWith('/')); assert.ok(!/^[A-Za-z]:/.test(p)); assert.ok(!p.includes('\\')); }
  assert.ok(!JSON.stringify(r).includes(t.base)); await rm(t.base, { recursive: true });
 });
+test('reports the one directory whose listing was halted part-way', async () => {
+ const { fs } = fake(sample);
+ const root = await walkWorkspace('/synthetic-root', { fs, limits: { maxEntries: 2 } });
+ assert.equal(root.status, 'partial'); assert.equal(root.incomplete, '');
+ const nested = await walkWorkspace('/synthetic-root', { fs, limits: { maxEntries: 3 } });
+ assert.equal(nested.status, 'partial'); assert.deepEqual(nested.reasons, ['entry_limit']); assert.equal(nested.incomplete, 'synthetic-b');
+ const done = await walkWorkspace('/synthetic-root', { fs, limits: { maxEntries: 4 } });
+ assert.equal(done.status, 'complete'); assert.equal('incomplete' in done, false);
+ const mid = new AbortController(); let n = 0; const counted = { ...fs, async lstat(p: string) { const s = await fs.lstat(p); if (++n === 4) mid.abort(); return s; } };
+ const cancelled = await walkWorkspace('/synthetic-root', { fs: counted, signal: mid.signal, limits: { yieldEvery: 1 } });
+ assert.deepEqual(cancelled.reasons, ['cancelled']); assert.equal(typeof cancelled.incomplete, 'string');
+});
+test('does not report incomplete for unavailable roots or limits that skip whole directories', async () => {
+ const { fs } = fake(sample);
+ const before = new AbortController(); before.abort();
+ assert.equal('incomplete' in await walkWorkspace('/synthetic-root', { fs, signal: before.signal }), false);
+ const t = await temp(); await put(t.root, 'synthetic-a/synthetic-b/synthetic-low.txt');
+ const deep = await walkWorkspace(t.root, { limits: { maxDepth: 1 } }); assert.equal(deep.status, 'partial'); assert.equal('incomplete' in deep, false);
+ assert.equal('incomplete' in await walkWorkspace(join(t.base, 'synthetic-missing')), false); await rm(t.base, { recursive: true });
+});
+test('lists symlink entries by relative path without following them and counts them toward the entry limit', async () => {
+ const t = await temp(); const outside = join(t.base, 'synthetic-outside'); await put(outside, 'synthetic-secret.txt', 'outside'); await put(t.root, 'synthetic-real.txt', 'r'); await put(t.root, 'synthetic-sub/synthetic-x.txt', 'x');
+ await symlink(join(outside, 'synthetic-secret.txt'), join(t.root, 'synthetic-file-link')); await symlink(outside, join(t.root, 'synthetic-sub', 'synthetic-dir-link'), process.platform === 'win32' ? 'junction' : 'dir');
+ const r = await walkWorkspace(t.root);
+ assert.deepEqual(r.links, ['synthetic-file-link', 'synthetic-sub/synthetic-dir-link']); assert.equal(r.counts.symlinks, 2); assert.ok(!JSON.stringify(r.links).includes(t.base)); assert.deepEqual(paths(r), ['synthetic-real.txt', 'synthetic-sub/synthetic-x.txt']);
+ const tree: Record<string, Node> = { '': { dir: ['synthetic-a', 'synthetic-b', 'synthetic-c'] }, 'synthetic-a': { link: true }, 'synthetic-b': { link: true }, 'synthetic-c': { file: 1 } };
+ const limited = await walkWorkspace('/synthetic-root', { fs: fake(tree).fs, limits: { maxEntries: 2 } });
+ assert.equal(limited.status, 'partial'); assert.deepEqual(limited.reasons, ['entry_limit']); assert.deepEqual(limited.links, ['synthetic-a', 'synthetic-b']); assert.deepEqual(limited.files, []); assert.equal(limited.incomplete, '');
+ assert.equal((await walkWorkspace('/synthetic-root', { fs: fake(tree).fs, limits: { maxEntries: 3 } })).status, 'complete');
+ const f = fake(sample); const fs: WalkFs = { ...f.fs, async lstat(p) { const st = await f.fs.lstat(p); return f.key(p) === 'synthetic-b' ? { ...st, isDirectory: () => false, isSymbolicLink: () => true } : st; } };
+ assert.deepEqual((await walkWorkspace('/synthetic-root', { fs })).links, ['synthetic-b']);
+ assert.deepEqual((await walkWorkspace(join(t.base, 'synthetic-missing'))).links, []); await rm(t.base, { recursive: true });
+});
+test('lists unreadable, type-changed and special entries by relative path and counts them toward the entry limit', async () => {
+ const failing = await walkWorkspace('/synthetic-root', { fs: fake(sample, { 'synthetic-b': 'EACCES', 'synthetic-a.txt': 'ENOENT' }).fs });
+ assert.deepEqual(failing.odd, ['synthetic-a.txt', 'synthetic-b']); assert.equal(failing.counts.unreadable, 2);
+ const pipe: Record<string, Node> = { '': { dir: ['synthetic-pipe', 'synthetic-a.txt', 'synthetic-z'] }, 'synthetic-pipe': { special: true }, 'synthetic-a.txt': { file: 1 }, 'synthetic-z': { special: true } };
+ const all = await walkWorkspace('/synthetic-root', { fs: fake(pipe).fs }); assert.deepEqual(all.odd, ['synthetic-pipe', 'synthetic-z']); assert.equal(all.counts.special, 2);
+ const limited = await walkWorkspace('/synthetic-root', { fs: fake(pipe).fs, limits: { maxEntries: 2 } });
+ assert.equal(limited.status, 'partial'); assert.deepEqual(limited.reasons, ['entry_limit']); assert.deepEqual(limited.odd, ['synthetic-pipe']); assert.deepEqual(paths(limited), ['synthetic-a.txt']);
+ const f = fake(sample); const retyped: WalkFs = { ...f.fs, async lstat(p) { const st = await f.fs.lstat(p); return f.key(p) === 'synthetic-a.txt' ? { ...st, isFile: () => false } : st; } };
+ assert.deepEqual((await walkWorkspace('/synthetic-root', { fs: retyped })).odd, ['synthetic-a.txt']);
+ const dev = fresh(); dev['synthetic-b']!.dev = 2; assert.deepEqual((await walkWorkspace('/synthetic-root', { fs: fake(dev).fs })).odd, ['synthetic-b']);
+ assert.deepEqual((await walkWorkspace('/synthetic-root', { fs: fake(sample).fs })).odd, []);
+});
