@@ -24,6 +24,8 @@ const explanations: Record<string,string> = {
  missing_billing:'Required credit usage or limit information is missing.',
  unsupported_extra_credits:'Extra-credit information is not supported, so a forecast is unavailable.',
  unavailable:'Waiting for usable local account updates.',
+ runtime_unsupported:'This Kiro version does not provide the SQLite support Cyclegauge needs. Update Kiro to use the credit gauge; the workspace audit still works.',
+ storage_newer:'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.',
 };
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
@@ -33,7 +35,8 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const stale=o.status==='stale' || f.reasons.includes('stale');
  const collecting=!stale && o.status==='observed' && f.reasons.includes('insufficient_comparable_coverage');
  const eligible=!stale && o.status==='observed' && f.status==='qualified' && !!selected;
- const reason=f.reasons[0] ?? o.status;
+ const blocked=diagnostics.find(c=>c==='runtime_unsupported' || c==='storage_newer');
+ const reason=blocked ?? f.reasons[0] ?? o.status;
  const tier=stale ? 'Forecast paused — stale data' : f.tier==='provisional' && eligible ? 'Provisional estimate – limited history' : eligible ? 'Regular forecast' : collecting ? 'Forecast not ready yet — more history needed' : 'Forecast unavailable';
  const budget=o.availablePerDay;
  const exhausted=eligible && selected.exhaustionStatus==='already_exhausted_as_of';
@@ -114,5 +117,6 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  <h3>Observed history</h3><p>Only retained, comparable account updates support the forecast. Missing days stay unknown.</p><table>${windowRows}${row('Reported credit limit (CREDIT)',o.baseLimit)}</table><details><summary>Recent account updates and daily changes</summary><table>${h.points.slice(-8).map(p=>row(p.observedAt,p.usage)).join('')}</table><h4>Daily observed changes (UTC)</h4><table>${h.days.slice(-14).map(d=>row(d.day+(d.complete ? ' (complete)' : ' (partial/unknown)'),d.netChange)).join('')}</table><p class="muted small">Partial values cover only supported intervals within that day. Cross-day changes are never distributed across missing days.</p></details>
  <h3>Data quality / notes</h3><p>The daily budget summary is truncated to one decimal; the exact allowance is in the technical details. Daily budget is an allocation of the remaining reported capacity at the last observation across the time left until reset, using 24-hour days. The reported credit limit is not verified as base-only or total capacity; it may include purchased add-on credits, and usage can exceed it. Usage since that account update is unknown. Extra credits, purchased balances and total availability remain unknown.</p><p class="muted small">Forecast policy v${f.policy.version}: provisional estimates need 3 comparable updates over at least 48 hours; regular in-cycle forecasts need 8 over at least 7 days. Pooled 7/14/28/84-day estimates need enough observed time, updates on enough different days and no single dominant interval; unobserved time is never counted as zero. Positive gaps over 36 hours are barriers for in-cycle methods, and the latest update must be fresh (${f.policy.maxAgeHours} hours).</p><h4>Technical details</h4><table>${details}</table><h4>Forecast methods</h4><table>${methods}</table><h4>Gaps and quality barriers</h4><table>${h.coverage.gaps.slice(-8).map(g=>row(`${g.from} to ${g.to}`,readable(g.reason))).join('')}</table><p class="muted small">Unknown periods are not zero. Interval net changes are not gross charges. Exact rolling boundaries must be observed; no daily consumption is invented.</p>
  </details></section></main></body></html>`;
+ if(blocked)return {text:'$(warning) Kiro: update needed',tooltip:explanations[blocked],warning:true,html};
  return {text:`${warning ? '$(warning)' : '$(gauge)'} Kiro: ${status}`,tooltip,warning,html};
 }

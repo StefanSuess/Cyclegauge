@@ -58,9 +58,12 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     advisor.observe(single?snapshots[0].partition:null,single?'single':snapshots.length?'ambiguous':'unavailable');
     codes=Object.keys(imported.codes);
     render();
-   } catch {
+   } catch (e) {
+    // Only two fixed codes are surfaced; everything else stays the generic 'unavailable'.
+    const message=(e as Error)?.message;
+    const code=message==='RUNTIME_UNSUPPORTED'?'runtime_unsupported':message==='STORAGE_NEWER'?'storage_newer':'unavailable';
     advisor.observe(null,'unavailable');
-    observation=view([],now());codes=['unavailable'];render();
+    observation=view([],now());codes=[code];render();
    }
   })();
   try { await running; } finally { running = undefined; }

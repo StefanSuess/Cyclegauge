@@ -43,5 +43,5 @@ try {
    console.log(`Status: ${observation.status}\nObserved at: ${value(observation.observedAt)}\nSource: GetUsageLimitsCommand\nObserved usage: ${value(observation.usage)} CREDIT\nBase limit: ${value(observation.baseLimit)} CREDIT\nRemaining base credits (as observed): ${value(observation.remainingBaseCredits)}\nReset (UTC): ${value(observation.resetAt)}\nAvailable base credits per remaining UTC 24-hour day: ${value(observation.availablePerDay)}\nAllocation only; truncated to six decimals. Total including extra credits: unknown.\nInterval: ${observation.interval.status}\nQuality: ${observation.flags.join(', ') || 'none'}\nImport: ${imported.imported} accepted, ${imported.duplicates} duplicates\nDiagnostics: ${Object.entries(imported.codes).map(([code, count]) => `${code}=${count}`).join(', ') || 'none'}\nCache: ${output.cache}\nPlatform verification: ${output.platformVerification}`);
   }
  }
-} catch (e) { console.log(stage === 'STORAGE_UNAVAILABLE' && (e as Error)?.message === 'STORAGE_NEWER' ? 'STORAGE_NEWER' : stage); process.exitCode = 1; }
+} catch (e) { console.log(stage === 'STORAGE_UNAVAILABLE' && ['STORAGE_NEWER', 'RUNTIME_UNSUPPORTED'].includes((e as Error)?.message) ? (e as Error).message : stage); process.exitCode = 1; }
 finally { try { store?.close(); } catch { process.exitCode = 1; } }
