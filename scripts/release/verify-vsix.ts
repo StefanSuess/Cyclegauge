@@ -27,9 +27,9 @@ export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
 export const EXPECTED_ID = 'StefanSuess.cyclegauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
 // The audit reminder and community prompt settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
-const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number }> = {
+const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number; enum?: string[] }> = {
  auditReminderDays: { type: 'number', default: 30, minimum: 0, maximum: 365 },
- auditAutomatically: { type: 'boolean', default: false },
+ auditAutomatically: { type: 'string', default: 'off', enum: ['off', 'onOpen', 'onOpenAndChanges'] },
  supportPrompts: { type: 'boolean', default: true },
 };
 
@@ -78,7 +78,8 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
    for (const [key, expected] of Object.entries(USER_SETTINGS)) {
     const p = props[`cyclegauge.${key}`];
     if (p?.scope !== 'application') problems.push('MANIFEST_SETTING_SCOPE');
-    if (p?.type !== expected.type || p?.default !== expected.default || p?.minimum !== expected.minimum || p?.maximum !== expected.maximum) problems.push('MANIFEST_SETTING_TYPE');
+    if (p?.type !== expected.type || p?.default !== expected.default || p?.minimum !== expected.minimum || p?.maximum !== expected.maximum
+     || JSON.stringify(p?.enum) !== JSON.stringify(expected.enum)) problems.push('MANIFEST_SETTING_TYPE');
    }
   } catch { problems.push('MANIFEST_JSON'); }
  }

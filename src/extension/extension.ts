@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
-import { runAudit, snippet, type AuditResult, type Finding } from '../audit/audit.ts';
+import { WATCH_GLOB, runAudit, snippet, type AuditResult, type Finding } from '../audit/audit.ts';
+import { PRUNE } from '../audit/walk.ts';
 import { validIgnoreNames } from '../audit/read-ignore.ts';
 import { lstatSync, realpathSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { refusal } from './audit-root.ts';
 import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
@@ -36,8 +37,8 @@ function registerDiagnostics(context: vscode.ExtensionContext): void {
  context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'copyDiagnostics', copy));
 }
 // The audit runs when the user invokes the command, or from the reminder: a prompt once per window when the workspace has never been
-// audited or is due again (reminderDays), and, only if the user turned on cyclegauge.auditAutomatically in their own user settings, a silent
-// re-run of the same audit when it is due. Cyclegauge itself writes no file and no setting: Accept only prepares an
+// audited or is due again (reminderDays), and, only if the user set cyclegauge.auditAutomatically in their own user settings, a silent
+// re-run of the same audit when it is at least a day old (and, in onOpenAndChanges, after matching files appear). Cyclegauge itself writes no file and no setting: Accept only prepares an
 // unsaved edit, and the only things persisted are, in the editor's per-workspace state, the salted-hash list of ignored findings
 // and, for the reminder, the UTC date of the last audit, a snooze date and a "never remind" flag. No path is ever stored.
 const DISMISSED_KEY = 'cyclegauge.audit.dismissed.v1';
@@ -46,6 +47,9 @@ const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
 const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
 const REMINDER_DELAY_MS = 30_000;
 const RECHECK_DELAY_MS = 1_000; // coalesces a burst of saves or setting changes into one re-check
+const WATCH_DELAY_MS = 5_000; // a build or checkout creating many matching files leads to one re-check after it settles
+const WATCH_MAX_WAIT_MS = 60_000;
+const MAX_CREATED = 1_000; // created paths kept in memory between re-checks; beyond it only a previous result can attribute new secrets
 interface Dismissed { salt: string; hashes: string[] }
 // What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
@@ -149,7 +153,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;
-  if (recheckOf !== chosen) { accepted.clear(); pendingSave = undefined; }
+  if (recheckOf !== chosen || chosen !== root) { accepted.clear(); pendingSave = undefined; }
   result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; checkedAt = new Date().toISOString(); refused = false;
   await recordAudit(outcome);
   render();
@@ -238,7 +242,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  });
  register('audit.clearDismissed', async () => { await context.workspaceState.update(DISMISSED_KEY, undefined); render(); });
  // The only way back from "never remind": clears the snooze and the flag; the date of the last audit is kept.
- register('audit.resetReminder', async () => { await store(SNOOZE_KEY, undefined); await store(NEVER_KEY, undefined); notify('Audit reminder reset for this workspace.'); });
+ register('audit.resetReminder', async () => { await store(SNOOZE_KEY, undefined); await store(NEVER_KEY, undefined); syncWatcher(); notify('Audit reminder reset for this workspace.'); });
  // Once per window, shortly after activation. Every failure here is swallowed: it must never affect the gauge or the audit command.
  const checkReminder = async (): Promise<void> => {
   try {
@@ -248,7 +252,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    if (!folder || 'reason' in folderCheck(folder)) return;
    // Application scope, read without a folder: only the user's own settings count, never a workspace's.
    const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
-   const days = readReminderDays(get), automatic = readAuditAutomatically(get), today = utcDate(new Date());
+   const days = readReminderDays(get), automatic = readAuditAutomatically(get) !== 'off', today = utcDate(new Date());
    const last = stored(LAST_KEY), due = auditDue({ today, last, snoozeUntil: stored(SNOOZE_KEY), neverRemind: stored(NEVER_KEY), reminderDays: days, automatic });
    if (due === 'none') return;
    if (due === 'auto') {
@@ -268,26 +272,102 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    const choice = await vscode.window.showInformationMessage(text, 'Run audit', 'Later', never);
    if (disposed) return;
    if (choice === 'Run audit') await audit();
-   else if (choice === never) await store(NEVER_KEY, true);
+   else if (choice === never) { await store(NEVER_KEY, true); syncWatcher(); }
    else await store(SNOOZE_KEY, addDays(today, due === 'first' ? days : LATER_DAYS)); // the first prompt waits a whole period
   } catch { /* fixed and silent */ }
  };
  const timer = setTimeout(() => checkReminder(), REMINDER_DELAY_MS);
  timer.unref?.();
- context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); if (recheckTimer) clearTimeout(recheckTimer); reminderAbort?.abort(); } });
- // A checked workspace is re-checked silently when its ignore rules change, so the list and the card never show stale coverage.
- const recheck = (): void => {
-  if (disposed || !result || root === '') return;
+ // The optional watcher (onOpenAndChanges): its folder, and the root-relative paths created since the last re-check. Memory only.
+ let watcher: vscode.FileSystemWatcher | undefined, watchRoot = '', noticeDay = '', overflow = false;
+ const created = new Set<string>();
+ context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); if (recheckTimer) clearTimeout(recheckTimer); reminderAbort?.abort(); watcher?.dispose(); watcher = undefined; created.clear(); } });
+ // Watch-driven re-checks follow the same consent as automatic runs: the mode is on, reminders are on, the workspace was audited
+ // before, and it is neither snoozed nor set to "don't remind me". Checked when a file appears and again when the re-check fires.
+ const watchConsent = (): boolean => {
+  const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
+  const snooze = stored(SNOOZE_KEY);
+  return readAuditAutomatically(get) === 'onOpenAndChanges' && readReminderDays(get) > 0 && stored(NEVER_KEY) !== true
+   && isDate(stored(LAST_KEY)) && !(isDate(snooze) && utcDate(new Date()) < snooze);
+ };
+ // At most one notice per window and UTC day: only for secrets findings that were not in the previous result of this folder and
+ // that a file created since then accounts for. Without a previous result, only the created paths count.
+ const noticeNewSecrets = async (outcome: AuditResult | undefined, before: Set<string> | undefined, fresh: string[], overflowed: boolean): Promise<void> => {
+  const today = utcDate(new Date());
+  if (!outcome || outcome.status === 'unavailable' || outcome.reasons.includes('cancelled') || noticeDay === today || disposed) return;
+  if (overflowed && before === undefined) return;
+  const touched = (f: Finding): boolean => overflowed || fresh.some(c => c === f.path || c.startsWith(`${f.path}/`));
+  const found = visible().filter(f => f.category === 'secret' && !before?.has(findingKey(f)) && touched(f));
+  if (found.length === 0) return;
+  noticeDay = today;
+  const message = `${found.length === 1 ? 'A new file that may contain secrets' : `${found.length} new files that may contain secrets`} appeared in this workspace. Kiro may read ${found.length === 1 ? 'it' : 'them'}.`;
+  if (!viewReady) { notify(message); return; }
+  if (await vscode.window.showInformationMessage(message, 'Show') === 'Show') await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`);
+ };
+ // One timer serves both re-checks: after ignore rules change (a checked workspace, so the view and card are never stale) and after
+ // matching files appear in the watched folder. Never alongside a running audit; each reason is re-validated when it fires.
+ let recheckTarget = '', pendingIgnore = false, pendingWatch = false, watchSince = 0;
+ const schedule = (delay: number): void => {
   if (recheckTimer) clearTimeout(recheckTimer);
-  recheckTimer = setTimeout(() => {
-   recheckTimer = undefined;
-   if (disposed || !result) return;
-   if (running) { recheck(); return; } // after a running audit, never alongside it
-   const abort = new AbortController();
-   reminderAbort = abort; running = true;
-   void auditOnce(true, abort.signal, root).catch(() => undefined).finally(() => { running = false; reminderAbort = undefined; });
-  }, RECHECK_DELAY_MS);
+  recheckTimer = setTimeout(fireRecheck, delay);
   recheckTimer.unref?.();
+ };
+ const fireRecheck = (): void => {
+  recheckTimer = undefined;
+  if (disposed) return;
+  if (running) { schedule(RECHECK_DELAY_MS); return; } // after a running audit, never alongside it
+  const watch = pendingWatch && recheckTarget === watchRoot && watchConsent(), ignore = pendingIgnore && !!result;
+  const fresh = [...created], overflowed = overflow;
+  pendingWatch = false; pendingIgnore = false; created.clear(); overflow = false;
+  if (!watch && !ignore) return;
+  const target = recheckTarget;
+  const before = result && root === target ? new Set(visible().filter(f => f.category === 'secret').map(findingKey)) : undefined;
+  const abort = new AbortController();
+  reminderAbort = abort; running = true;
+  void auditOnce(true, abort.signal, target).catch(() => undefined).finally(() => { running = false; reminderAbort = undefined; })
+   .then(outcome => watch ? noticeNewSecrets(outcome, before, fresh, overflowed) : undefined).catch(() => undefined);
+ };
+ const recheck = (): void => {
+  if (disposed || root === '' || !result) return;
+  pendingIgnore = true; recheckTarget = root;
+  schedule(RECHECK_DELAY_MS);
+ };
+ const watchEvent = (rel: string): void => {
+  if (disposed || watchRoot === '' || !watchConsent()) return;
+  if (created.size < MAX_CREATED) created.add(rel); else overflow = true;
+  if (!pendingWatch) watchSince = Date.now();
+  pendingWatch = true; recheckTarget = watchRoot;
+  // A steady stream of matching files is still re-checked: after a minute the pending timer is no longer pushed back.
+  if (recheckTimer && Date.now() - watchSince >= WATCH_MAX_WAIT_MS) return;
+  schedule(WATCH_DELAY_MS);
+ };
+ // Root-relative path of a created entry in the watched folder, or undefined outside it or inside a folder the audit never enters.
+ const watchedPath = (uri: vscode.Uri): string | undefined => {
+  if (uri.scheme !== 'file' || watchRoot === '') return undefined;
+  const rel = relative(watchRoot, uri.fsPath);
+  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) return undefined;
+  const segs = rel.split(sep);
+  return segs.slice(0, -1).some(seg => PRUNE.has(seg.toLowerCase())) ? undefined : segs.join('/');
+ };
+ // Watches only in onOpenAndChanges, in one trusted local folder that may be audited, with reminders on for it.
+ const syncWatcher = (): void => {
+  try {
+   const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
+   const all = vscode.workspace.workspaceFolders ?? [];
+   const folder = all.length === 1 && all[0]!.uri.scheme === 'file' ? all[0]! : undefined;
+   const want = !disposed && folder && vscode.workspace.isTrusted && readAuditAutomatically(get) === 'onOpenAndChanges' && readReminderDays(get) > 0
+    && stored(NEVER_KEY) !== true && !('reason' in folderCheck(folder)) ? folder : undefined;
+   if (want && watcher && watchRoot === want.uri.fsPath) return;
+   watcher?.dispose(); watcher = undefined; watchRoot = ''; created.clear(); overflow = false;
+   // A re-check the old watcher scheduled no longer runs; one for changed ignore rules still does.
+   if (pendingWatch) { pendingWatch = false; if (!pendingIgnore && recheckTimer) { clearTimeout(recheckTimer); recheckTimer = undefined; } }
+   if (!want || !vscode.workspace.createFileSystemWatcher) return;
+   const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(want, WATCH_GLOB), false, true, true);
+   watcher = w; watchRoot = want.uri.fsPath;
+   w.onDidCreate(uri => {
+    try { const rel = watchedPath(uri); if (rel !== undefined) watchEvent(rel); } catch { /* a missed event leaves the last result */ }
+   });
+  } catch { watcher?.dispose(); watcher = undefined; watchRoot = ''; }
  };
  // Only `.kiroignore` and the files named by Agent Ignore Files, directly in the checked folder; the file itself is not read here.
  const isIgnoreFile = (path: string): boolean => {
@@ -300,7 +380,11 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  }));
  if (vscode.workspace.onDidChangeConfiguration) context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(event => {
   try { if (event.affectsConfiguration('kiroAgent.agentIgnoreFiles')) recheck(); } catch { /* a missed re-check leaves the last result */ }
+  try { if (event.affectsConfiguration(`${ID_PREFIX}.auditAutomatically`) || event.affectsConfiguration(`${ID_PREFIX}.auditReminderDays`)) syncWatcher(); } catch { /* the watcher stays as it was */ }
  }));
+ if (vscode.workspace.onDidChangeWorkspaceFolders) context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => syncWatcher()));
+ if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
+ syncWatcher();
  try {
   const emitter = new vscode.EventEmitter<AuditNode | undefined>();
   changed = emitter;
