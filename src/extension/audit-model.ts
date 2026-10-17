@@ -54,6 +54,17 @@ export function formatSize(bytes: number): string {
  return `${v >= 100 ? v.toFixed(0) : v.toFixed(1)} ${units[i]}`;
 }
 
+/** Total size for the audit: 1024-based B, KiB, MiB and GiB (the same units as the per-file tooltip), whole KiB and one decimal from MiB up. */
+export function formatBytes(bytes: number): string {
+ const KIB = 1024, MIB = KIB * KIB, GIB = MIB * KIB;
+ if (bytes < KIB) return `${Math.floor(bytes)} B`;
+ const kib = Math.round(bytes / KIB);
+ if (kib < KIB) return `${kib} KiB`;
+ const mib = Math.round(bytes / MIB * 10) / 10;
+ if (mib < KIB) return `${mib.toFixed(1)} MiB`;
+ return `${(bytes / GIB).toFixed(1)} GiB`;
+}
+
 export type NodeKind = 'header' | 'info' | 'group' | 'finding' | 'footer';
 /** What activating (clicking) an info or footer node does; the extension glue maps it to a command. */
 export type NodeAction = 'openIgnoreSetting' | 'clearDismissed';
@@ -67,17 +78,39 @@ export const findingKey = (f: Pick<Finding, 'category' | 'path'>): string => `${
 export const dismissHash = (salt: string, category: string, path: string): string => createHash('sha256').update(`${salt}\0${category}\0${path}`).digest('hex');
 export const isHash = (s: unknown): s is string => typeof s === 'string' && /^[0-9a-f]{64}$/.test(s);
 
-/** Count wording shared by the sidebar, the messages and the dashboard card: `items` are known not excluded, `unclear` could not be established. */
-export function countsText(items: number, unclear: number): string {
+/** Count wording shared by the sidebar, the messages and the dashboard card: `items` are known not excluded, `unclear` could not be established. `size` (e.g. "about 240.3 MB") goes after "Kiro may read". */
+export function countsText(items: number, unclear: number, size = ''): string {
  const n = (k: number): string => `${k} ${k === 1 ? 'item' : 'items'}`;
- return items > 0 ? `${n(items)} Kiro may read${unclear > 0 ? ` · ${unclear} unclear` : ''}` : unclear > 0 ? `${n(unclear)} to review` : 'No risky files found';
+ return items > 0 ? `${n(items)} Kiro may read${size ? ` (${size})` : ''}${unclear > 0 ? ` · ${unclear} unclear` : ''}` : unclear > 0 ? `${n(unclear)} to review` : 'No risky files found';
 }
 /** Items Kiro may read (coverage not_covered, listed) and unclear ones (coverage unknown, plus those beyond the listed maximum). */
 export const countFindings = (findings: readonly Pick<Finding, 'coverage'>[], omitted: number): { items: number; unclear: number } =>
  ({ items: findings.filter(f => f.coverage === 'not_covered').length, unclear: findings.filter(f => f.coverage === 'unknown').length + omitted });
 
-/** What the credit dashboard may know about the audit: counts and times only, never a path or folder name. */
-export interface AuditSummary { state: 'never' | 'checked' | 'unavailable'; items?: number; unclear?: number; checkedAt?: string; lastDate?: string }
+/**
+ * Total size of the findings Kiro may read (coverage not_covered) that the caller passes, which should be the visible (not hidden) ones.
+ * A finding inside another counted directory finding is skipped, because an aggregate (dist, Pods, a bundle) already includes its size.
+ * `lowerBound` is true when a counted finding has no size (pruned folders) or the result omitted items beyond the listed maximum,
+ * so `bytes` is then only a minimum.
+ */
+export const auditSizeTotal = (findings: readonly Pick<Finding, 'coverage' | 'size' | 'path' | 'isDir'>[], omitted = 0): { bytes: number; lowerBound: boolean } => {
+ const counted = findings.filter(f => f.coverage === 'not_covered');
+ const dirs = counted.filter(f => f.isDir).map(f => `${f.path}/`);
+ let bytes = 0, lowerBound = omitted > 0;
+ for (const f of counted) {
+  if (dirs.some(d => f.path.startsWith(d))) continue;
+  if (f.size === undefined) lowerBound = true; else bytes += f.size;
+ }
+ return { bytes, lowerBound };
+};
+/** "about 240.3 MiB" for an exact total, "at least 240.3 MiB" for a lower bound. '' when nothing sized is counted (bytes 0), so no "at least 0 B". */
+export function sizePhrase(total: { bytes: number; lowerBound: boolean }): string {
+ if (total.bytes === 0) return '';
+ return `${total.lowerBound ? 'at least' : 'about'} ${formatBytes(total.bytes)}`;
+}
+
+/** What the credit dashboard may know about the audit: counts, times and a size total, never a path or folder name. */
+export interface AuditSummary { state: 'never' | 'checked' | 'unavailable'; items?: number; unclear?: number; bytes?: number; lowerBound?: boolean; checkedAt?: string; lastDate?: string }
 
 /**
  * Plain wording for how long ago `checkedAt` (an ISO time) was, by local calendar day: just now, N min ago, today, yesterday, N days ago.
@@ -135,14 +168,16 @@ export function auditTree(result: AuditResult, folderName: string, dismissedHash
  const visible = indexed.map(x => x.f);
  const hidden = result.findings.length - visible.length;
  const { items, unclear } = countFindings(visible, result.omitted), total = items + unclear;
+ const size = sizePhrase(auditSizeTotal(visible, result.omitted));
  const ago = relativeTime(checkedAt, now);
  const summary = `${c.files} files and ${c.dirs} folders scanned; ${c.ignored} ignored, ${c.unknown} with unknown coverage, ${c.symlinks} symbolic links skipped, ${c.unreadable} unreadable.`;
  nodes.push({
   id: 'header', kind: 'header', label: countsText(items, unclear),
-  description: [name, ...(ago ? [`checked ${ago}`] : []), ...(partial ? ['partial check'] : [])].join(' · '),
+  description: [name, ...(ago ? [`checked ${ago}`] : []), ...(partial ? ['partial check'] : []), ...(size ? [size] : [])].join(' · '),
   tooltip: [items > 0 ? 'These files are in your workspace and not excluded by its ignore files. Excluding the ones Kiro does not need keeps its context smaller and can save credits. Being listed does not mean Kiro has read them.'
     : unclear > 0 ? 'Cyclegauge could not tell whether these are excluded by the ignore files. Review them: excluding the ones Kiro does not need keeps its context smaller. Being listed does not mean Kiro has read them.'
     : `No files matching these kinds by name or size were found. This does not prove there are no secrets.${hidden > 0 ? ' Items you hid are not counted.' : ''}`, GLOBAL_RULES_NOTE,
+   ...(size ? [`Total size of the files Kiro may read but probably doesn't need.${auditSizeTotal(visible, result.omitted).lowerBound ? ' Some of them have no size, or the list is cut short, so the total is a lower bound.' : ''}`] : []),
    ...(partial ? ['The check is partial, so results may be incomplete:', ...(reasons.length ? reasons.map(r => `- ${escapeText(r)}`) : ['- Some results may be missing.'])] : []), summary].join('\n'),
   icon: partial ? 'warning' : total > 0 ? 'eye' : 'pass', contextValue: 'header',
  });

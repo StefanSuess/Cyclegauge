@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { refusal } from './audit-root.ts';
-import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
+import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
@@ -105,7 +105,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  const summary = (): AuditSummary => {
   const last = stored(LAST_KEY), lastDate = typeof last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(last) ? last : undefined;
   if (refused || result?.status === 'unavailable') return { state: 'unavailable', lastDate };
-  return result ? { state: 'checked', ...counts(result), checkedAt, lastDate } : { state: 'never', lastDate };
+  return result ? { state: 'checked', ...counts(result), ...auditSizeTotal(visible(), result.omitted), checkedAt, lastDate } : { state: 'never', lastDate };
  };
  const audit = async (): Promise<void> => {
   if (running) { await vscode.window.showInformationMessage(reminderAbort ? 'An automatic workspace audit is running; try again shortly.' : 'A workspace audit is already running.'); return; }
@@ -408,7 +408,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   viewReady = true;
  } catch { /* Without the list, a finished audit falls back to a notification with a Copy suggestions button. */ }
  // The credit view is re-rendered only when what it shows (state, counts, time of the check) actually changed.
- const keyOf = (a: AuditSummary): string => [a.state, a.items, a.unclear, a.checkedAt].join('|');
+ const keyOf = (a: AuditSummary): string => [a.state, a.items, a.unclear, a.bytes, a.lowerBound, a.checkedAt].join('|');
  let shown = '';
  return { summary, onChange(fn) {
   try { shown = keyOf(summary()); } catch { /* the first change renders */ }
