@@ -41,14 +41,16 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.showUsage'].sort());
+  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
   assert.ok(api.state.providers.has('cyclegauge.auditView'));
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
-  // Scripts stay off; the only command links are exactly three Cyclegauge commands, listed explicitly.
-  assert.deepEqual(options,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show'],localResourceRoots:[]});
-  const linkIds=()=>[...panel.webview.html.matchAll(/href="([^"]*)"/g)].map((m:RegExpMatchArray)=>m[1]!);
-  for(const h of linkIds()){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
+  // Scripts stay off; the only command links are exactly four Cyclegauge commands, listed explicitly; the footer adds three fixed web links.
+  assert.deepEqual(options,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  const allLinks=()=>[...panel.webview.html.matchAll(/href="([^"]*)"/g)].map((m:RegExpMatchArray)=>m[1]!);
+  const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
+  for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
+  assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));
   assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
   assert.match(panel.webview.html,/Workspace check/);assert.ok(!/<script/i.test(panel.webview.html));
   assert.match(panel.webview.html,/cost-advisor/);
@@ -81,6 +83,7 @@ const auditApi=()=>{
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
+const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 
@@ -452,9 +455,9 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   const env=reminderEnv(work);env.failStart=false;
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const html=()=>env.panels.at(-1).webview.html as string;
-  const hrefs=()=>[...html().matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
-  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show'];
-  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly three commands.
+  const hrefs=()=>[...html().matchAll(/href="([^"]*)"/g)].map(m=>m[1]!).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
+  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'];
+  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly four commands.
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);
@@ -581,4 +584,193 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
   failing.load(await builtBundle(work));await failing.module.exports.activate({subscriptions});await failing.commands.get('cyclegauge.copyDiagnostics')!();
   assert.deepEqual(failing.errors,['Diagnostics could not be copied.']);assert.deepEqual(failing.clipboard,[]);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// Community prompts: footer, share command, the support prompt and the "not Kiro" notice. The bundle sees an injected clock (Date), the 3-minute
+// delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
+const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1'];
+const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1'];
+const SUPPORT_TEXT='Is Cyclegauge useful to you? A rating or a star helps others find it.';
+const NOT_KIRO='Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
+const SUPPORT_BUTTONS=['Rate','Star on GitHub','Support ☕','Not now',"Don't ask again"];
+const communityEnv=(work:string,withLogs:boolean)=>{
+ const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
+ mkdirSync(logs,{recursive:true});mkdirSync(workspace,{recursive:true});mkdirSync(join(work,'synthetic-home'),{recursive:true});writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');
+ const logText=()=>[1,2,3,4].map(day=>`2030-01-0${day} 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:day*10,usageLimitWithPrecision:5000,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n').join('');
+ if(withLogs)writeFileSync(join(logs,'q-client.log'),logText());
+ // Kiro's standard data folder as the bundle resolves it under the synthetic HOME (set per session).
+ const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
+ return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
+  home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
+  timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[]};
+};
+const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
+ const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
+ const bundle=await builtBundle(work);
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{},extensions:{getExtension:()=>undefined},
+  EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
+  commands:{async executeCommand(){},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
+  workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
+   getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?'off':
+    ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts} as any)[key]??''}),
+   createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
+  window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
+   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:''},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
+   async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
+   async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
+   async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
+ const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
+  async update(k:string,v:unknown){if(env.throwState||env.failWrites)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
+ const fixedNow=Date.parse(env.now);
+ class SyntheticDate extends Date {constructor(...args:any[]){super(args.length?args[0]:fixedNow);}static now(){return fixedNow;}}
+ const realSet=globalThis.setTimeout,realClear=globalThis.clearTimeout;
+ (globalThis as any).setTimeout=(fn:any,ms?:number,...rest:any[])=>{if(ms!==30000&&ms!==180000)return realSet(fn,ms,...rest);const t={fn,ms:ms!,cleared:false,unref(){return t;}};env.timers.push(t);return t;};
+ (globalThis as any).clearTimeout=(t:any)=>{if(t&&env.timers.includes(t))t.cleared=true;else realClear(t);};
+ const require=createRequire(new URL('../../package.json',import.meta.url));
+ const module={exports:{} as any};
+ const saved:Record<string,string|undefined>={};
+ for(const k of ['HOME','USERPROFILE','APPDATA','LOCALAPPDATA','XDG_CONFIG_HOME','XDG_DATA_HOME']){saved[k]=process.env[k];process.env[k]=env.home;}
+ runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
+ const later=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));};
+ let done=false;
+ try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{(globalThis as any).setTimeout=realSet;}
+ return {commands,api,later,support:()=>env.timers.filter(t=>t.ms===180000),
+  fire:async()=>{const t=env.timers.filter(x=>x.ms===180000);assert.equal(t.length,1);await t[0]!.fn();await later();},
+  dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).clearTimeout=realClear;for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}};
+};
+const hrefsOf=(html:string)=>[...html.matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
+
+test('packaged footer and Share: four command links, three fixed web links, a fixed clipboard text',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-footer-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,true);
+  const s=await communitySession(env,work);open.push(s);
+  assert.ok(s.commands.has('cyclegauge.share'));assert.ok(s.commands.has('cyclegauge.support.reset'));
+  await s.commands.get('cyclegauge.showUsage')!();
+  assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  const html:string=env.panels.at(-1).webview.html;
+  assert.deepEqual(hrefsOf(html).filter(h=>!h.startsWith('command:')),COMMUNITY_LINKS);
+  for(const h of hrefsOf(html).filter(h=>h.startsWith('command:')))assert.ok(env.panelOptions.enableCommandUris.includes(h.slice('command:'.length)),h);
+  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.ok(!/<script/i.test(html));assert.ok(!/utm_|[?&]ref=/.test(html));
+  assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Share<\/a>/);
+  // Share copies a fixed text with no user data and confirms in one friendly line.
+  env.infos.length=0;await s.commands.get('cyclegauge.share')!();await s.later();
+  assert.deepEqual(env.clipboard,["Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge"]);
+  assert.deepEqual(env.infos,[{text:'Link copied — thanks for sharing!',buttons:[]}]);assert.ok(!env.clipboard[0]!.includes(work));assert.deepEqual(env.opened,[]);
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged support prompt: only when due, once per window, each button sets its state, the setting turns it off',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-support-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,true);
+  const start=async()=>{env.timers.length=0;const s=await communitySession(env,work);open.push(s);return s;};
+  const reset=()=>{env.infos.length=0;env.errors.length=0;env.opened.length=0;env.store.clear();env.written.length=0;env.timers.length=0;env.choice=undefined;env.prompts=undefined;env.throwState=false;};
+  const seed=(first:string|undefined,extra:Record<string,unknown>={})=>{reset();if(first)env.store.set('cyclegauge.support.firstSeen.v1',first);for(const [k,v] of Object.entries(extra))env.store.set(k,v);};
+  // First use is recorded on activation, and a forecast shown in the gauge counts as value seen; the 3-minute check is one disposed timer.
+  seed(undefined);let s=await start();
+  assert.equal(env.store.get('cyclegauge.support.firstSeen.v1'),'2030-01-04');assert.equal(env.store.get('cyclegauge.support.valueSeen.v1'),true);
+  assert.equal(s.support().length,1);assert.equal(s.support()[0]!.ms,180000);assert.equal(s.support()[0]!.cleared,false);
+  // Less than seven days after first use: nothing, and nothing is written.
+  env.written.length=0;await s.fire();assert.deepEqual(env.infos,[]);assert.equal(env.written.length,0);
+  s.dispose();assert.equal(s.support()[0]!.cleared,true);env.infos.length=0;await s.support()[0]!.fn();assert.deepEqual(env.infos,[]);
+  // Seven days after first use it is due: one prompt with five buttons; the 60-day snooze is already stored while it is open, so a second check shows nothing.
+  seed('2029-12-28');s=await start();env.written.length=0;await s.fire();
+  assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);assert.equal(env.store.get('cyclegauge.support.next.v1'),'2030-03-05');
+  env.infos.length=0;await s.support()[0]!.fn();await s.later();assert.deepEqual(env.infos,[]);s.dispose();
+  seed('2029-12-29');s=await start();await s.fire();assert.equal(env.infos.length,0);s.dispose(); // six days: not yet
+  // Each button.
+  for(const [choice,link,next] of [['Rate',COMMUNITY_LINKS[0],'2030-05-04'],['Star on GitHub',COMMUNITY_LINKS[1],'2030-05-04'],['Support ☕',COMMUNITY_LINKS[2],'2030-05-04'],['Not now',undefined,'2030-03-05'],[undefined,undefined,'2030-03-05']] as const){
+   seed('2029-12-01');env.choice=choice;s=await start();await s.fire();s.dispose();
+   assert.deepEqual(env.opened,link?[link]:[],String(choice));assert.equal(env.store.get('cyclegauge.support.next.v1'),next,String(choice));assert.equal(env.store.has('cyclegauge.support.never.v1'),false,String(choice));
+  }
+  seed('2029-12-01');env.choice="Don't ask again";s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.support.never.v1'),true);assert.deepEqual(env.opened,[]);
+  // Never means never, even years later; a snooze holds until its date.
+  env.infos.length=0;env.now='2035-01-04T00:00:00Z';env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);env.now='2030-01-04T00:00:00Z';
+  seed('2029-12-01',{'cyclegauge.support.next.v1':'2030-01-05'});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  env.now='2030-01-05T00:00:00Z';env.infos.length=0;s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);env.now='2030-01-04T00:00:00Z';
+  // The setting off: never prompted. Anything but an explicit false leaves it on.
+  seed('2029-12-01');env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.has('cyclegauge.support.next.v1'),false);
+  seed('2029-12-01');env.prompts='false';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);
+  // Invalid stored values count as absent: a broken first-use date is replaced, never due on the same day.
+  seed('synthetic-not-a-date',{'cyclegauge.support.next.v1':'2030-99-99','cyclegauge.support.never.v1':'yes'});s=await start();assert.equal(env.store.get('cyclegauge.support.firstSeen.v1'),'2030-01-04');await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  // Reset clears the support state.
+  seed('2029-12-01',{'cyclegauge.support.never.v1':true});s=await start();await s.commands.get('cyclegauge.support.reset')!();await s.later();
+  assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);s.dispose();
+  // A broken global state never breaks activation, the gauge or the prompt check.
+  seed(undefined);env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.every(t=>!/unavailable|update needed/.test(t)),env.statusTexts.join('|'));
+  await s.fire();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);env.throwState=false;s.dispose();
+  // The setting off: neither the first-use date nor the value flag is recorded.
+  seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.equal(env.store.size,0);assert.equal(env.written.length,0);assert.deepEqual(env.infos,[]);
+  // A global state that reads fine but cannot be written: the prompt is not shown (its snooze could not be saved), so it cannot repeat in every window.
+  seed('2029-12-01',{'cyclegauge.support.valueSeen.v1':true});env.failWrites=true;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);env.failWrites=false;
+  // Not Kiro (even with a chosen source): no timer, nothing recorded, no prompt and no notice.
+  seed(undefined);env.appName='Visual Studio Code';env.uriScheme='vscode';s=await start();assert.equal(s.support().length,0);assert.equal(env.store.size,0);assert.deepEqual(env.infos,[]);s.dispose();
+  // Kiro recognised by its URL scheme alone.
+  seed('2029-12-01');env.appName='Synthetic Editor';env.uriScheme='kiro';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);
+  // Only the documented keys were ever written.
+  assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
+  // Only the documented keys were ever written (checked in the audit test below).
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged support prompt: value is also seen through an audit finding, never from an empty gauge',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-value-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,false);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');
+  const s=await communitySession(env,work);open.push(s);
+  assert.equal(env.store.has('cyclegauge.support.valueSeen.v1'),false);
+  await s.fire();assert.deepEqual(env.infos,[]);
+  await s.commands.get('cyclegauge.auditWorkspace')!();await s.later();
+  assert.equal(env.store.get('cyclegauge.support.valueSeen.v1'),true);
+  env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);
+  assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
+  const everything=JSON.stringify([...env.store]);assert.ok(!everything.includes(work)&&!everything.includes('.env')&&!everything.includes('synthetic-workspace'));
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen source, and the status says so',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-notkiro-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=communityEnv(work,false);
+  const start=async()=>{const s=await communitySession(env,work);open.push(s);return s;};
+  const reset=()=>{env.infos.length=0;env.opened.length=0;env.store.clear();env.written.length=0;env.timers.length=0;env.statusTexts.length=0;env.panels.length=0;env.choice=undefined;};
+  const notices=()=>env.infos.filter(i=>i.text===NOT_KIRO);
+  const outside=()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot='';env.mode=1;};
+  // Outside Kiro, no source chosen: one notice, remembered; Learn about Kiro opens the fixed address on click only.
+  outside();reset();env.choice='Learn about Kiro';let s=await start();
+  assert.deepEqual(notices(),[{text:NOT_KIRO,buttons:['Learn about Kiro','Got it']}]);assert.deepEqual(env.opened,['https://kiro.dev']);assert.equal(env.store.get('cyclegauge.notKiro.shown.v1'),true);
+  assert.equal(s.support().length,0);assert.deepEqual([...env.store.keys()],['cyclegauge.notKiro.shown.v1']);
+  assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');
+  await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;
+  assert.ok(html.includes(NOT_KIRO));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
+  // Never again once shown; Got it opens nothing.
+  env.infos.length=0;env.opened.length=0;s=await start();assert.deepEqual(notices(),[]);assert.deepEqual(env.opened,[]);s.dispose();
+  reset();env.choice='Got it';s=await start();assert.equal(notices().length,1);assert.deepEqual(env.opened,[]);s.dispose();
+  // A dismissed notice is still counted as shown.
+  reset();env.choice=undefined;s=await start();assert.equal(notices().length,1);s.dispose();env.infos.length=0;s=await start();assert.deepEqual(notices(),[]);s.dispose();
+  // Not shown inside Kiro (by name or by scheme), with a chosen source, or in the extension tests; the status is the normal one there.
+  for(const [why,edit] of [['name',()=>{env.appName='Kiro';env.uriScheme='vscode';}],['scheme',()=>{env.appName='Visual Studio Code';env.uriScheme='kiro';}],['source',()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot=env.source;}],['test mode',()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.mode=3;}]] as const){
+   outside();edit();reset();s=await start();assert.deepEqual(notices(),[],why);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false,why);
+   if(why!=='test mode')assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),why);s.dispose();
+  }
+  // With a chosen source the status stays "Kiro: ..." in a non-Kiro editor too (demos and tests).
+  outside();env.sourceRoot=env.source;reset();s=await start();assert.ok(env.statusTexts.at(-1)!.startsWith('$(warning) Kiro:'),env.statusTexts.at(-1));assert.ok(!env.statusTexts.includes('$(info) Kiro not detected'));s.dispose();
+  // Kiro installed beside this editor: its default folder has logs, so nothing is "not detected" and no note is shown (the note needs a refresh that really found no logs).
+  outside();reset();env.placeDefaultLogs();s=await start();
+  assert.deepEqual(notices(),[]);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false);assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),env.statusTexts.join('|'));
+  await s.commands.get('cyclegauge.showUsage')!();assert.ok(!env.panels.at(-1).webview.html.includes(NOT_KIRO));s.dispose();
+  rmSync(join(work,'synthetic-home'),{recursive:true,force:true});mkdirSync(join(work,'synthetic-home'));
+  // A global state that cannot be written: the note is not shown (it could not be remembered), so it cannot repeat in every window.
+  outside();reset();env.failWrites=true;s=await start();assert.deepEqual(notices(),[]);assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');s.dispose();env.failWrites=false;
+  // A broken global state is silent.
+  outside();reset();env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.deepEqual(env.errors,[]);s.dispose();env.throwState=false;
+  // Only the documented keys were written.
+  assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
+ }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });

@@ -22,7 +22,13 @@ export interface ExtensionUi {
 }
 export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number;
  // Counts and times of the workspace check for the detail view's card; read on every render and never allowed to affect the gauge.
- auditSummary?: () => AuditSummary }
+ auditSummary?: () => AuditSummary;
+ // Not running in Kiro and no source chosen: an empty source is then shown as "Kiro not detected". Default: false (no change).
+ notKiro?: boolean;
+ // Called when a render shows a provisional or regular forecast; used only for the support prompt and never allowed to affect the gauge.
+ onForecast?: () => void;
+ // Called when a render shows "Kiro not detected" (notKiro and no source logs); same rules as onForecast.
+ onAbsent?: () => void }
 
 export async function startExtension(ui: ExtensionUi, options: ExtensionOptions) {
  let store: Store | undefined;
@@ -47,8 +53,10 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   }
   let audit:AuditSummary|undefined;
   try{audit=options.auditSummary?.();}catch{audit=undefined;}
-  const presentation=present(observation,codes,'',advisorHtml,audit,now());
+  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true);
   detail=presentation.html;
+  if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
+  if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
   if(!disposed)ui.setStatus(presentation.text,detail,presentation);
  };
  const refresh = async () => {

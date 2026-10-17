@@ -79,6 +79,15 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { delete p[days].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[auto]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  assert.ok(edited(p => { p['cyclegauge.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ // The community prompt setting is held to the same standard: application scope, boolean, default true, nothing else.
+ const prompts = 'cyclegauge.supportPrompts';
+ assert.ok(edited(p => { p[prompts].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[prompts].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { delete p[prompts].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[prompts].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[prompts].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[prompts].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[prompts]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  // The existing machine-scoped keys may not move to resource scope.
  assert.ok(edited(p => { p['cyclegauge.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);

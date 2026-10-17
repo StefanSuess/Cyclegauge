@@ -99,6 +99,14 @@
       {
         "command": "cyclegauge.audit.resetReminder",
         "title": "Cyclegauge: Reset workspace audit reminder"
+      },
+      {
+        "command": "cyclegauge.share",
+        "title": "Cyclegauge: Share Cyclegauge"
+      },
+      {
+        "command": "cyclegauge.support.reset",
+        "title": "Cyclegauge: Reset Support Prompts"
       }
     ],
     "views": {
@@ -148,6 +156,12 @@
           "type": "boolean",
           "default": false,
           "description": "When an audit is due, run it automatically in trusted workspaces (same limits; nothing is written or sent).",
+          "scope": "application"
+        },
+        "cyclegauge.supportPrompts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge.",
           "scope": "application"
         }
       }

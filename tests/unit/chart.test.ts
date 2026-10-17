@@ -236,7 +236,9 @@ test('chart output is script-free, escaped and carries no private identifiers', 
  assert.ok(!/<script/i.test(p.html));
  assert.ok(!/\son[a-z]+=/i.test(p.html));
  assert.ok(!/javascript:/i.test(p.html));
- assert.ok(!/(href|src)="https?:/i.test(p.html));
+ // The only web links are the community footer's; the chart itself links nowhere and loads nothing.
+ assert.ok(!/(href|src)="https?:/i.test(p.html.replace(/<footer class="community[\s\S]*?<\/footer>/, '')));
+ assert.ok(!/src="/i.test(p.html));
  assert.match(p.html, /Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"/);
  for (const marker of ['synthetic-private', 'partition', 'sourceTimezone']) assert.ok(!p.html.includes(marker));
  assert.match(p.html, /<svg[^>]*role="img"/);
