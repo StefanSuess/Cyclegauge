@@ -738,6 +738,10 @@ test('packaged walkthrough: opens once for a new user with the key written first
   await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
   // Existing users (first use already stored) only get the key.
   s=await run(()=>env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01'));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
+  // Any other earlier Cyclegauge state also marks an existing user (e.g. someone who turned the support prompts off but got a budget warning).
+  s=await run(()=>env.store.set('cyclegauge.budgetWarning.v1',{cycle:'2030-02-01T00:00:00Z',done:['percent']}));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
+  // A user who turned the support prompts off gets no unsolicited walkthrough either.
+  s=await run(()=>{env.prompts=false;});assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();env.prompts=undefined;
   // Not Kiro, and the extension Test mode: nothing opens and nothing is written.
   s=await run(()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);
   await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();

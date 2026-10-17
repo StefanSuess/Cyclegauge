@@ -529,7 +529,10 @@ function registerWalkthrough(context: vscode.ExtensionContext): void {
  let existing: boolean;
  try {
   if (!inKiro() || (vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test) || context.globalState.get<unknown>(WALKTHROUGH_KEY) !== undefined) return;
-  existing = context.globalState.get<unknown>(SUPPORT_FIRST_KEY) !== undefined;
+  // Any earlier Cyclegauge state marks an existing user, as does a user who turned the support prompts off (they asked for fewer unsolicited views).
+  const earlier = [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, NOT_KIRO_KEY, 'cyclegauge.budgetWarning.v1'];
+  existing = earlier.some(key => context.globalState.get<unknown>(key) !== undefined)
+   || !readSupportPrompts((prefix, key) => vscode.workspace.getConfiguration(prefix).get<unknown>(key));
  } catch { return; }
  void (async () => {
   try {
