@@ -5,13 +5,16 @@ export const SNOOZE_DAYS = 60;
 export const SNOOZE_DAYS_AFTER_ACTION = 120;
 /** The buttons of the prompt; a dismissed prompt is `undefined`. */
 export type SupportChoice = 'Rate' | 'Star on GitHub' | 'Support ☕' | 'Not now' | "Don't ask again";
-export interface SupportDueInput { today: string; firstSeen?: unknown; next?: unknown; never?: unknown; valueSeen?: unknown; enabled: boolean; kiro: boolean }
+export interface SupportDueInput { today: string; firstSeen?: unknown; next?: unknown; never?: unknown; valueSeen?: unknown; auditSaved?: unknown; detailDays?: unknown; advisorUsed?: unknown; enabled: boolean; kiro: boolean }
 
-/** Whether the once-per-window prompt may be shown: enabled, in Kiro, not silenced, value seen, 7 days after first use, past the snooze. */
+/** Whether any value signal is due; all signals share the editor, setting and snooze gates. */
 export function supportDue(i: SupportDueInput): boolean {
- if (!i.enabled || !i.kiro || i.never === true || i.valueSeen !== true || !isDate(i.today) || !isDate(i.firstSeen)) return false;
- if (daysBetween(i.firstSeen, i.today)! < MIN_DAYS_BEFORE_FIRST) return false; // also false for a first date in the future (clock change)
- return !(isDate(i.next) && i.today < i.next);
+ if (!i.enabled || !i.kiro || i.never === true || !isDate(i.today) || !isDate(i.firstSeen)) return false;
+ const age = daysBetween(i.firstSeen, i.today)!;
+ if (age < 0 || (isDate(i.next) && i.today < i.next)) return false;
+ return (i.auditSaved === true && age >= 1) || i.advisorUsed === true
+  || (typeof i.detailDays === 'number' && Number.isInteger(i.detailDays) && i.detailDays === 3)
+  || (age >= MIN_DAYS_BEFORE_FIRST && i.valueSeen === true);
 }
 /** The state change after a choice: a snooze date, or never. A dismissed or unknown answer is "Not now". */
 export function afterChoice(choice: SupportChoice | string | undefined, today: string): { next?: string; never?: true } {

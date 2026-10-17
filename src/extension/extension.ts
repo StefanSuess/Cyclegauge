@@ -3,7 +3,7 @@ import { runAudit, snippet, type AuditResult, type Finding } from '../audit/audi
 import { lstatSync, realpathSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { refusal } from './audit-root.ts';
 import { MAX_DISMISSED, auditTree, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
@@ -47,12 +47,24 @@ const REMINDER_DELAY_MS = 30_000;
 interface Dismissed { salt: string; hashes: string[] }
 // What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
-function registerAudit(context: vscode.ExtensionContext, onFinding: () => void): AuditLink {
+function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: () => void): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined;
  let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
+ // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
+ let pendingSave: { path: string; text?: string; lines?: string[] } | undefined;
+ if (vscode.workspace.onDidSaveTextDocument) context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
+  try {
+   if (!pendingSave || document.uri.scheme !== 'file' || document.uri.fsPath !== pendingSave.path) return;
+   const text = document.getText();
+   if (pendingSave.text !== undefined ? text !== pendingSave.text : !pendingSave.lines?.every(line => text.split(/\r?\n/).includes(line))) return;
+   if (!lstatSync(pendingSave.path).isFile() || realpathSync.native(pendingSave.path) !== join(realRoot, '.kiroignore')) return;
+   pendingSave = undefined;
+   onSaved();
+  } catch { /* a save signal never affects the audit */ }
+ }));
  // Every spelling of a path that exists: as given and with symlinks resolved.
  const forms = (p: string): string[] => { if (p === '') return []; try { const real = realpathSync.native(p); return real === p ? [p] : [p, real]; } catch { return [p]; } };
  const notify = (text: string): void => { void Promise.resolve(vscode.window.showInformationMessage(text)).catch(() => undefined); };
@@ -134,7 +146,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void):
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;
-  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear(); checkedAt = new Date().toISOString(); refused = false;
+  result = outcome; folderName = folder.name; root = chosen; realRoot = resolved; accepted.clear(); pendingSave = undefined; checkedAt = new Date().toISOString(); refused = false;
   await recordAudit(outcome);
   render();
   return outcome;
@@ -153,6 +165,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void):
  };
  // Prepares the change as an unsaved edit (or an unsaved new file) for the user to review and save; nothing is written here.
  const prepare = async (findings: Finding[]): Promise<void> => {
+  pendingSave = undefined;
   const lines = [...new Set(findings.map(f => f.suggestion).filter(x => x !== ''))].sort();
   if (lines.length === 0 || root === '') { notify('There is no safe suggestion to accept.'); return; }
   const path = join(root, '.kiroignore');
@@ -165,6 +178,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void):
   const autoSave = exists ? vscode.workspace.getConfiguration('files', vscode.Uri.file(path)).get<string>('autoSave') : undefined;
   if (exists && autoSave !== 'off') {
    const proposal = await vscode.workspace.openTextDocument({ content: kiroignoreAppend(undefined, lines), language: 'ignore' });
+   pendingSave = { path, lines };
    await vscode.window.showTextDocument(proposal);
    notify('Your editor saves files automatically, so the suggested lines are shown in a new tab. Copy them into .kiroignore and save.');
    for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
@@ -178,6 +192,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void):
   const edit = new vscode.WorkspaceEdit();
   edit.insert(document.uri, document.positionAt(current.length), text);
   if (!(await vscode.workspace.applyEdit(edit))) throw new Error('EDIT_REJECTED');
+  pendingSave = { path, text: current + text };
   await vscode.window.showTextDocument(document);
   for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
   render();
@@ -284,18 +299,26 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void):
  } };
 }
 // Community prompts: a share command, one support prompt per window once the user has seen value, and a one-time note outside Kiro.
-// State is dates and flags in the editor's global state, never workspace data. Every failure is swallowed: nothing here may affect the gauge,
+// State is bounded dates and flags in the editor's global state, never workspace data. Every failure is swallowed: nothing here may affect the gauge,
 // the collector, the Store or the audit, and nothing is sent anywhere (links open only when the user clicks a button).
 const SUPPORT_FIRST_KEY = 'cyclegauge.support.firstSeen.v1';
 const SUPPORT_NEXT_KEY = 'cyclegauge.support.next.v1';
 const SUPPORT_NEVER_KEY = 'cyclegauge.support.never.v1';
 const SUPPORT_VALUE_KEY = 'cyclegauge.support.valueSeen.v1';
+const SUPPORT_DETAIL_KEY = 'cyclegauge.support.detailDays.v1';
+const SUPPORT_ADVISOR_KEY = 'cyclegauge.support.advisorUsed.v1';
 const NOT_KIRO_KEY = 'cyclegauge.notKiro.shown.v1';
 const SUPPORT_DELAY_MS = 180_000;
 const inKiro = (): boolean => { try { return isKiroEditor(vscode.env.appName, vscode.env.uriScheme); } catch { return false; } };
-interface SupportLink { valueSeen(): void; absent(): void }
+interface SupportLink { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void }
 function registerSupport(context: vscode.ExtensionContext): SupportLink {
- let disposed = false, seen = false;
+ let disposed = false, seen = false, shown = false, checking = false;
+ let strongTimer: ReturnType<typeof setTimeout> | undefined;
+ let strongPending = false;
+ // Explicit opt-in, isolated synthetic demo only. Never changes snoozes or the other prompt gates.
+ const demoBase = join(homedir(), '..');
+ const demo = basename(demoBase).startsWith('synthetic-cyclegauge-demo-') && inside(context.globalStorageUri.fsPath, join(demoBase, 'user-data')) && process.env.CYCLEGAUGE_SYNTHETIC_SOURCE === join(demoBase, 'source') && process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST === '1' && process.env.CYCLEGAUGE_SYNTHETIC_SOURCE === readSetting((prefix, key) => vscode.workspace.getConfiguration(prefix).get<string>(key), 'sourceRoot');
+ const firstDate = () => demo ? addDays(utcDate(new Date()), -1) : stored(SUPPORT_FIRST_KEY);
  const stored = (key: string): unknown => { try { return context.globalState.get<unknown>(key); } catch { return undefined; } };
  // True only when the write succeeded: a prompt whose "shown" mark cannot be saved is not shown, so a failing state cannot repeat it every window.
  const store = async (key: string, value: unknown): Promise<boolean> => { try { await context.globalState.update(key, value); return true; } catch { return false; } };
@@ -311,33 +334,54 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  });
  // The only way back from "Don't ask again": clears the support state (the first-use date is recorded again on the next start).
  register('support.reset', async () => {
-  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY]) await store(key, undefined);
-  seen = false;
+  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY]) await store(key, undefined);
+  seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
   void Promise.resolve(vscode.window.showInformationMessage('Support prompts reset.')).catch(() => undefined);
  });
  seen = stored(SUPPORT_VALUE_KEY) === true;
  const kiro = inKiro();
- const check = async (): Promise<void> => {
+ const check = async (auditSaved = false): Promise<void> => {
+  if (disposed || shown || checking) return;
+  checking = true;
   try {
-   if (disposed) return;
    const today = utcDate(new Date());
-   if (!supportDue({ today, firstSeen: stored(SUPPORT_FIRST_KEY), next: stored(SUPPORT_NEXT_KEY), never: stored(SUPPORT_NEVER_KEY), valueSeen: seen || stored(SUPPORT_VALUE_KEY), enabled: readSupportPrompts(get), kiro: inKiro() })) return;
+   if (!supportDue({ today, firstSeen: firstDate(), auditSaved, detailDays: detailDays().length, advisorUsed: stored(SUPPORT_ADVISOR_KEY), next: stored(SUPPORT_NEXT_KEY), never: stored(SUPPORT_NEVER_KEY), valueSeen: !strongPending && (seen || stored(SUPPORT_VALUE_KEY)), enabled: readSupportPrompts(get), kiro: inKiro() })) return;
    if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
+   if (disposed) return;
+   shown = true;
    const choice = await vscode.window.showInformationMessage('Is Cyclegauge useful to you? A rating or a star helps others find it.', 'Rate', 'Star on GitHub', 'Support ☕', 'Not now', "Don't ask again") as SupportChoice | undefined;
    if (disposed) return;
    if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Star on GitHub') open(LINKS.star); else if (choice === 'Support ☕') open(LINKS.support);
    const after = afterChoice(choice, today);
    if (after.never) await store(SUPPORT_NEVER_KEY, true); else if (after.next) await store(SUPPORT_NEXT_KEY, after.next);
-  } catch { /* fixed and silent */ }
+  } catch { /* fixed and silent */ } finally { checking = false; }
  };
+ const detailDays = (): string[] => { const v = stored(SUPPORT_DETAIL_KEY); return Array.isArray(v) ? [...new Set(v.filter((day): day is string => isDate(day) && day <= utcDate(new Date())))].sort().slice(-3) : []; };
  if (kiro) {
   if (readSupportPrompts(get) && !isDate(stored(SUPPORT_FIRST_KEY))) void store(SUPPORT_FIRST_KEY, utcDate(new Date()));
   const timer = setTimeout(() => void check(), SUPPORT_DELAY_MS);
   timer.unref?.();
-  context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); } });
+  context.subscriptions.push({ dispose() { disposed = true; clearTimeout(timer); if (strongTimer) clearTimeout(strongTimer); } });
  }
  let noted = false;
  return {
+  detailOpened() {
+   if (disposed || !kiro || !readSupportPrompts(get)) return;
+   const days = detailDays(), today = utcDate(new Date());
+   if (days.includes(today) || days.length === 3) { void check(); return; }
+   void store(SUPPORT_DETAIL_KEY, [...days, today].sort().slice(-3)).then(ok => { if (ok) void check(); });
+  },
+  advisorUsed() {
+   if (disposed || !kiro || !readSupportPrompts(get)) return;
+   void store(SUPPORT_ADVISOR_KEY, true).then(ok => { if (ok) void check(); });
+  },
+  auditSaved() {
+   if (disposed || !kiro || !readSupportPrompts(get)) return;
+   strongPending = true;
+   if (strongTimer) clearTimeout(strongTimer);
+   strongTimer = setTimeout(() => { strongPending = false; void check(true); }, 60_000);
+   strongTimer.unref?.();
+  },
   valueSeen() { if (seen || !kiro || !readSupportPrompts(get)) return; seen = true; void store(SUPPORT_VALUE_KEY, true); },
   // Called when a refresh really found no Kiro logs outside Kiro without a chosen source (the controller decides that, so VS Code beside an installed Kiro never sees the note):
   // one friendly note, once ever.
@@ -362,7 +406,7 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  let audit: AuditLink | undefined, support: SupportLink | undefined;
  try { support = registerSupport(context); } catch { /* Nor must the community prompts. */ }
- try { audit = registerAudit(context, () => support?.valueSeen()); } catch { /* The audit must never stop the gauge from starting. */ }
+ try { audit = registerAudit(context, () => support?.valueSeen(), () => support?.auditSaved()); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -411,7 +455,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
    const command={advisor:'costAdvisor'}[id];
    register(command,fn);
   },
-  onClick(fn) { register('showUsage', fn); },
+  onClick(fn) { register('showUsage', () => { fn(); support?.detailOpened(); }); },
   onChange(fn) {
    try {
     const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(source), 'logs/**/exthost/kiro.kiroAgent/q-client.log*'));
@@ -425,7 +469,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent() });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent() });
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;
