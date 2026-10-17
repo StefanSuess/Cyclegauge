@@ -2,6 +2,7 @@
 
 The same setup command is designed to run on **Windows, macOS and Linux**; it has been run on macOS only. It creates 36 invented daily observations and a fresh
 isolated Kiro profile, workspace, extension directory and store. Your normal profile and real logs are not used.
+On macOS, setup places the demo folder under `/tmp` when the usual `$TMPDIR` path would make Kiro's IPC socket exceed the 103-character Unix socket limit.
 
 ## Start
 
