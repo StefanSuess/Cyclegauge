@@ -33,11 +33,11 @@ By design, the storage location and store version are unchanged from 0.7.0, so e
 
 ## Workspace audit
 
-Run **Cyclegauge: Audit Kiro Workspace** (command ID `cyclegauge.auditWorkspace`) from the command palette. It audits a trusted, local workspace folder (you choose one if several are open) and shows a report. It runs only when you invoke it, and a progress notification lets you cancel.
+Run **Cyclegauge: Audit Kiro Workspace** (command ID `cyclegauge.auditWorkspace`) from the command palette, or use **Run workspace audit** in the **Kiro Workspace Audit** view in the Explorer. It audits a trusted, local workspace folder (you choose one if several are open), and a progress notification lets you cancel. Results appear in the **Kiro Workspace Audit** view.
 
-What it does: it walks the folder reading only file names and sizes, plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`). It never reads other file contents, and it writes no files and sends nothing (the clipboard is used only if you choose Copy suggestions). Global ignore files are not read.
+What it does: it walks the folder reading only file names and sizes, plus the ignore files listed in Agent Ignore Files (`kiroAgent.agentIgnoreFiles`). It never reads other file contents, writes no files and sends nothing. Global ignore files are not read.
 
-Reading the report:
+Reading the results:
 
 - Findings are grouped by kind (secrets and credentials, databases and dumps, archives, logs, large data files, build output, dependencies, other large files). They are potential risks, not measured credit use, and being in the workspace does not mean Kiro read the file.
 - **Not covered** means no workspace ignore file excludes the path. **Unknown** means coverage could not be established (for example a scan limit was reached or the setting could not be read); unknown is never treated as covered or as safe.
@@ -47,9 +47,18 @@ Reading the report:
 - Only the first 200 findings are listed; the rest are counted.
 - Some folders are refused: a filesystem root, your home folder or one containing it, folders overlapping Kiro data or Cyclegauge storage, folders inside `.kiro`, or inside `.git`, `.ssh`, `.aws`, `node_modules`-type or `kiro-cli` folders, symbolic links, and untrusted workspaces. Only local folders are offered.
 
-Copy suggestions: after the audit, choose **Copy suggestions** in the notification to copy `.kiroignore` lines. Copy suggestions covers only the listed findings and includes Unknown ones, so review them before adding. "No safe suggestion" appears when a path has unsafe characters or a rule would also match other files. Add them to your `.kiroignore`. According to Kiro's documentation (not verified by Cyclegauge), for Kiro IDE to use that file `.kiroignore` must be listed in `kiroAgent.agentIgnoreFiles`; the report tells you when a `.kiroignore` exists but is not listed. Ignoring files can hide files Kiro needs, so add only what you want excluded.
+Acting on findings (buttons on each entry, and at the top of the view):
 
-The new 0.9.0 features (audit, diagnostics, update-needed message, migration path) have not been verified in native Kiro on any platform. Earlier (0.7.0) testing is described in the changelog.
+- **Accept (✓)** prepares a root-anchored `.kiroignore` line as an **unsaved** change: it opens `.kiroignore` with the line added, or an unsaved new `.kiroignore` if there is none. Review it and save it yourself; Cyclegauge does not save it. If your editor saves files automatically (`files.autoSave`), the lines open in a separate new tab instead, for you to copy into `.kiroignore`. **Accept all** does the same for every listed finding.
+- **Ignore (✕)** hides a finding for this workspace. Only salted hashes are stored in the editor's per-workspace storage, never paths. **Show ignored again** brings them back.
+- **Show in Explorer (↗)** reveals the file or folder in the Explorer without opening it.
+- **Copy suggestions** copies the lines to the clipboard instead.
+
+Suggestions include Unknown findings, so review them before saving. "No safe suggestion" appears when a path has unsafe characters or a rule would also match other files. According to Kiro's documentation (not verified by Cyclegauge), for Kiro IDE to use `.kiroignore` it must be listed in `kiroAgent.agentIgnoreFiles`; the view tells you when a `.kiroignore` exists but is not listed and opens that setting for you. Ignoring files can hide files Kiro needs, so add only what you want excluded.
+
+Reminders and automatic runs: about 30 seconds after Kiro starts, Cyclegauge checks once whether the open workspace (a single trusted local folder) is due. A workspace that was never audited gets one prompt; afterwards you are reminded after `cyclegauge.auditReminderDays` days (default 30, 0 turns reminders off), with **Run audit**, **Later** (7 days) and **Don't remind me**. If you turn on `cyclegauge.auditAutomatically` (default off), a due audit runs silently with the same limits and only notifies you when it finds something; a never-audited workspace still asks first. Both settings apply only from your user settings, so a repository cannot turn automatic runs on or reminders off. Per workspace only the last audit date, a snooze date and a do-not-remind flag are stored. **Cyclegauge: Reset workspace audit reminder** clears the snooze and the flag.
+
+The audit, Copy Diagnostics and the gauge of an earlier 0.9.0 candidate were tested by the maintainer in native Kiro on macOS; the audit view, Accept/Ignore and reminders have not yet been verified in native Kiro, and no 0.9.0 testing on Windows or Ubuntu is recorded. Earlier (0.7.0) testing is described in the changelog.
 
 ## Diagnostics
 
