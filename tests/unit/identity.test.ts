@@ -15,6 +15,22 @@ test('manifest identity and commands use the Cyclegauge names', () => {
  for (const c of manifest.contributes.menus['editor/title']) { assert.ok(commands.includes(c.command)); assert.equal(c.when, `activeWebviewPanelId == ${PANEL_VIEW_TYPE}`); }
 });
 
+test('the getting-started walkthrough is declared with the packaged icon on every step', () => {
+ const titles = Object.fromEntries(manifest.contributes.commands.map((c: any) => [c.command, c.title]));
+ assert.equal(titles[commandId('gettingStarted')], 'Cyclegauge: Get Started');
+ const [walkthrough, ...rest] = manifest.contributes.walkthroughs;
+ assert.equal(rest.length, 0); assert.equal(walkthrough.id, commandId('gettingStarted')); assert.equal(walkthrough.title, 'Get started with Cyclegauge');
+ const steps: any[] = walkthrough.steps;
+ assert.deepEqual(steps.map(s => s.title), ['See your Kiro credits', "Find files Kiro doesn't need", 'Get warned before credits run out', 'When the forecast appears']);
+ for (const step of steps) { assert.ok(step.id && step.description); assert.deepEqual(step.media, { image: manifest.icon, altText: step.media.altText }); assert.equal(step.media.image, 'assets/branding/cyclegauge-icon-256.png'); assert.ok(step.media.altText); }
+ assert.match(steps[0].description, /\(command:cyclegauge\.showUsage\)/);
+ assert.match(steps[1].description, /\(command:cyclegauge\.auditWorkspace\)/); assert.deepEqual(steps[1].completionEvents, ['onCommand:cyclegauge.auditWorkspace']);
+ assert.match(steps[2].description, /\(command:workbench\.action\.openSettings\?/);
+ assert.match(steps[3].description, /about 2 days and 3 updates.*7 days and 8 updates/);
+ // Only Cyclegauge commands and the editor's settings opener are linked; no web links.
+ for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.budget%22%5D)$/);
+});
+
 test('only current settings are declared under the Cyclegauge prefix', () => {
  const props = manifest.contributes.configuration.properties;
  assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());

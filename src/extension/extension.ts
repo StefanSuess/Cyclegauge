@@ -518,6 +518,26 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   },
  };
 }
+// First-minute walkthrough: a command to open it and, once, an automatic open for new users inside Kiro (never in extension tests). The only state is one
+// global-state key, written before the walkthrough opens; no write means no open. Existing users (first-use date already stored) just get the key. The reads happen
+// synchronously, before the support prompts store their own first-use date. Every failure is swallowed (the editor may not support walkthroughs): nothing here may affect the gauge.
+const WALKTHROUGH_KEY = 'cyclegauge.walkthrough.shown.v1';
+const WALKTHROUGH_ID = 'StefanSuess.cyclegauge#cyclegauge.gettingStarted';
+function registerWalkthrough(context: vscode.ExtensionContext): void {
+ const open = async (): Promise<void> => { try { await vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID); } catch { /* the editor may not support walkthroughs */ } };
+ context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'gettingStarted', open));
+ let existing: boolean;
+ try {
+  if (!inKiro() || (vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test) || context.globalState.get<unknown>(WALKTHROUGH_KEY) !== undefined) return;
+  existing = context.globalState.get<unknown>(SUPPORT_FIRST_KEY) !== undefined;
+ } catch { return; }
+ void (async () => {
+  try {
+   await context.globalState.update(WALKTHROUGH_KEY, true);
+   if (!existing) await open();
+  } catch { /* fixed and silent */ }
+ })();
+}
 // Budget warning: at most one notice per window, in Kiro only and never in the extension tests. The cycle and the kinds already shown are the only
 // state (one global-state key); it is written before the notice is shown, and a failed write means no notice. Every failure is swallowed.
 const BUDGET_KEY = 'cyclegauge.budgetWarning.v1';
@@ -557,6 +577,7 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined;
+ try { registerWalkthrough(context); } catch { /* The walkthrough must never stop the gauge either. */ }
  try { support = registerSupport(context); } catch { /* Nor must the community prompts. */ }
  try { budget = registerBudget(context, () => support?.pause()); } catch { /* Nor the budget warning. */ }
  try { audit = registerAudit(context, () => support?.valueSeen(), () => support?.auditSaved()); } catch { /* The audit must never stop the gauge from starting. */ }

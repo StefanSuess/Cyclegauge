@@ -41,7 +41,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
+  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
   assert.ok(api.state.providers.has('cyclegauge.auditView'));
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
@@ -591,7 +591,8 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
 // Community prompts: footer, share command, the support prompt and the "not Kiro" notice. The bundle sees an injected clock (Date), the 3-minute
 // delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
 const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1','cyclegauge.support.detailDays.v1','cyclegauge.support.advisorUsed.v1'];
-const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1'];
+const WALKTHROUGH_KEY='cyclegauge.walkthrough.shown.v1';
+const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1',WALKTHROUGH_KEY];
 const SUPPORT_TEXT='Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.';
 const NOT_KIRO='Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
 const SUPPORT_BUTTONS=['Rate','Support','Later'];
@@ -604,14 +605,14 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[]};
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],calls:[] as unknown[][],keyAtOpen:[] as boolean[],throwOpen:false,updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
  const bundle=await builtBundle(work);
  const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ConfigurationTarget:{Global:1},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{base:any;pattern:string;constructor(base:any,pattern:string){this.base=base;this.pattern=pattern;}},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
-  commands:{async executeCommand(id:string){env.executed.push(id);},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  commands:{async executeCommand(id:string,...a:unknown[]){env.calls.push([id,...a]);if(id==='workbench.action.openWalkthrough'){env.keyAtOpen.push(env.store.has(WALKTHROUGH_KEY));if(env.throwOpen)throw new Error('synthetic-no-walkthroughs /private/synthetic-path');return;}env.executed.push(id);},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
    getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
@@ -710,7 +711,7 @@ test('packaged support prompt: only when due, once per window, each button sets 
   seed(undefined);env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.every(t=>!/unavailable|update needed/.test(t)),env.statusTexts.join('|'));
   await s.fire();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);env.throwState=false;s.dispose();
   // The setting off: neither the first-use date nor the value flag is recorded.
-  seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.equal(env.store.size,0);assert.equal(env.written.length,0);assert.deepEqual(env.infos,[]);
+  seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual([...env.store.keys()],[WALKTHROUGH_KEY]);assert.deepEqual(env.written,[WALKTHROUGH_KEY]);assert.deepEqual(env.infos,[]);
   // A global state that reads fine but cannot be written: the prompt is not shown (its snooze could not be saved), so it cannot repeat in every window.
   seed('2029-12-01',{'cyclegauge.support.valueSeen.v1':true});env.failWrites=true;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);env.failWrites=false;
   // Not Kiro (even with a chosen source): no timer, nothing recorded, no prompt and no notice.
@@ -721,6 +722,31 @@ test('packaged support prompt: only when due, once per window, each button sets 
   assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
   // Only the documented keys were ever written (checked in the audit test below).
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged walkthrough: opens once for a new user with the key written first, never for existing users, outside Kiro or in Test mode; a failing open is silent',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-walkthrough-')));
+ const OPEN=[['workbench.action.openWalkthrough','StefanSuess.cyclegauge#cyclegauge.gettingStarted']];
+ try{
+  const env=communityEnv(work,false);
+  const run=async(setup:()=>void=()=>{})=>{env.store.clear();env.written.length=0;env.calls.length=0;env.keyAtOpen.length=0;env.errors.length=0;env.infos.length=0;env.timers.length=0;env.failWrites=false;env.throwOpen=false;env.appName='Kiro';env.uriScheme='kiro';env.mode=1;setup();const s=await communitySession(env,work);return s;};
+  // A new user: opened once, with the key already stored at that moment; a second window with the same state does not open it again.
+  let s=await run();assert.deepEqual(env.calls,OPEN);assert.deepEqual(env.keyAtOpen,[true]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);assert.deepEqual(env.executed,[]);
+  assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+  env.calls.length=0;s=await communitySession(env,work);assert.deepEqual(env.calls,[]);
+  // The command opens it on demand, any time and in any editor.
+  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
+  // Existing users (first use already stored) only get the key.
+  s=await run(()=>env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01'));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
+  // Not Kiro, and the extension Test mode: nothing opens and nothing is written.
+  s=await run(()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);
+  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
+  s=await run(()=>{env.mode=3;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.ok(s.commands.has('cyclegauge.gettingStarted'));s.dispose();
+  // Fail closed: no write, no open. A throwing open is silent, leaves the key set and does not touch the gauge.
+  s=await run(()=>{env.failWrites=true;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+  s=await run(()=>{env.throwOpen=true;});assert.equal(env.calls.length,1);assert.equal(env.store.get(WALKTHROUGH_KEY),true);assert.deepEqual(env.errors,[]);assert.deepEqual(env.infos,[]);
+  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+ }finally{rmSync(work,{recursive:true,force:true});}
 });
 
 test('packaged support prompt: value is also seen through an audit finding, never from an empty gauge',async()=>{
