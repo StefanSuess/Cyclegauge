@@ -2,12 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { auditTree, dismissHash, escapeText, findingKey, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, visibleFindings, KIROIGNORE_HEADER, WHY, type AuditNode } from '../../src/extension/audit-model.ts';
+import { auditTree, auditSizeTotal, dismissHash, escapeText, findingKey, formatBytes, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, sizePhrase, visibleFindings, KIROIGNORE_HEADER, WHY, type AuditNode } from '../../src/extension/audit-model.ts';
 import type { AuditResult, Finding } from '../../src/audit/audit.ts';
 
 const counts = { files: 12, dirs: 3, ignored: 2, ignoreFiles: 2, ignoreFilesUnavailable: 0, symlinks: 1, unreadable: 0, unknown: 1 };
 const finding = (over: Partial<Finding> = {}): Finding => ({ path: 'synthetic.pem', isDir: false, category: 'secret', coverage: 'not_covered', suggestion: '/synthetic.pem', size: 10, ...over });
 const result = (over: Partial<AuditResult> = {}): AuditResult => ({ status: 'complete', ignore: 'evaluated', findings: [finding()], omitted: 0, counts, reasons: [], ...over });
+const file = (path: string, size: number | undefined, isDir = false): Pick<Finding, 'coverage' | 'size' | 'path' | 'isDir'> => ({ path, isDir, coverage: 'not_covered', ...(size === undefined ? {} : { size }) });
 const hashFn = (category: string, path: string) => dismissHash('synthetic-salt', category, path);
 const tree = (r: AuditResult, dismissed: string[] = [], accepted: string[] = [], name = 'synthetic-folder') => auditTree(r, name, dismissed, hashFn, new Set(accepted));
 const flat = (nodes: AuditNode[]): AuditNode[] => nodes.flatMap(n => [n, ...flat(n.children ?? [])]);
@@ -57,7 +58,7 @@ test('header summarizes: items Kiro may read with folder and time, a positive em
  const now = new Date(2030, 5, 15, 12, 0, 0), at = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
  const header = (r: AuditResult, dismissed: string[] = [], checked: string | undefined = at(0)) => auditTree(r, 'synthetic-folder', dismissed, hashFn, new Set(), checked, now)[0]!;
  const one = header(result());
- assert.equal(one.label, '1 item Kiro may read'); assert.equal(one.description, 'synthetic-folder · checked just now'); assert.equal(one.kind, 'header');
+ assert.equal(one.label, '1 item Kiro may read'); assert.equal(one.description, 'synthetic-folder · checked just now · about 10 B'); assert.equal(one.kind, 'header');
  assert.ok(one.tooltip!.startsWith('These files are in your workspace and not excluded by its ignore files.')); assert.ok(one.tooltip!.includes('Being listed does not mean Kiro has read them.'));
  assert.equal(header(mixed()).label, '3 items Kiro may read · 1 unclear');
  assert.equal(header(result({ omitted: 5 })).label, '1 item Kiro may read · 5 unclear');
@@ -66,9 +67,9 @@ test('header summarizes: items Kiro may read with folder and time, a positive em
  assert.equal(zero.label, 'No risky files found'); assert.equal(zero.icon, 'pass'); assert.equal(zero.description, 'synthetic-folder · checked 5 min ago');
  assert.equal(header(result(), [hashFn('secret', 'synthetic.pem')]).label, 'No risky files found');
  assert.ok(header(result(), [hashFn('secret', 'synthetic.pem')]).tooltip!.includes('Items you hid are not counted.'));
- assert.equal(header(result(), [], '').description, 'synthetic-folder');
+ assert.equal(header(result(), [], '').description, 'synthetic-folder · about 10 B');
  const partial = header(result({ status: 'partial', reasons: ['entry_limit', 'evaluation_time_limit', 'ignore_file_limit', 'ignore_rule_limit', 'depth_limit', 'time_limit', 'cancelled', 'synthetic_new_reason'] }));
- assert.equal(partial.description, 'synthetic-folder · checked just now · partial check'); assert.equal(partial.icon, 'warning');
+ assert.equal(partial.description, 'synthetic-folder · checked just now · partial check · about 10 B'); assert.equal(partial.icon, 'warning');
  for (const text of ['entry limit', 'show as unknown', 'more ignore files than can be read', 'more rules than can be checked', 'deeply nested', 'time limit', 'cancelled', 'synthetic new reason']) assert.ok(partial.tooltip!.includes(text), text);
  assert.ok(partial.tooltip!.includes('12 files and 3 folders scanned; 2 ignored, 1 with unknown coverage, 1 symbolic links skipped, 0 unreadable.'));
  assert.ok(header(result({ status: 'partial' })).tooltip!.includes('- Some results may be missing.'));
@@ -174,6 +175,70 @@ test('paths, folder names and tooltips make control, bidi, format and tag charac
 test('sizes are human readable', () => {
  assert.equal(formatSize(0), '0 B'); assert.equal(formatSize(1023), '1023 B'); assert.equal(formatSize(1024), '1.0 KiB'); assert.equal(formatSize(5 * 1024 * 1024), '5.0 MiB');
  assert.equal(formatSize(150 * 1024), '150 KiB'); assert.equal(formatSize(3 * 1024 ** 3), '3.0 GiB'); assert.equal(formatSize(2048 * 1024 ** 4), '2048 TiB');
+});
+test('tree header shows the size total after the existing description and says what it is', () => {
+ const now = new Date(2030, 5, 15, 12, 0, 0), checked = new Date(now.getTime() - 5 * 60_000).toISOString();
+ const head = (r: AuditResult, dismissed: string[] = []) => auditTree(r, 'synthetic-folder', dismissed, hashFn, new Set(), checked, now)[0]!;
+ const big = result({ findings: [finding({ path: 'synthetic-a.pem', size: 240.3 * 1024 * 1024 }), finding({ path: 'synthetic-b.log', category: 'log', size: 1024 })] });
+ const h = head(big);
+ assert.equal(h.label, '2 items Kiro may read');
+ assert.equal(h.description, 'synthetic-folder · checked 5 min ago · about 240.3 MiB');
+ assert.ok(h.tooltip!.includes('Total size of the files Kiro may read but probably doesn\'t need.'));
+ assert.ok(!h.tooltip!.includes('lower bound'));
+ // A counted folder with no size makes the total a lower bound.
+ const lower = head(result({ findings: [finding({ path: 'synthetic-a.pem', size: 1024 }), finding({ path: 'synthetic-dep', isDir: true, category: 'dependency', size: undefined })] }));
+ assert.equal(lower.description, 'synthetic-folder · checked 5 min ago · at least 1 KiB');
+ assert.ok(lower.tooltip!.includes('Some of them have no size, or the list is cut short, so the total is a lower bound.'));
+ // Hidden findings are not in the total, and an empty or all-unknown result adds nothing.
+ assert.equal(head(big, [hashFn('secret', 'synthetic-a.pem')]).description, 'synthetic-folder · checked 5 min ago · about 1 KiB');
+ assert.equal(head(result({ findings: [] })).description, 'synthetic-folder · checked 5 min ago');
+ assert.equal(head(result({ findings: [finding({ coverage: 'unknown', size: 5000 })] })).description, 'synthetic-folder · checked 5 min ago');
+});
+test('size total: sums not_covered sizes of visible findings, a lower bound for unsized ones, excludes unknown coverage', () => {
+ assert.deepEqual(auditSizeTotal([file('a', 1000), file('b', 24)]), { bytes: 1024, lowerBound: false });
+ assert.deepEqual(auditSizeTotal([file('a', 1024), file('d', undefined, true)]), { bytes: 1024, lowerBound: true });
+ assert.deepEqual(auditSizeTotal([file('d', undefined, true)]), { bytes: 0, lowerBound: true });
+ assert.deepEqual(auditSizeTotal([]), { bytes: 0, lowerBound: false });
+ assert.deepEqual(auditSizeTotal([{ ...file('u', 5000), coverage: 'unknown' }, { ...file('v', undefined), coverage: 'unknown' }]), { bytes: 0, lowerBound: false });
+ // Hidden findings are removed before the total, so a hidden large file never counts.
+ const hidden = result({ findings: [finding({ path: 'synthetic.pem', size: 4096 }), finding({ path: 'synthetic.db', category: 'database', size: 2048 })] });
+ assert.deepEqual(auditSizeTotal(visibleFindings(hidden, [hashFn('secret', 'synthetic.pem')], hashFn)), { bytes: 2048, lowerBound: false });
+ assert.deepEqual(auditSizeTotal(visibleFindings(hidden, [hashFn('secret', 'synthetic.pem'), hashFn('database', 'synthetic.db')], hashFn)), { bytes: 0, lowerBound: false });
+});
+test('size total does not count a finding twice: a secret inside a counted aggregate directory is skipped', () => {
+ const dist = { ...file('dist', 9000), isDir: true };
+ assert.deepEqual(auditSizeTotal([dist, file('dist/.env', 40)]), { bytes: 9000, lowerBound: false });
+ const pods = { ...file('Pods', 7000), isDir: true };
+ assert.deepEqual(auditSizeTotal([pods, file('Pods/x.pem', 12)]), { bytes: 7000, lowerBound: false });
+ const bundle = { ...file('synthetic.agilekeychain', 5000), isDir: true };
+ assert.deepEqual(auditSizeTotal([bundle, file('synthetic.agilekeychain/data.db', 300)]), { bytes: 5000, lowerBound: false });
+ // A sibling whose name only starts with the same letters is a different path and still counts.
+ assert.deepEqual(auditSizeTotal([dist, file('dist-old/x.pem', 12)]), { bytes: 9012, lowerBound: false });
+ // A hidden aggregate is not in the visible list, so the child counts on its own.
+ const hiddenParent = result({ findings: [finding({ path: 'dist', isDir: true, category: 'build', size: 9000 }), finding({ path: 'dist/.env', size: 40 })] });
+ assert.deepEqual(auditSizeTotal(visibleFindings(hiddenParent, [hashFn('build', 'dist')], hashFn)), { bytes: 40, lowerBound: false });
+ assert.deepEqual(auditSizeTotal(visibleFindings(hiddenParent, [], hashFn)), { bytes: 9000, lowerBound: false });
+});
+test('size total: omitted findings beyond the listed maximum make the total a lower bound', () => {
+ assert.deepEqual(auditSizeTotal([file('a', 1024)], 5), { bytes: 1024, lowerBound: true });
+ assert.deepEqual(auditSizeTotal([file('a', 1024)], 0), { bytes: 1024, lowerBound: false });
+ const cut = result({ findings: [finding({ path: 'synthetic.pem', size: 2048 })], omitted: 5 });
+ assert.equal(auditTree(cut, 'synthetic-folder', [], hashFn, new Set())[0]!.description, 'synthetic-folder · at least 2 KiB');
+});
+test('size phrase: about for an exact total, at least for a lower bound, nothing when no sized finding is counted', () => {
+ const MIB = 1024 * 1024;
+ assert.equal(sizePhrase({ bytes: 240.3 * MIB, lowerBound: false }), 'about 240.3 MiB');
+ assert.equal(sizePhrase({ bytes: 240.3 * MIB, lowerBound: true }), 'at least 240.3 MiB');
+ assert.equal(sizePhrase({ bytes: 0, lowerBound: false }), '');
+ assert.equal(sizePhrase({ bytes: 0, lowerBound: true }), '');
+});
+test('byte formatter: 1024-based units, whole KiB, one decimal from MiB, unit boundaries roll over', () => {
+ const KIB = 1024, MIB = KIB * KIB, GIB = MIB * KIB;
+ assert.deepEqual([formatBytes(0), formatBytes(1), formatBytes(1023)], ['0 B', '1 B', '1023 B']);
+ assert.deepEqual([formatBytes(KIB), formatBytes(512 * KIB), formatBytes(512.4 * KIB), formatBytes(512.6 * KIB)], ['1 KiB', '512 KiB', '512 KiB', '513 KiB']);
+ assert.deepEqual([formatBytes(1023.4 * KIB), formatBytes(1023.6 * KIB), formatBytes(MIB - 1)], ['1023 KiB', '1.0 MiB', '1.0 MiB']);
+ assert.deepEqual([formatBytes(MIB), formatBytes(240.3 * MIB), formatBytes(1023.9 * MIB), formatBytes(1024 * MIB)], ['1.0 MiB', '240.3 MiB', '1023.9 MiB', '1.0 GiB']);
+ assert.deepEqual([formatBytes(1.2 * GIB), formatBytes(3 * GIB), formatBytes(2048 * GIB)], ['1.2 GiB', '3.0 GiB', '2048.0 GiB']);
 });
 test('kiroignoreAppend: new file, existing with and without trailing newline, header once, duplicates skipped, CRLF kept', () => {
  assert.equal(kiroignoreAppend(undefined, ['/a', '/b/']), `${KIROIGNORE_HEADER}\n/a\n/b/\n`);

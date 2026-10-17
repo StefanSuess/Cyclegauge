@@ -129,7 +129,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   // Trusted: the tree lists the findings; the notification has no buttons; the view is focused.
   trusted=true;await run();
   assert.deepEqual(roots().map(n=>n.label),['2 items Kiro may read','Secrets and credentials (1)','Build output (1)']);
-  assert.match(roots()[0].description,/^synthetic-workspace · checked (just now|\d+ min ago)$/);
+  assert.match(roots()[0].description,/^synthetic-workspace · checked (just now|\d+ min ago) · about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)$/);
   assert.deepEqual(infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',extra:0}]);
   assert.ok(st.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
   const secretGroup=roots()[1],groupItem=provider.getTreeItem(secretGroup);
@@ -467,7 +467,7 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   // "Show" with no result runs the audit (and then focuses the list); the open panel now shows the count and the new button.
   env.executed.length=0;await s.commands.get('cyclegauge.audit.show')!();
   assert.equal(env.progress,1);assert.ok(env.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
-  assert.match(html(),/2 items Kiro may read · checked just now/);
+  assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show','command:cyclegauge.costAdvisor']);
   for(const h of hrefs())assert.ok(ALLOWED.includes(h.slice('command:'.length)),h);
   assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work)&&!/<script/i.test(html()));
@@ -476,10 +476,10 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   assert.equal(env.progress,0);assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);
   const salt='a'.repeat(64),hash=(c:string,p:string)=>createHash('sha256').update(`${salt}\0${c}\0${p}`).digest('hex');
   env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash('secret','.env')]});await s.commands.get('cyclegauge.auditWorkspace')!();
-  assert.match(html(),/1 item Kiro may read · checked just now/);
+  assert.match(html(),/1 item Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // The panel is re-rendered only when the summary changed: the same audit again (same counts and time) sets no HTML; hiding an item does.
   const sets=env.htmlSets;await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.htmlSets,sets);
-  env.store.delete('cyclegauge.audit.dismissed.v1');await s.commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read · checked just now/);
+  env.store.delete('cyclegauge.audit.dismissed.v1');await s.commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // Later renders (the minute timer's refresh) keep the card; an unavailable run says so and drops the Show button.
   env.trusted=false;await s.commands.get('cyclegauge.auditWorkspace')!();
   assert.match(html(),/This folder can&#39;t be checked\. Run Check now to see why\./);assert.ok(!hrefs().includes('command:cyclegauge.audit.show'));env.trusted=true;s.dispose();
