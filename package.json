@@ -54,6 +54,10 @@
       {
         "command": "cyclegauge.auditWorkspace",
         "title": "Cyclegauge: Audit Kiro Workspace"
+      },
+      {
+        "command": "cyclegauge.copyDiagnostics",
+        "title": "Cyclegauge: Copy Diagnostics"
       }
     ],
     "configuration": {

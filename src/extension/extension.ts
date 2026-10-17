@@ -6,11 +6,29 @@ import { defaultSource, defaultStorage } from '../paths.ts';
 import { refusal } from './audit-root.ts';
 import { presentAudit } from './audit-presentation.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
+import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { AUDIT_VIEW_TYPE, PANEL_VIEW_TYPE, commandId, readSetting, registerCommand } from './identity.ts';
 
 let stop: (() => void) | undefined;
+// What Copy Diagnostics may report: fixed states only. Kept outside runCyclegauge so the command also works after a failed start.
+const gaugeState: { gauge: 'starting' | 'running' | 'failed_to_start'; diagnostics?: () => DiagnosticsInput; config?: Pick<DiagnosticsInput, 'storage' | 'source' | 'timezone'> } = { gauge: 'starting' };
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
  await runCyclegauge(context);
+}
+// Builds a reviewable plain-text report in memory, opens it as an unsaved document and copies it; Cyclegauge writes nothing to disk.
+function registerDiagnostics(context: vscode.ExtensionContext): void {
+ const copy = async (): Promise<void> => {
+  try {
+   const text = formatDiagnostics(buildDiagnostics({ ...gaugeState.config, ...gaugeState.diagnostics?.(), ...runtimeFacts(), surface: 'extension', gauge: gaugeState.gauge,
+    editor: vscode.env.appName, editorVersion: vscode.version, audit: true }));
+   const document = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
+   await vscode.window.showTextDocument(document);
+   await vscode.env.clipboard.writeText(text);
+   // Not awaited: the notification resolves only when dismissed.
+   void Promise.resolve(vscode.window.showInformationMessage('Diagnostics copied. Review them before pasting.')).catch(() => undefined);
+  } catch { try { await vscode.window.showErrorMessage('Diagnostics could not be copied.'); } catch { /* nothing more to report */ } }
+ };
+ context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'copyDiagnostics', copy));
 }
 // Runs only when the user invokes the command; nothing is written, persisted, logged or sent.
 function registerAudit(context: vscode.ExtensionContext): void {
@@ -64,7 +82,12 @@ function registerAudit(context: vscode.ExtensionContext): void {
  context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'auditWorkspace', audit), { dispose() { panel?.dispose(); } });
 }
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
+ gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined;
+ try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
+}
+async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  try { registerAudit(context); } catch { /* The audit must never stop the gauge from starting. */ }
+ try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
  item.name = 'Cyclegauge credit budget';
@@ -124,11 +147,14 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
   everyMinute(fn) { const timer = setInterval(fn, 60_000); disposables.push({ dispose() { clearInterval(timer); } }); },
   dispose() { panel?.dispose(); for (const d of disposables) d.dispose(); }
  };
+ gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
   const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone });
+  gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;
   context.subscriptions.push({ dispose: controller.dispose });
  } catch {
+  gaugeState.gauge = 'failed_to_start';
   item.text = '$(warning) Kiro: unavailable';
   context.subscriptions.push(...disposables);
  }

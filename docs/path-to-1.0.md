@@ -19,7 +19,7 @@ Observed on 2026-10-16/17 (recheck before acting):
 | Release pipeline | Build-once candidate, payload reproducibility, SLSA attestation, protected manual promotion. | Hard-wired to pre-release: `VSIX_NOT_PRERELEASE`, `ovsx publish --pre-release`, GitHub `prerelease: true`, odd-minor test. |
 | Storage | `meta.version` must equal `1`, otherwise `STORAGE_UNAVAILABLE`. No migration path. One `imports` evidence row is appended on every collection (minute poll) and never pruned. 0.7.0 moved the default location and history restarted. | The first schema change would make every user's store unavailable; the store grows without bound. |
 | Runtime | `src/store.ts` statically imports `node:sqlite`; bundle targets Node 24; `engines.vscode: ^1.90.0` is not a tested minimum. | An older Kiro without `node:sqlite` fails at activation instead of showing a clear message. |
-| Source format | Kiro's log format is undocumented and can change with any Kiro release. | No per-Kiro-version fixtures; the bug template asks for a "Show Diagnostics" output that no command produces. |
+| Source format | Kiro's log format is undocumented and can change with any Kiro release. | Diagnostics have shipped (**Cyclegauge: Copy Diagnostics** and CLI `--diagnostics`) and the bug template points to them. Only one Kiro log variant has been observed so far, so there are no per-Kiro-version fixtures yet. |
 | Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. |
 | Docs | `SPEC.md` still says "0.5.2 candidate", `ROADMAP.md` "Current release 0.5.1"; `release-process.md` says the Open VSX namespace is unverified, but the registry now reports it verified. | Outdated status text. |
 | Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown are current. |
@@ -66,7 +66,7 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP2b Runtime guard.** Load `node:sqlite` so its absence shows "unsupported Kiro version" instead of an activation error; set `engines.vscode` to the oldest Kiro actually checked. Agent: `implementer-senior`; review: `security-reviewer`.
 
-**WP2c Format drift.** One synthetic fixture per observed Kiro log variant, and **Cyclegauge: Copy Diagnostics** (plus CLI `--diagnostics`) printing fixed codes, counts and versions only. This also makes the bug template accurate. Agent: `implementer-senior`; review: `security-reviewer`.
+**WP2c Format drift.** **Cyclegauge: Copy Diagnostics** (plus CLI `--diagnostics`) printing fixed codes, counts and versions only has shipped, which also makes the bug template accurate. A synthetic fixture per Kiro log variant is added when a new variant is actually observed; only one variant has been observed so far. Agent: `implementer-senior`; review: `security-reviewer`.
 
 **WP2d Outdated docs.** `SPEC.md` and `ROADMAP.md` status lines, namespace status in `release-process.md` (recheck the registry), #71's stale "0.7.0 freeze" note. Agent: `implementer` (Haiku). Check: `git diff --check`.
 

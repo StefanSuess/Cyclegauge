@@ -37,7 +37,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),['cyclegauge.auditWorkspace','cyclegauge.costAdvisor','cyclegauge.showUsage']);
+  assert.deepEqual([...commands.keys()].sort(),['cyclegauge.auditWorkspace','cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.showUsage']);
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   assert.deepEqual(options,{enableScripts:false,enableCommandUris:false,localResourceRoots:[]});
@@ -135,4 +135,62 @@ test('packaged bundle has no top-level node:sqlite require and still starts with
   assert.match(panels[0].webview.html,/does not provide the SQLite support/);
   assert.equal(existsSync(storage),false);
  }finally{process.getBuiltinModule=original;extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// Copy Diagnostics opens an unsaved plaintext document and copies the same text; it is registered before the collector starts.
+const diagnosticsHarness=(work:string,source:string,storage:string,allow:(id:string)=>boolean,editor:{appName?:unknown;version?:unknown})=>{
+ const commands=new Map<string,()=>unknown>(),opened:any[]=[],shown:any[]=[],clipboard:string[]=[],infos:string[]=[],errors:string[]=[];const disposable={dispose(){}};
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ThemeColor:class{},Uri:{file:(fsPath:string)=>({fsPath})},RelativePattern:class{},extensions:{getExtension:()=>undefined},version:editor.version,
+  commands:{registerCommand(id:string,fn:()=>unknown){if(!allow(id))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  env:{appName:editor.appName,clipboard:{async writeText(t:string){clipboard.push(t);}}},
+  workspace:{getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'Europe/Berlin'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}}),
+   async openTextDocument(o:any){opened.push(o);return {untitled:true,...o};}},
+  window:{createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},createWebviewPanel(_t:string,_title:string,_c:number,o:any){return {options:o,webview:{html:''},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};},
+   async showTextDocument(d:any){shown.push(d);},async showInformationMessage(m:string){infos.push(m);},async showErrorMessage(m:string){errors.push(m);}}};
+ const require=createRequire(new URL('../../package.json',import.meta.url));
+ const module={exports:{} as any};
+ return {commands,opened,shown,clipboard,infos,errors,module,load:(bundle:string)=>runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports)};
+};
+const diagnosticsFields=(text:string)=>Object.fromEntries(text.split('\n').slice(1).filter(Boolean).map(l=>[l.slice(0,l.indexOf(': ')),l.slice(l.indexOf(': ')+2)]));
+test('packaged Copy Diagnostics opens an untitled document, copies the same text and leaks nothing',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-diagnostics-bundle-')));
+ const subscriptions:any[]=[];let extension:any;
+ try{
+  const source=join(work,'source'),storage=join(work,'owned'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
+  mkdirSync(logs,{recursive:true});
+  writeFileSync(join(logs,'q-client.log'),`2030-01-04 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:4.35,usageLimitWithPrecision:50,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n');
+  const h=diagnosticsHarness(work,source,storage,()=>true,{appName:'Synthetic Editor',version:'1.99.0'});
+  h.load(await builtBundle(work));extension=h.module.exports;await extension.activate({subscriptions});
+  assert.ok(h.commands.has('cyclegauge.copyDiagnostics'));
+  await h.commands.get('cyclegauge.copyDiagnostics')!();
+  assert.equal(h.opened.length,1);assert.equal(h.opened[0].language,'plaintext');assert.deepEqual(Object.keys(h.opened[0]).sort(),['content','language']);
+  assert.equal(h.shown.length,1);assert.equal(h.shown[0].untitled,true);assert.deepEqual(h.clipboard,[h.opened[0].content]);
+  assert.deepEqual(h.infos,['Diagnostics copied. Review them before pasting.']);assert.deepEqual(h.errors,[]);
+  const text:string=h.clipboard[0]!,f=diagnosticsFields(text);
+  assert.ok(text.startsWith('# Cyclegauge diagnostics — fixed codes and counts only. Review before sharing.\n'));
+  assert.equal(f.cyclegauge,JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version);
+  assert.equal(f.surface,'extension');assert.equal(f.editor,'Synthetic Editor');assert.equal(f.editor_version,'1.99.0');assert.equal(f.gauge,'running');assert.equal(f.store,'ok');
+  assert.equal(f.storage,'chosen');assert.equal(f.source,'chosen');assert.equal(f.timezone,'chosen');assert.equal(f.snapshots,'1');assert.equal(f.accounts,'1');assert.equal(f.audit,'available');
+  for(const marker of [work,'synthetic-','Europe/Berlin','4.35','45.65','/','\\'])assert.ok(!text.includes(marker),marker);
+  assert.ok(!/\d{4}-\d{2}-\d{2}/.test(text));
+ }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged Copy Diagnostics still works when the gauge failed to start and reports hostile editor metadata as other',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-diagnostics-failed-bundle-')));
+ const subscriptions:any[]=[];let extension:any;
+ try{
+  const source=join(work,'source');mkdirSync(join(source,'logs'),{recursive:true});
+  const h=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.copyDiagnostics',{appName:'/synthetic/private/Editor',version:'1.2 synthetic-token'});
+  h.load(await builtBundle(work));extension=h.module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});
+  assert.deepEqual([...h.commands.keys()],['cyclegauge.copyDiagnostics']);
+  await h.commands.get('cyclegauge.copyDiagnostics')!();
+  const text:string=h.clipboard[0]!,f=diagnosticsFields(text);
+  assert.equal(h.opened[0].content,text);assert.equal(f.gauge,'failed_to_start');assert.equal(f.store,'not_opened');assert.equal(f.editor,'other');assert.equal(f.editor_version,'other');assert.equal(f.status,'unavailable');
+  assert.ok(!text.includes('synthetic')&&!text.includes(work));
+  // A failure while opening the document becomes one fixed message.
+  const failing=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.copyDiagnostics',{appName:'Synthetic Editor',version:'1.99.0'});
+  (failing as any).opened.push=()=>{throw new Error('synthetic-open-failure /private/synthetic-path');};
+  failing.load(await builtBundle(work));await failing.module.exports.activate({subscriptions});await failing.commands.get('cyclegauge.copyDiagnostics')!();
+  assert.deepEqual(failing.errors,['Diagnostics could not be copied.']);assert.deepEqual(failing.clipboard,[]);
+ }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
