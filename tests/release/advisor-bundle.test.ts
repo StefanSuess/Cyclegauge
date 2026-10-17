@@ -778,6 +778,8 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
+// Waits for real filesystem work (a re-check walks the synthetic workspace) with a real-time bound, not a tick count.
+const until=async(done:()=>boolean,ms=5000)=>{const end=Date.now()+ms;while(!done()&&Date.now()<end)await new Promise(r=>setTimeout(r,10));};
 // Saving an ignore file or changing Agent Ignore Files re-checks a checked workspace once, silently; nothing else does.
 test('packaged re-check after ignore changes: checked workspaces only, ignore files only, debounced and silent',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-recheck-')));
@@ -798,7 +800,7 @@ test('packaged re-check after ignore changes: checked workspaces only, ignore fi
   save(join(env.workspace,'synthetic-other'));save(join(work,'.kiroignore'));setting('files.autoSave');assert.equal(pending().length,0);
   // A burst of saves is one silent re-check that picks up the saved rules.
   writeFileSync(target,'/.env\n');save(target);save(target);assert.equal(pending().length,1);
-  await fire();for(let i=0;i<40&&envFound();i++)await s.later();
+  await fire();await until(()=>!envFound());
   assert.ok(!envFound());assert.equal(env.infos.length,infos);
   // Changing Agent Ignore Files re-checks too, and disposal cancels a pending re-check.
   setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,1);
@@ -818,7 +820,7 @@ test('packaged re-check keeps a prepared Exclude edit',async()=>{
   const last=s.api.state.fires;
   for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='kiroAgent.agentIgnoreFiles'});
   const t=env.timers.find(x=>x.ms===1000&&!x.cleared)!;t.cleared=true;await t.fn();
-  for(let i=0;i<40&&s.api.state.fires===last;i++)await s.later();
+  await until(()=>s.api.state.fires>last);
   assert.ok(s.api.state.fires>last);
   const doc=s.api.state.shown.at(-1),target=join(env.workspace,'.kiroignore');
   writeFileSync(target,doc.getText());
