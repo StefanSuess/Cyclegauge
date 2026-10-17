@@ -26,6 +26,10 @@ Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sou
 | `cyclegauge.budgetWarnings` | user | on | Budget notices inside Kiro (see Budget warnings); off stops them |
 | `cyclegauge.budgetWarningPercent` | user | 80 | Share of the reported credit limit (0 to 100) at which the early notice appears; 0 turns only that notice off |
 
+## Getting started
+
+After installation, new users inside Kiro get a short walkthrough, **Get started with Cyclegauge**, opened once. It shows where your Kiro credits are, offers the workspace check right away (it needs no usage history), points to the budget warning settings and says when the forecast appears: a provisional estimate after about 2 days and 3 updates, a regular forecast after 7 days and 8 updates. Open it any time with **Cyclegauge: Get Started** (command ID `cyclegauge.gettingStarted`). Users who already had Cyclegauge (any earlier Cyclegauge state) and users who turned `cyclegauge.supportPrompts` off are not shown it, and it never opens outside Kiro or in extension tests. Only one flag is stored (see [privacy and storage](privacy-and-storage.md)). Walkthrough support is not yet verified in native Kiro; if the editor cannot open it, nothing happens and the gauge is unaffected.
+
 ## Upgrading from 0.5.x
 
 <a id="upgrading-from-052-or-an-earlier-build"></a>

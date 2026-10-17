@@ -107,6 +107,44 @@
       {
         "command": "cyclegauge.support.reset",
         "title": "Cyclegauge: Reset Support Prompts"
+      },
+      {
+        "command": "cyclegauge.gettingStarted",
+        "title": "Cyclegauge: Get Started"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "cyclegauge.gettingStarted",
+        "title": "Get started with Cyclegauge",
+        "description": "See your Kiro credits, find files Kiro doesn't need and get warned before credits run out.",
+        "steps": [
+          {
+            "id": "cyclegauge.gettingStarted.credits",
+            "title": "See your Kiro credits",
+            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. Open the credit view for the details.\n[Show my credits](command:cyclegauge.showUsage)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+          },
+          {
+            "id": "cyclegauge.gettingStarted.audit",
+            "title": "Find files Kiro doesn't need",
+            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Check this workspace](command:cyclegauge.auditWorkspace)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" },
+            "completionEvents": ["onCommand:cyclegauge.auditWorkspace"]
+          },
+          {
+            "id": "cyclegauge.gettingStarted.budget",
+            "title": "Get warned before credits run out",
+            "description": "Cyclegauge can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22cyclegauge.budget%22%5D)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+          },
+          {
+            "id": "cyclegauge.gettingStarted.forecast",
+            "title": "When the forecast appears",
+            "description": "Cyclegauge learns from your usage over time. A provisional estimate needs about 2 days and 3 updates, a regular forecast 7 days and 8 updates. Nothing to do: keep working in Kiro.",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+          }
+        ]
       }
     ],
     "views": {
