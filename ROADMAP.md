@@ -2,6 +2,12 @@
 
 Current release: **0.5.1** (UI-only simplification of 0.5.0). Milestones 0–3, 4A, 4B, 4C (0.4.1) and 5 (0.5.0 usage chart) are implemented; synthetic and local UI evidence is recorded in the per-milestone validation documents. Remaining work (session aggregation, Crew integration, Kiro SQLite access, usage-efficiency insights) is deferred and unauthorized. Sections labeled “approval” or “boundary” below are dated historical records and are superseded by later approvals where stated.
 
+## Path to 1.0 — scope decision (approved 2026-10-17)
+
+The maintainer approved the value-first plan in [path to 1.0](docs/path-to-1.0.md) (WP0). 1.0.0 is the first stable release and the first public announcement. Its scope is the current features plus the user-triggered workspace/ignore audit from #71 Capability A, on macOS, Windows and Ubuntu; RHEL and macOS Intel stay unsupported for 1.0. The audit has a time limit of about four weeks to a 0.9.0 beta tested by invited users; if it is not solid by the end of the beta, 1.0 ships without it. #71 Capabilities B–D are post-1.0.
+
+Audit boundary: the audit runs only when the user invokes its command. It may enumerate bounded file metadata (relative path, type, size) under one chosen trusted local root, and may read only workspace ignore files (`.kiroignore` and the files named by the `kiroAgent.agentIgnoreFiles` setting) plus that setting's value. It reads no other file contents, follows no symlinks or junctions, writes nothing, persists nothing and sends nothing. Each work package still lands as its own reviewed PR; this decision does not approve merges, releases or outreach.
+
 ## Milestone 0 — Discovery and data contracts (complete)
 
 - Document locally observed Kiro 1.2.37 formats and their limitations.
