@@ -46,7 +46,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
   // Scripts stay off; the only command links are exactly three Cyclegauge commands, listed explicitly.
-  assert.deepEqual(options,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show'],localResourceRoots:[]});
+  assert.deepEqual(options,{enableScripts:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
   const linkIds=()=>[...panel.webview.html.matchAll(/href="([^"]*)"/g)].map((m:RegExpMatchArray)=>m[1]!);
   for(const h of linkIds()){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
   assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
@@ -453,8 +453,8 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const html=()=>env.panels.at(-1).webview.html as string;
   const hrefs=()=>[...html().matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
-  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show'];
-  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly three commands.
+  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'];
+  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly four commands.
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);

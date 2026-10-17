@@ -322,7 +322,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   },
   showDetails(html) {
    if (panel) { panel.reveal(); if (panel.webview.html !== html) panel.webview.html = html; advisorItem.show(); return; }
-   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show')], localResourceRoots: [] });
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
    panel.webview.html = html;
    advisorItem.show();
    disposables.push(panel.onDidChangeViewState(e => { if (e.webviewPanel.visible) advisorItem.show(); else advisorItem.hide(); }));
