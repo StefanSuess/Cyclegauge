@@ -1,9 +1,10 @@
-import { CONFIG_LIMITS, createConfigBudget, listConfigFiles, readHookFile, readSteeringFile, statAgents, type ConfigFs, type ConfigReadCode } from './config-read.ts';
+import { CONFIG_LIMITS, createConfigBudget, listConfigFiles, readHookFile, readSteeringFile, stampKey, statAgents, type ConfigFs, type ConfigReadCode, type FileStamp } from './config-read.ts';
 import { countNotChecked, evaluateConfigRules, hookNotCheckedCodes, type ConfigRootEntries, type HookEntry, type NotChecked, type NotCheckedCode } from './config-rules.ts';
 export const CONFIG_MAX_ROOTS = 8;
 export type ConfigReviewRoot = string | { code: 'untrusted' | 'root_refused' | 'root_not_local' };
 export interface RootReview extends Omit<ConfigRootEntries, 'hooks'> { hooks: Omit<HookEntry, 'matcherKey'>[]; nestedNotChecked: number }
-export interface ConfigReview extends ReturnType<typeof evaluateConfigRules> { status: 'complete' | 'partial' | 'unavailable'; roots: RootReview[]; bytesRead: number }
+// `stamps` (size, time and a digest per read Steering or Hook file, keyed by `stampKey`) lets an apply action prove the file is unchanged since this review.
+export interface ConfigReview extends ReturnType<typeof evaluateConfigRules> { status: 'complete' | 'partial' | 'unavailable'; roots: RootReview[]; bytesRead: number; stamps?: ReadonlyMap<string, FileStamp> }
 interface Options { fs?: ConfigFs; now?: () => number; yield?: () => Promise<void> }
 // Strings must already pass the caller's trust, local-root, refusal and real-path deduplication guards.
 // This module owns no editor state. Concurrent calls join the current run, including its signal/roots.
@@ -11,7 +12,7 @@ export function createConfigReviewer(options: Options = {}): { review(roots: rea
  let inFlight: Promise<ConfigReview> | undefined;
  const now = options.now ?? Date.now, yieldFile = options.yield ?? (() => new Promise<void>(resolve => setImmediate(resolve)));
  async function run(inputs: readonly ConfigReviewRoot[], signal?: AbortSignal): Promise<ConfigReview> {
-  const budget = createConfigBudget({ now }), roots: (ConfigRootEntries & { nestedNotChecked: number })[] = [], notChecked: NotChecked = {};
+  const budget = createConfigBudget({ now }), roots: (ConfigRootEntries & { nestedNotChecked: number })[] = [], notChecked: NotChecked = {}, stamps = new Map<string, FileStamp>();
   let halted = false, present = false;
   const note = (code: NotCheckedCode, count = 1) => { countNotChecked(notChecked, code, count); };
   const fail = (code: ConfigReadCode | 'json_invalid' | 'schema_unknown', root: ConfigRootEntries) => {
@@ -49,11 +50,11 @@ export function createConfigReviewer(options: Options = {}): { review(roots: rea
       if (stop()) break;
       if (kind === 'steering') {
        const result = await readSteeringFile(input, rel, budget, io);
-       if ('entry' in result) { root.steering.push({ rel, ...result.entry }); if (result.entry.mode === 'unrecognised' || (result.entry.mode === 'fileMatch' && (result.entry.matchAll === 'unknown' || result.entry.broadUncertain))) root.incomplete = true; }
+       if ('entry' in result) { root.steering.push({ rel, ...result.entry }); stamps.set(stampKey(index, rel), result.stamp); if (result.entry.mode === 'unrecognised' || (result.entry.mode === 'fileMatch' && (result.entry.matchAll === 'unknown' || result.entry.broadUncertain))) root.incomplete = true; }
        else fail('code' in result ? result.code : 'file_unreadable', root);
       } else {
        const result = await readHookFile(input, rel, budget, io);
-       if ('hooks' in result) { root.hooks.push(...result.hooks.map(hook => ({ rel, ...hook }))); note('limit_hooks', result.omitted); if (result.omitted || result.hooks.some(hook => hookNotCheckedCodes(hook).length > 0)) root.incomplete = true; }
+       if ('hooks' in result) { stamps.set(stampKey(index, rel), result.stamp); root.hooks.push(...result.hooks.map(hook => ({ rel, ...hook }))); note('limit_hooks', result.omitted); if (result.omitted || result.hooks.some(hook => hookNotCheckedCodes(hook).length > 0)) root.incomplete = true; }
        else if ('code' in result && (result.code === 'json_invalid' || result.code === 'schema_unknown')) { note(result.code); root.incomplete = true; }
        else fail('code' in result ? result.code : 'file_unreadable', root);
       }
@@ -71,7 +72,7 @@ export function createConfigReviewer(options: Options = {}): { review(roots: rea
   evaluated.alwaysIncluded.incomplete ||= partial;
   // Only the sidebar projection survives. Equality keys and the run-local interner stay here.
   const projected: RootReview[] = roots.map(root => ({ ...root, hooks: root.hooks.map(({ matcherKey: _key, ...hook }) => hook) }));
-  return { ...evaluated, notChecked, roots: projected, bytesRead: budget.bytesRead, status: !roots.length && !present && partial && !halted ? 'unavailable' : partial ? 'partial' : 'complete' };
+  return { ...evaluated, notChecked, roots: projected, bytesRead: budget.bytesRead, stamps, status: !roots.length && !present && partial && !halted ? 'unavailable' : partial ? 'partial' : 'complete' };
  }
  return { review(inputs, options = {}) {
   if (inFlight) return inFlight;

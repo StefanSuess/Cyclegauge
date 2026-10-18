@@ -58,7 +58,38 @@
       },
       {
         "command": "cyclegauge.reviewKiroConfig",
-        "title": "Cyclegauge: Review Kiro Steering and Hooks"
+        "title": "Cyclegauge: Review Kiro Steering and Hooks",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "cyclegauge.config.loadWhenNeeded",
+        "title": "Load only when needed",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "cyclegauge.config.narrowPattern",
+        "title": "Narrow the pattern",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "cyclegauge.config.runManually",
+        "title": "Run only manually",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cyclegauge.config.disable",
+        "title": "Disable",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "cyclegauge.config.open",
+        "title": "Open file",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "cyclegauge.config.preview",
+        "title": "Show suggestion",
+        "icon": "$(lightbulb)"
       },
       {
         "command": "cyclegauge.copyDiagnostics",
@@ -155,7 +186,7 @@
           {
             "id": "cyclegauge.gettingStarted.sessionHints",
             "title": "Hints from your latest Kiro session",
-            "description": "On macOS, Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
+            "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
             "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
           }
         ]
@@ -243,7 +274,7 @@
         "cyclegauge.sessionHints": {
           "type": "boolean",
           "default": true,
-          "description": "On macOS, show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
+          "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
           "scope": "application"
         },
         "cyclegauge.budgetWarningPercent": {
@@ -271,14 +302,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "cyclegauge.audit.acceptAll",
+          "command": "cyclegauge.reviewKiroConfig",
           "when": "view == cyclegauge.auditView",
           "group": "navigation@2"
         },
         {
-          "command": "cyclegauge.audit.copy",
+          "command": "cyclegauge.audit.acceptAll",
           "when": "view == cyclegauge.auditView",
           "group": "navigation@3"
+        },
+        {
+          "command": "cyclegauge.audit.copy",
+          "when": "view == cyclegauge.auditView",
+          "group": "navigation@4"
         },
         {
           "command": "cyclegauge.audit.clearDismissed",
@@ -301,6 +337,66 @@
           "command": "cyclegauge.audit.reveal",
           "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
           "group": "inline@3"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "inline@2"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "view == cyclegauge.auditView && viewItem == config-agents",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.preview",
+          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "1_config@2"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "view == cyclegauge.auditView && viewItem =~ /^config-(steering-always|steering-match|hook|agents)$/",
+          "group": "1_config@3"
+        },
+        {
+          "command": "cyclegauge.config.preview",
+          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "group": "1_config@1"
         }
       ],
       "commandPalette": [
@@ -314,6 +410,30 @@
         },
         {
           "command": "cyclegauge.audit.reveal",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.preview",
           "when": "false"
         }
       ]

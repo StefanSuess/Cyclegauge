@@ -36,15 +36,22 @@ export function projectSession(json: unknown): SessionProjection | 'unsupported_
  return { modelId: typeof id === 'string' && MODEL_ID.test(id) ? id : null, lastModifiedAt: last, workspacePaths: paths as string[] };
 }
 
-/** Pure string comparison, no filesystem call: Unicode NFC, the macOS case rule (case-insensitive), trailing separators trimmed. */
-export function normalizePath(p: string): string {
- let s = p.normalize('NFC').toLowerCase();
+/**
+ * Pure string normalisation for the workspace comparison, by platform rule (no filesystem call). darwin: NFC and case-insensitive. win32: NFC,
+ * case-insensitive, backslashes as `/`, a leading `/` before a drive letter removed (`/c:/x` is `c:/x`) and trailing separators trimmed. linux: NFC,
+ * case-sensitive, trailing `/` trimmed. The Windows and Linux forms are assumptions: only macOS paths were observed (docs/wp11-13-data-proof.md).
+ * Any other platform behaves like linux (the gate never lets it reach the comparison). The platform is a required parameter: no result depends on the host running this code.
+ */
+export function normalizePath(p: string, platform: string): string {
+ let s = p.normalize('NFC');
+ if (platform === 'darwin') s = s.toLowerCase();
+ else if (platform === 'win32') s = s.toLowerCase().replace(/\\/g, '/').replace(/^\/([a-z]:)/, '$1');
  while (s.length > 1 && s.endsWith('/')) s = s.slice(0, -1);
  return s;
 }
-export function workspaceMatches(workspacePaths: readonly string[], folders: readonly string[]): boolean {
- const open = new Set(folders.filter(f => f !== '').map(normalizePath));
- return workspacePaths.some(p => p !== '' && open.has(normalizePath(p)));
+export function workspaceMatches(workspacePaths: readonly string[], folders: readonly string[], platform: string): boolean {
+ const open = new Set(folders.filter(f => f !== '').map(f => normalizePath(f, platform)));
+ return workspacePaths.some(p => p !== '' && open.has(normalizePath(p, platform)));
 }
 
 /** True when the timestamp is neither missing nor more than five minutes in the future. */

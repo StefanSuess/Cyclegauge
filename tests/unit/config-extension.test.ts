@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promi
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createConfigReviewer } from '../../src/audit/config-review.ts';
-import { registerConfigReview } from '../../src/extension/config-review.ts';
+import { registerConfigReview, startManualReview } from '../../src/extension/config-review.ts';
 import { evaluateConfigRules } from '../../src/audit/config-rules.ts';
 import type { ConfigReview, ConfigReviewRoot } from '../../src/audit/config-review.ts';
 
@@ -39,7 +39,7 @@ test('registration with automatic mode off does nothing by itself and has no aud
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.match(main,/\.\.\.configReview\.nodes\(\)/);
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
- assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate \}\)/);
+ assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig').length,1);
  assert.equal(manifest.contributes.configuration.properties['cyclegauge.configReviewAutomatically'].default,'off');
@@ -53,13 +53,19 @@ test('realpath deduplication and eight checked roots; refusal cannot hide remain
  const s=setup();s.workspace.workspaceFolders=[s.folder('synthetic-refused','/synthetic/refused'),s.folder('synthetic-root','/synthetic/root'),s.folder('synthetic-alias','/synthetic/alias'),...Array.from({length:9},(_,i)=>s.folder(`synthetic-${i}`,`/synthetic/${i}`))];
  await s.run();assert.equal(s.reads[0]!.length,8);assert.equal(s.reads[0]!.filter(x=>x==='/synthetic/root').length,1);assert.match(JSON.stringify(s.link.nodes()),/root limit/);
 });
-test('preview is unsaved plaintext and requires a current opaque tree node',async()=>{
- const s=setup();await s.run();const flatten=(nodes:ReturnType<typeof s.link.nodes>):ReturnType<typeof s.link.nodes>=>nodes.flatMap(n=>[n,...flatten(n.children??[])]);
- const node=flatten(s.link.nodes()).find(n=>n.action==='previewKiroConfig')!;assert.ok(node);
+test('the read-only suggestion (only for findings without an apply action) is unsaved plaintext and requires a current tree node',async()=>{
+ const wide=():ConfigReview=>{
+  const roots=[{root:0,nestedNotChecked:0,steering:['a','b'].map(n=>({rel:`.kiro/steering/synthetic-${n}.md`,mode:'always' as const,size:20000,matchAll:false as const,patternCount:0})),hooks:[]}];
+  return{...evaluateConfigRules(roots),roots,status:'complete',bytesRead:0};
+ };
+ const s=setup(async()=>wide());await s.run();const flatten=(nodes:ReturnType<typeof s.link.nodes>):ReturnType<typeof s.link.nodes>=>nodes.flatMap(n=>[n,...flatten(n.children??[])]);
+ const all=flatten(s.link.nodes()), node=all.find(n=>n.action==='previewKiroConfig')!;assert.ok(node);
+ assert.equal(node.finding!.id,'S3');assert.equal(all.filter(n=>n.finding&&n.action!=='previewKiroConfig').length,2,'S1 findings use apply actions instead');
  const preview=s.commands.get('cyclegauge.config.preview')!;
- await preview({...node});assert.equal(s.opened.length,0);
+ await preview('synthetic-forged-id');await preview({id:'synthetic-forged-id'});await preview({});await preview(undefined);assert.equal(s.opened.length,0);
  await preview(node.id);assert.equal(s.opened.length,2);assert.equal((s.opened[0] as {language:string}).language,'plaintext');
- await s.run();await preview(node.id);assert.equal(s.opened.length,2,'stale nodes cannot open a preview');
+ await preview({...node});assert.equal(s.opened.length,4,'the menu passes the tree element; only its id is read');
+ await s.run();await preview(node.id);assert.equal(s.opened.length,4,'stale nodes cannot open a preview');
 });
 test('single-flight and stale/disposed results never refresh the section',async()=>{
  const s=setup();await s.run();const before=s.refreshes;for(const d of s.subscriptions)d.dispose();await s.run();assert.equal(s.refreshes,before);assert.equal(s.reads.length,1);
@@ -99,4 +105,38 @@ test('hostile synthetic content reaches no output surface; hook name is capped a
   const out=JSON.stringify({opened:s.opened,messages:s.messages});
   for(const forbidden of [sentinel,'synthetic-name','😀',base,'SYNTHETIC-NAME-END'])assert.ok(!out.includes(forbidden),forbidden);
  }finally{await rm(base,{recursive:true,force:true});}
+});
+
+// ---- the review next to a manual audit (approved 2026-10-18)
+test('a manual audit starts exactly one manual review run; a failing or throwing review never escapes',async()=>{
+ let runs=0;startManualReview({run:async()=>{runs++;}});await Promise.resolve();assert.equal(runs,1);
+ startManualReview({run:()=>Promise.reject(new Error('synthetic-error-sentinel'))});
+ startManualReview({run:()=>{throw new Error('synthetic-error-sentinel');}});
+ await new Promise(r=>setTimeout(r,5)); // no unhandled rejection and no exception: the audit continues
+ const s=setup();startManualReview(s.link);await new Promise(r=>setTimeout(r,5));assert.equal(s.reads.length,1,'the same bounded run as the review command');
+ assert.equal(s.messages.length,0);
+});
+test('the review run behind a manual audit survives a failing reader and a refused folder without touching anything else',async()=>{
+ const s=setup(async()=>{throw new Error('synthetic-error-sentinel');});
+ await s.link.run();assert.equal(s.reads.length,1);assert.ok(!JSON.stringify(s.link.nodes()).includes('sentinel'));
+ s.workspace.workspaceFolders=[s.folder('synthetic-refused','/synthetic/refused')];
+ await s.link.run();assert.match(JSON.stringify(s.link.nodes()),/it overlaps Kiro data/);
+});
+test('only the manual audit command starts the review: the silent re-runs and the watcher never do',async()=>{
+ const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
+ assert.equal((main.match(/startManualReview\(/g)??[]).length,1);
+ // exactly in the manual `audit` function, right after the (non-silent) run settles, also when it throws
+ assert.match(main,/const audit = async \(\): Promise<void> => \{[\s\S]*?try \{ outcome = await auditOnce\(\); \} finally \{ running = false; if \(!userCancelled\) startManualReview\(configReview\); \}/);
+ const silent=main.match(/auditOnce\(true[^\n]*/g)??[];assert.ok(silent.length>=2);for(const line of silent)assert.ok(!line.includes('startManualReview')&&!line.includes('configReview'),line);
+ const start=main.indexOf('const auditOnce = async');const end=main.indexOf('// Registered independently of the collector');
+ assert.ok(!main.slice(start,end).includes('startManualReview'));
+});
+test('the Audit view gets a Review Steering and Hooks toolbar button after Audit, keeping the order of the other buttons',async()=>{
+ const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
+ const command=manifest.contributes.commands.find((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig');
+ assert.match(command.icon,/^\$\([a-z-]+\)$/);
+ const nav=(manifest.contributes.menus['view/title'] as {command:string;when:string;group:string}[]).filter(m=>m.group.startsWith('navigation@')).sort((a,b)=>Number(a.group.split('@')[1])-Number(b.group.split('@')[1]));
+ assert.deepEqual(nav.map(m=>m.command),['cyclegauge.auditWorkspace','cyclegauge.reviewKiroConfig','cyclegauge.audit.acceptAll','cyclegauge.audit.copy']);
+ assert.ok(nav.every(m=>m.when==='view == cyclegauge.auditView'));
+ assert.equal(new Set(nav.map(m=>m.group)).size,nav.length);
 });

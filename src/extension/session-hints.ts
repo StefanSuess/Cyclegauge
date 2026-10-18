@@ -4,7 +4,7 @@ import type { HintCode } from '../session/codes.ts';
 import { tick } from '../session/hints.ts';
 import { newHintState } from '../session/notices.ts';
 import { ID_PREFIX, readSessionHints } from './identity.ts';
-// Session hints: a context-fill reminder and a model hint from the newest IDE session of the open workspace (macOS, local extension host only).
+// Session hints: a context-fill reminder and a model hint from the newest IDE session of the open workspace (macOS observed, Windows and Linux enabled but unverified; local extension host only).
 // The thin editor wiring only: a timer, the setting, the open folders and one non-modal information message. All logic and every filesystem access
 // is in src/session and starts only after its gate, so a disabled, unsupported or remote window makes no filesystem call. Nothing is persisted:
 // the state lives in memory and resets with the window; failures are swallowed and reported only as a fixed code.

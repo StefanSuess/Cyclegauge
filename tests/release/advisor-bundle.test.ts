@@ -95,7 +95,7 @@ const auditApi=()=>{
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
 const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
-const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.reviewKiroConfig'];
+const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 // Assertions about the filename audit deliberately exclude the independent configuration section.
@@ -112,7 +112,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   const bundle=await builtBundle(work);
   const api=auditApi(),st=api.state;
   const commands=new Map<string,(...a:any[])=>unknown>(),errors:string[]=[],errorButtons:string[][]=[],warnings:string[]=[],infos:{text:string;extra:number}[]=[],clipboard:string[]=[];
-  let trusted=false,folderPath=workspace,gate:Promise<void>|undefined,failProgress=false,ignoreFiles:unknown=['.kiroignore'],autoSave:unknown='off',failProvider=false,infoChoice:string|undefined;
+  let trusted=false,folderPath=workspace,gate:Promise<void>|undefined,failProgress=false,ignoreFiles:unknown=['.kiroignore'],autoSave:unknown='off',documentAutoSave:unknown=undefined,failProvider=false,infoChoice:string|undefined;
   const disposable={dispose(){}};
   const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
    EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
@@ -120,7 +120,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
    commands:{...api.commands,registerCommand(id:string,fn:(...a:any[])=>unknown){if(!id.startsWith('cyclegauge.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
    env:{clipboard:{async writeText(t:string){clipboard.push(t);}}},
    workspace:{...api.workspace,get isTrusted(){return trusted;},get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:folderPath}}];},
-    getConfiguration:(section:string)=>({get:(key:string)=>section==='files'?(key==='autoSave'?autoSave:undefined):section==='kiroAgent'?(key==='agentIgnoreFiles'?ignoreFiles:undefined):({sourceRoot:source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC'} as any)[key]??''}),
+    getConfiguration:(section:string,scope?:any)=>({get:(key:string)=>section==='files'?(key==='autoSave'?(typeof scope?.getText==='function'&&documentAutoSave!==undefined?documentAutoSave:autoSave):undefined):section==='kiroAgent'?(key==='agentIgnoreFiles'?ignoreFiles:undefined):({sourceRoot:source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC'} as any)[key]??''}),
     createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
    // No createWebviewPanel: the audit must not open a webview any more.
    window:{...api.window,registerTreeDataProvider(id:string,p:any){if(failProvider)throw new Error('synthetic-provider-failure');return api.window.registerTreeDataProvider(id,p);},createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},
@@ -195,7 +195,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   for(const mode of ['afterDelay','onFocusChange','onWindowChange']){
    autoSave=mode;st.docs.clear();st.contentDocs.length=0;infos.length=0;const editCount:number=st.edits.length,shownCount:number=st.shown.length;
    await commands.get('cyclegauge.audit.accept')!(find('.env'));
-   assert.equal(st.edits.length,editCount,mode);assert.equal(st.docs.size,0,mode);assert.equal(st.contentDocs.length,1,mode);
+   assert.equal(st.edits.length,editCount,mode);assert.equal(st.docs.size,1,'the real document is opened (not shown or edited) so its own auto save scope can be read');assert.equal(st.shown.includes([...st.docs.values()][0]),false,mode);assert.equal(st.contentDocs.length,1,mode);
    assert.equal(st.contentDocs[0].text,'# Suggested by Cyclegauge - review before saving\n/.env\n');assert.equal(st.contentDocs[0].language,'ignore');assert.equal(st.contentDocs[0].uri.scheme,'untitled');
    assert.equal(st.shown.length,shownCount+1);assert.equal(st.shown.at(-1),st.contentDocs[0]);assert.equal(st.saves,0);
    assert.deepEqual(infoTexts(),['Your editor saves files automatically, so the suggested lines are shown in a new tab. Copy them into .kiroignore and save.']);
@@ -203,6 +203,9 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   }
   // An unset value counts as off.
   autoSave=undefined;st.docs.clear();st.contentDocs.length=0;const editsUnset=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsUnset);assert.equal(st.contentDocs.length,1);
+  // A per-language override that is only visible with the opened document as scope (the global value stays off) also counts as auto save.
+  autoSave='off';documentAutoSave='afterDelay';st.docs.clear();st.contentDocs.length=0;const editsLanguage=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsLanguage);assert.equal(st.contentDocs.length,1);assert.equal(readFileSync(kiroignore,'utf8'),'/ignored.log\n');
+  documentAutoSave=undefined;
   autoSave='off';infos.length=0;
   // Ignore: only salted hex hashes reach workspaceState, and the finding disappears (also from Copy and after a re-run).
   clipboard.length=0;
@@ -292,7 +295,7 @@ const reminderEnv=(work:string)=>{
  writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');writeFileSync(join(workspace,'dist','synthetic.js'),'x');
  const store=new Map<string,unknown>(),written:string[]=[];
  const env={now:'2030-03-31T12:00:00Z',trusted:true,folders:[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:workspace}}] as any[],days:undefined as unknown,automatic:undefined as unknown,
-  choice:undefined as string|undefined,onInfo:undefined as (()=>void)|undefined,cancel:false,throwState:false,failStart:true,failConfigPreview:false,configReads:[] as string[],source,workspace,empty,single,store,written,gate:undefined as Promise<void>|undefined,readdirs:[] as string[],lstats:[] as string[],configCalls:[] as {section:string;args:number}[],
+  choice:undefined as string|undefined,onInfo:undefined as (()=>void)|undefined,cancel:false,pick:undefined as string|undefined,pickCalls:0,configOpens:[] as string[],failConfigOpen:false,throwState:false,failStart:true,failConfigPreview:false,configReads:[] as string[],source,workspace,empty,single,store,written,gate:undefined as Promise<void>|undefined,readdirs:[] as string[],lstats:[] as string[],configCalls:[] as {section:string;args:number}[],
   panels:[] as any[],htmlSets:0,panelOptions:undefined as any,infos:[] as {text:string;buttons:string[]}[],warnings:[] as string[],errors:[] as string[],progress:0,executed:[] as any[][],statusTexts:[] as string[],clipboard:[] as string[]};
  return env;
 };
@@ -309,7 +312,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
    createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
   window:{...api.window,createStatusBarItem(){const item={set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};return item;},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{_h:'',get html(){return this._h;},set html(v:string){env.htmlSets++;this._h=v;},postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
-   async showWarningMessage(m:string){env.warnings.push(m);},async showErrorMessage(m:string){env.errors.push(m);},
+   async showWarningMessage(m:string){env.warnings.push(m);},async showErrorMessage(m:string){env.errors.push(m);},async showQuickPick(choices:any[]){env.pickCalls++;return env.pick==='first'?choices[0]:undefined;},
    async showInformationMessage(text:string,...buttons:string[]){env.infos.push({text,buttons});env.onInfo?.();return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){env.progress++;return task({},{onCancellationRequested:(fn:()=>void)=>{if(env.cancel)fn();return disposable;}});}}};
  const workspaceState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
@@ -324,7 +327,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  const module={exports:{} as any};
  // The walk's file system calls are observed (and the workspace listing can be held) so a run in flight can be inspected.
  const configRead=(p:any)=>{const path=String(p);if(/(?:^|[\\/])AGENTS\.md$|[\\/]\.kiro(?:[\\/]|$)/.test(path))env.configReads.push(path);};
- const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){configRead(p);env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async opendir(p:any,...a:any[]){configRead(p);return (realFsPromises.opendir as any)(p,...a);},async open(p:any,...a:any[]){configRead(p);return (realFsPromises.open as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
+ const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){configRead(p);env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async opendir(p:any,...a:any[]){configRead(p);return (realFsPromises.opendir as any)(p,...a);},async open(p:any,...a:any[]){configRead(p);if(/[\\/]\.kiro[\\/](steering|hooks)[\\/]/.test(String(p))){env.configOpens.push(String(p));if(env.failConfigOpen)throw new Error('synthetic-config-open-failure /private/synthetic-path');}return (realFsPromises.open as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?fsHook:require(id),module,module.exports,SyntheticDate);
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{/* restored on disposal so delayed signal timers remain controllable */}
  let done=false;
@@ -687,7 +690,7 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'editor','User','globalStorage','synthetic.ext'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
   answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],calls:[] as unknown[][],keyAtOpen:[] as boolean[],throwOpen:false,updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[],
-  posted:[] as any[],receive:(_m:unknown)=>{},saveTo:undefined as string|undefined|(()=>string|undefined),dialogs:[] as {defaultPath:string;filters:unknown}[],clipboardFails:false,errorButtons:[] as string[][],errorChoice:undefined as string|undefined};
+  posted:[] as any[],receive:(_m:unknown)=>{},saveTo:undefined as string|undefined|(()=>string|undefined),dialogs:[] as {defaultPath:string;filters:unknown}[],clipboardFails:false,errorButtons:[] as string[][],errorChoice:undefined as string|undefined,configOpens:[] as string[]};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
@@ -719,7 +722,8 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const module={exports:{} as any};
  const saved:Record<string,string|undefined>={};
  for(const k of ['HOME','USERPROFILE','APPDATA','LOCALAPPDATA','XDG_CONFIG_HOME','XDG_DATA_HOME']){saved[k]=process.env[k];process.env[k]=env.home;}
- runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
+ const openHook={...realFsPromises,async open(p:any,...a:any[]){if(/[\\/]\.kiro[\\/](steering|hooks)[\\/]/.test(String(p)))env.configOpens.push(String(p));return (realFsPromises.open as any)(p,...a);}};
+ runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?openHook:require(id),module,module.exports,SyntheticDate);
  const later=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));};
  let done=false;
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:env.globalStorage},logUri:{fsPath:join(work,'editor','logs','synthetic-session','exthost','synthetic.ext')},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{/* restored on disposal so delayed signal timers remain controllable */}
@@ -926,6 +930,65 @@ test('packaged re-check after ignore changes: checked workspaces only, ignore fi
   // Changing Agent Ignore Files re-checks too, and disposal cancels a pending re-check.
   setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,1);
   const last=pending()[0]!;s.dispose();assert.equal(last.cleared,true);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// A manual audit also runs the Steering and Hooks review (approved 2026-10-18); silent re-runs never do. The review is observed by the opens of `.kiro/steering` and
+// `.kiro/hooks` files, which only the review performs (the audit reads only ignore files).
+test('packaged manual audit starts exactly one Steering and Hooks review; silent re-runs, a dismissed picker and a cancelled audit start none',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-review-bundle-')));
+ const open:{dispose():void}[]=[];
+ try{
+  const env=reminderEnv(work);
+  mkdirSync(join(env.workspace,'.kiro','steering'),{recursive:true});writeFileSync(join(env.workspace,'.kiro','steering','synthetic.md'),Buffer.alloc(30000,'x'));
+  const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
+  const reset=()=>{env.infos.length=0;env.warnings.length=0;env.errors.length=0;env.progress=0;env.executed.length=0;env.store.clear();env.written.length=0;env.choice=undefined;env.configOpens.length=0;env.configReads.length=0;env.pickCalls=0;env.pick=undefined;env.cancel=false;env.failConfigOpen=false;env.automatic=undefined;env.trusted=true;};
+  const settle=()=>new Promise(r=>setTimeout(r,150));
+  const config=(s:any)=>s.provider().getChildren().filter((n:any)=>n.kind==='config');
+  const manual=(s:any,id='cyclegauge.auditWorkspace')=>{s.advance();return s.commands.get(id)!();}; // the dashboard commands are rate-limited per second
+  // The manual command: the audit result and exactly one review run.
+  reset();let s=await start();await manual(s);await until(()=>env.configOpens.length>0);await settle();
+  assert.equal(env.configOpens.length,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,1);
+  assert.deepEqual(env.infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',buttons:[]}]);
+  assert.ok(flatTree(config(s)).some((n:any)=>String(n.label).startsWith('Large always-included Steering')));s.dispose();
+  // The credit view's Show with no result runs the audit, so it runs the review too; a second run runs one more review.
+  reset();s=await start();await manual(s,'cyclegauge.audit.show');await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);
+  await manual(s);await until(()=>env.configOpens.length>1);await settle();assert.equal(env.configOpens.length,2);s.dispose();
+  // The reminder's Run audit button is a manual audit; the reminder-driven automatic run is silent and starts none.
+  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.choice='Run audit';s=await start();await s.fire();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();
+  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.automatic=true;s=await start();await s.fire();await settle();
+  assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,0);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,1);s.dispose();
+  // A dismissed folder picker (multi-root) and a cancelled audit start no review; choosing a folder does.
+  const second=join(work,'synthetic-second');mkdirSync(second,{recursive:true});
+  const both=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}},{name:'synthetic-second',uri:{scheme:'file',fsPath:second}}];
+  reset();env.folders=both;s=await start();await manual(s);await settle();assert.equal(env.pickCalls,1);assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);
+  env.pick='first';await manual(s);await settle();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();env.folders=[both[0]];
+  reset();env.cancel=true;s=await start();await manual(s);await settle();assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();
+  // An untrusted workspace: the review is told so in its own section, reads nothing and shows no enable offer; the audit's own warning stays.
+  reset();env.trusted=false;s=await start();await manual(s);await settle();
+  assert.deepEqual(env.warnings,['Cyclegauge audits only trusted workspaces.']);assert.deepEqual(env.configOpens,[]);assert.deepEqual(env.configReads.filter(p=>p.includes('steering')),[]);
+  assert.match(JSON.stringify(config(s)),/not trusted/);assert.ok(!infoTexts(env).some(t=>t.includes('Steering and Hooks automatically')));s.dispose();
+  // A failing review run leaves the audit's result and notification intact and raises no error.
+  reset();env.failConfigOpen=true;s=await start();await manual(s);await until(()=>env.configOpens.length>0);await settle();
+  assert.deepEqual(env.infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',buttons:[]}]);assert.deepEqual(env.errors,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');s.dispose();
+  // A refused folder is still an audit attempt: the audit says why and the review starts, refuses the same folder and reads nothing.
+  reset();env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await manual(s);await settle();
+  assert.equal(env.warnings.length,1);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,1);s.dispose();env.folders=[both[0]];
+ }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged ignore-file re-check after a manual audit starts no further review',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-review-recheck-')));
+ let s:any;
+ try{
+  const env=communityEnv(work,true);env.prompts=false;
+  mkdirSync(join(env.workspace,'.kiro','steering'),{recursive:true});writeFileSync(join(env.workspace,'.kiro','steering','synthetic.md'),Buffer.alloc(30000,'x'));
+  s=await communitySession(env,work);
+  const target=join(env.workspace,'.kiroignore');
+  await s.commands.get('cyclegauge.auditWorkspace')!();await until(()=>env.configOpens.length>0);await s.later();assert.equal(env.configOpens.length,1);
+  writeFileSync(target,'/.env\n');for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:target},getText:()=>''});
+  const [t]=env.timers.filter(x=>x.ms===1000&&!x.cleared);assert.ok(t);t!.cleared=true;await t!.fn();await s.later();await new Promise(r=>setTimeout(r,150));
+  assert.equal(env.configOpens.length,1,'the silent re-check never starts the review');
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 

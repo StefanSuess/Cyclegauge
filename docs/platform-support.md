@@ -19,7 +19,7 @@ macOS observations for one Kiro version do not verify any other platform or vers
 - One account at a time. Several account partitions, or logs without a supported identity, withhold the account view; there is no account selector.
 - Kiro's log format is not a documented contract and may change. Unsupported formats produce an unavailable status.
 - Kiro's own SQLite cache and CLI/Crew session metering are not read.
-- The optional session hints (context reminder and model hint) read the newest IDE session's metadata on **macOS only**, in a local extension host; they are silent on Windows, Ubuntu and RHEL, in remote windows and for CLI sessions. The field semantics were observed on one macOS installation (see the [data proof](wp11-13-data-proof.md)).
+- The optional session hints (context reminder and model hint) read the newest IDE session's metadata on **macOS (observed), Windows and Linux (enabled 2026-10-18, not yet verified natively)**, in a local extension host; they are silent in remote windows and for CLI sessions, and on Windows and Linux whenever the session folder or path format differs from the macOS layout. The field semantics were observed on one macOS installation only (see the [data proof](wp11-13-data-proof.md)).
 - Forecasts are qualified constant-rate scenarios, not guarantees or confidence intervals.
 
 See [how-values-are-calculated.md](how-values-are-calculated.md), [forecasting.md](forecasting.md) and [privacy-and-storage.md](privacy-and-storage.md) for the details behind these points.

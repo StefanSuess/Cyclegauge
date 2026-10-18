@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
-import { CONFIG_OFFER_KEY, registerConfigReview, type SupportGate } from './config-review.ts';
+import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type SupportGate } from './config-review.ts';
 import type { ConfigNode } from './config-model.ts';
 import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
@@ -114,6 +114,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
  let changed: vscode.EventEmitter<AuditNode | ConfigNode | undefined> | undefined, viewReady = false;
+ let userCancelled = false; // the user dismissed the folder picker or cancelled the progress notification of the current manual audit: no review then
+ let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
  let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
@@ -164,7 +166,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   running = true;
   try {
    let outcome: AuditResult | undefined;
-   try { outcome = await auditOnce(); } finally { running = false; }
+   // A manual audit also runs the Steering and Hooks review (approved 2026-10-18), whatever the audit's outcome; the silent re-runs (auditOnce(true, ...)) never do.
+   userCancelled = false;
+   try { outcome = await auditOnce(); } finally { running = false; if (!userCancelled) startManualReview(configReview); }
    if (!outcome) return;
    if (viewReady) try { await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); } catch { /* the list is still updated */ }
    if (outcome.status === 'unavailable') return;
@@ -189,7 +193,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    const picked = await vscode.window.showQuickPick(folders.map(f => ({ label: f.name, folder: f })), { title: 'Folder to audit' });
    folder = picked?.folder;
   }
-  if (!folder) return;
+  if (!folder) { userCancelled = !silent; return; }
   const checked = folderCheck(folder);
   if ('reason' in checked) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage(`This folder can't be audited: ${checked.reason}.`); return; }
   const { chosen, resolved } = checked;
@@ -197,7 +201,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const outcome = silent ? await runAudit(chosen, setting, { signal })
    : await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Auditing workspace…', cancellable: true }, async (_progress, token) => {
     const abort = new AbortController();
-    token.onCancellationRequested(() => abort.abort());
+    token.onCancellationRequested(() => { userCancelled = true; abort.abort(); });
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;
@@ -232,7 +236,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    exists = true;
   } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') { notify('The .kiroignore in this workspace could not be checked, so no change was prepared.'); return; } }
   // With auto save on, an edit to the real file could be written without the user reviewing it: show the lines in a new tab instead.
-  const autoSave = exists ? vscode.workspace.getConfiguration('files', vscode.Uri.file(path)).get<string>('autoSave') : undefined;
+  // Auto save is read with the opened document as scope, so a per-language override counts; the document is only opened, never edited, until this is known.
+  const opened = exists ? await vscode.workspace.openTextDocument(vscode.Uri.file(path)) : undefined;
+  const autoSave = opened ? vscode.workspace.getConfiguration('files', opened).get<string>('autoSave') : undefined;
   if (exists && autoSave !== 'off') {
    const proposal = await vscode.workspace.openTextDocument({ content: kiroignoreAppend(undefined, lines), language: 'ignore' });
    pendingSave = { path, lines, accepted: aggregate };
@@ -242,7 +248,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    render();
    return;
   }
-  const document = await vscode.workspace.openTextDocument(exists ? vscode.Uri.file(path) : vscode.Uri.file(path).with({ scheme: 'untitled' }));
+  const document = opened ?? await vscode.workspace.openTextDocument(vscode.Uri.file(path).with({ scheme: 'untitled' }));
   const current = document.getText();
   const text = kiroignoreAppend(exists || current !== '' ? current : undefined, lines);
   if (text === '') { await vscode.window.showTextDocument(document); notify('These lines are already in .kiroignore.'); return; }
@@ -434,8 +440,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidChangeWorkspaceFolders) context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => syncWatcher()));
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
- let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [] };
- try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate }); }
+
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate, reportError: showReportableError }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
   const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();

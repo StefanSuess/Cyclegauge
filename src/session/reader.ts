@@ -12,7 +12,7 @@ export interface DirEntry { name: string; isDirectory(): boolean }
 export interface SessionFs extends ReadFs { readdir(path: string): Promise<DirEntry[]> }
 export const defaultFs: SessionFs = { ...nodeFs, readdir: path => readdir(path, { withFileTypes: true }) };
 export const READER_LIMITS = { entriesPerLevel: 200, openPerTick: 20, inactiveMs: 12 * 3_600_000 } as const;
-export interface ReadRequest { home: string; folders: readonly string[]; now: number; signal?: AbortSignal; fs?: SessionFs; decode?: (b: Uint8Array) => string }
+export interface ReadRequest { home: string; folders: readonly string[]; platform: string; now: number; signal?: AbortSignal; fs?: SessionFs; decode?: (b: Uint8Array) => string }
 // capped: workspace folders skipped because they hold more than 200 session folders
 export type ReadOutcome = { code: 'ok'; observation: Observation; contextCode?: HintCode; opened: number; capped: number } | { code: Exclude<HintCode, 'ok'>; opened: number; capped: number };
 const segmentOk = (n: string) => n !== '' && n !== '.' && n !== '..' && !/[/\\\u0000-\u001f\u007f]/.test(n);
@@ -84,7 +84,7 @@ export async function readSession(req: ReadRequest): Promise<ReadOutcome> {
    if (typeof p === 'string') continue;
    // Strict agreement: not in the future, and roughly the file's own modification time.
    if (!notFuture(p.lastModifiedAt, now) || Math.abs(p.lastModifiedAt - e.mtimeMs) > LIMITS.mtimeAgreementMs) continue;
-   if (workspaceMatches(p.workspacePaths, req.folders)) best.push({ e, last: p.lastModifiedAt, modelId: p.modelId });
+   if (workspaceMatches(p.workspacePaths, req.folders, req.platform)) best.push({ e, last: p.lastModifiedAt, modelId: p.modelId });
   }
   if (aborted) return { code: 'aborted', opened, capped };
   if (best.length === 0) return { code: capped > 0 ? 'listing_capped' : 'no_match', opened, capped }; // an over-full folder may have held the session
