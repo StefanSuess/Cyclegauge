@@ -409,7 +409,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidChangeWorkspaceFolders) context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => syncWatcher()));
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
- const configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined));
+ let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [] };
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined)); }
+ catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
   const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();
   changed = emitter;

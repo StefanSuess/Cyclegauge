@@ -58,6 +58,14 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   try { const document = await editor.workspace.openTextDocument({content,language:'plaintext'}); await editor.window.showTextDocument(document); }
   catch { /* no exception text leaves the preview */ }
  };
- context.subscriptions.push(editor.commands.registerCommand(commandId('reviewKiroConfig'),run),editor.commands.registerCommand(commandId('config.preview'),preview),{dispose(){disposed=true;abort?.abort();current=undefined;nodes=configTree();}});
+ const registrations: vscode.Disposable[] = [];
+ try {
+  registrations.push(editor.commands.registerCommand(commandId('reviewKiroConfig'),run));
+  registrations.push(editor.commands.registerCommand(commandId('config.preview'),preview));
+  context.subscriptions.push(...registrations,{dispose(){disposed=true;abort?.abort();current=undefined;nodes=configTree();}});
+ } catch {
+  for (const registration of registrations) { try { registration.dispose(); } catch { /* best-effort rollback */ } }
+  throw new Error('Configuration review registration failed.');
+ }
  return {nodes:()=>nodes};
 }
