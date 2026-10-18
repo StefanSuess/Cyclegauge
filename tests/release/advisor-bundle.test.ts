@@ -80,22 +80,22 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
 // Native-API stand-ins for the audit sidebar: an in-memory document store (nothing is read back from or written to disk by edits),
 // a recording tree-view registry and a Map-backed workspaceState.
 const auditApi=()=>{
- const state={providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0,saveListeners:[] as any[]};
+ const state={discard:false,providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0,saveListeners:[] as any[]};
  class EventEmitter{listeners:any[]=[];event=(fn:any)=>{this.listeners.push(fn);return {dispose(){}};};fire(v:any){state.fires++;for(const l of this.listeners)l(v);}dispose(){}}
  class TreeItem{id?:string;description?:string;tooltip?:unknown;contextValue?:string;iconPath?:any;command?:any;resourceUri?:unknown;label:string;collapsibleState:number;constructor(label:string,collapsibleState:number){this.label=label;this.collapsibleState=collapsibleState;}}
  class ThemeIcon{id:string;constructor(id:string){this.id=id;}}
- class WorkspaceEdit{inserts:any[]=[];insert(uri:any,position:any,text:string){this.inserts.push({uri,position,text});}}
+ class WorkspaceEdit{inserts:any[]=[];insert(uri:any,position:any,text:string,metadata?:any){this.inserts.push({uri,position,text,metadata});}}
  const uri=(fsPath:string,scheme='file'):any=>({fsPath,scheme,with(o:any){return uri(fsPath,o.scheme??scheme);}});
  const key=(u:any)=>`${u.scheme}:${u.fsPath}`;
  return {state,Uri:{file:(p:string)=>uri(p)},EventEmitter,TreeItem,ThemeIcon,WorkspaceEdit,TreeItemCollapsibleState:{None:0,Collapsed:1,Expanded:2},
   workspaceState:{get:(k:string)=>state.store.get(k),async update(k:string,v:unknown){if(v===undefined)state.store.delete(k);else state.store.set(k,structuredClone(v));}},
   workspace:{onDidSaveTextDocument(fn:any){state.saveListeners.push(fn);return {dispose(){state.saveListeners=state.saveListeners.filter(x=>x!==fn);}};},async openTextDocument(u:any){if(u.content!==undefined){const c={uri:{scheme:'untitled',fsPath:''},text:u.content,language:u.language,getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.contentDocs.push(c);return c;}let d=state.docs.get(key(u));if(!d){d={uri:u,text:u.scheme==='file'?readFileSync(u.fsPath,'utf8'):'',getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.docs.set(key(u),d);}return d;},
-   async applyEdit(e:any){for(const i of e.inserts){const d=state.docs.get(key(i.uri));d.text=d.text.slice(0,i.position.offset)+i.text+d.text.slice(i.position.offset);}state.edits.push(e);return true;}},
+   async applyEdit(e:any){if(state.discard){state.edits.push(e);return false;}for(const i of e.inserts){const d=state.docs.get(key(i.uri));d.text=d.text.slice(0,i.position.offset)+i.text+d.text.slice(i.position.offset);}state.edits.push(e);return true;}},
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
 const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
-const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
+const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.loadWhenNeededAll','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.runManuallyAll','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 // Assertions about the filename audit deliberately exclude the independent configuration section.
@@ -144,12 +144,16 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.deepEqual(warnings,['Cyclegauge audits only trusted workspaces.']);assert.deepEqual(roots(),[]);
   // Trusted: the tree lists the findings; the notification has no buttons; the view is focused.
   trusted=true;await run();
-  assert.deepEqual(roots().map(n=>n.label),['2 items Kiro may read','Secrets and credentials (1)','Build output (1)']);
-  assert.match(roots()[0].description,/^synthetic-workspace · checked (just now|\d+ min ago) · about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)$/);
+  // The status line, then one Exclude group whose categories are collapsed sub-groups.
+  assert.equal(roots().length,2);assert.match(roots()[0].label,/^Checked .+ · 2 suggestions$/);assert.equal(roots()[1].label,'Exclude from Kiro (2)');
+  assert.deepEqual(roots()[1].children.filter((n:any)=>n.kind==='group').map((n:any)=>n.label),['Secrets and credentials (1)','Build output (1)']);
+  assert.match(roots()[0].description,/^Kiro may read about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)$/);
+  assert.match(roots()[0].tooltip,/^Folder: synthetic-workspace\n/);
   assert.deepEqual(infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',extra:0}]);
   assert.ok(st.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
-  const secretGroup=roots()[1],groupItem=provider.getTreeItem(secretGroup);
-  assert.equal(groupItem.collapsibleState,2);assert.equal(groupItem.iconPath.id,'key');
+  const excludeItem=provider.getTreeItem(roots()[1]);assert.equal(excludeItem.collapsibleState,2);assert.equal(excludeItem.contextValue,'group-exclude');assert.equal(excludeItem.description,'adds lines to .kiroignore');
+  const secretGroup=roots()[1].children.find((n:any)=>n.id==='secret'),groupItem=provider.getTreeItem(secretGroup);
+  assert.equal(groupItem.collapsibleState,1);assert.equal(groupItem.iconPath.id,'key');
   const env=find('.env'),dist=find('dist/');assert.equal(env.description,'Kiro may read this');assert.ok(env.tooltip.includes('Size: 26 B'));assert.equal(dist.contextValue,'finding-suggestible');
   const envItem=provider.getTreeItem(env);assert.equal(envItem.resourceUri,undefined);assert.equal(envItem.iconPath.id,'key');assert.equal(typeof envItem.tooltip,'string');assert.equal(envItem.command,undefined);
   const shown=JSON.stringify(roots());assert.ok(!shown.includes(work));assert.ok(!shown.includes('SYNTHETIC_CONTENT_SENTINEL'));
@@ -164,13 +168,22 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   const insert=st.edits[0].inserts[0];assert.equal(insert.uri.fsPath,kiroignore);assert.equal(insert.uri.scheme,'file');assert.equal(insert.position.offset,'/ignored.log\n'.length);
   assert.equal(insert.text,'# Suggested by Cyclegauge - review before saving\n/.env\n');
   assert.equal(st.shown.length,1);assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
+  // The edit goes through the editor's change preview: an annotation that needs confirmation with a short why and the alternative; then a fixed notice with the counts.
+  const meta=insert.metadata;assert.deepEqual(meta,{label:'Exclude from Kiro',description:"Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem.",needsConfirmation:true});
+  assert.ok(infoTexts().includes('Changes prepared in 1 file — review and save.'));infos.length=0;
   assert.equal(find('.env').description,'Kiro may read this · rule prepared (unsaved)');assert.ok(!find('dist/').description.includes('rule prepared'));
   // Accept all: one combined edit; lines already in the document and the header are not repeated.
   await commands.get('cyclegauge.audit.acceptAll')!();
   assert.equal(st.edits.length,2);assert.equal(st.edits[1].inserts[0].text,'/dist/\n');assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
+  assert.equal(st.edits[1].inserts[0].metadata.needsConfirmation,true);assert.equal(st.edits[1].inserts[0].metadata.label,'Exclude from Kiro');
   assert.ok(find('dist/').description.includes('rule prepared (unsaved)'));
   // Running again clears the accepted marks.
   await run();assert.ok(!find('.env').description.includes('rule prepared'));assert.ok(!find('dist/').description.includes('rule prepared'));
+  // Discarding the change preview is not an error: nothing is marked as prepared, nothing is remembered for a save, and one fixed note is shown.
+  st.docs.clear();st.discard=true;infos.length=0;const discardEdits=st.edits.length;
+  await commands.get('cyclegauge.audit.accept')!(find('.env'));
+  st.discard=false;assert.equal(st.edits.length,discardEdits+1);assert.deepEqual(infoTexts(),['No changes were made.']);assert.ok(!find('.env').description.includes('rule prepared'));assert.equal(st.saves,0);
+  infos.length=0;st.docs.clear();
   // Accept without a .kiroignore: an unsaved untitled document at that path; nothing is created on disk.
   unlinkSync(kiroignore);st.docs.clear();
   await commands.get('cyclegauge.audit.accept')!(find('.env'));
@@ -212,7 +225,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   await commands.get('cyclegauge.audit.dismiss')!(find('.env'));
   const stored=state()!;assert.deepEqual(Object.keys(stored).sort(),['hashes','salt']);assert.match(stored.salt,/^[0-9a-f]{64}$/);assert.equal(stored.hashes.length,1);assert.match(stored.hashes[0]!,/^[0-9a-f]{64}$/);
   assert.ok(!JSON.stringify(stored).includes('.env')&&!JSON.stringify(stored).includes(work)&&!JSON.stringify([...st.store]).includes('synthetic-workspace'));
-  assert.deepEqual(roots().map(n=>n.label),['1 item Kiro may read','Build output (1)','1 hidden by you']);
+  assert.equal(roots().length,3);assert.match(roots()[0].label,/^Checked .+ · 1 suggestion$/);assert.deepEqual(roots().slice(1).map(n=>n.label),['Exclude from Kiro (1)','1 hidden by you']);
   const footer=roots().at(-1);assert.equal(footer.action,'clearDismissed');assert.equal(provider.getTreeItem(footer).command.command,'cyclegauge.audit.clearDismissed');
   await commands.get('cyclegauge.audit.copy')!();assert.ok(!clipboard[0]!.includes('/.env'));assert.ok(clipboard[0]!.includes('/dist/'));
   await commands.get('cyclegauge.audit.dismiss')!(find('.env')??{kind:'info'});await commands.get('cyclegauge.audit.dismiss')!(undefined);assert.equal(state()!.hashes.length,1);
@@ -345,18 +358,18 @@ test('packaged configuration registration is isolated, idle until invoked, and k
   assert.ok(session.provider());
   for(const id of CONFIG_COMMANDS)assert.equal(typeof session.commands.get(id),'function');
   const config=()=>session.provider().getChildren().filter((n:any)=>n.kind==='config');
-  assert.equal(config().length,1);assert.equal(config()[0].label,'Kiro Steering and Hooks');
-  const entry=flatTree(config()).find((n:any)=>n.action==='reviewKiroConfig');assert.ok(entry);
-  assert.equal(session.provider().getTreeItem(entry).command.command,'cyclegauge.reviewKiroConfig');
+  // Nothing is checked yet: the tree is empty (the view shows its welcome text with the Check button) and has no Review entry.
+  assert.deepEqual(session.provider().getChildren(),[]);
   assert.deepEqual(env.configReads.slice(),[],'registering and building the initial tree must not access configuration');
-  assert.deepEqual(auditRoots(session.provider()),[]);
   // Explicit review reads only after invocation, updates its own section and leaves the filename audit/state unchanged.
   writeFileSync(join(env.workspace,'AGENTS.md'),Buffer.alloc(40000,'x'));
   const before=JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress});
   await session.commands.get('cyclegauge.reviewKiroConfig')!();
   assert.ok(env.configReads.some(p=>p.endsWith('AGENTS.md')));
   assert.equal(JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress}),before);
-  assert.deepEqual(auditRoots(session.provider()),[]);assert.ok(flatTree(config()).some((n:any)=>n.finding?.id==='S2'));
+  assert.deepEqual(auditRoots(session.provider()).map((n:any)=>n.id),['status']);assert.match(auditRoots(session.provider())[0].label,/^Checked .+ · 2 suggestions$/);
+  assert.deepEqual(config().map((n:any)=>n.label),['Worth a look (2)']);assert.ok(flatTree(config()).some((n:any)=>n.finding?.id==='S2'));
+  assert.ok(!JSON.stringify(session.provider().getChildren()).includes('Review Kiro Steering and Hooks'));
   assert.equal(session.api.state.edits.length,0);session.dispose();
   // A failure after the first config command registers must roll it back and leave the original audit provider usable.
   env.failConfigPreview=true;env.configReads.length=0;
@@ -412,7 +425,7 @@ test('packaged audit reminder: guards, first prompt, buttons and stored state',a
   // Run audit: the normal command, with its progress notification; it records the date and fills the list.
   reset();env.choice='Run audit';s=await start();await s.fire();
   assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
-  assert.deepEqual(auditRoots(s.provider()).map((n:any)=>n.label).slice(0,1),['2 items Kiro may read']);
+  assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);
   assert.deepEqual(infoTexts(env),["Cyclegauge can check this workspace for files that may end up in Kiro's context.",'2 items Kiro may read — see the Kiro Workspace Audit view.']);s.dispose();
   // A command-driven run records the date too (and only a finished, not cancelled, run does).
   reset();s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
@@ -450,12 +463,12 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   reset();last('2030-03-01');env.automatic=true;s=await start();await s.fire();
   assert.equal(env.progress,0);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
   assert.deepEqual(env.infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',buttons:['Show']}]);
-  assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
+  assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
   assert.ok(!JSON.stringify(auditRoots(s.provider())).includes('SYNTHETIC_CONTENT_SENTINEL'));s.dispose();
   reset();last('2030-03-01');env.choice='Show';s=await start();await s.fire();assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);s.dispose();
   // No findings: silent. Not due: nothing runs. Never audited or snoozed: the first prompt or nothing, never a background run.
   reset();last('2030-03-01');env.folders=[{name:'synthetic-empty',uri:{scheme:'file',fsPath:env.empty}}];s=await start();await s.fire();
-  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(auditRoots(s.provider())[0].label,'No risky files found');s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
+  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · nothing to suggest$/);s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
   // Automatic modes re-run an audit that is at least one UTC day old (well inside the reminder period), but not one from today.
   reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
   reset();last(TODAY);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);
@@ -549,7 +562,7 @@ test('packaged audit reminder: a failing workspaceState never breaks activation,
   env.choice='Later';await s.fire();
   assert.equal(env.infos.length,1);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);
   await s.commands.get('cyclegauge.auditWorkspace')!();
-  assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');
+  assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);
   env.automatic=true;env.infos.length=0;await s.fire();assert.deepEqual(env.errors,[]);
  }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -957,7 +970,7 @@ test('packaged manual audit starts exactly one Steering and Hooks review; silent
   // The reminder's Run audit button is a manual audit; the reminder-driven automatic run is silent and starts none.
   reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.choice='Run audit';s=await start();await s.fire();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();
   reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.automatic=true;s=await start();await s.fire();await settle();
-  assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,0);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,1);s.dispose();
+  assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,0);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,0,'a silent re-run starts no review, so there is no Steering and Hooks group');s.dispose();
   // A dismissed folder picker (multi-root) and a cancelled audit start no review; choosing a folder does.
   const second=join(work,'synthetic-second');mkdirSync(second,{recursive:true});
   const both=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}},{name:'synthetic-second',uri:{scheme:'file',fsPath:second}}];
@@ -971,7 +984,7 @@ test('packaged manual audit starts exactly one Steering and Hooks review; silent
   // A failing review run leaves the audit's result and notification intact and raises no error.
   reset();env.failConfigOpen=true;s=await start();await manual(s);await until(()=>env.configOpens.length>0);await settle();
   assert.deepEqual(env.infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',buttons:[]}]);assert.deepEqual(env.errors,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
-  assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');s.dispose();
+  assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);s.dispose();
   // A refused folder is still an audit attempt: the audit says why and the review starts, refuses the same folder and reads nothing.
   reset();env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await manual(s);await settle();
   assert.equal(env.warnings.length,1);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,1);s.dispose();env.folders=[both[0]];

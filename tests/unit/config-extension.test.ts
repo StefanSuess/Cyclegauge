@@ -37,7 +37,7 @@ test('registration with automatic mode off does nothing by itself and has no aud
  assert.deepEqual(source.match(/\.update\(SETTING[^)]*\)/g),[".update(SETTING, 'onOpenAndChanges', editor.ConfigurationTarget.Global)"]);
  for(const name of ['config-model','config-review','config-schedule']) { const code=await readFile(new URL(`../../src/extension/${name}.ts`,import.meta.url),'utf8');assert.doesNotMatch(code,/RegExp\s*\(|new RegExp|console\.|(?:^|[}\s])catch\s*\(/); }
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
- assert.match(main,/\.\.\.configReview\.nodes\(\)/);
+ assert.match(main,/reviewTree\(parts, configReview\.summary\(\), configReview\.nodes\(\)/);
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
  assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
@@ -131,12 +131,21 @@ test('only the manual audit command starts the review: the silent re-runs and th
  const start=main.indexOf('const auditOnce = async');const end=main.indexOf('// Registered independently of the collector');
  assert.ok(!main.slice(start,end).includes('startManualReview'));
 });
-test('the Audit view gets a Review Steering and Hooks toolbar button after Audit, keeping the order of the other buttons',async()=>{
+test('the Audit view title bar has one Check button, which also runs the review; the review command stays available in the palette', async()=>{
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  const command=manifest.contributes.commands.find((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig');
  assert.match(command.icon,/^\$\([a-z-]+\)$/);
  const nav=(manifest.contributes.menus['view/title'] as {command:string;when:string;group:string}[]).filter(m=>m.group.startsWith('navigation@')).sort((a,b)=>Number(a.group.split('@')[1])-Number(b.group.split('@')[1]));
- assert.deepEqual(nav.map(m=>m.command),['cyclegauge.auditWorkspace','cyclegauge.reviewKiroConfig','cyclegauge.audit.acceptAll','cyclegauge.audit.copy']);
+ assert.deepEqual(nav.map(m=>m.command),['cyclegauge.auditWorkspace']);
  assert.ok(nav.every(m=>m.when==='view == cyclegauge.auditView'));
- assert.equal(new Set(nav.map(m=>m.group)).size,nav.length);
+ assert.ok(!manifest.contributes.menus.commandPalette.some((m:{command:string})=>m.command==='cyclegauge.reviewKiroConfig'),'not hidden from the palette');
+ const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
+ assert.ok(!main.includes("'Review Kiro Steering and Hooks'"),'no Review entry in the tree');
+});
+test('the review tree has no Review entry or header node; its top level is the groups',async()=>{
+ const s=setup();assert.deepEqual(s.link.nodes(),[]);assert.equal(s.link.summary().reviewed,false);
+ await s.run();
+ const top=s.link.nodes();assert.deepEqual(top.map(n=>n.label),['Load only when needed (1)']);
+ assert.equal(s.link.summary().reviewed,true);assert.equal(s.link.summary().findings,1);assert.equal(s.link.summary().automatic,false);
+ assert.ok(!JSON.stringify(s.link.nodes()).includes('Review Kiro Steering and Hooks'));
 });
