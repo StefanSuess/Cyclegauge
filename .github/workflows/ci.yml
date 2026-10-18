@@ -75,6 +75,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       sha256: ${{ steps.build.outputs.sha256 }}
+      vsix_name: ${{ steps.build.outputs.vsix_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -88,19 +89,33 @@ jobs:
       - name: Build, verify, rebuild and compare
         id: build
         run: |
+          export LC_ALL=C
+          version="$(node -p "require('./package.json').version")"
+          if ! [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo 'CANDIDATE_VERSION_INVALID'
+            exit 1
+          fi
+          short="${GITHUB_SHA:0:12}"
+          if ! [[ "$short" =~ ^[0-9a-f]{12}$ ]]; then
+            echo 'CANDIDATE_COMMIT_INVALID'
+            exit 1
+          fi
+          name="cyclegauge-v${version}-${short}-candidate.vsix"
           mkdir release
-          pnpm release:build release/candidate.vsix
-          pnpm release:verify release/candidate.vsix --out release/manifest-linux.json
+          pnpm release:build "release/$name"
+          pnpm release:verify "release/$name" --out release/manifest-linux.json
           pnpm release:build rebuild.vsix
           pnpm release:verify rebuild.vsix --compare release/manifest-linux.json
-          sha="$(sha256sum release/candidate.vsix | cut -d' ' -f1)"
+          sha="$(sha256sum "release/$name" | cut -d' ' -f1)"
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
-          echo "$sha  candidate.vsix" > release/SHA256SUMS.txt
+          echo "vsix_name=$name" >> "$GITHUB_OUTPUT"
+          echo "$sha  $name" > release/SHA256SUMS.txt
           {
             echo '### Release candidate (built once, release channel derived from the version)'
+            echo "File: $name"
             echo "SHA-256: $sha"
             echo '```'
-            pnpm release:verify release/candidate.vsix
+            pnpm release:verify "release/$name"
             echo '```'
             echo 'Independent rebuild: payload hashes compared (job fails if different).'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -139,18 +154,57 @@ jobs:
       - name: Install pnpm
         run: npm install --global pnpm@${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
+      - name: Validate the downloaded candidate file name and directory
+        id: candidate
+        shell: bash
+        env:
+          CANDIDATE_VSIX: ${{ needs.candidate.outputs.vsix_name }}
+        run: |
+          export LC_ALL=C
+          if ! [[ "$CANDIDATE_VSIX" =~ ^cyclegauge-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
+             [[ "$CANDIDATE_VSIX" != *"-${GITHUB_SHA:0:12}-candidate.vsix" ]]; then
+            echo 'CANDIDATE_NAME_INVALID'
+            exit 1
+          fi
+          shopt -s dotglob nullglob
+          entries=(release/*)
+          if [ "${#entries[@]}" -ne 3 ]; then
+            echo 'CANDIDATE_ARTIFACT_CONTENTS_INVALID'
+            exit 1
+          fi
+          for entry in release/SHA256SUMS.txt release/manifest-linux.json "release/$CANDIDATE_VSIX"; do
+            if [ ! -f "$entry" ] || [ -L "$entry" ]; then
+              echo 'CANDIDATE_ARTIFACT_CONTENTS_INVALID'
+              exit 1
+            fi
+          done
+          echo "path=release/$CANDIDATE_VSIX" >> "$GITHUB_OUTPUT"
       - name: Content allowlist on the downloaded candidate
-        run: node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts release/candidate.vsix
-      - name: Verified candidate in a real VS Code extension host
-        if: runner.os != 'Linux'
+        shell: bash
+        env:
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts "$CANDIDATE_PATH"
+      - name: Verified candidate in a real VS Code extension host (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
         env:
           EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
-        run: pnpm test:host release/candidate.vsix
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: pnpm test:host "$CANDIDATE_PATH"
+      # Windows stays in the default PowerShell so Git Bash cannot rewrite TEMP/8.3 paths for the host test.
+      - name: Verified candidate in a real VS Code extension host (Windows)
+        if: runner.os == 'Windows'
+        env:
+          EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: pnpm test:host "$env:CANDIDATE_PATH"
       - name: Verified candidate in a real VS Code extension host (Xvfb)
         if: runner.os == 'Linux'
+        shell: bash
         env:
           EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
-        run: xvfb-run -a pnpm test:host release/candidate.vsix
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: xvfb-run -a pnpm test:host "$CANDIDATE_PATH"
 
   attest:
     name: attest release candidate
@@ -167,10 +221,37 @@ jobs:
         with:
           name: release-candidate
           path: release
+      - name: Validate the downloaded candidate file name and directory
+        id: candidate
+        shell: bash
+        env:
+          CANDIDATE_VSIX: ${{ needs.candidate.outputs.vsix_name }}
+        run: |
+          export LC_ALL=C
+          if ! [[ "$CANDIDATE_VSIX" =~ ^cyclegauge-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
+             [[ "$CANDIDATE_VSIX" != *"-${GITHUB_SHA:0:12}-candidate.vsix" ]]; then
+            echo 'CANDIDATE_NAME_INVALID'
+            exit 1
+          fi
+          shopt -s dotglob nullglob
+          entries=(release/*)
+          if [ "${#entries[@]}" -ne 3 ]; then
+            echo 'CANDIDATE_ARTIFACT_CONTENTS_INVALID'
+            exit 1
+          fi
+          for entry in release/SHA256SUMS.txt release/manifest-linux.json "release/$CANDIDATE_VSIX"; do
+            if [ ! -f "$entry" ] || [ -L "$entry" ]; then
+              echo 'CANDIDATE_ARTIFACT_CONTENTS_INVALID'
+              exit 1
+            fi
+          done
+          echo "path=release/$CANDIDATE_VSIX" >> "$GITHUB_OUTPUT"
       - name: Check the exact candidate SHA-256
         env:
           EXPECTED_CANDIDATE_SHA256: ${{ needs.candidate.outputs.sha256 }}
-        run: printf '%s  %s\n' "$EXPECTED_CANDIDATE_SHA256" release/candidate.vsix | sha256sum --check --status
+          CANDIDATE_PATH: ${{ steps.candidate.outputs.path }}
+        run: printf '%s  %s\n' "$EXPECTED_CANDIDATE_SHA256" "$CANDIDATE_PATH" | sha256sum --check --status
+      # The subject is the single name validated above (not a glob), taken from that step's output.
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: release/candidate.vsix
+          subject-path: ${{ steps.candidate.outputs.path }}
