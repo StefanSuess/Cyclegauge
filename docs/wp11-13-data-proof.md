@@ -8,6 +8,8 @@ Labels: **Observed** (seen in the local files), **Inference** (reasoned from obs
 
 **Update of 2026-10-18 (second observation, after the maintainer used non-Auto models):** see [the dated update section](#update-2026-10-18-second-observation-with-non-auto-models). It supersedes the first-pass statements "only Auto observed" and the WP13 no-go below; those paragraphs are kept as the record of the first pass.
 
+**Update of 2026-10-18 (third observation, Sonnet 4.5 and runtime-read approval):** see [the third update](#update-2026-10-18-third-observation-claude-sonnet-45-and-combined-design). It supersedes the WP13 recommendation and the dip statements of the second update and adds the combined WP11/WP13 design.
+
 ## Method and privacy statement
 
 - Read only, by a throwaway script outside the repository: `~/.kiro/sessions/<workspace>/<session>/session.json`, `.../messages.jsonl` (parsed line by line) and `~/.kiro/sessions/cli/<session>.json`. Directory listings gave only counts, extensions and sizes.
@@ -199,11 +201,87 @@ All fixtures invented; identifiers like `synthetic-model-a` stand in for table e
 9. Extra fields containing sentinel strings (`display`, `title`, `rootPaths`) must never reach any output.
 10. A messages file next to the session file (with sentinel content) is never opened (assert via a spy on the file reader).
 
+## Update 2026-10-18: third observation (Claude Sonnet 4.5) and combined design
+
+Same read-only, metadata-only method and privacy rules as before (the throwaway script printed key names, types, model identifiers, event kinds and aggregate numbers only; whole JSON documents were parsed in memory and content was never printed or stored). New since the second update: the maintainer ran **Sonnet 4.5** in the same IDE session as the MiniMax turns (now 14 `session.json` and 12 `messages.jsonl` files; the 40 CLI-format files are unchanged, so the CLI still has **no** non-Auto record). The maintainer has also **approved runtime reading of session metadata** for WP11 and WP13, subject to `security-reviewer`, limited to allowlisted metadata fields, no content. That approval is the maintainer's decision, recorded here; it is not an implementation approval beyond that scope.
+
+### How Sonnet 4.5 is recorded (Observed)
+
+| Field | Value | Notes |
+| --- | --- | --- |
+| IDE `session.json` `modelId` | `claude-sonnet-4.5` | Also in `contextSnapshotModelDisplay.modelId`. Same file that held `minimax-m2.5` at the previous read: the value was **replaced in place** (Observed across two reads), so it tracks the current selection |
+| IDE `reasoningModelId` | none for the Sonnet turn | The Sonnet turn (4 requests, 0.98 credits) has `contextUsage` and `usage_summary` events but **no** reasoning label. `modelId` is therefore the only record of the model for that turn |
+| IDE multiplier | none | Same as for MiniMax: no multiplier, unit or window stored |
+| CLI per-turn `model`, `rate_multiplier`, `rate_unit` | not observed | CLI files unchanged (Auto, 1.0, `Credit`) |
+
+- **Identifier form (Observed, Inference):** `claude-sonnet-4.5` has the same form as `minimax-m2.5`: lowercase, hyphen-separated, dot in the version. It matches the published product name lowercased with spaces replaced by hyphens ("Claude Sonnet 4.5", "MiniMax M2.5"). Two vendors fit the rule; whether it holds for every model (for example Opus, GPT, Kimi, Qwen) is an **Inference**, so each table row must be marked as observed or pattern-derived.
+- **Published multiplier (Documented):** Kiro's public models overview and available-models page (retrieved 2026-10-18, no private values in the queries) list **Claude Sonnet 4.5: 200K context window, 1.3x**; Claude Sonnet 4.0 also 1.3x with 200K; Sonnet 4.6, 5 and 5.5 are 1.3x with 1M. MiniMax M2.5 0.25x and M2.1 0.15x as before; Auto is the 1.0x baseline. A recorded multiplier cannot be compared with this (none is stored locally for non-Auto models), and local credit amounts cannot validate it (Sonnet turn 0.98 credits for 4 requests; single-request Auto turns 0.04 to 0.13).
+- **`modelId` versus `reasoningModelId` (Observed):** `modelId` equalled the latest request label in 11 files; in the Sonnet session it differs from the latest label (`auto`, an earlier turn) because the Sonnet turn has no label. **`reasoningModelId` is therefore not usable; `modelId` is the field to read.** Whether `modelId` changes at the moment of selection or at the next prompt is **Unknown**.
+- **Auto versus chosen versus fallback:** the same session shows the sequence MiniMax, then Auto (labels `auto`, 1M-window baseline), then Sonnet 4.5. `modelId` is `auto` for Auto. A fallback record is still **not observed**; under Auto the served model is not recorded.
+
+### WP11 update (Observed)
+
+- **Fill values:** highest IDE value now **23.9 %** (the Sonnet turn: 18.7, 20.9, 22.8, 23.9 over its four requests, increasing within the turn). Near-limit fill and compaction remain unobserved.
+- **Dips (Observed):** 71 adjacent IDE pairs (timestamp order), **5 decreases**, the largest **12.4 points**. Of the five: one is the switch from a 200K-window model to Auto (about 16 % to 3.5 %), two are tiny (at most 0.05 points), and two (2.0 and 3.0 points, early turns of the session) are unexplained. The reverse jump (3.7 % to 18.7 %) occurs at the switch to Sonnet 4.5. The Auto baseline returned to the same 3.5 % as in other Auto sessions, and the 200K-window sessions start at about 17.5 % to 18.7 %, which supports **percentage = used tokens / window of the currently selected model** (Inference; about 35,000 tokens in both cases).
+- **Consequences for a reminder:** use the newest value by event timestamp (file order differed from timestamp order in nearly every inspected `messages.jsonl` file); never assume monotonic growth; a model switch can lower or raise the percentage without any change in conversation size, so a reminder should be re-armed by falling below the threshold and may fire after a switch to a smaller-window model. Percentage is "of the selected model's window", as Kiro's own meter presumably shows (Unknown whether identical).
+- **`contextUsage` events** still equal the total number of `requestIds` (one per model request) in every session with messages.
+- **Freshness:** the session files were modified one minute before the read and `lastModifiedAt` equalled the last event; events are written as they occur (Observed). Behaviour exactly during an unfinished request is still unverified.
+
+### Does a model above 1x change the WP13 recommendation?
+
+Yes. Both conditions set in the second update are met: the maintainer approved the runtime read, and a model above 1x (Sonnet 4.5, 1.3x) is recorded in the same way as a cheap one. What remains is `security-reviewer` and native macOS acceptance. The cost of a minimal IDE-only implementation is small: one pure parser for `modelId`, one dated table, one bounded reader that WP11 needs anyway, one notification and one setting; no new dependency, no Store or collector change, no persistence. Because 0.13 is the last feature beta and 1.0 adds no features, the choice is 0.13 or 1.1, not 1.0 itself.
+
+**Updated recommendation: GO for 0.13 as one small combined feature (WP11 reminder plus WP13 hint), IDE-only, macOS first.** If `security-reviewer` or the native test fails or finds an open question, both move to 1.1 together. WP11 is a go with weaker evidence than WP13: the thresholds below are educated guesses, compaction and near-limit behaviour are unobserved, and Kiro already shows its own meter. The reminder must be worded as an advisory and be switchable. The hint should only appear for a table multiplier above 1.0; at or below 1.0 stay silent. CLI-based reading remains out of scope (no non-Auto CLI record, different files).
+
+### Combined implementation design (WP11 plus WP13, one feature "session hints")
+
+**Purpose.** From the newest IDE session of the open workspace, show at most (a) a context-fill reminder at two thresholds and (b) a hint when the current model costs more than Auto per the published table. Silent in every uncertain case.
+
+**Trust boundary.** A new, third read class: *Kiro session metadata, IDE format, read at runtime*. It sits beside the account-usage readers and is separate from the collector's inputs, the Store and the forecast; nothing read here enters history, Store, CLI JSON or diagnostics. The reader module has no VS Code dependency (like the collector); only the thin wiring in the extension host (timer, notification, setting) uses the editor API. The reader returns a small in-memory value `{ contextPercent | null, modelId | null, asOf }` and discards everything else. Reads are metadata only; prompts, assistant text, tool data and paths never leave the parser.
+
+**Sources and byte caps.**
+
+- Root: `~/.kiro/sessions` on macOS only (observed; other platforms report "not supported" and stay silent until separately verified). Resolve with `realpath`; every entry `lstat`ed; symlinks and non-regular files rejected; resolved path must stay under the root. Explicit root override only via the existing explicit-roots mechanism.
+- Listing: workspace folders and their session folders, non-recursive, at most 200 entries per level, directory named `cli` skipped. Further entries counted as "not checked".
+- `session.json`: size cap 64 KiB (largest observed 1 KiB). Strict `JSON.parse`, then keep only `schemaVersion` (must be `1.0.0`), `dataModelVersion` (must be `1`), `modelId`, `lastModifiedAt`, `workspacePaths`. Any other schema or data model version yields silence.
+- Newest session: highest `lastModifiedAt` among sessions whose `workspacePaths` contains the open workspace folder (normalised, compared in memory, never output, per-platform case rules). Whether `workspacePaths` equals the open folder in practice was **not tested** here (it would need private paths) and is a native-test item. If no session matches, stay silent; do not fall back to the newest session overall. Sessions older than a stated age (suggest 12 hours) are treated as inactive: silent.
+- `messages.jsonl` (WP11 only): open read-only, `fstat` regular file, read at most the **last 256 KiB**; drop a partial first line. Only lines that contain both literals `session_metadata` and `contextUsage` are JSON-parsed (they are small and content-free), so content lines are never parsed. Keep only `timestamp`, `payload.type == "session_metadata"`, `payload.key == "contextUsage"`, `payload.value.usagePercentage` (finite number, 0 to 100, with a small tolerance above 100 clamped for display). The **newest by timestamp** wins; ties resolve to the later line. No candidate in the window: silent.
+- Handles: `O_RDONLY` (plus no-follow where available), no locks, no writes, no temp files, no sidecars; an unreadable or changing file (size shrinks, parse error) yields silence for that tick. One read pass at most every 30 seconds while the window is focused, plus the existing refresh tick; total work bounded (listing cap, two small files, a time budget of a few hundred milliseconds).
+- **No persistence.** Reminder state ("already shown at 70 % for this session") lives in memory only and resets on restart. A session key used for the in-memory state is derived from the folder name in memory and is never logged, shown or stored.
+
+**Thresholds and wording (WP11).** Educated guess, not evidence: remind at **70 %** and again at **85 %** of the newest value; hysteresis: re-arm a threshold when the value falls below it minus 10 points (this also handles compaction and model switches). Basis for the guess: the documented automatic compaction as context approaches the limit and the older 80 % summarisation point; observed fill reached only 23.9 %. Settings: enable/disable (suggest default on with a one-time explanation in the release notes, maintainer's choice) and the two thresholds as read-only constants first, not user options. Fixed texts:
+
+- 70 %: "The context of your current Kiro session is about {P} % full. Kiro may compact it soon; consider starting a new session for unrelated work."
+- 85 %: "The context of your current Kiro session is about {P} % full and close to its limit."
+- Always as of the observation, never as a live meter; no session or workspace names; no numbers beyond the rounded percentage.
+
+**Wording and table (WP13).** Fixed text: "Your current Kiro session uses {Name}, listed by Kiro at about {N}x the credits of Auto (Kiro model table, retrieved {date}). Actual credits per task vary." Shown once per model per session per run, only when the table multiplier is above 1.0 and the identifier matches exactly. Silent for `auto`, absent, unknown, malformed or at-or-below-1.0 identifiers. Table rows: identifier (regex `^[a-z0-9][a-z0-9._-]{0,39}$`), published name, multiplier as decimal text, source page, retrieval date, and a flag *observed* or *pattern-derived*. Initial rows: observed `claude-sonnet-4.5` 1.3, `minimax-m2.5` 0.25, `minimax-m2.1` 0.15 (the last two are below 1.0 and thus silent, kept for completeness and tests); pattern-derived rows only from the public table for models above 1.0, each flagged until observed. A stale table (suggest older than 90 days) switches to the wording "check Kiro's current model table" without a number. A review step on each Kiro model release joins the pricing-catalog review in the release runbook.
+
+**Privacy and documentation changes** (when implemented): [privacy and storage](privacy-and-storage.md), README privacy bullets and `SECURITY.md` currently state that only Kiro's usage logs are read; they must name the new read class, its allowlisted fields, byte caps, macOS-only scope, "nothing stored, nothing sent", and the opt-out setting. [ARCHITECTURE.md](../ARCHITECTURE.md) gets the third trust boundary and the module split; [SPEC.md](../SPEC.md) gets the advisory-only behaviour and labels (snapshot, as-of, not a live meter, model costs are published multipliers not measured); [Kiro data format](kiro-data-format.md) gets a pointer to this proof with the observation date and version caveat; [usage guide](usage.md) and CHANGELOG describe the feature and the setting; [platform support](platform-support.md) states macOS only for this feature. AGENTS.md is unchanged except that the maintainer approval for this narrow runtime read is recorded in the roadmap or path-to-1.0 entry, not as a blanket authorisation for session aggregation.
+
+**Phases.**
+
+1. *Spec and approval record*: add the approval and this design to path-to-1.0/ROADMAP; no code.
+2. *Pure parsers and table* (no I/O): `session.json` projection, `contextUsage` line projection, threshold/hysteresis state machine, hint decision, wording. Unit tests.
+3. *Bounded reader* with filesystem safety tests (symlinks, caps, partial lines, races), still without the editor API.
+4. *Extension wiring*: timer, in-memory state, notifications, setting, diagnostics codes; webview untouched.
+5. *Docs* as listed; `security-reviewer` review of reader, boundary and docs (mandatory); native macOS acceptance in Kiro with an Auto session, a >1x model and a model switch; confirm the `workspacePaths` match on the real workspace.
+
+**Synthetic-fixture test plan.** All fixtures hand-written with `synthetic-*` identifiers, invented numbers and invented table rows (for example `synthetic-model-x` at 2.0); never derived from real files; the validator and `git diff --check` run for fixture changes.
+
+- *Session projection:* `modelId` `auto` / absent / listed / unlisted / over-long / uppercase / path-like / control characters / non-string; unsupported `schemaVersion` or `dataModelVersion`; oversized or invalid JSON; sentinel strings in `title`, `rootPaths`, `display` never reach output or diagnostics.
+- *Selection:* several synthetic sessions across workspace folders; the matching workspace wins; non-matching only gives silence; ties; the `cli` folder skipped; inactive (old) session silent; entry caps and the "not checked" count; symlinked folder or escape rejected.
+- *Context line projection:* out-of-order lines (newest by timestamp), duplicate timestamps, truncated first line, a window with no candidate, a partial last line, values 0, 100, above 100, negative, NaN, string; a content line containing the two literals but with another structure is rejected; a content line without the literals is never parsed (spy on the parser); sentinel content never appears in results.
+- *State machine:* 69, 70, 71 and 85 crossings fire once; hysteresis re-arm after a drop (invented compaction drop 80 to 12, and an invented model-switch drop 16 to 3.5) and a fresh crossing fires again; a jump up at a model switch; restart resets; disabled setting is silent.
+- *Hint decision:* Auto, 1.0, 0.25 silent; 1.3 shows "about 1.3x"; 2.0 shows "about 2x"; stale table wording; unlisted silent; wording contains table date and source, never the raw identifier.
+- *Safety:* read-only (test fails if any file is created or modified under the fixture root), no `messages.jsonl` open for the WP13-only path, byte caps respected (test with a file just over the cap), races (file shrinks or is replaced mid-read) give silence, time budget exceeded gives silence.
+- *Boundaries:* a test that the module imports nothing from the editor API and nothing from Store/history, and that nothing is written to storage; a packaging check that no fixtures or Kiro-derived data are in the VSIX.
+
 ## Summary
 
 | Item | Data proof | Recommendation |
 | --- | --- | --- |
-| WP11 context reminder | Field exists in IDE and CLI, snapshot semantics, non-monotonic in practice (a drop of up to 3 points after the update; cause unknown), IDE written per request; token counts always zero; compaction, live-session freshness and high fill unobserved | **Conditional go; ship in 1.1**, not 0.13; design above if the maintainer overrides |
-| WP13 model hint | First pass: only Auto seen. Update 2026-10-18: chosen model recorded as plain `modelId` in IDE `session.json` (follows the latest request), only MiniMax 0.15x/0.25x seen, no multiplier stored in IDE, no non-Auto CLI record | **Conditional go; 1.1**, 0.13 only with session-read approval, `security-reviewer` and one observation of a model above 1x |
+| WP11 context reminder | IDE `contextUsage` per request, snapshot of the selected model's window (inference), newest-by-timestamp required; 5 of 71 adjacent pairs decrease (largest 12.4 points, mostly at model switches); highest fill 23.9 %; compaction and near-limit unobserved; CLI token counts zero | **Go for 0.13 in the combined feature** (advisory, 70 % and 85 % are guesses), else 1.1; `security-reviewer` mandatory |
+| WP13 model hint | IDE `session.json` `modelId` tracks the current selection (`auto`, `minimax-m2.5`, `claude-sonnet-4.5`; consistent identifier form); published Sonnet 4.5 is 1.3x (200K); no multiplier stored in the IDE; `reasoningModelId` unreliable; fallback unobserved; CLI has no non-Auto record | **Go for 0.13 in the combined feature** (IDE-only, macOS, table multiplier above 1.0 only), else 1.1; `security-reviewer` mandatory |
 
-Limits of this proof: one installation, short sessions, one non-Auto session with two MiniMax models and no model above 1x, no running Kiro process, mixed unknown writer versions, macOS only, and the fact that local files are an undocumented implementation detail that Kiro can change without notice. Every reader must fail closed to "unavailable".
+Limits of this proof: one installation, short sessions, one session (with MiniMax, Auto and Sonnet 4.5 turns) as the only non-Auto evidence, no CLI non-Auto record, no near-limit fill, no fallback observed, `workspacePaths` matching untested, no running Kiro process, mixed unknown writer versions, macOS only, and the fact that local files are an undocumented implementation detail that Kiro can change without notice. Every reader must fail closed to "unavailable".
