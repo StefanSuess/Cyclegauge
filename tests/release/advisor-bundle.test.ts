@@ -1233,7 +1233,7 @@ test('packaged recap card appears once, is marked shown, copies its own text and
   assert.match(html,/<h2 id="recap-title">Your Kiro cycle<\/h2>/);assert.match(html,/Credits used: 900 of 1000 reported credits/);assert.match(html,/Busiest observed day \(partial observation\)/);
   assert.deepEqual(env.store.get(RECAP_KEY),{cycle:'2030-08-01T00:00:00.000Z',state:'shown'});
   assert.equal(env.written.filter(k=>k===RECAP_KEY).length,1,'written once');
-  assert.ok(!/style=/.test(html.replace(/<style[\s\S]*?<\/style>/,'')));
+  assert.ok(!/<[a-z][^>]*\sstyle\s*=/i.test(html),'no style attribute on any element');
   for(const marker of [work,'synthetic-bundle-account','partition'])assert.ok(!JSON.stringify(env.store.get(RECAP_KEY)).includes(marker));
   const load=Number(/data-cg-load="(\d+)"/.exec(html)![1]);env.receive({type:'ready',load});await s.later();
   // Copy text: built by the extension from the card, never from the page.
