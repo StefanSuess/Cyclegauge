@@ -56,7 +56,7 @@ function run(): void {
 
   const vsixPath = join(sourceDir, 'candidate.vsix');
   const vsix = readFileSync(vsixPath);
-  const verification = verifyVsix(vsix, { expectPreRelease: true });
+  const verification = verifyVsix(vsix);
   if (!verification.ok) return fail('VSIX_VERIFICATION_FAILED');
   const packageManifest = JSON.parse(readFileSync('package.json', 'utf8')) as { version?: unknown };
   if (typeof packageManifest.version !== 'string') return fail('PACKAGE_MANIFEST_INVALID');
@@ -68,7 +68,7 @@ function run(): void {
     requestedVersion: version,
     packageVersion: packageManifest.version,
     vsixVersion: verification.version,
-    preRelease: verification.ok,
+    preRelease: verification.preRelease,
     actualSha256: sha256(vsix),
     checksumText: readFileSync(join(sourceDir, 'SHA256SUMS.txt'), 'utf8'),
     verifiedPayload,
@@ -103,7 +103,7 @@ function run(): void {
     '### Candidate integrity checks passed',
     '',
     `- Version: \`${version}\`; package and VSIX versions match`,
-    '- Pre-release flag: verified',
+    `- Release channel: ${verification.channel}; pre-release flag matches the version`,
     `- Exact VSIX SHA-256: \`${result.sha256}\``,
     `- Allowlisted payload files compared with CI manifest: ${verifiedPayload.length}`,
     '- CI checksum entry and package manifest match',

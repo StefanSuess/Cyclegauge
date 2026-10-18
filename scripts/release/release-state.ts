@@ -251,13 +251,14 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
     }
   }
 
-  async publishOpenVsx(vsix: Uint8Array, authMode: AuthMode): Promise<void> {
+  async publishOpenVsx(vsix: Uint8Array, authMode: AuthMode, preRelease: boolean): Promise<void> {
     if (authMode === 'pat' && !process.env.OPENVSX_PAT) throw new Error('OPENVSX_PAT_MISSING');
     const tempDir = mkdtempSync(join(tmpdir(), 'cyclegauge-publish-'));
     const file = join(tempDir, 'candidate.vsix');
     try {
       writeFileSync(file, vsix, { flag: 'wx' });
-      const args = [join(this.publisherToolsDir, 'node_modules/ovsx/bin/ovsx'), 'publish', file, '--pre-release'];
+      const args = [join(this.publisherToolsDir, 'node_modules/ovsx/bin/ovsx'), 'publish', file];
+      if (preRelease) args.push('--pre-release');
       if (authMode === 'trusted-publishing') args.push('--trusted-publishing');
       const childEnv = { ...process.env };
       delete childEnv.GITHUB_TOKEN;
@@ -290,7 +291,7 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
     if (result.status < 200 || result.status >= 300) throw new Error('TAG_CREATE_FAILED');
   }
 
-  async createDraftRelease(input: { version: string; tagName: string; targetSha: string; name: string; body: string }): Promise<number> {
+  async createDraftRelease(input: { version: string; tagName: string; targetSha: string; name: string; body: string; preRelease: boolean }): Promise<number> {
     const result = await githubRequest<{ id?: number }>(this.api('releases'), this.token, {
       method: 'POST',
       body: {
@@ -299,7 +300,7 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
         name: input.name,
         body: input.body,
         draft: true,
-        prerelease: true,
+        prerelease: input.preRelease,
       },
     });
     if (!Number.isSafeInteger(result.value?.id) || (result.value?.id as number) < 1) throw new Error('RELEASE_CREATE_FAILED');
@@ -346,9 +347,9 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
     if (!response.ok) throw new Error('RELEASE_ASSET_UPLOAD_FAILED');
   }
 
-  async publishRelease(releaseId: number): Promise<void> {
+  async publishRelease(releaseId: number, preRelease: boolean): Promise<void> {
     const response = await githubRequest(this.api(`releases/${releaseId}`), this.token, {
-      method: 'PATCH', body: { draft: false, prerelease: true },
+      method: 'PATCH', body: { draft: false, prerelease: preRelease },
     });
     if (response.status < 200 || response.status >= 300) throw new Error('RELEASE_PUBLISH_FAILED');
   }
