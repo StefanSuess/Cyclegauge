@@ -1,6 +1,6 @@
 // Configuration text is hostile input. Only the projections below may leave these parsers.
 export type SteeringMode = 'always' | 'fileMatch' | 'manual' | 'auto' | 'unrecognised';
-export interface SteeringConfig { mode: SteeringMode; matchAll: boolean | 'unknown'; patternCount: number; size: number }
+export interface SteeringConfig { mode: SteeringMode; matchAll: boolean | 'unknown'; patternCount: number; size: number; broadUncertain?: true }
 export type HookTrigger = 'PostFileSave' | 'PostFileCreate' | 'PostFileDelete' | 'PreToolUse' | 'PostToolUse' | 'UserPromptSubmit' | 'Stop' | 'SessionStart' | 'SessionEnd' | 'PreTaskExec' | 'PostTaskExec' | 'Manual';
 export interface HookConfig {
  index: number; name: string; trigger: HookTrigger | 'unrecognised'; action: 'agent' | 'command' | 'unrecognised';
@@ -86,7 +86,8 @@ export function parseSteering(input: Uint8Array, size: number): SteeringConfig {
  if (!list) return unknown();
  const limited = list.length > 20 || list.some(p => p.length > 256);
  const matchAll = limited ? 'unknown' : list.length > 0 && list.every(p => ALL.has(p.trim().replace(/^\.\//, '')));
- return { mode: inclusion as SteeringMode, matchAll, patternCount: Math.min(list.length, 20), size };
+ const broadUncertain = inclusion === 'fileMatch' && !limited && list.some(p => ['*', '*.*'].includes(p.trim().replace(/^\.\//, '')));
+ return { mode: inclusion as SteeringMode, matchAll, patternCount: Math.min(list.length, 20), size, ...(broadUncertain ? { broadUncertain: true as const } : {}) };
 }
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const own = (v: Record<string, unknown>, k: string): unknown => Object.hasOwn(v, k) ? v[k] : undefined;
