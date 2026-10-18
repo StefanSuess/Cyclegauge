@@ -110,3 +110,29 @@ test('late delivery failure after disposal cannot write another document', async
  panel.dispose();resolveDelivery(false);await Promise.resolve();await Promise.resolve();
  assert.equal(sets, 1);
 });
+
+test('Advisor submit is one in flight, cooldown guarded, and replies with fixed result', async () => {
+ const sent: object[]=[];let rejected=0,now=1000,finish!: (v:{status:'ok'|'stale'|'invalid'})=>void;
+ const webview={html:'',postMessage(m:object){sent.push(m);return Promise.resolve(true);}};
+ const panel=new DashboardPanel(webview,'console.log(1)',()=>{rejected++;},()=>now,()=>new Promise(resolve=>{finish=resolve;}));
+ panel.set(one);const load=Number(/data-cg-load="(\d+)"/.exec(webview.html)![1]);panel.receive({type:'ready',load});
+ const submit={type:'advisorSubmit',ticket:1,plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:''};
+ panel.receive(submit);panel.receive(submit);assert.equal(rejected,1);
+ finish({status:'ok'});await Promise.resolve();await Promise.resolve();
+ assert.ok(sent.some(m=>(m as {type?:string;status?:string}).type==='advisorResult'&&(m as {status?:string}).status==='ok'));
+ panel.receive(submit);assert.equal(rejected,2);
+ now+=2001;panel.receive(submit);finish({status:'stale'});await Promise.resolve();await Promise.resolve();
+ assert.ok(sent.some(m=>(m as {type?:string;status?:string}).type==='advisorResult'&&(m as {status?:string}).status==='stale'));
+ panel.dispose();
+});
+
+test('a never-settling Advisor remains single flight and gives an explicit busy response', () => {
+ const sent: object[]=[];let now=1000,calls=0;
+ const panel=new DashboardPanel({html:'',postMessage(m:object){sent.push(m);return true;}},'console.log(1)',()=>{},()=>now,()=>{calls++;return new Promise(()=>{});});
+ panel.set(one);panel.receive({type:'ready',load:1});
+ const submit={type:'advisorSubmit',ticket:1,plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:''};
+ panel.receive(submit);now+=16000;panel.receive(submit);
+ assert.ok(sent.some(m=>(m as {type?:string;reason?:string}).type==='advisorResult'&&(m as {reason?:string}).reason==='busy'));
+ assert.equal(calls,1,'a hanging review never starts a parallel refresh');
+ panel.dispose();
+});

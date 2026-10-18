@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { runInNewContext } from 'node:vm';
 import { buildDomModel, renderDashboardShell, type DomNode } from '../../src/extension/dashboard-shell.ts';
-import { present } from '../../src/extension/presentation.ts';
+import { present, inlineAdvisorForm } from '../../src/extension/presentation.ts';
 import { presentAdvisor } from '../../src/extension/advisor-presentation.ts';
 import { planHint, type AdvisorContext } from '../../src/cost/advisor.ts';
 import { reviewedCatalog } from '../../src/cost/catalog.ts';
@@ -17,11 +17,13 @@ class FakeNode {
  parentNode?: FakeNode;
  focusCount = 0;
  textWrites = 0;
- private value = '';
+ value = '';
  private attrs = new Map<string, string>();
  constructor(tag: string, value = '') { this.nodeType = tag === '#text' ? 3 : 1; this.localName = tag; this.value = value; }
  get textContent(): string { return this.nodeType === 3 ? this.value : this.childNodes.map(n => n.textContent).join(''); }
  set textContent(value: string) { this.textWrites++; if (this.nodeType === 3) this.value = value; else this.childNodes = [new FakeNode('#text', value)]; }
+ get elements() { return { namedItem: (name: string) => find(this, n => n.getAttribute('name') === name) ?? null }; }
+ querySelector(selector: string) { return selector.startsWith('#') ? find(this, n => n.getAttribute('id') === selector.slice(1)) ?? null : null; }
  get attributes() { return [...this.attrs].map(([name, value]) => ({ name, value })); }
  get lastChild(): FakeNode | null { return this.childNodes.at(-1) ?? null; }
  setAttribute(name: string, value: string) { this.attrs.set(name, value); }
@@ -55,14 +57,14 @@ async function start(initial: string) {
   const link = e('a');link.setAttribute('href', href);reserve.appendChild(link);
  }
  const root = e('html');root.setAttribute('data-cg-load', '7');
- const sent: unknown[] = [], created: string[] = []; const handlers = new Map<string, (event: any) => void>(); let scroll: [number, number] | undefined;
+ const sent: unknown[] = [], created: string[] = []; const timers = new Map<number, () => void>(); let nextTimer = 0; const handlers = new Map<string, (event: any) => void>(); let scroll: [number, number] | undefined;
  const document = { documentElement: root, activeElement: undefined as FakeNode | undefined,
   querySelector: (selector: string) => selector === 'main' ? main : selector === '#cg-link-reserve' ? reserve : selector.startsWith('#') ? find(main, n => n.getAttribute('id') === selector.slice(1)) ?? null : null,
   querySelectorAll: (selector: string) => selector === '[data-chart-point]' ? all(main, n => n.getAttribute('data-chart-point') !== null) : [],
   createTextNode: t, createElement: (tag: string) => { assert.notEqual(tag, 'a', 'browser must never create an anchor');created.push(tag);return e(tag); }, createElementNS: (ns: string, tag: string) => { assert.equal(ns, 'http://www.w3.org/2000/svg');created.push(`svg:${tag}`);return e(tag); } };
  const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(type: string, fn: (event: any) => void) { handlers.set(type, fn); } };
- runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), Object, Number, Set, Array });
- return { main, reserve, document, sent, created, scroll: () => scroll, emit(type: string, event: object) { handlers.get(type)!({ ...event }); }, send(model: unknown, version = 1, schema = 1) { handlers.get('message')!({ data: { type: 'model', schema, version, model } }); } };
+ runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), setTimeout: (fn: () => void) => {const id=++nextTimer;timers.set(id,fn);return id;}, clearTimeout: (id: number) => timers.delete(id), Object, Number, Set, Array });
+ return { main, reserve, document, sent, created, scroll: () => scroll, tick() { for(const fn of timers.values())fn();timers.clear(); }, emit(type: string, event: object) { handlers.get(type)!({ ...event }); }, send(model: unknown, version = 1, schema = 1) { handlers.get('message')!({ data: { type: 'model', schema, version, model } }); } };
 }
 
 test('chart keyboard and hover keep one tab stop and a dismissible hoverable tooltip', async () => {
@@ -192,4 +194,71 @@ test('shell includes inert copies of every reviewed fixed link', () => {
  const shell = renderDashboardShell(staticHtml, 'syntheticNonce123', 7, 'console.log(1)');
  assert.match(shell, /<div id="cg-link-reserve" hidden aria-hidden="true">/);
  assert.match(shell, /<a href="command:cyclegauge\.audit\.show"><\/a>/);
+});
+
+test('Advisor keeps an edit made during host refresh when success precedes the committed model', async () => {
+ const observed=view([],'2030-01-01T00:00:00Z');
+ const answers={plan:'pro' as const,billing:'consumer_prepaid' as const,addOns:'some' as const,addOnCredits:'12'};
+ const page=(epoch:number,credits:string)=>present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm({...answers,addOnCredits:credits},epoch)).html;
+ const app=await start(page(1,'12'));
+ const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
+ const credits=find(form,n=>n.getAttribute('name')==='addOnCredits')!;
+ credits.value='15';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ assert.equal((app.sent.at(-1) as {type:string;ticket:number;addOnCredits:string}).addOnCredits,'15');
+ credits.value='20';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
+ app.send(buildDomModel(page(2,'15')));
+ assert.equal(credits.value,'20','edit during refresh survives success and the newer model');
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ assert.equal((app.sent.at(-1) as {ticket:number;addOnCredits:string}).ticket,2);
+ assert.equal((app.sent.at(-1) as {ticket:number;addOnCredits:string}).addOnCredits,'20');
+});
+
+test('Advisor shows review warning when coalesced model skips the committed epoch', async () => {
+ const observed=view([],'2030-01-01T00:00:00Z');
+ const answers={plan:'pro' as const,billing:'consumer_prepaid' as const,addOns:'some' as const,addOnCredits:'12'};
+ const page=(epoch:number)=>present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm(answers,epoch)).html;
+ const app=await start(page(1));const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
+ const credits=find(form,n=>n.getAttribute('name')==='addOnCredits')!;credits.value='15';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
+ app.send(buildDomModel(page(3)));
+ assert.equal(credits.value,'15');
+ assert.match(find(form,n=>n.getAttribute('id')==='advisor-status')!.textContent,/review and submit again/i);
+ assert.equal(find(form,n=>n.getAttribute('id')==='advisor-review-again')!.getAttribute('hidden'),null);
+});
+
+test('Advisor timeout and host busy reply explain the wait and allow a later retry', async () => {
+ const observed=view([],'2030-01-01T00:00:00Z');
+ const answers={plan:'pro' as const,billing:'consumer_prepaid' as const,addOns:'none' as const,addOnCredits:null};
+ const page=present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm(answers,1)).html;
+ const app=await start(page);const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
+ const status=find(form,n=>n.getAttribute('id')==='advisor-status')!;
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.tick();
+ assert.match(status.textContent,/not finished/i);
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ assert.equal((app.sent.at(-1) as {type:string}).type,'advisorSubmit');
+ app.emit('message',{data:{type:'advisorResult',status:'invalid',reason:'busy'}});
+ assert.match(status.textContent,/still running.*try again later/i);
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ assert.equal((app.sent.at(-1) as {type:string}).type,'advisorSubmit');
+});
+
+test('timed-out submit followed by a busy retry keeps later edits when the first review succeeds', async () => {
+ const observed=view([],'2030-01-01T00:00:00Z');
+ const answers={plan:'pro' as const,billing:'consumer_prepaid' as const,addOns:'some' as const,addOnCredits:'12'};
+ const page=(epoch:number,credits:string)=>present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm({...answers,addOnCredits:credits},epoch)).html;
+ const app=await start(page(1,'12'));const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
+ const credits=find(form,n=>n.getAttribute('name')==='addOnCredits')!;
+ const error=find(form,n=>n.getAttribute('id')==='advisor-error')!;
+ credits.value='15';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.tick();
+ credits.value='20';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ app.emit('message',{data:{type:'advisorResult',status:'invalid',reason:'busy'}});
+ assert.equal(credits.getAttribute('aria-invalid'),null,'busy is not a field validation error');
+ assert.equal(error.textContent,'');
+ app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
+ app.send(buildDomModel(page(2,'15')));
+ assert.equal(credits.value,'20','late success for A cannot erase unsent B edit');
 });
