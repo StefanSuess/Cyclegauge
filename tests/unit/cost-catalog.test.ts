@@ -19,7 +19,7 @@ test('catalog rejects invalid rules without returning rejected data', () => {
  }
 });
 test('reviewed catalog retains all tiers and unresolved rules', () => {
- const r=validateCatalog(reviewedCatalog,'2026-10-10T12:00:00Z');
+ const r=validateCatalog(reviewedCatalog,'2026-10-18T12:00:00Z');
  assert.equal(r.status,'available'); assert.equal(r.catalog!.plans.length,5);
  assert.equal(r.catalog!.enterprise.allowedPlans.length,4);
  assert.equal(r.catalog!.consumer.purchaseStepCredits,null);
