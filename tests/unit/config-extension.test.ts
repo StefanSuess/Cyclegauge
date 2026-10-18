@@ -27,19 +27,22 @@ function setup(operation?: (roots:readonly ConfigReviewRoot[],options?:{signal?:
  const link=registerConfigReview(context,editor,check,()=>{refreshes++;},{reviewer});
  return{workspace,commands,subscriptions,opened,messages,reads,link,folder,values,get checks(){return checks;},get refreshes(){return refreshes;},run:()=>commands.get('cyclegauge.reviewKiroConfig')!()};
 }
-test('manual registration does nothing automatically, no watchers, storage or audit dependencies',async()=>{
+test('registration with automatic mode off does nothing by itself and has no audit dependencies',async()=>{
  const s=setup();assert.equal(s.reads.length,0);assert.equal(s.checks,0);assert.equal(s.refreshes,0);
  await s.run();assert.equal(s.reads.length,1);assert.equal(s.refreshes,1);assert.equal(s.messages.length,0);
  const source=await readFile(new URL('../../src/extension/config-review.ts',import.meta.url),'utf8');
- for(const forbidden of ['WorkspaceEdit','applyEdit','writeFile','clipboard','workspaceState','globalState','onFinding','valueSeen','AuditSummary','setTimeout','createFileSystemWatcher']) assert.ok(!source.includes(forbidden),forbidden);
- for(const name of ['config-model','config-review']) { const code=await readFile(new URL(`../../src/extension/${name}.ts`,import.meta.url),'utf8');assert.doesNotMatch(code,/RegExp\s*\(|new RegExp|console\.|(?:^|[}\s])catch\s*\(/); }
+ for(const forbidden of ['WorkspaceEdit','applyEdit','writeFile','clipboard','workspaceState','onFinding','valueSeen','AuditSummary','auditAutomatically','neverRemind','snoozeUntil']) assert.ok(!source.includes(forbidden),forbidden);
+ // The only global-state write is the approved offer key, and the only setting written is the user's own automatic-mode setting.
+ assert.deepEqual(source.match(/globalState\.update\([^,]*/g),['globalState.update(CONFIG_OFFER_KEY']);
+ assert.deepEqual(source.match(/\.update\(SETTING[^)]*\)/g),[".update(SETTING, 'onOpenAndChanges', editor.ConfigurationTarget.Global)"]);
+ for(const name of ['config-model','config-review','config-schedule']) { const code=await readFile(new URL(`../../src/extension/${name}.ts`,import.meta.url),'utf8');assert.doesNotMatch(code,/RegExp\s*\(|new RegExp|console\.|(?:^|[}\s])catch\s*\(/); }
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.match(main,/\.\.\.configReview\.nodes\(\)/);
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
- assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\)\)/);
+ assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig').length,1);
- assert.ok(!JSON.stringify(manifest.contributes.configuration).includes('configReviewAutomatically'));
+ assert.equal(manifest.contributes.configuration.properties['cyclegauge.configReviewAutomatically'].default,'off');
 });
 test('untrusted roots do no filesystem work; nonlocal and refused roots are fixed counted gaps',async()=>{
  const s=setup();s.workspace.isTrusted=false;await s.run();assert.equal(s.checks,0);assert.equal(s.reads.length,0);assert.match(JSON.stringify(s.link.nodes()),/workspace is not trusted/);

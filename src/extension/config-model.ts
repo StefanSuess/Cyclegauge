@@ -62,7 +62,7 @@ export function configPreview(review: ConfigReview, finding: ConfigFinding): str
   case 'H5': return header + 'Review whether these hooks need to run for the same event. Keep the automation you need and review disabling or narrowing any redundant hook. No matcher is generated.\n';
  }
 }
-function findingNode(review: ConfigReview, f: ConfigFinding, index: number, names: readonly string[]): ConfigNode {
+function findingNode(review: ConfigReview, f: ConfigFinding, index: number, names: readonly string[], fresh = false): ConfigNode {
  const ordinal = f.id === 'S3' ? 'Across checked roots' : location(review, f);
  const hook = f.hook === undefined ? undefined : review.roots.find(r => r.root === f.root)?.hooks.find(h => h.rel === f.rel && h.index === f.hook);
  const suffix = hook?.name ? ` · ${escapeText(Array.from(hook.name).slice(0, 60).join(''))}` : '';
@@ -72,13 +72,15 @@ function findingNode(review: ConfigReview, f: ConfigFinding, index: number, name
  const gaps = f.id === 'S3' && review.alwaysIncluded.incomplete ? ['Some configuration was not checked; the lower bound may omit additional always-included files.'] : [];
  const details = f.id === 'S3' ? review.alwaysIncluded.contributors.slice(0,3).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)} · ${formatSize(c.size)}`) : (f.related ?? []).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)}`);
  return node(`config:f:${index}`, `${TITLES[f.id]} · ${ordinal}${suffix}`, {
-  description: [names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, NEXT[f.id]].filter(Boolean).join(' · '),
+  description: [fresh ? 'new this session' : '', names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, NEXT[f.id]].filter(Boolean).join(' · '),
   tooltip: [TITLES[f.id], ordinal, WHY[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, NEXT[f.id], ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
   icon: f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: 'config-finding', finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
  });
 }
+/** How a result was produced (automatic mode, section 4.1). `fresh` holds finding indices first seen after this window's first review. In memory only. */
+export interface ConfigTreeState { automatic?: boolean; paused?: boolean; fresh?: ReadonlySet<number> }
 /** Its own native plain-text section; no audit result, summary, clipboard or persistence state. */
-export function configTree(review?: ConfigReview, names: readonly string[] = [], checkedAt?: string, now = new Date(), refused: readonly RefusedConfigRoot[] = [], generation = 0): ConfigNode[] {
+export function configTree(review?: ConfigReview, names: readonly string[] = [], checkedAt?: string, now = new Date(), refused: readonly RefusedConfigRoot[] = [], generation = 0, state: ConfigTreeState = {}): ConfigNode[] {
  const entry = node('config:run', 'Review Kiro Steering and Hooks', {action:'reviewKiroConfig', icon:'refresh',contextValue:'config-run'});
  const children = [entry];
  if (review) {
@@ -86,7 +88,7 @@ export function configTree(review?: ConfigReview, names: readonly string[] = [],
   const groups: [string, FindingId[]][] = [['Always-included Steering',['S1','S3','S4']], ['AGENTS.md',['S2']], ['Hooks that start agent work',['H1','H2','H3','H4']], ['Overlapping hooks',['H5']]];
   for (const [group, ids] of groups) {
    const found = indexed.filter(x=>ids.includes(x.f.id));
-   if (found.length) children.push(node(`config:g:${children.length}`,group,{children:found.map(x=>findingNode(review,x.f,x.i,names)),icon:'list-unordered',contextValue:'config-group'}));
+   if (found.length) children.push(node(`config:g:${children.length}`,group,{children:found.map(x=>findingNode(review,x.f,x.i,names,state.fresh?.has(x.i))),icon:'list-unordered',contextValue:'config-group'}));
   }
   const gaps = NOT_CHECKED_CODES.filter(code => review.notChecked[code]).map((code,index) => node(`config:n:${index}`,NOT_CHECKED[code],{description:`${review.notChecked[code]}`,tooltip:NOT_CHECKED[code]}));
   for (const [i,r] of refused.entries()) gaps.push(node(`config:r:${i}`,escapeText(r.name),{description:NOT_CHECKED[r.code],tooltip: r.reason ? `Not checked: ${r.reason}.` : NOT_CHECKED[r.code],icon:'warning'}));
@@ -98,7 +100,7 @@ export function configTree(review?: ConfigReview, names: readonly string[] = [],
  }
  children.push(node('config:exclusions',CONFIG_EXCLUSIONS));
  const age = relativeTime(checkedAt,now);
- const header = node('config:header','Kiro Steering and Hooks',{description:review ? [`${review.findings.length} findings`,age ? `checked ${age}` : '',review.status==='complete'?'':'partial check'].filter(Boolean).join(' · ') : 'Run a separate configuration review',tooltip:CONFIG_EXCLUSIONS,children,icon:'settings-gear',contextValue:'config-header'});
+ const header = node('config:header','Kiro Steering and Hooks',{description:review ? [`${review.findings.length} findings`,age ? `checked ${state.automatic ? 'automatically · ' : ''}${age}` : '',review.status==='complete'?'':'partial check',state.paused ? 'automatic review paused (many changes)' : ''].filter(Boolean).join(' · ') : 'Run a separate configuration review',tooltip:CONFIG_EXCLUSIONS,children,icon:'settings-gear',contextValue:'config-header'});
  const identify = (nodes: ConfigNode[]): void => { for (const n of nodes) { n.id += `:${generation}`; if (n.children) identify(n.children); } };
  identify([header]);
  return [header];

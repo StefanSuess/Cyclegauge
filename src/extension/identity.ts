@@ -4,6 +4,8 @@ export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
 // Non-string settings (application scope: user settings only): the audit reminder and its opt-in automatic re-run.
 export const AUDIT_SETTING_KEYS = ['auditReminderDays', 'auditAutomatically'] as const;
+// The opt-in automatic Kiro configuration review (application scope; only the user's own global value counts, default off).
+export const CONFIG_REVIEW_SETTING_KEYS = ['configReviewAutomatically'] as const;
 // The community prompts' user setting (application scope, boolean, default on).
 export const SUPPORT_SETTING_KEYS = ['supportPrompts'] as const;
 // The budget warning's user settings (application scope): an on/off switch and the usage share (percent of the reported limit) that triggers the early notice.
