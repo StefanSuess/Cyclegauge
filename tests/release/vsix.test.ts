@@ -122,6 +122,12 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { delete p[days].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[auto]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  assert.ok(edited(p => { p['cyclegauge.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ // The automatic configuration review must stay a user-only setting that is off by default; a workspace scope or an on default fails closed.
+ const review = 'cyclegauge.configReviewAutomatically';
+ for (const scope of ['window', 'resource', 'machine', undefined]) assert.ok(edited(p => { p[review].scope = scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), String(scope));
+ for (const value of ['onOpen', 'onOpenAndChanges', true]) assert.ok(edited(p => { p[review].default = value; }).problems.includes('MANIFEST_SETTING_TYPE'), String(value));
+ assert.ok(edited(p => { p[review].enum = [...p[review].enum, 'always']; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { delete p[review]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  // The community prompt setting is held to the same standard: application scope, boolean, default true, nothing else.
  const prompts = 'cyclegauge.supportPrompts';
  assert.ok(edited(p => { p[prompts].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));

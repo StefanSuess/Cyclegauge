@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
-import { registerConfigReview } from './config-review.ts';
+import { CONFIG_OFFER_KEY, registerConfigReview, type SupportGate } from './config-review.ts';
 import type { ConfigNode } from './config-model.ts';
 import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
@@ -84,7 +84,7 @@ const MAX_CREATED = 1_000; // created paths kept in memory between re-checks; be
 interface Dismissed { salt: string; hashes: string[] }
 // What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
-function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: (accepted: ExclusionAggregate) => void): AuditLink {
+function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: (accepted: ExclusionAggregate) => void, configGate?: SupportGate): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
@@ -410,7 +410,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
  let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [] };
- try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined)); }
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
   const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();
@@ -498,9 +498,11 @@ const SUPPORT_ADVISOR_KEY = 'cyclegauge.support.advisorUsed.v1';
 const NOT_KIRO_KEY = 'cyclegauge.notKiro.shown.v1';
 const SUPPORT_DELAY_MS = 180_000;
 const inKiro = (): boolean => { try { return isKiroEditor(vscode.env.appName, vscode.env.uriScheme); } catch { return false; } };
-interface SupportLink { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void; pause(): void }
+interface SupportLink extends SupportGate { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void; pause(): void }
 function registerSupport(context: vscode.ExtensionContext): SupportLink {
  let disposed = false, seen = false, shown = false, checking = false;
+ // The configuration review's enable offer and this prompt never appear together (design 4.1); memory only.
+ let promptOpen = false, lastPromptAt: number | undefined, offerOpen = false;
  let strongTimer: ReturnType<typeof setTimeout> | undefined;
  let strongPending = false;
  // Explicit opt-in, isolated synthetic demo only. Never changes snoozes or the other prompt gates.
@@ -522,22 +524,24 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  }));
  // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
-  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY, RECAP_KEY]) await store(key, undefined);
+  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY, RECAP_KEY, CONFIG_OFFER_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
   void Promise.resolve(vscode.window.showInformationMessage('Support prompts reset.')).catch(() => undefined);
  });
  seen = stored(SUPPORT_VALUE_KEY) === true;
  const kiro = inKiro();
  const check = async (auditSaved = false): Promise<void> => {
-  if (disposed || shown || checking) return;
+  if (disposed || shown || checking || offerOpen) return;
   checking = true;
   try {
    const today = utcDate(new Date());
    if (!supportDue({ today, firstSeen: firstDate(), auditSaved, detailDays: detailDays().length, advisorUsed: stored(SUPPORT_ADVISOR_KEY), next: stored(SUPPORT_NEXT_KEY), never: stored(SUPPORT_NEVER_KEY), valueSeen: !strongPending && (seen || stored(SUPPORT_VALUE_KEY)), enabled: readSupportPrompts(get), kiro: inKiro() })) return;
    if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
    if (disposed) return;
-   shown = true;
-   const choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined;
+   shown = true; promptOpen = true;
+   let choice: SupportChoice | undefined;
+   try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
+   finally { promptOpen = false; lastPromptAt = Date.now(); }
    if (disposed) return;
    if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Support') open(LINKS.support);
    const after = afterChoice(choice, today);
@@ -572,6 +576,9 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   },
   // A budget notice was shown in this window: the support prompt does not pile on top of it.
   pause() { shown = true; },
+  promptOpen: () => promptOpen,
+  lastPromptAt: () => lastPromptAt,
+  offerOpen(open) { offerOpen = open; },
   valueSeen() { if (seen || !kiro || !readSupportPrompts(get)) return; seen = true; void store(SUPPORT_VALUE_KEY, true); },
   // Called when a refresh really found no Kiro logs outside Kiro without a chosen source (the controller decides that, so VS Code beside an installed Kiro never sees the note):
   // one friendly note, once ever.
@@ -660,7 +667,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  sessionHints = undefined;
  // Context reminder and model hint from the newest IDE session: Kiro only, never in the extension tests, silent on any failure.
  try { sessionHints = registerSessionHints(context, () => inKiro() && !(vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test), () => support?.pause()); } catch { /* Nor must the session hints. */ }
- try { audit = registerAudit(context, () => support?.valueSeen(), accepted => { try { support?.auditSaved(); } catch { /* the support prompt never affects the audit */ } results?.record(accepted); }); } catch { /* The audit must never stop the gauge from starting. */ }
+ try { audit = registerAudit(context, () => support?.valueSeen(), accepted => { try { support?.auditSaved(); } catch { /* the support prompt never affects the audit */ } results?.record(accepted); }, support); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SESSION_HINT_SETTING_KEYS, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSessionHints, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
+import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, CONFIG_REVIEW_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SESSION_HINT_SETTING_KEYS, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSessionHints, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
 
 const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const stub = (log: string[]) => (id: string) => { log.push(id); return { dispose() {} }; };
@@ -34,12 +34,12 @@ test('the getting-started walkthrough is declared with the packaged icon on ever
 
 test('only current settings are declared under the Cyclegauge prefix', () => {
  const props = manifest.contributes.configuration.properties;
- assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
+ assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...CONFIG_REVIEW_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
  for (const k of SETTING_KEYS) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'machine');
  }
- for (const k of [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS]) {
+ for (const k of [...AUDIT_SETTING_KEYS, ...CONFIG_REVIEW_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS]) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'application');
  }
@@ -47,7 +47,9 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([days.type, days.default, days.minimum, days.maximum], ['number', 30, 0, 365]);
  assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
- assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap."]);
+ assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap. Also covers one-time feature offers, such as turning on the automatic Kiro Steering and Hooks review."]);
+ const review = props['cyclegauge.configReviewAutomatically'];
+ assert.deepEqual([review.type, review.default, review.enum, review.scope], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges'], 'application']);
  const hints = props['cyclegauge.sessionHints'];
  assert.deepEqual([hints.type, hints.default, hints.scope], ['boolean', true, 'application']);
  assert.match(hints.description, /macOS/); assert.match(hints.description, /nothing stored or sent/);
@@ -155,7 +157,7 @@ test('VSIX allowlist ships exactly manifest, readme, license, changelog, bundle 
  assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!LICENSE', '!CHANGELOG.md', '!dist/extension.cjs', '!assets/branding/cyclegauge-icon-256.png']);
  assert.equal(manifest.license, 'MIT');
  assert.equal(manifest.preview, true);
- for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
+ for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...CONFIG_REVIEW_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
  assert.equal(manifest.icon, 'assets/branding/cyclegauge-icon-256.png');
  assert.ok((await readFile(new URL(`../../${manifest.icon}`, import.meta.url))).length > 0);
  assert.match(await readFile(new URL('../../LICENSE', import.meta.url), 'utf8'), /MIT License/);

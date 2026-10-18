@@ -215,7 +215,19 @@
         "cyclegauge.supportPrompts": {
           "type": "boolean",
           "default": true,
-          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap.",
+          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap. Also covers one-time feature offers, such as turning on the automatic Kiro Steering and Hooks review.",
+          "scope": "application"
+        },
+        "cyclegauge.configReviewAutomatically": {
+          "type": "string",
+          "default": "off",
+          "enum": ["off", "onOpen", "onOpenAndChanges"],
+          "enumDescriptions": [
+            "Only when you run Cyclegauge: Review Kiro Steering and Hooks.",
+            "Once per window, shortly after a trusted workspace opens.",
+            "As onOpen, and again after AGENTS.md, .kiro/steering/*.md or .kiro/hooks/*.json change (a notice only for a kind of finding not yet seen in this window)."
+          ],
+          "description": "Review Kiro Steering and Hooks automatically in trusted local workspaces. Uses the same bounded reads as the manual review and reads nothing else; nothing is written or sent. Only your user setting counts.",
           "scope": "application"
         },
         "cyclegauge.budgetWarnings": {
