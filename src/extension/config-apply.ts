@@ -17,6 +17,8 @@ export const APPLY_TEXT = {
  notLocated: 'Cyclegauge could not locate this setting safely, so the file was opened without a change.',
  prepared: 'The change is prepared but not saved. Review it, then save the file.',
  selected: 'The pattern is selected. Type the pattern you want, then save the file.',
+ rejected: 'The editor could not prepare this change (the file may be read-only or too large), so nothing was changed.',
+ notOpened: 'The editor could not open this file, so nothing was prepared.',
  outdated: 'This review is out of date, so no change was prepared. Run the review again.',
  failed: 'The configuration action failed.',
 } as const;
@@ -44,20 +46,25 @@ export async function applyConfigAction(editor: typeof vscode, request: ApplyReq
  const path = guardedPath(request.root, request.rel);
  if (!path) { say(APPLY_TEXT.unsafe); return 'refused'; }
  const uri = editor.Uri.file(path);
- const open = async (): Promise<vscode.TextDocument> => { const document = await editor.workspace.openTextDocument(uri); await editor.window.showTextDocument(document); return document; };
- if (request.action === 'open') { await open(); return 'opened'; }
+ // A document the editor refuses to open (binary, too large, no access) is an expected refusal with a fixed message, not a failure to report.
+ const load = async (): Promise<vscode.TextDocument | undefined> => { try { return await editor.workspace.openTextDocument(uri); } catch { say(APPLY_TEXT.notOpened); return undefined; } };
+ if (request.action === 'open') { const document = await load(); if (!document) return 'refused'; await editor.window.showTextDocument(document); return 'opened'; }
  const what = WHAT[request.action];
  if (!what || (what.kind === 'steering') !== (request.rel.startsWith('.kiro/steering/')) || (what.kind === 'hooks' && !(Number.isSafeInteger(request.hook) && request.hook! >= 0))) { say(APPLY_TEXT.unsafe); return 'refused'; }
+ // A hard link may point outside the checked folder: an edit is never prepared for one (the review refuses hook files with more than one link, too).
+ try { if (lstatSync(path).nlink !== 1) { say(APPLY_TEXT.unsafe); return 'refused'; } } catch { say(APPLY_TEXT.unsafe); return 'refused'; }
  const fresh = async (): Promise<FileStamp | undefined> => { const r = await readConfigForEdit(request.root, request.rel, what.kind); if (!('bytes' in r)) return undefined; r.wipe(); return r.stamp; };
  const first = await readConfigForEdit(request.root, request.rel, what.kind);
  if (!('bytes' in first)) { say(APPLY_TEXT.unsafe); return 'refused'; }
  let planned: ConfigEditPlan | undefined, document: vscode.TextDocument;
  try {
   if (!sameStamp(request.stamp, first.stamp)) { say(APPLY_TEXT.stale); return 'stale'; }
-  document = await editor.workspace.openTextDocument(uri);
+  const loaded = await load(); if (!loaded) return 'refused';
+  document = loaded;
   if (document.isDirty) { await editor.window.showTextDocument(document); say(APPLY_TEXT.unsaved); return 'refused'; }
   // With auto save on, an edit to the real file could be saved without the user reviewing it (the same rule as Exclude from Kiro).
-  if (editor.workspace.getConfiguration('files', uri).get<string>('autoSave') !== 'off') { await editor.window.showTextDocument(document); say(APPLY_TEXT.autoSave); return 'fallback'; }
+  // Read with the opened document as scope, so a per-language override counts.
+  if (editor.workspace.getConfiguration('files', document).get<string>('autoSave') !== 'off') { await editor.window.showTextDocument(document); say(APPLY_TEXT.autoSave); return 'fallback'; }
   const eol = editor.EndOfLine !== undefined && document.eol === editor.EndOfLine.CRLF ? '\r\n' : '\n';
   const result = what.steering ? planSteeringEdit(first.bytes, first.size, what.steering, eol) : planHookEdit(first.bytes, request.hook!, what.hook!);
   if ('plan' in result) planned = result.plan;
@@ -74,7 +81,9 @@ export async function applyConfigAction(editor: typeof vscode, request: ApplyReq
  }
  const edit = new editor.WorkspaceEdit();
  if (planned.start === planned.end) edit.insert(uri, document.positionAt(planned.start), planned.text); else edit.replace(uri, range(planned.start, planned.end), planned.text);
- if (!(await editor.workspace.applyEdit(edit))) throw new Error('EDIT_REJECTED');
+ let applied = false;
+ try { applied = await editor.workspace.applyEdit(edit); } catch { applied = false; }
+ if (!applied) { await editor.window.showTextDocument(document); say(APPLY_TEXT.rejected); return 'refused'; }
  await editor.window.showTextDocument(document);
  say(APPLY_TEXT.prepared); return 'prepared';
 }

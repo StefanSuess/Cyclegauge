@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type * as vscode from 'vscode';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath, symlink, utimes, stat } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, linkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createConfigReviewer } from '../../src/audit/config-review.ts';
@@ -14,7 +14,7 @@ import type { ConfigNode } from '../../src/extension/config-model.ts';
 // Synthetic workspaces on disk, a minimal editor double that keeps documents in memory, and the real reviewer.
 const SENTINEL = 'SYNTHETIC-INJECT-IGNORE-PREVIOUS';
 const flatten = (nodes: ConfigNode[]): ConfigNode[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
-interface Doc { uri: { scheme: string; fsPath: string }; text: string; isDirty: boolean; eol: number; getText(range?: { start: { offset: number }; end: { offset: number } }): string; positionAt(offset: number): { offset: number } }
+interface Doc { languageId: string; uri: { scheme: string; fsPath: string }; text: string; isDirty: boolean; eol: number; getText(range?: { start: { offset: number }; end: { offset: number } }): string; positionAt(offset: number): { offset: number } }
 async function workspace(t: { after(fn: () => unknown): void }, files: Record<string, string>) {
  const root = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-config-apply-')));
  t.after(() => rm(root, { recursive: true, force: true }));
@@ -25,20 +25,22 @@ function setup(root: string, options: { autoSave?: string } = {}) {
  const commands = new Map<string, (...a: unknown[]) => unknown>(), subscriptions: { dispose(): unknown }[] = [];
  const log = { messages: [] as string[], errors: [] as string[], opened: [] as string[], shown: [] as Doc[], edits: [] as { inserts: unknown[]; replaces: unknown[] }[], selections: [] as { start: number; end: number }[], reads: [] as string[] };
  const docs = new Map<string, Doc>();
- const state = { trusted: true, autoSave: options.autoSave ?? 'off', applyResult: true, dirtyNext: false, onOpen: undefined as undefined | (() => void | Promise<void>) };
+ const state = { trusted: true, autoSave: options.autoSave ?? 'off', applyResult: true, applyThrows: false, failOpen: false, failShow: false, languageAutoSave: undefined as string | undefined, dirtyNext: false, onOpen: undefined as undefined | (() => void | Promise<void>) };
  class Range { start: { offset: number }; end: { offset: number }; constructor(a: { offset: number }, b: { offset: number }) { this.start = a; this.end = b; } }
  class Selection { start: { offset: number }; end: { offset: number }; constructor(a: { offset: number }, b: { offset: number }) { this.start = a; this.end = b; } }
  class WorkspaceEdit { inserts: unknown[] = []; replaces: unknown[] = []; insert(uri: unknown, position: unknown, text: string) { this.inserts.push({ uri, position, text }); } replace(uri: unknown, range: unknown, text: string) { this.replaces.push({ uri, range, text }); } }
  const folder = { name: 'synthetic-root', index: 0, uri: { scheme: 'file', fsPath: root } };
  const workspaceApi = {
   get isTrusted() { return state.trusted; }, workspaceFolders: [folder] as typeof folder[],
-  getConfiguration: (section: string) => ({ get: (key: string) => section === 'files' && key === 'autoSave' ? state.autoSave : undefined, inspect: () => undefined }),
+  // A per-language override only resolves when the opened document (not a Uri) is the scope, as in the editor.
+  getConfiguration: (section: string, scope?: { languageId?: string }) => ({ get: (key: string) => section === 'files' && key === 'autoSave' ? (scope?.languageId !== undefined && state.languageAutoSave !== undefined ? state.languageAutoSave : state.autoSave) : undefined, inspect: () => undefined }),
   async openTextDocument(uri: { fsPath: string }): Promise<Doc> {
    log.opened.push(uri.fsPath);
+   if (state.failOpen) throw new Error('synthetic-open-failure');
    await state.onOpen?.(); state.onOpen = undefined;
    const known = docs.get(uri.fsPath);
    const text = known?.isDirty ? known.text : readFileSync(uri.fsPath, 'utf8');
-   const doc: Doc = known ?? { uri: { scheme: 'file', fsPath: uri.fsPath }, text, isDirty: false, eol: text.includes('\r\n') ? 2 : 1,
+   const doc: Doc = known ?? { languageId: 'markdown', uri: { scheme: 'file', fsPath: uri.fsPath }, text, isDirty: false, eol: text.includes('\r\n') ? 2 : 1,
     getText(range) { return range ? this.text.slice(range.start.offset, range.end.offset) : this.text; }, positionAt: offset => ({ offset: Math.max(0, Math.min(offset, doc.text.length)) }) };
    if (!doc.isDirty) doc.text = text;
    if (state.dirtyNext) { doc.isDirty = true; state.dirtyNext = false; }
@@ -46,6 +48,7 @@ function setup(root: string, options: { autoSave?: string } = {}) {
   },
   async applyEdit(edit: WorkspaceEdit) {
    log.edits.push({ inserts: edit.inserts, replaces: edit.replaces });
+   if (state.applyThrows) throw new Error('synthetic-edit-failure');
    if (!state.applyResult) return false;
    for (const i of edit.inserts as { uri: { fsPath: string }; position: { offset: number }; text: string }[]) { const d = docs.get(i.uri.fsPath)!; d.text = d.text.slice(0, i.position.offset) + i.text + d.text.slice(i.position.offset); d.isDirty = true; }
    for (const r of edit.replaces as { uri: { fsPath: string }; range: Range; text: string }[]) { const d = docs.get(r.uri.fsPath)!; d.text = d.text.slice(0, r.range.start.offset) + r.text + d.text.slice(r.range.end.offset); d.isDirty = true; }
@@ -55,7 +58,7 @@ function setup(root: string, options: { autoSave?: string } = {}) {
  const window = {
   async showInformationMessage(text: string) { log.messages.push(text); },
   async showErrorMessage(text: string) { log.errors.push(text); },
-  async showTextDocument(doc: Doc) { log.shown.push(doc); return { set selection(s: Selection) { log.selections.push({ start: s.start.offset, end: s.end.offset }); }, revealRange() {} }; },
+  async showTextDocument(doc: Doc) { if (state.failShow) throw new Error('synthetic-show-failure'); log.shown.push(doc); return { set selection(s: Selection) { log.selections.push({ start: s.start.offset, end: s.end.offset }); }, revealRange() {} }; },
  };
  const editor = { workspace: workspaceApi, window, Range, Selection, WorkspaceEdit, EndOfLine: { LF: 1, CRLF: 2 }, Uri: { file: (fsPath: string) => ({ scheme: 'file', fsPath }) },
   commands: { registerCommand: (id: string, fn: (...a: unknown[]) => unknown) => { commands.set(id, fn); return { dispose() {} }; }, executeCommand: async () => undefined } } as unknown as typeof vscode;
@@ -223,11 +226,38 @@ test('findings without an apply action keep the read-only suggestion; forged or 
  await s.act('disable', s.node('H1')); assert.equal(s.log.edits.length, 1);
 });
 
-test('a rejected edit surfaces only the fixed error text through the Report a problem helper', async t => {
+test('expected refusals (rejected edit, document that cannot be opened) show fixed text without the Report a problem button; unexpected failures use it', async t => {
  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'synthetic body\n' + pad() });
- const s = setup(root); await s.run(); s.state.applyResult = false;
+ let s = setup(root); await s.run(); s.state.applyResult = false;
  await s.act('loadWhenNeeded', s.node('S1'));
- assert.deepEqual(s.log.errors, [APPLY_TEXT.failed]);
+ assert.deepEqual(s.log.errors, []); assert.equal(s.log.messages.at(-1), APPLY_TEXT.rejected);
+ s = setup(root); await s.run(); s.state.applyThrows = true;
+ await s.act('loadWhenNeeded', s.node('S1')); assert.deepEqual(s.log.errors, []); assert.equal(s.log.messages.at(-1), APPLY_TEXT.rejected);
+ s = setup(root); await s.run(); s.state.failOpen = true;
+ for (const action of ['loadWhenNeeded', 'open']) await s.act(action, s.node('S1'));
+ assert.deepEqual(s.log.errors, []); assert.deepEqual(s.log.messages, [APPLY_TEXT.notOpened, APPLY_TEXT.notOpened]); assert.equal(s.log.edits.length, 0);
+ s = setup(root); await s.run(); s.state.failShow = true;
+ await s.act('loadWhenNeeded', s.node('S1'));
+ assert.deepEqual(s.log.errors, [APPLY_TEXT.failed], 'a genuinely unexpected failure is reported with fixed text only');
+});
+
+test('auto save is read with the opened document as scope, so a per-language override counts', async t => {
+ const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'synthetic body\n' + pad() });
+ const s = setup(root); await s.run(); s.state.autoSave = 'off'; s.state.languageAutoSave = 'afterDelay';
+ await s.act('loadWhenNeeded', s.node('S1'));
+ assert.equal(s.log.edits.length, 0); assert.equal(s.log.messages.at(-1), APPLY_TEXT.autoSave); assert.equal(s.log.shown.length, 1);
+ const source = await readFile(new URL('../../src/extension/config-apply.ts', import.meta.url), 'utf8');
+ assert.match(source, /getConfiguration\('files', document\)/);
+});
+
+test('a hard-linked file is never edited (it may point outside the folder) but can still be opened', async t => {
+ const rel = '.kiro/steering/synthetic-a.md';
+ const root = await workspace(t, { [rel]: 'synthetic body\n' + pad() });
+ try { linkSync(join(root, rel), join(root, 'synthetic-other-name.md')); } catch { t.skip('hard links are not supported here'); return; }
+ const s = setup(root); await s.run(); const node = s.node('S1');
+ await s.act('loadWhenNeeded', node);
+ assert.equal(s.log.edits.length, 0); assert.equal(s.log.opened.length, 0); assert.equal(s.log.messages.at(-1), APPLY_TEXT.unsafe);
+ await s.act('open', node); assert.equal(s.log.opened.length, 1);
 });
 
 test('hostile file text reaches no message, selection or document title; every message is fixed text', async t => {
