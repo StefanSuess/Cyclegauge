@@ -10,8 +10,10 @@ Download the `release-candidate` artifact of the CI run for the commit you inten
 
 ```sh
 mkdir -m 700 ~/cg-rc && gh run download <RUN_ID> --repo StefanSuess/Cyclegauge -n release-candidate -D ~/cg-rc
-shasum -a 256 ~/cg-rc/candidate.vsix   # must equal the SHA-256 in the run summary and SHA256SUMS.txt
+shasum -a 256 ~/cg-rc/cyclegauge-v<version>-<short-sha>-candidate.vsix   # must equal the SHA-256 in the run summary and SHA256SUMS.txt
 ```
+
+The artifact holds exactly `cyclegauge-v<version>-<short-sha>-candidate.vsix`, `manifest-linux.json` and `SHA256SUMS.txt`. `<short-sha>` is the first 12 hex characters of the commit the CI run built; confirm it matches that run's commit and that `<version>` is the version you intend to release.
 
 Record: macOS version and architecture, Kiro version (About), SHA-256, run id. Stop on a mismatch.
 
@@ -21,7 +23,7 @@ After installing development dependencies (`pnpm install --frozen-lockfile`), us
 [simple synthetic setup](synthetic-demo.md) with the exact candidate from step 0:
 
 ```sh
-pnpm demo:setup --open --vsix "path/to/candidate.vsix"
+pnpm demo:setup --open --vsix "path/to/cyclegauge-v<version>-<short-sha>-candidate.vsix"
 ```
 
 Setup prints synthetic ingestion/repeat-import PASS, a regular qualified forecast and VSIX content verification
@@ -37,7 +39,7 @@ printed `node ".../open-demo.mjs"` command.
 
 | # | Check | Expected |
 |---|---|---|
-| A1 | Extensions: Install from VSIX, pick `candidate.vsix` | Installs as **Cyclegauge for Kiro IDE**, ID `StefanSuess.cyclegauge`, flagged pre-release; icon shows |
+| A1 | Extensions: Install from VSIX, pick `cyclegauge-v<version>-<short-sha>-candidate.vsix` | Installs as **Cyclegauge for Kiro IDE**, ID `StefanSuess.cyclegauge`, flagged pre-release; icon shows |
 | A2 | Reload window | Status bar item `Kiro: …` appears; no error toast |
 | A3 | Click it | A tab "Your credit budget" opens; hero, metrics, usage bar, chart with accessible text; tooltip is short and contains no path |
 | A4 | Command Palette, type "Cyclegauge" | Entries start with "Cyclegauge:"; no duplicates |

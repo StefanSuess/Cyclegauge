@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PAYLOAD } from '../../scripts/release/verify-vsix.ts';
 import {
+  candidateFileName,
   extractChangelogSection,
   isVersion,
   renderReleaseNotesForApproval,
@@ -175,13 +176,15 @@ test('requires an explicit valid version and supported auth mode; dry run defaul
 
 test('checks package/VSIX version, pre-release marker, full-file checksum, and unchanged CI payload', () => {
   const payload = PAYLOAD.map((name, index) => ({ name, bytes: index + 1, sha256: hash(String.fromCharCode(97 + index)) }));
+  const candidateName = candidateFileName('0.7.0', sha('c'));
   const expected = {
     requestedVersion: '0.7.0',
     packageVersion: '0.7.0',
     vsixVersion: '0.7.0',
     preRelease: true,
     actualSha256: hash('e'),
-    checksumText: `${hash('e')}  candidate.vsix\n`,
+    candidateFileName: candidateName,
+    checksumText: `${hash('e')}  ${candidateName}\n`,
     verifiedPayload: payload,
     ciPayload: payload,
   };
@@ -195,7 +198,8 @@ test('checks package/VSIX version, pre-release marker, full-file checksum, and u
   expectCode(() => extractChangelogSection('## 0.09.0\n\nx', '0.09.0'), 'VERSION_INVALID');
   assert.equal(isVersion('0.09.0'), false);
   assert.equal(isVersion('0.9.0'), true);
-  const stable = { ...expected, requestedVersion: '1.0.0', packageVersion: '1.0.0', vsixVersion: '1.0.0', preRelease: false };
+  const stableName = candidateFileName('1.0.0', sha('c'));
+  const stable = { ...expected, requestedVersion: '1.0.0', packageVersion: '1.0.0', vsixVersion: '1.0.0', preRelease: false, candidateFileName: stableName, checksumText: `${hash('e')}  ${stableName}\n` };
   assert.equal(verifyCandidateIntegrity(stable).version, '1.0.0');
   expectCode(() => verifyCandidateIntegrity({ ...stable, preRelease: true }), 'VSIX_CHANNEL_MISMATCH');
   expectCode(() => verifyCandidateIntegrity({ ...expected, actualSha256: hash('f') }), 'CHECKSUM_MISMATCH');
@@ -208,7 +212,24 @@ test('checks package/VSIX version, pre-release marker, full-file checksum, and u
     ...expected,
     ciPayload: payload.map((entry, index) => index === 1 ? { ...entry, sha256: 'g'.repeat(64) } : entry),
   }), 'PAYLOAD_MANIFEST_MALFORMED');
-  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')}  candidate.vsix\nextra\n` }), 'CHECKSUM_MALFORMED');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')}  ${candidateName}\nextra\n` }), 'CHECKSUM_MALFORMED');
+  // The single checksum line must name exactly the expected candidate file.
+  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')}  candidate.vsix\n` }), 'CHECKSUM_MALFORMED');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')}  ${candidateFileName('0.7.0', sha('d'))}\n` }), 'CHECKSUM_MALFORMED');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')}  ${candidateFileName('0.7.1', sha('c'))}\n` }), 'CHECKSUM_MALFORMED');
+  // The expected name itself must have the candidate shape and carry the requested version.
+  expectCode(() => verifyCandidateIntegrity({ ...expected, candidateFileName: 'candidate.vsix', checksumText: `${hash('e')}  candidate.vsix\n` }), 'CANDIDATE_NAME_INVALID');
+  const otherVersion = candidateFileName('0.7.1', sha('c'));
+  expectCode(() => verifyCandidateIntegrity({ ...expected, candidateFileName: otherVersion, checksumText: `${hash('e')}  ${otherVersion}\n` }), 'CANDIDATE_NAME_INVALID');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, candidateFileName: `${candidateName}x`, checksumText: `${hash('e')}  ${candidateName}x\n` }), 'CANDIDATE_NAME_INVALID');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, checksumText: `${hash('e')} *${candidateName}\n` }), 'CHECKSUM_MALFORMED');
+});
+
+test('derives the candidate file name from the plain version and the first 12 characters of the full commit', () => {
+  assert.equal(candidateFileName('0.7.0', 'ABCDEF0123456789abcdef0123456789abcdef01'), 'cyclegauge-v0.7.0-abcdef012345-candidate.vsix');
+  assert.equal(candidateFileName('1.0.0', sha('a')), 'cyclegauge-v1.0.0-aaaaaaaaaaaa-candidate.vsix');
+  for (const bad of ['0.7.0-beta.1', '0.09.0', '', 'v0.7.0', '0.7']) expectCode(() => candidateFileName(bad, sha('a')), 'VERSION_INVALID');
+  for (const bad of ['', 'a'.repeat(12), 'a'.repeat(39), 'a'.repeat(41), 'g'.repeat(40)]) expectCode(() => candidateFileName('0.7.0', bad), 'COMMIT_INVALID');
 });
 
 test('extracts only the requested changelog section and builds stable release notes', () => {
