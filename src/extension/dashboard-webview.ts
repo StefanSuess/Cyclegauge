@@ -1,3 +1,4 @@
+import {reconcileAdvisorDraft} from './advisor-draft.js';
 // Bundled separately into one nonce'd inline script. No Node or extension APIs are available here.
 type DomNode = { kind: 'text'; text: string } | DomElement;
 interface DomElement { kind: 'element'; tag: string; attrs: Record<string, string>; children: DomNode[] }
@@ -5,8 +6,8 @@ interface DomElement { kind: 'element'; tag: string; attrs: Record<string, strin
 declare function acquireVsCodeApi(): { postMessage(message: object): void };
 const vscode = acquireVsCodeApi();
 const load = Number(document.documentElement.getAttribute('data-cg-load'));
-const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
-const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic scope data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
+const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer form fieldset legend label select option input button a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
+const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic aria-invalid scope type name for value data-advisor-epoch data-plan data-billing data-add-ons data-add-on-credits data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set(['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
 const SVG = 'http://www.w3.org/2000/svg';
 // Literal DOM sinks make the permitted grammar explicit even if an inbound model is hostile.
@@ -16,7 +17,7 @@ const HTML_ELEMENTS: Record<string, () => Element> = {
  p: () => document.createElement('p'), span: () => document.createElement('span'), dl: () => document.createElement('dl'), dt: () => document.createElement('dt'), dd: () => document.createElement('dd'),
  details: () => document.createElement('details'), summary: () => document.createElement('summary'), table: () => document.createElement('table'), caption: () => document.createElement('caption'),
  thead: () => document.createElement('thead'), tbody: () => document.createElement('tbody'), tr: () => document.createElement('tr'), th: () => document.createElement('th'), td: () => document.createElement('td'),
- footer: () => document.createElement('footer'), ul: () => document.createElement('ul'), li: () => document.createElement('li'), figure: () => document.createElement('figure'),
+ footer: () => document.createElement('footer'), form: () => document.createElement('form'), fieldset: () => document.createElement('fieldset'), legend: () => document.createElement('legend'), label: () => document.createElement('label'), select: () => document.createElement('select'), option: () => document.createElement('option'), input: () => document.createElement('input'), button: () => document.createElement('button'), ul: () => document.createElement('ul'), li: () => document.createElement('li'), figure: () => document.createElement('figure'),
  figcaption: () => document.createElement('figcaption'), strong: () => document.createElement('strong'), em: () => document.createElement('em'), small: () => document.createElement('small'), br: () => document.createElement('br'),
 };
 const SVG_ELEMENTS: Record<string, () => Element> = {
@@ -37,11 +38,19 @@ function valid(node: unknown, depth = 0, budget = { n: 0 }): node is DomNode {
   if (name !== 'href' || n.tag !== 'a' || typeof value !== 'string' || !SAFE_LINKS.has(value)) return false;
  }
  const attrs = n.attrs as Record<string, string>;
+ const tag = n.tag as string;
+ if (Object.entries(attrs as Record<string,string>).some(([name,value]) =>
+  ['data-advisor-epoch','data-plan','data-billing','data-add-ons','data-add-on-credits'].includes(name) && tag !== 'form' ||
+  name === 'value' && (tag !== 'option' || !['unsure','free','pro','pro_plus','pro_max','power','reset','consumer_prepaid','enterprise_postpaid','none','some'].includes(value)) ||
+  name === 'type' && !(tag === 'input' && value === 'text' || tag === 'button' && ['submit','button'].includes(value)) ||
+  name === 'name' && (!['input','select'].includes(tag) || !['plan','billing','addOns','addOnCredits'].includes(value)) ||
+  name === 'for' && (tag !== 'label' || !['advisor-plan','advisor-billing','advisor-add-ons','advisor-credits'].includes(value)) ||
+  name === 'aria-invalid' && (!['input','select'].includes(tag) || !['true','false'].includes(value)))) return false;
  if (Object.hasOwn(attrs, 'data-chart-point') && (!['circle', 'polygon'].includes(n.tag) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(attrs['data-chart-point']!))) return false;
  if (Object.hasOwn(attrs, 'tabindex') && (!['circle', 'polygon'].includes(n.tag) || !['0', '-1'].includes(attrs.tabindex!))) return false;
- if (Object.hasOwn(attrs, 'aria-live') && (n.tag !== 'dd' || attrs['aria-live'] !== 'polite')) return false;
+ if (Object.hasOwn(attrs, 'aria-live') && (!['dd','p'].includes(n.tag) || attrs['aria-live'] !== 'polite')) return false;
  if (Object.hasOwn(attrs, 'aria-atomic') && (n.tag !== 'dd' || attrs['aria-atomic'] !== 'true')) return false;
- if (Object.hasOwn(attrs, 'hidden') && (n.tag !== 'p' || attrs.id !== 'chart-tooltip' || attrs.hidden !== '')) return false;
+ if (Object.hasOwn(attrs, 'hidden') && (!['p','button'].includes(n.tag) || !['chart-tooltip','advisor-review-again'].includes(attrs.id) || attrs.hidden !== '')) return false;
  return n.children.every(child => valid(child, depth + 1, budget));
 }
 
@@ -150,8 +159,72 @@ window.addEventListener('keydown', event => {
  event.preventDefault(); select(list[next]!, true);
 });
 
+type AdvisorDraft={plan:string;billing:string;addOns:string;addOnCredits:string};
+let advisorDraft:AdvisorDraft|null=null, advisorTicket:number|null=null, advisorPending=false;
+let advisorHostEpoch:number|null=null, advisorAwaitingEpoch:number|null=null, advisorEditVersion=0, advisorSavedVersion=0, advisorSubmittedVersion=0, advisorSubmissionUnresolved=false;
+let advisorTimer:ReturnType<typeof setTimeout>|undefined;
+const advisorForm=()=>document.querySelector('#advisor-form') as HTMLFormElement|null;
+const advisorEpoch=():number=>Math.max(advisorHostEpoch??0,Number(advisorForm()?.getAttribute('data-advisor-epoch')));
+function advisorFields(form:HTMLFormElement):AdvisorDraft {
+ const value=(name:string)=>(form.elements.namedItem(name) as HTMLInputElement|HTMLSelectElement|null)?.value??'';
+ return {plan:value('plan'),billing:value('billing'),addOns:value('addOns'),addOnCredits:value('addOnCredits')};
+}
+function applyAdvisor(form:HTMLFormElement, draft:AdvisorDraft):void {
+ for(const [name,value] of Object.entries(draft)) {
+  const field=form.elements.namedItem(name) as HTMLInputElement|HTMLSelectElement|null;
+  if(field)field.value=value;
+ }
+}
+function advisorStatus(text:string,fields:string[]=[]):void {
+ const form=advisorForm();if(!form)return;
+ const status=form.querySelector('#advisor-status'),error=form.querySelector('#advisor-error');
+ if(status)status.textContent=text;
+ if(error)error.textContent=fields.length?'Check the marked Cost Advisor answer.':'';
+ for(const name of ['plan','billing','addOns','addOnCredits']) {
+  const field=form.elements.namedItem(name) as Element|null;
+  if(!field)continue;
+  if(fields.includes(name)){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','advisor-error');}
+  else {field.removeAttribute('aria-invalid');if(name!=='addOnCredits')field.removeAttribute('aria-describedby');}
+ }
+}
+function syncAdvisor():void {
+ const form=advisorForm();if(!form)return;
+ const next=reconcileAdvisorDraft({hasDraft:advisorDraft!==null,ticket:advisorTicket,awaitingEpoch:advisorAwaitingEpoch,editVersion:advisorEditVersion,savedVersion:advisorSavedVersion,modelEpoch:Number(form.getAttribute('data-advisor-epoch')),hostEpoch:advisorHostEpoch});
+ advisorAwaitingEpoch=next.awaitingEpoch;
+ if(!next.keepDraft)advisorDraft=null;
+ if(advisorDraft){
+  applyAdvisor(form,advisorDraft);
+  if(next.stale){advisorStatus('These answers changed or were reopened elsewhere; review and submit again.');form.querySelector('#advisor-review-again')?.removeAttribute('hidden');}
+ }else{
+  applyAdvisor(form,{plan:form.getAttribute('data-plan')??'unsure',billing:form.getAttribute('data-billing')??'unsure',addOns:form.getAttribute('data-add-ons')??'unsure',addOnCredits:form.getAttribute('data-add-on-credits')??''});
+  advisorTicket=next.epoch;
+ }
+}
+window.addEventListener('input',event=>{const form=advisorForm();if(form&&event.isTrusted&&form.contains(event.target as Node)){if(!advisorDraft)advisorTicket=advisorEpoch();advisorDraft=advisorFields(form);advisorEditVersion++;}});
+window.addEventListener('change',event=>{const form=advisorForm();if(form&&event.isTrusted&&form.contains(event.target as Node)){if(!advisorDraft)advisorTicket=advisorEpoch();advisorDraft=advisorFields(form);advisorEditVersion++;}});
+window.addEventListener('click',event=>{
+ const form=advisorForm();if(!form||!event.isTrusted||event.target!==form.querySelector('#advisor-review-again'))return;
+ advisorTicket=advisorEpoch();form.querySelector('#advisor-review-again')?.setAttribute('hidden','');advisorStatus('Review your answers, then submit again.');
+});
+window.addEventListener('submit',event=>{
+ const form=advisorForm();if(!form||event.target!==form)return;
+ event.preventDefault();if(!event.isTrusted||advisorPending)return;
+ if(advisorTicket!==advisorEpoch()){advisorStatus('Your answers changed elsewhere; review and submit again.');form.querySelector('#advisor-review-again')?.removeAttribute('hidden');return;}
+ const draft=advisorFields(form);advisorDraft=draft;if(!advisorSubmissionUnresolved){advisorSubmittedVersion=advisorEditVersion;advisorSubmissionUnresolved=true;}advisorPending=true;advisorStatus('Reviewing Cost Advisor answers…');
+ advisorTimer=setTimeout(()=>{if(advisorPending){advisorPending=false;advisorStatus('The review has not finished. Try again later.');}},15000);
+ vscode.postMessage({type:'advisorSubmit',ticket:advisorTicket, ...draft});
+});
+
 window.addEventListener('message', event => {
- const message = event.data as { type?: unknown; schema?: unknown; version?: unknown; model?: unknown } | null;
+ const message = event.data as { type?: unknown; schema?: unknown; version?: unknown; model?: unknown; status?: unknown; fields?: unknown; epoch?: unknown; reason?: unknown } | null;
+ if(message?.type==='advisorResult') {
+  advisorPending=false;if(advisorTimer)clearTimeout(advisorTimer);advisorTimer=undefined;
+  if(Number.isSafeInteger(message.epoch)&&(message.epoch as number)>=0)advisorHostEpoch=message.epoch as number;
+  if(message.status==='ok'){advisorSubmissionUnresolved=false;advisorAwaitingEpoch=advisorHostEpoch;advisorTicket=advisorHostEpoch;advisorSavedVersion=advisorSubmittedVersion;advisorForm()?.querySelector('#advisor-review-again')?.setAttribute('hidden','');advisorStatus('Cost Advisor review saved for this session.');syncAdvisor();}
+  else if(message.status==='stale'){advisorSubmissionUnresolved=false;advisorStatus('Your answers changed elsewhere; review and submit again.');advisorForm()?.querySelector('#advisor-review-again')?.removeAttribute('hidden');}
+  else if(message.status==='invalid'){const fields=message.reason==='busy'?[]:Array.isArray(message.fields)?message.fields.filter((x):x is string=>['plan','billing','addOns','addOnCredits'].includes(x)):['plan','billing','addOns','addOnCredits'];if(fields.length)advisorSubmissionUnresolved=false;advisorStatus(message.reason==='busy'?'A Cost Advisor review is still running. Try again later.':fields.length?'Check your Cost Advisor answers and submit again.':'Please wait two seconds and submit again.',fields);}
+  return;
+ }
  if (!message || message.type !== 'model' || message.schema !== 1 || !Number.isSafeInteger(message.version) || (message.version as number) < 1 || !valid(message.model)) return;
  const model = message.model as DomElement;
  if (model.tag !== 'main') return;
@@ -167,6 +240,7 @@ window.addEventListener('message', event => {
   if (links.some(link => !SAFE_LINKS.has(link.getAttribute('href') ?? ''))) return;
   for (const link of anchors(main)) reserve.appendChild(link);
   reconcile(main, model.children, false, links);
+  syncAdvisor();
   const plotted = points();
   const selected = plotted.find(p => p.getAttribute('data-chart-point') === (focusedAt ?? selectedAt)) ?? plotted[0];
   if (selected) {
@@ -183,4 +257,5 @@ window.addEventListener('message', event => {
   vscode.postMessage({ type: 'ack', version: message.version });
  } catch { /* The host's 5-second timer restores a fresh static document. */ }
 });
+syncAdvisor();
 if (Number.isSafeInteger(load) && load > 0) vscode.postMessage({ type: 'ready', load });

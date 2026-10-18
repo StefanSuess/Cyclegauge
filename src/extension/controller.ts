@@ -2,10 +2,10 @@ import { Store } from '../store.ts';
 import { snapshotFacts, storeStateFor, type DiagnosticsInput, type StoreState } from '../diagnostics.ts';
 import { collect } from '../collector.ts';
 import { view } from '../view.ts';
-import { present } from './presentation.ts';
+import { present, inlineAdvisorForm } from './presentation.ts';
 import type { AuditSummary } from './audit-model.ts';
 import {calculateCosts,type NativeCostInput} from './cost-inputs.ts';
-import {AdvisorInputs,reviewAdvisor} from './advisor-inputs.ts';
+import {AdvisorInputs,reviewAdvisor,validateAdvisorAnswers,type AdvisorFormValues} from './advisor-inputs.ts';
 import {presentAdvisor} from './advisor-presentation.ts';
 import {planHint,advisorProfile,classifyAdvice} from '../cost/advisor.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
@@ -62,7 +62,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   }
   let audit:AuditSummary|undefined;
   try{audit=options.auditSummary?.();}catch{audit=undefined;}
-  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights);
+  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights,inlineAdvisorForm(advisor.value,advisor.epoch));
   detail=presentation.html;
   if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
   if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
@@ -99,14 +99,25 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  const review=async()=>{
   if(disposed||!ui.costInput)return;
   await refresh();if(disposed)return;
-  const ticket=advisor.begin();
+  const ticket=advisor.begin();render();
   try{
    let reset = false;
    const value=await reviewAdvisor({ ...ui.costInput, async pick(title, items) { const choice = await ui.costInput!.pick(title, items); if (choice === 'reset') reset = true; return choice; } },planHint(observation.baseLimit,reviewedCatalog),advisor.value);
    if(!value||disposed)return;
    await refresh();if(disposed)return;
    if(advisor.commit(ticket,value)){render();ui.showDetails(detail);try{if(!reset)options.onAdvisorUsed?.();}catch{/* support never affects the Advisor */}}
-  }catch{/* Native input failures never expose answers or affect the budget. */}
+  }catch{/* Native input failures never expose answers or affect the budget. */}finally{if(!disposed)render();}
+ };
+ const submitAdvisor=async (ticket:number,raw:AdvisorFormValues):Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch:number}>=>{
+  if(disposed)return {status:'stale',epoch:advisor.epoch};
+  await refresh();
+  if(disposed||ticket!==advisor.epoch||!advisor.isSingleAccount)return {status:'stale',epoch:advisor.epoch};
+  const checked=validateAdvisorAnswers(raw);
+  if(!checked.value)return {status:'invalid',fields:checked.errors,epoch:advisor.epoch};
+  if(!advisor.commit(ticket,checked.value))return {status:'stale',epoch:advisor.epoch};
+  render();
+  try{if(!checked.reset)options.onAdvisorUsed?.();}catch{/* support never affects the Advisor */}
+  return {status:'ok',epoch:advisor.epoch};
  };
  ui.onCostCommand?.('advisor',review);
  ui.onClick(() => ui.showDetails(detail));
@@ -118,5 +129,5 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   observedAgeMs:facts.latestMs===undefined?null:Date.parse(now())-facts.latestMs,importCodes:facts.importCodes});
  // Re-renders with the current workspace-check summary; no collection and no IO.
  const rerender=()=>{if(!disposed)render();};
- return { refresh, diagnostics, rerender, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
+ return { refresh, diagnostics, rerender, submitAdvisor, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
 }

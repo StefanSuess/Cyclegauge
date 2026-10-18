@@ -1,3 +1,4 @@
+import type { AdvisorAnswers } from '../cost/advisor.ts';
 import type { view } from '../view.ts';
 import { compare, compareRatios } from '../decimal.ts';
 import { readable, updated, date } from './labels.ts';
@@ -59,9 +60,21 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
 }
 
 // The advisor section itself has no command links; its one button is added here, inside the section when it is present.
-function withAdvisorButton(advisorHtml: string): string {
+function withAdvisorButton(advisorHtml: string, formHtml: string): string {
  const button = `<p class="advisor-actions"><a class="button primary" href="${ADVISOR_LINK}">Open Cost Advisor</a></p>`;
- return advisorHtml.endsWith('</section>') ? `${advisorHtml.slice(0, -'</section>'.length)}${button}</section>` : `${advisorHtml}${button}`;
+ return advisorHtml.endsWith('</section>') ? `${advisorHtml.slice(0, -'</section>'.length)}${button}${formHtml}</section>` : `${advisorHtml}${button}${formHtml}`;
+}
+
+export function inlineAdvisorForm(a:AdvisorAnswers,epoch:number):string {
+ const plan=a.plan??'unsure',billing=a.billing??'unsure',addOns=a.addOns??'unsure',credits=a.addOnCredits??'';
+ const options=(values:[string,string][])=>values.map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
+ return `<form id="advisor-form" data-advisor-epoch="${epoch}" data-plan="${plan}" data-billing="${billing}" data-add-ons="${addOns}" data-add-on-credits="${safe(credits)}"><fieldset><legend>Review your Cost Advisor answers</legend>
+ <label for="advisor-plan">Plan</label><select id="advisor-plan" name="plan">${options([['unsure','Not sure'],['free','Free'],['pro','Pro'],['pro_plus','Pro+'],['pro_max','Pro Max'],['power','Power'],['reset','Clear my answers']])}</select>
+ <label for="advisor-billing">Billing</label><select id="advisor-billing" name="billing">${options([['unsure','Not sure'],['consumer_prepaid','Personal subscription'],['enterprise_postpaid','Enterprise']])}</select>
+ <label for="advisor-add-ons">Purchased add-on credits</label><select id="advisor-add-ons" name="addOns">${options([['unsure','Not sure'],['none','None'],['some','Yes']])}</select>
+ <label for="advisor-credits">Remaining add-on credits, if known</label><input id="advisor-credits" name="addOnCredits" type="text" aria-describedby="advisor-error"/>
+ <p id="advisor-error"></p><p id="advisor-status" role="status" aria-live="polite"></p>
+ <button type="submit">Review costs</button><button id="advisor-review-again" type="button" hidden>Review current answers</button></fieldset></form>`;
 }
 
 function observedContext(h: ReturnType<typeof view>['history'], now: string): string {
@@ -79,7 +92,7 @@ function observedContext(h: ReturnType<typeof view>['history'], now: string): st
 }
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS) {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS, advisorForm = '') {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -167,6 +180,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
  @media(max-width:540px){.stats{grid-template-columns:minmax(0,1fr)}.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
  @media(forced-colors:active){a.button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
+ #advisor-form fieldset{border:1px solid var(--vscode-panel-border);margin-top:12px}#advisor-form label{display:block;margin:8px 0 3px}#advisor-form select,#advisor-form input{display:block;max-width:100%;width:24rem;box-sizing:border-box}#advisor-form button{margin:10px 8px 0 0}#advisor-error{color:var(--vscode-errorForeground)}#advisor-form [aria-invalid="true"]{outline:2px solid var(--vscode-errorForeground)}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
@@ -175,7 +189,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`,true)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
  ${auditCard(audit, now)}
- ${withAdvisorButton(advisorHtml)}
+ ${withAdvisorButton(advisorHtml,advisorForm)}
  ${chart.main}
  ${observedContext(h, now)}
  ${costHtml}

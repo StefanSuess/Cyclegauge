@@ -286,3 +286,24 @@ test('Enterprise unknown add-ons are disclosed as unknown, never assumed absent'
  const assumed=presentAdvisor({hint,context:ctx({addOns:'assumed_none',assumptions:[]}),horizons:[],advice:[],singleAccount:true,limit:'5000'});
  assert.ok(assumed.includes('No purchased add-on credits are assumed'));
 });
+
+test('inline review refreshes, rejects replay and account changes, and counts completed reviews',async()=>{
+ const lines=['2030-01-01','2030-01-02','2030-01-03','2030-01-04'].map((d,i)=>line('synthetic-inline-a',`${d} 00:00:00.000`,i===3?10:0)).join('');
+ const env=await setup(lines);let html='',used=0;let native:()=>Promise<void>=async()=>{};
+ const ui={setStatus(_text:string,detail:string){html=detail;},showDetails(){},onClick(){},onChange(){},everyMinute(){},dispose(){},
+  costInput:{async pick(){return undefined;},async input(){return undefined;}},onCostCommand(_id:string,fn:()=>Promise<void>){native=fn;}};
+ try{
+  const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now,onAdvisorUsed:()=>{used++;}});
+  const ticket=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);
+  const answers={plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:''};
+  assert.deepEqual(await controller.submitAdvisor(ticket,answers),{status:'ok',epoch:ticket+1});assert.equal(used,1);
+  assert.equal((await controller.submitAdvisor(ticket,answers)).status,'stale');assert.equal(used,1);
+  const current=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);
+  assert.deepEqual(await controller.submitAdvisor(current,{...answers,addOns:'some',addOnCredits:'invalid'}),{status:'invalid',fields:['addOnCredits'],epoch:current});
+  await native();const afterCancel=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);assert.ok(afterCancel>current);
+  assert.equal((await controller.submitAdvisor(current,answers)).status,'stale');
+  await writeFile(env.log,lines+line('synthetic-inline-b','2030-01-04 01:00:00.000',12));await controller.refresh();
+  assert.equal((await controller.submitAdvisor(afterCancel,answers)).status,'stale');assert.equal(used,1);
+  controller.dispose();
+ }finally{await rm(env.base,{recursive:true,force:true});}
+});

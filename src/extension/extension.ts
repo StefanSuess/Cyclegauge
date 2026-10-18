@@ -613,6 +613,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  advisorItem.command = commandId('costAdvisor');
  let panel: vscode.WebviewPanel | undefined;
  let dashboard: DashboardPanel | undefined;
+ let controllerRef: Awaited<ReturnType<typeof startExtension>> | undefined;
  let revealing = false;
  let detail = '';
  const disposables: vscode.Disposable[] = [item, advisorItem];
@@ -634,7 +635,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   showDetails(html) {
    if (panel) { revealing = true; try { panel.reveal(); } finally { revealing = false; } dashboard?.reveal(html); advisorItem.show(); return; }
    panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
-   dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); });
+   dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); }, Date.now, m => controllerRef?.submitAdvisor(m.ticket,m) ?? Promise.resolve({status:'stale' as const,epoch:0}));
    dashboard.reveal(html);
    advisorItem.show();
    disposables.push(panel.webview.onDidReceiveMessage(raw => dashboard?.receive(raw)));
@@ -664,6 +665,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
   const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
+  controllerRef = controller;
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
   stop = controller.dispose;

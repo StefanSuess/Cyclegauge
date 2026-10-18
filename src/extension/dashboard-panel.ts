@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { acceptMessage, buildDomModel, renderDashboardShell } from './dashboard-shell.ts';
+import { acceptMessage, buildDomModel, renderDashboardShell, type AdvisorSubmit } from './dashboard-shell.ts';
 
 type Webview = { html: string; postMessage(message: object): PromiseLike<boolean> | boolean };
 
@@ -16,12 +16,15 @@ export class DashboardPanel {
  private cooldownTimer: ReturnType<typeof setTimeout> | undefined;
  private lastAckAt = -Infinity;
  private disposed = false;
+ private advisorBusy = false;
+ private advisorLast = -Infinity;
+ private readonly submitAdvisor?: (m: AdvisorSubmit) => Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch?:number}>;
  private arrivals: number[] = [];
  private readonly webview: Webview;
  private readonly script: string;
  private readonly rejected: () => void;
  private readonly now: () => number;
- constructor(webview: Webview, script: string, rejected: () => void, now = Date.now) { this.webview = webview; this.script = script; this.rejected = rejected; this.now = now; }
+ constructor(webview: Webview, script: string, rejected: () => void, now = Date.now, submitAdvisor?: (m: AdvisorSubmit) => Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch?:number}>) { this.webview = webview; this.script = script; this.rejected = rejected; this.now = now; this.submitAdvisor = submitAdvisor; }
 
  set(html: string): void {
   if (this.disposed) return;
@@ -47,6 +50,12 @@ export class DashboardPanel {
    if (this.ready || this.failed) { this.rejected(); return; }
    this.ready = true;
    this.send();
+  } else if (message.type === 'advisorSubmit') {
+   if (!this.ready || !this.submitAdvisor) { this.rejected(); return; }
+   if (this.advisorBusy) { this.rejected(); this.reply({type:'advisorResult',status:'invalid',reason:'busy'}); return; }
+   if (time - this.advisorLast < 2000) { this.rejected(); this.reply({type:'advisorResult',status:'invalid',fields:[]}); return; }
+   this.advisorBusy = true;
+   void this.submitAdvisor(message).then(result => this.reply({type:'advisorResult',status:result.status,epoch:result.epoch,fields:result.status==='invalid'?result.fields:undefined}), () => this.reply({type:'advisorResult',status:'invalid'})).finally(() => { this.advisorBusy = false; this.advisorLast = this.now(); });
   } else {
    if (!this.ready || !this.pending) { this.rejected(); return; }
    if (time - this.lastAckAt < 2000) { this.rejected(); return; }
@@ -56,6 +65,8 @@ export class DashboardPanel {
    this.send(); // Delivers one coalesced newer render, if one arrived while ACK was pending.
   }
  }
+
+ private reply(message:object):void { if(this.disposed)return;try{void Promise.resolve(this.webview.postMessage(message)).catch(()=>{});}catch{/* The next user submit can retry. */} }
 
  dispose(): void { this.disposed = true; this.clearTimer(); this.clearCooldown(); this.pending = 0; this.ready = false; this.failed = true; }
 
