@@ -22,7 +22,7 @@ Observed on 2026-10-16/17 (recheck before acting):
 | Source format | Kiro's log format is undocumented and can change with any Kiro release. | Diagnostics have shipped (**Cyclegauge: Copy Diagnostics** and CLI `--diagnostics`) and the bug template points to them. Only one Kiro log variant has been observed so far, so there are no per-Kiro-version fixtures yet. |
 | Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. |
 | Docs | `SPEC.md` still says "0.5.2 candidate", `ROADMAP.md` "Current release 0.5.1"; `release-process.md` says the Open VSX namespace is unverified, but the registry now reports it verified. | Outdated status text. |
-| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown are current. |
+| Advisor catalog | `verifiedOn: 2026-10-18` (re-reviewed, values unchanged); `catalog_review_due` triggers after 30 days (from 2026-11-17). | Review before each release so prices shown are current. |
 
 ## 2. Why features in 1.0, and which stabilisation still matters
 

@@ -1,7 +1,7 @@
 # Automatic Cost Advisor — specification and phased plan
 
 Status: **Phase A and numerical estimates integrated for the 0.5.2 macOS beta candidate.** Native acceptance pending. SC1 and SC5 remain open; Phase B persistence is not implemented.
-Integration baseline: main `95031a9` (PR #16). Advisor donor: PR #15 `947620e`, including completed Phase A and numerical estimates; bundled catalog `kiro-commercial` `2026-10-10` is unchanged.
+Integration baseline: main `95031a9` (PR #16). Advisor donor: PR #15 `947620e`, including completed Phase A and numerical estimates; bundled catalog `kiro-commercial` was `2026-10-10` at this baseline; re-reviewed unchanged and now `2026-10-18`.
 Supersedes the manual scenario-builder design. Milestone 6, PR #1, SC1 and the Windows fail-closed behaviour are unchanged.
 
 ## 1. Product behaviour
