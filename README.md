@@ -6,8 +6,8 @@
 
 [![Kiro IDE](https://img.shields.io/badge/IDE-Kiro-blue)](https://github.com/StefanSuess/Cyclegauge#install)
 [![macOS stable](https://img.shields.io/badge/macOS-stable-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Ubuntu smoke-tested](https://img.shields.io/badge/Ubuntu-smoke--tested-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Windows smoke-tested](https://img.shields.io/badge/Windows-smoke--tested-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Ubuntu smoke-tested (0.7)](https://img.shields.io/badge/Ubuntu-smoke--tested%20(0.7)-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows smoke-tested (0.7)](https://img.shields.io/badge/Windows-smoke--tested%20(0.7)-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 [![CI + coverage ≥80%](https://img.shields.io/github/actions/workflow/status/StefanSuess/Cyclegauge/ci.yml?branch=main&label=CI%20%2B%20coverage%20%E2%89%A580%25)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![CI VSIX attestations](https://img.shields.io/badge/CI%20VSIX-attestations-blue)](https://github.com/StefanSuess/Cyclegauge/attestations)
@@ -102,9 +102,9 @@ For future releases, CI attests the exact VSIX after its checks pass on `main`. 
 | Platform | Status |
 | --- | --- |
 | macOS | Stable release line (Apple Silicon; Intel unverified); maintainer-reported synthetic-data testing (Kiro 1.2.56). Session hints work on macOS only |
-| Ubuntu | Stable release line; a development candidate was smoke-tested in native Kiro (Ubuntu 26), no itemised acceptance yet |
+| Ubuntu | Stable release line; a 0.7.0 development candidate was smoke-tested in native Kiro (Ubuntu 26); 1.0.0 smoke tests are not yet recorded, no itemised acceptance |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
-| Windows | Stable release line; a development candidate was smoke-tested in native Kiro (Windows 11 Pro), no itemised acceptance yet |
+| Windows | Stable release line; a 0.7.0 development candidate was smoke-tested in native Kiro (Windows 11 Pro); 1.0.0 smoke tests are not yet recorded, no itemised acceptance |
 
 Cross-platform CI and the precise remaining gates are described in [platform verification](https://github.com/StefanSuess/Cyclegauge/blob/main/docs/platform-verification.md). One universal VSIX is retained; generic VS Code host tests do not establish native Kiro support.
 
