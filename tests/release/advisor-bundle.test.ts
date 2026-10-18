@@ -1093,7 +1093,7 @@ test('packaged test override requires the isolated synthetic demo profile and ex
 const BUDGET_KEY='cyclegauge.budgetWarning.v1';
 const BUDGET_BUTTONS=['Show details','Turn off'];
 const BUDGET_NOW='2030-01-08T00:30:00Z';
-const FORECAST_TEXT='At this pace your Kiro credits run out on 10 Jan 2030, 22 days before the reset. If you continue at this pace: about 215 credits over the limit ≈ $8.60 by the reset, at $0.04 per credit (price list reviewed 10 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).';
+const FORECAST_TEXT='At this pace your Kiro credits run out on 10 Jan 2030, 22 days before the reset. If you continue at this pace: about 215 credits over the limit ≈ $8.60 by the reset, at $0.04 per credit (price list reviewed 18 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).';
 const budgetLine=(stamp:string,usage:number,limit=100,reset='2030-02-01T00:00:00Z')=>`${stamp} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-budget-account'},nextDateReset:reset,usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:limit,nextDateReset:reset,bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
 const budgetLogPath=(env:ReturnType<typeof communityEnv>)=>join(env.source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent','q-client.log');
 const budgetData=(env:ReturnType<typeof communityEnv>,usages:number[],limit=100)=>writeFileSync(budgetLogPath(env),usages.map((u,i)=>budgetLine(`2030-01-0${i+1} 00:00:00.000`,u,limit)).join(''));
@@ -1222,14 +1222,14 @@ test('packaged next-larger-plan comparison: beside the projected overage and on 
    await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;s.dispose();
    return {notice:budgetInfos(env)[0]?.text??'',html};
   };
-  const COST=/credits over the limit ≈ \$[\d.]+ by the reset, at \$0\.04 per credit \(price list reviewed 10 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings\)\./;
+  const COST=/credits over the limit ≈ \$[\d.]+ by the reset, at \$0\.04 per credit \(price list reviewed 18 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings\)\./;
   // A 1000-credit account (a Pro hint) at 50 credits a day is forecast to pass its limit.
   const pro=await run(1000,50);
   assert.match(pro.notice,/^At this pace your Kiro credits run out on /);assert.match(pro.notice,COST);
   assert.ok(pro.notice.endsWith(' For comparison, if you are on Pro: Pro+ costs $20 a month more and includes 1000 more credits.'),pro.notice);
   const lines=[...pro.html.matchAll(/<p class="small overage">([^<]*)<\/p>/g)].map(m=>m[1]!);
   assert.equal(lines.length,2);assert.match(lines[0]!,/^If you continue at this pace: about \d+ credits over the reported limit/);
-  assert.equal(lines[1],'For comparison, if you are on Pro: Pro+ costs $20 a month more than Pro and includes 1000 more credits (list prices, price list reviewed 10 Oct 2026).');
+  assert.equal(lines[1],'For comparison, if you are on Pro: Pro+ costs $20 a month more than Pro and includes 1000 more credits (list prices, price list reviewed 18 Oct 2026).');
   assert.ok(!/save|cheaper|recommend|switch/i.test(lines[1]!+pro.notice.slice(pro.notice.indexOf('For comparison'))));
   // The largest plan has nothing larger; an account whose limit matches no plan has no known plan.
   for(const [limit,perDay] of [[10000,500],[100,10]] as const){
