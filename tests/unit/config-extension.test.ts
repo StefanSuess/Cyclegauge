@@ -39,7 +39,7 @@ test('registration with automatic mode off does nothing by itself and has no aud
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.match(main,/\.\.\.configReview\.nodes\(\)/);
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
- assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate \}\)/);
+ assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig').length,1);
  assert.equal(manifest.contributes.configuration.properties['cyclegauge.configReviewAutomatically'].default,'off');
@@ -53,13 +53,19 @@ test('realpath deduplication and eight checked roots; refusal cannot hide remain
  const s=setup();s.workspace.workspaceFolders=[s.folder('synthetic-refused','/synthetic/refused'),s.folder('synthetic-root','/synthetic/root'),s.folder('synthetic-alias','/synthetic/alias'),...Array.from({length:9},(_,i)=>s.folder(`synthetic-${i}`,`/synthetic/${i}`))];
  await s.run();assert.equal(s.reads[0]!.length,8);assert.equal(s.reads[0]!.filter(x=>x==='/synthetic/root').length,1);assert.match(JSON.stringify(s.link.nodes()),/root limit/);
 });
-test('preview is unsaved plaintext and requires a current opaque tree node',async()=>{
- const s=setup();await s.run();const flatten=(nodes:ReturnType<typeof s.link.nodes>):ReturnType<typeof s.link.nodes>=>nodes.flatMap(n=>[n,...flatten(n.children??[])]);
- const node=flatten(s.link.nodes()).find(n=>n.action==='previewKiroConfig')!;assert.ok(node);
+test('the read-only suggestion (only for findings without an apply action) is unsaved plaintext and requires a current tree node',async()=>{
+ const wide=():ConfigReview=>{
+  const roots=[{root:0,nestedNotChecked:0,steering:['a','b'].map(n=>({rel:`.kiro/steering/synthetic-${n}.md`,mode:'always' as const,size:20000,matchAll:false as const,patternCount:0})),hooks:[]}];
+  return{...evaluateConfigRules(roots),roots,status:'complete',bytesRead:0};
+ };
+ const s=setup(async()=>wide());await s.run();const flatten=(nodes:ReturnType<typeof s.link.nodes>):ReturnType<typeof s.link.nodes>=>nodes.flatMap(n=>[n,...flatten(n.children??[])]);
+ const all=flatten(s.link.nodes()), node=all.find(n=>n.action==='previewKiroConfig')!;assert.ok(node);
+ assert.equal(node.finding!.id,'S3');assert.equal(all.filter(n=>n.finding&&n.action!=='previewKiroConfig').length,2,'S1 findings use apply actions instead');
  const preview=s.commands.get('cyclegauge.config.preview')!;
- await preview({...node});assert.equal(s.opened.length,0);
+ await preview('synthetic-forged-id');await preview({id:'synthetic-forged-id'});await preview({});await preview(undefined);assert.equal(s.opened.length,0);
  await preview(node.id);assert.equal(s.opened.length,2);assert.equal((s.opened[0] as {language:string}).language,'plaintext');
- await s.run();await preview(node.id);assert.equal(s.opened.length,2,'stale nodes cannot open a preview');
+ await preview({...node});assert.equal(s.opened.length,4,'the menu passes the tree element; only its id is read');
+ await s.run();await preview(node.id);assert.equal(s.opened.length,4,'stale nodes cannot open a preview');
 });
 test('single-flight and stale/disposed results never refresh the section',async()=>{
  const s=setup();await s.run();const before=s.refreshes;for(const d of s.subscriptions)d.dispose();await s.run();assert.equal(s.refreshes,before);assert.equal(s.reads.length,1);

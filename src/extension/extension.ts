@@ -236,7 +236,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    exists = true;
   } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') { notify('The .kiroignore in this workspace could not be checked, so no change was prepared.'); return; } }
   // With auto save on, an edit to the real file could be written without the user reviewing it: show the lines in a new tab instead.
-  const autoSave = exists ? vscode.workspace.getConfiguration('files', vscode.Uri.file(path)).get<string>('autoSave') : undefined;
+  // Auto save is read with the opened document as scope, so a per-language override counts; the document is only opened, never edited, until this is known.
+  const opened = exists ? await vscode.workspace.openTextDocument(vscode.Uri.file(path)) : undefined;
+  const autoSave = opened ? vscode.workspace.getConfiguration('files', opened).get<string>('autoSave') : undefined;
   if (exists && autoSave !== 'off') {
    const proposal = await vscode.workspace.openTextDocument({ content: kiroignoreAppend(undefined, lines), language: 'ignore' });
    pendingSave = { path, lines, accepted: aggregate };
@@ -246,7 +248,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    render();
    return;
   }
-  const document = await vscode.workspace.openTextDocument(exists ? vscode.Uri.file(path) : vscode.Uri.file(path).with({ scheme: 'untitled' }));
+  const document = opened ?? await vscode.workspace.openTextDocument(vscode.Uri.file(path).with({ scheme: 'untitled' }));
   const current = document.getText();
   const text = kiroignoreAppend(exists || current !== '' ? current : undefined, lines);
   if (text === '') { await vscode.window.showTextDocument(document); notify('These lines are already in .kiroignore.'); return; }
@@ -439,7 +441,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
 
- try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate }); }
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate, reportError: showReportableError }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
   const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();

@@ -95,7 +95,7 @@ const auditApi=()=>{
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
 const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
-const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.reviewKiroConfig'];
+const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 // Assertions about the filename audit deliberately exclude the independent configuration section.
@@ -112,7 +112,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   const bundle=await builtBundle(work);
   const api=auditApi(),st=api.state;
   const commands=new Map<string,(...a:any[])=>unknown>(),errors:string[]=[],errorButtons:string[][]=[],warnings:string[]=[],infos:{text:string;extra:number}[]=[],clipboard:string[]=[];
-  let trusted=false,folderPath=workspace,gate:Promise<void>|undefined,failProgress=false,ignoreFiles:unknown=['.kiroignore'],autoSave:unknown='off',failProvider=false,infoChoice:string|undefined;
+  let trusted=false,folderPath=workspace,gate:Promise<void>|undefined,failProgress=false,ignoreFiles:unknown=['.kiroignore'],autoSave:unknown='off',documentAutoSave:unknown=undefined,failProvider=false,infoChoice:string|undefined;
   const disposable={dispose(){}};
   const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
    EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
@@ -120,7 +120,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
    commands:{...api.commands,registerCommand(id:string,fn:(...a:any[])=>unknown){if(!id.startsWith('cyclegauge.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
    env:{clipboard:{async writeText(t:string){clipboard.push(t);}}},
    workspace:{...api.workspace,get isTrusted(){return trusted;},get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:folderPath}}];},
-    getConfiguration:(section:string)=>({get:(key:string)=>section==='files'?(key==='autoSave'?autoSave:undefined):section==='kiroAgent'?(key==='agentIgnoreFiles'?ignoreFiles:undefined):({sourceRoot:source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC'} as any)[key]??''}),
+    getConfiguration:(section:string,scope?:any)=>({get:(key:string)=>section==='files'?(key==='autoSave'?(typeof scope?.getText==='function'&&documentAutoSave!==undefined?documentAutoSave:autoSave):undefined):section==='kiroAgent'?(key==='agentIgnoreFiles'?ignoreFiles:undefined):({sourceRoot:source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC'} as any)[key]??''}),
     createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
    // No createWebviewPanel: the audit must not open a webview any more.
    window:{...api.window,registerTreeDataProvider(id:string,p:any){if(failProvider)throw new Error('synthetic-provider-failure');return api.window.registerTreeDataProvider(id,p);},createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},
@@ -195,7 +195,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   for(const mode of ['afterDelay','onFocusChange','onWindowChange']){
    autoSave=mode;st.docs.clear();st.contentDocs.length=0;infos.length=0;const editCount:number=st.edits.length,shownCount:number=st.shown.length;
    await commands.get('cyclegauge.audit.accept')!(find('.env'));
-   assert.equal(st.edits.length,editCount,mode);assert.equal(st.docs.size,0,mode);assert.equal(st.contentDocs.length,1,mode);
+   assert.equal(st.edits.length,editCount,mode);assert.equal(st.docs.size,1,'the real document is opened (not shown or edited) so its own auto save scope can be read');assert.equal(st.shown.includes([...st.docs.values()][0]),false,mode);assert.equal(st.contentDocs.length,1,mode);
    assert.equal(st.contentDocs[0].text,'# Suggested by Cyclegauge - review before saving\n/.env\n');assert.equal(st.contentDocs[0].language,'ignore');assert.equal(st.contentDocs[0].uri.scheme,'untitled');
    assert.equal(st.shown.length,shownCount+1);assert.equal(st.shown.at(-1),st.contentDocs[0]);assert.equal(st.saves,0);
    assert.deepEqual(infoTexts(),['Your editor saves files automatically, so the suggested lines are shown in a new tab. Copy them into .kiroignore and save.']);
@@ -203,6 +203,9 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   }
   // An unset value counts as off.
   autoSave=undefined;st.docs.clear();st.contentDocs.length=0;const editsUnset=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsUnset);assert.equal(st.contentDocs.length,1);
+  // A per-language override that is only visible with the opened document as scope (the global value stays off) also counts as auto save.
+  autoSave='off';documentAutoSave='afterDelay';st.docs.clear();st.contentDocs.length=0;const editsLanguage=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsLanguage);assert.equal(st.contentDocs.length,1);assert.equal(readFileSync(kiroignore,'utf8'),'/ignored.log\n');
+  documentAutoSave=undefined;
   autoSave='off';infos.length=0;
   // Ignore: only salted hex hashes reach workspaceState, and the finding disappears (also from Copy and after a re-run).
   clipboard.length=0;

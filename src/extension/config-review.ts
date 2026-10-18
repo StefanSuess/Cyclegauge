@@ -1,8 +1,10 @@
 import type * as vscode from 'vscode';
 import { isAbsolute, relative, sep } from 'node:path';
 import { createConfigReviewer, CONFIG_MAX_ROOTS, type ConfigReview } from '../audit/config-review.ts';
+import { stampKey } from '../audit/config-read.ts';
 import { evaluateConfigRules, type ConfigFinding } from '../audit/config-rules.ts';
-import { configPreview, configTree, type ConfigNode, type RefusedConfigRoot } from './config-model.ts';
+import { APPLY_TEXT, applyConfigAction, tell } from './config-apply.ts';
+import { configActions, configPreview, configTree, type ConfigApplyAction, type ConfigNode, type RefusedConfigRoot } from './config-model.ts';
 import { CONFIG_WATCH_GLOB, createConfigScheduler, createNoticeState, noticeDecision, offerDue, readConfigReviewMode, watchShape, type ReviewOrigin, type RunOutcome, type RunTrigger } from './config-schedule.ts';
 import { ID_PREFIX, commandId, readSupportPrompts } from './identity.ts';
 
@@ -10,7 +12,8 @@ type FolderCheck = (folder: vscode.WorkspaceFolder) => { chosen: string; resolve
 /** What the review may know about the support prompt: whether one is open or was closed recently, and that the offer is showing. */
 export interface SupportGate { promptOpen(): boolean; lastPromptAt(): number | undefined; offerOpen(open: boolean): void }
 interface Timers { now(): number; set(fn: () => void, ms: number): unknown; clear(handle: unknown): void }
-interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform }
+/** Cyclegauge's own fixed-text error notification with a Report a problem button, supplied by the extension. */
+interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform; reportError?: (text: string) => void }
 export interface ConfigReviewLink { nodes(): ConfigNode[]; run(): Promise<void> }
 /**
  * Starts the manual review next to a manual (user-initiated) workspace audit: exactly the run `cyclegauge.reviewKiroConfig` performs, with the same guards,
@@ -36,7 +39,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
  // Automatic mode, in memory only: the in-flight automatic run, the watcher generation, dirty roots (by index) and notice state.
  let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false, resync = false;
  let watchers: vscode.Disposable[] = [];
- let drawn: { result: ConfigReview; names: string[]; refused: RefusedConfigRoot[]; checkedAt: string; automatic: boolean } | undefined;
+ let drawn: { result: ConfigReview; names: string[]; paths: string[]; signature: string; refused: RefusedConfigRoot[]; checkedAt: string; automatic: boolean } | undefined;
  const dirty = new Set<number>(), notice = createNoticeState(), known = new Set<string>(), fresh = new Set<string>();
  const signature = () => (editor.workspace.workspaceFolders ?? []).map(f=>[f.uri.scheme,f.uri.fsPath,f.name].join('\0')).join('\n');
  const mode = () => { try { return readConfigReviewMode(editor.workspace.getConfiguration(ID_PREFIX).inspect<unknown>(SETTING)); } catch { return 'off' as const; } };
@@ -86,7 +89,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   if (!stillValid()) return roots.length ? 'ran' : 'skipped';
   if (refused.length && result.status === 'complete') result.status = 'partial';
   if (origin === 'open') openDone = true; // only a drawn result is the window's open run; a discarded one still counts toward the cap
-  current = result; drawn = { result, names, refused, checkedAt: new Date(timers.now()).toISOString(), automatic: origin !== 'manual' }; draw();
+  current = result; drawn = { result, names, paths: roots, signature: before, refused, checkedAt: new Date(timers.now()).toISOString(), automatic: origin !== 'manual' }; draw();
   // Fixed text only: no count, file name or hook name.
   if (noticeDecision(notice, result.findings.map(f => f.id), origin, timers.now())) {
    void Promise.resolve(editor.window.showInformationMessage(CONFIG_NOTICE_TEXT, 'Show'))
@@ -173,23 +176,43 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   } finally { running = false; if (abort === controller) abort = undefined; }
   if (shown) void offer();
  };
- const preview = async (arg: unknown): Promise<void> => {
-  if (disposed || !current || !editor.workspace.isTrusted || typeof arg !== 'string') return;
+ // Item commands trust nothing the tree item carries: the node is looked up again by its opaque id in the current tree, so stale or forged arguments do nothing.
+ // The menu passes the tree element and the fallback passes its id; only the id is read.
+ const nodeOf = (arg: unknown): ConfigNode | undefined => {
+  const id = typeof arg === 'string' ? arg : typeof arg === 'object' && arg !== null && typeof (arg as { id?: unknown }).id === 'string' ? (arg as { id: string }).id : undefined;
+  if (id === undefined) return undefined;
   const find = (list: ConfigNode[]): ConfigNode | undefined => {
-   for (const node of list) { if (node.id === arg) return node; const child = node.children && find(node.children); if (child) return child; }
+   for (const node of list) { if (node.id === id) return node; const child = node.children && find(node.children); if (child) return child; }
    return undefined;
   };
-  const node = find(nodes);
+  return find(nodes);
+ };
+ const preview = async (arg: unknown): Promise<void> => {
+  if (disposed || !current || !editor.workspace.isTrusted) return;
+  const node = nodeOf(arg);
   if (!node?.finding || node.action !== 'previewKiroConfig') return;
   const content = configPreview(current,node.finding);
   if (!content) return;
   try { const document = await editor.workspace.openTextDocument({content,language:'plaintext'}); await editor.window.showTextDocument(document); }
   catch { /* no exception text leaves the preview */ }
  };
+ // Prepares an unsaved edit in the real file (or only opens it). The review result, the checked roots and the workspace folders must be the ones the node was drawn from.
+ const apply = (action: ConfigApplyAction) => async (arg: unknown): Promise<void> => {
+  try {
+   if (disposed || !current || !drawn) return;
+   const node = nodeOf(arg), f = node?.finding;
+   if (!f || !configActions(f).includes(action)) return;
+   const rel = f.id === 'S2' ? 'AGENTS.md' : f.rel, root = drawn.paths[f.root];
+   if (!editor.workspace.isTrusted) { tell(editor, APPLY_TEXT.untrusted); return; }
+   if (root === undefined || signature() !== drawn.signature || resolveRoots().roots[f.root] !== root) { tell(editor, APPLY_TEXT.outdated); return; }
+   await applyConfigAction(editor, { action, root, rel, ...(f.hook === undefined ? {} : { hook: f.hook }), ...(current.stamps?.has(stampKey(f.root, rel)) ? { stamp: current.stamps.get(stampKey(f.root, rel))! } : {}) });
+  } catch { try { options.reportError?.(APPLY_TEXT.failed); } catch { /* nothing more to report */ } }
+ };
  const registrations: vscode.Disposable[] = [];
  try {
   registrations.push(editor.commands.registerCommand(commandId('reviewKiroConfig'),run));
   registrations.push(editor.commands.registerCommand(commandId('config.preview'),preview));
+  for (const action of ['loadWhenNeeded','narrowPattern','runManually','disable','open'] as const) registrations.push(editor.commands.registerCommand(commandId(`config.${action}`),apply(action)));
   const ws = editor.workspace;
   if (ws.onDidChangeConfiguration) registrations.push(ws.onDidChangeConfiguration(event => { try { if (event.affectsConfiguration(`${ID_PREFIX}.${SETTING}`)) sync(); } catch { /* the watchers stay as they were */ } }));
   if (ws.onDidChangeWorkspaceFolders) registrations.push(ws.onDidChangeWorkspaceFolders(() => sync()));
