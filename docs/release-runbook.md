@@ -28,7 +28,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 2. [agent] Wait for green CI on that exact `main` commit (all required checks, including the candidate and attestation jobs). A green run for an earlier commit is insufficient. Do not merge anything else until the release is done.
 
 **F. Native acceptance of the exact CI candidate**
-1. [maintainer] Download the `release-candidate` artifact of that CI run and compare its SHA-256 with the CI summary.
+1. [maintainer] Download the `release-candidate` artifact of that CI run and compare the SHA-256 of `cyclegauge-v<version>-<sha12>-candidate.vsix` (`<sha12>` = first 12 characters of the CI run's commit) with the CI summary.
 2. [maintainer] Run macOS acceptance sections A, B, D and E ([macos-acceptance.md](macos-acceptance.md)); they are mandatory.
 3. [maintainer] When the release names Windows or Ubuntu, smoke-test the same VSIX in native Kiro on each; this is required before a release that names Windows or Ubuntu (until itemised checklists exist, issue #61). Record Kiro and OS versions.
 
@@ -51,7 +51,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 
 ## What the workflow does
 
-CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation, derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub release. The pre-release flag (VSIX, Open VSX, GitHub) follows the version's channel and a mismatch fails closed. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
+CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The artifact's VSIX is named `cyclegauge-v<version>-<sha12>-candidate.vsix`; the release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation (the preflight renames it to `cyclegauge-v<version>.vsix` without changing its bytes; the published assets are unchanged), derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub release. The pre-release flag (VSIX, Open VSX, GitHub) follows the version's channel and a mismatch fails closed. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
 
 ## What you must do manually
 
