@@ -10,19 +10,19 @@ Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updat
 
 ## 1. Where Cyclegauge stands
 
-Observed on 2026-10-16/17 (recheck before acting):
+Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list` (recheck before acting). **No release has been cut since 0.7.0**: it is still the last published release (pre-release only on Open VSX and GitHub). Everything below marked "merged" is on `main` but unreleased; the 0.9.0, 0.11.0 and 0.13.0 betas have not been published.
 
 | Area | State | Gap for 1.0 |
 | --- | --- | --- |
-| Product | Status bar, detail view, qualified forecasts, trajectory chart, Cost Advisor, CLI. Over 200 synthetic unit tests, an 80 % line-coverage gate, three-OS extension-host CI. | A good credit gauge, but Kiro already sends its own usage notifications. Nothing helps users *spend fewer* credits yet. |
-| Distribution | 0.7.0 on Open VSX as **pre-release only** (`preview: true`); about 830 downloads, 0 GitHub stars. | No stable channel. |
-| Release pipeline | Build-once candidate, payload reproducibility, SLSA attestation, protected manual promotion. | Hard-wired to pre-release: `VSIX_NOT_PRERELEASE`, `ovsx publish --pre-release`, GitHub `prerelease: true`, odd-minor test. |
-| Storage | `meta.version` must equal `1`, otherwise `STORAGE_UNAVAILABLE`. No migration path. One `imports` evidence row is appended on every collection (minute poll) and never pruned. 0.7.0 moved the default location and history restarted. | The first schema change would make every user's store unavailable; the store grows without bound. |
-| Runtime | `src/store.ts` statically imports `node:sqlite`; bundle targets Node 24; `engines.vscode: ^1.90.0` is not a tested minimum. | An older Kiro without `node:sqlite` fails at activation instead of showing a clear message. |
-| Source format | Kiro's log format is undocumented and can change with any Kiro release. | Diagnostics have shipped (**Cyclegauge: Copy Diagnostics** and CLI `--diagnostics`) and the bug template points to them. Only one Kiro log variant has been observed so far, so there are no per-Kiro-version fixtures yet. |
-| Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. |
-| Docs | `SPEC.md` still says "0.5.2 candidate", `ROADMAP.md` "Current release 0.5.1"; `release-process.md` says the Open VSX namespace is unverified, but the registry now reports it verified. | Outdated status text. |
-| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown are current. |
+| Product (merged) | Status bar, detail view, qualified forecasts, trajectory chart, Cost Advisor, CLI. Added since 0.7.0: workspace audit with native view, Accept/Ignore, reminders, automatic modes and name patterns (WP1a–h: #76, #77, #78, #85, #86, #87, #89, #90, plus #94–#96), audit size total (WP1i, #101), budget warning and modelled overage cost (WP7, WP8: #98), plan right-sizing hint and next-plan list prices (WP8b: #99), first-minute walkthrough (WP15: #100), interactive dashboard in five phases with cycle recap, results summary, CSV export and guarded image save (WP6a–e, including WP12 and WP14: #104–#108), session hints, i.e. context reminder and model hint (WP11, WP13: #116). | Hook and Steering review (WP10) is in progress: reader and parsers merged (WP10a, #117), findings evaluation merged (WP10b, #118); the remaining parts are in progress. Nothing in this column has had a release, security-review sign-off for WP11/13 or native acceptance unless a PR says so. |
+| Distribution | 0.7.0 on Open VSX and GitHub as **pre-release only** (`preview: true`); about 830 downloads, 0 GitHub stars at the last check. | No stable channel; WP5a (stable channel) is in progress in a separate session. No 0.9.0, 0.11.0 or 0.13.0 beta has been published. |
+| Release pipeline | Build-once candidate, payload reproducibility, SLSA attestation, protected manual promotion. | Still hard-wired to pre-release: `VSIX_NOT_PRERELEASE`, `ovsx publish --pre-release`, GitHub `prerelease: true`, odd-minor test (WP5a in progress). |
+| Storage | Schema version ladder with refusal of newer stores, and bounded evidence pruning (WP2a, #80). | None known; upgrades from 0.7.x, 0.9.x and 0.11.x still need the native upgrade test from the exit criteria. |
+| Runtime | `node:sqlite` is loaded lazily and an unsupported runtime shows "update needed" instead of an activation error (WP2b, #81). `engines.vscode` is still `^1.90.0`. | The oldest actually checked Kiro is not yet recorded; `engines.vscode` is not a tested minimum. |
+| Source format | Kiro's log format is undocumented and can change with any Kiro release. **Cyclegauge: Copy Diagnostics** and CLI `--diagnostics` have merged (WP2c, #82) and the bug template points to them. | Only one Kiro log variant has been observed so far, so there are no per-Kiro-version fixtures yet. |
+| Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested for 0.7.0; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. Native tests of the new features are still open. |
+| Docs | Status lines were refreshed in WP2d (#79) and again on 2026-10-18; the Open VSX namespace is reported verified. README top and the `docs/usage.md` upgrade section (WP4) are deliberately left until WP10 lands; launch drafts live in `docs/launch/` and are unpublished. | WP4 listing text and the launch itself need maintainer approval. |
+| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown (WP8, WP8b) are current. |
 
 ## 2. Why features in 1.0, and which stabilisation still matters
 
@@ -137,10 +137,10 @@ A terminal status line (an opt-in status file in Cyclegauge's own storage that s
 
 ## 5. 1.0 exit criteria
 
-- [ ] WP0 scope recorded.
-- [ ] Storage upgrade ladder, newer-store refusal and evidence pruning tested.
-- [ ] Unsupported runtime shows a clear message; oldest checked Kiro recorded.
-- [ ] Copy Diagnostics exists and prints no values, paths or identifiers.
+- [x] WP0 scope recorded (ROADMAP "Path to 1.0 — scope decision" and later dated decisions, #75, #93, #97).
+- [x] Storage upgrade ladder, newer-store refusal and evidence pruning tested (merged in #80 with `tests/unit/store-version.test.ts`).
+- [ ] Unsupported runtime shows a clear message (merged, #81); oldest checked Kiro recorded (still open).
+- [x] Copy Diagnostics exists and prints no values, paths or identifiers (merged in #82 with `tests/unit/diagnostics.test.ts`).
 - [ ] Interactive dashboard (with cycle comparison and pace) shipped in 0.11.x with its security review, or deferred to 1.1 by maintainer decision.
 - [ ] Budget warning, overage cost projection with upgrade comparison, plan right-sizing hint, audit size total, results summary, shareable cycle recap and first-minute walkthrough shipped in a 0.11.x beta.
 - [ ] Hook and Steering review shipped in 0.13.x with its security review; context/message reminder and model choice hint each shipped or moved to 1.1 by documented decision.
