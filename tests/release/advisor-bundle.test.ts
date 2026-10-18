@@ -977,6 +977,61 @@ test('packaged saved exclusion with auto-save preserves existing ignore text',as
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
+// "Your Cyclegauge summary": a saved Exclude edit is counted once under the observed billing cycle, in one global-state key that only the explicit reset clears.
+const RESULTS_KEY='cyclegauge.results.v1';
+const saveExclude=async(s:any,env:ReturnType<typeof communityEnv>,path:string)=>{
+ await s.commands.get('cyclegauge.auditWorkspace')!();
+ const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+ await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.contentDocs.at(-1);
+ const text='# synthetic-existing\n'+doc.getText();writeFileSync(path,text);
+ return {text,save:(file=path)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:file},getText:()=>text});}};
+};
+test('packaged results summary counts a matching save once, ignores other saves, and the explicit reset clears it',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-results-summary-')));let s:any;
+ try {
+  const env=communityEnv(work,true);env.autoSave='afterDelay';
+  const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
+  s=await communitySession(env,work);
+  const {save}=await saveExclude(s,env,path);
+  save(join(env.workspace,'synthetic-other'));await s.later();
+  assert.equal(env.store.has(RESULTS_KEY),false,'a save of another file records nothing');
+  save();await s.later();
+  const cycle='2030-02-01T00:00:00.000Z';
+  assert.deepEqual(env.store.get(RESULTS_KEY),[{cycle,bytes:'SYNTHETIC_CONTENT_SENTINEL'.length,bytesLowerBound:false,items:1,secrets:1}]);
+  save();await s.later();
+  assert.equal((env.store.get(RESULTS_KEY) as any[])[0].items,1,'the same prepared edit is counted once');
+  assert.equal(env.written.filter(k=>k===RESULTS_KEY).length,1);
+  const serialized=JSON.stringify(env.store.get(RESULTS_KEY));
+  for(const marker of [work,'.env','synthetic-bundle-account','partition','synthetic-workspace'])assert.ok(!serialized.includes(marker));
+  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  const html=env.panels[0].webview.html as string;
+  assert.match(html,/Your Cyclegauge summary/);assert.match(html,/This cycle, resetting 1 Feb 2030 \(UTC\): 1 item \(1 possible secret\), about 26 B\./);assert.ok(!/style=/.test(html));
+  await s.commands.get('cyclegauge.support.reset')!();await s.later();
+  assert.equal(env.store.has(RESULTS_KEY),false,'the explicit reset clears the summary');
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+test('packaged results summary never overwrites an unreadable value and counts nothing without an observed cycle',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-results-unknown-')));let s:any;
+ try {
+  const env=communityEnv(work,true);env.autoSave='afterDelay';env.store.set(RESULTS_KEY,{v:2,cycles:[]});
+  const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
+  s=await communitySession(env,work);
+  (await saveExclude(s,env,path)).save();await s.later();
+  assert.deepEqual(env.store.get(RESULTS_KEY),{v:2,cycles:[]},'a value of an unknown shape is left as it is');
+  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  assert.match(env.panels[0].webview.html,/could not be read, so none are shown/);
+  await s.commands.get('cyclegauge.support.reset')!();assert.equal(env.store.has(RESULTS_KEY),false);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+ const other=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-results-nocycle-')));
+ try {
+  const env=communityEnv(other,false);env.autoSave='afterDelay';
+  const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
+  s=await communitySession(env,other);
+  (await saveExclude(s,env,path)).save();await s.later();
+  assert.equal(env.store.has(RESULTS_KEY),false,'without an observed cycle nothing is counted');
+ }finally{s?.dispose();rmSync(other,{recursive:true,force:true});}
+});
+
 test('packaged test override requires the isolated synthetic demo profile and explicit opt-in',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-cyclegauge-demo-')));let s:any;
  const oldFlag=process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST,oldSource=process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;

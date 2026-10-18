@@ -106,7 +106,7 @@
       },
       {
         "command": "cyclegauge.support.reset",
-        "title": "Cyclegauge: Reset Support Prompts"
+        "title": "Cyclegauge: Reset Support Prompts and Summary"
       },
       {
         "command": "cyclegauge.gettingStarted",

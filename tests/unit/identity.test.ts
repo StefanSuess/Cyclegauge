@@ -55,7 +55,7 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
 test('the share and support commands are declared; the support reset is visible in the palette', () => {
  const titles = Object.fromEntries(manifest.contributes.commands.map((c: any) => [c.command, c.title]));
  assert.equal(titles[commandId('share')], 'Cyclegauge: Share Cyclegauge');
- assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset Support Prompts');
+ assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset Support Prompts and Summary');
  const hidden = manifest.contributes.menus.commandPalette.filter((c: any) => c.when === 'false').map((c: any) => c.command);
  assert.ok(!hidden.includes(commandId('support.reset'))); assert.ok(!hidden.includes(commandId('share')));
 });
