@@ -15,6 +15,9 @@ export const BUDGET_PERCENT_DEFAULT = 80;
 export const SESSION_HINT_SETTING_KEYS = ['sessionHints'] as const;
 // Fixed constants: the only external addresses the extension ever opens, and only when the user clicks. No data, no query strings.
 export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev' } as const;
+// The fixed bug-report form opened by Report a Problem. Nothing, not even a diagnostics value, is ever added to it.
+export const REPORT_PROBLEM_URL = 'https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml';
+export const REPORT_PROBLEM_ACTION = 'Report a problem';
 export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
 export const NOT_KIRO_TEXT = 'Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
 export const REMINDER_DAYS_DEFAULT = 30;

@@ -38,13 +38,14 @@ const explanations: Record<string,string> = {
  storage_newer:'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.',
 };
 
-// The command links of this view are exactly four Cyclegauge commands (Cost Advisor, the two audit commands and Share); none carries arguments.
+// The command links of this view are exactly five Cyclegauge commands (Cost Advisor, the two audit commands, Share and Report a problem); none carries arguments.
 // The footer's three web links are fixed constants and only ever followed on a click.
 // The workspace-check card shows counts and times only, never a path or folder name.
 const ADVISOR_LINK = 'command:cyclegauge.costAdvisor';
 const AUDIT_LINK = { check: 'command:cyclegauge.auditWorkspace', show: 'command:cyclegauge.audit.show' } as const;
 const SHARE_LINK = 'command:cyclegauge.share';
-const FOOTER = `<footer class="community muted small"><a href="${LINKS.rate}">★ Rate on Open VSX</a> · <a href="${LINKS.star}">Star on GitHub</a> · <a href="${LINKS.support}">☕ Support</a> · <a href="${SHARE_LINK}">Share</a></footer>`;
+const REPORT_LINK = 'command:cyclegauge.reportProblem';
+const FOOTER = `<footer class="community muted small"><a href="${LINKS.rate}">★ Rate on Open VSX</a> · <a href="${LINKS.star}">Star on GitHub</a> · <a href="${LINKS.support}">☕ Support</a> · <a href="${SHARE_LINK}">Share</a> · <a href="${REPORT_LINK}">Report a problem</a></footer>`;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 function auditCard(a: AuditSummary | undefined, now: string): string {
  try { return buildAuditCard(a, now); } catch { return ''; } // the card can never take the gauge down

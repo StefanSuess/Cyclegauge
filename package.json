@@ -65,6 +65,10 @@
         "title": "Cyclegauge: Copy Diagnostics"
       },
       {
+        "command": "cyclegauge.reportProblem",
+        "title": "Cyclegauge: Report a Problem"
+      },
+      {
         "command": "cyclegauge.audit.accept",
         "title": "Exclude from Kiro",
         "icon": "$(eye-closed)"
