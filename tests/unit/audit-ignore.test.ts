@@ -186,9 +186,11 @@ test('filters setting values down to plain basenames', () => {
  assert.deepEqual(validIgnoreNames(['.gitignore', '../x', 'a/b', 'a\\b', '', '.', '..', 'x\u0000', 1, null, {}, '.kiroignore', '.gitignore', 'a'.repeat(256), 'bell\u0007']), ['.gitignore', '.kiroignore']);
  assert.deepEqual(validIgnoreNames([]), []); assert.equal(validIgnoreNames('.gitignore'), undefined); assert.equal(validIgnoreNames(undefined), undefined); assert.equal(validIgnoreNames({ 0: 'a' }), undefined);
 });
-test('source guards: ignore.ts has no IO and read-ignore.ts only uses lstat, open and constants', async () => {
+test('source guards: ignore.ts has no IO and the extracted reader only uses lstat, open and constants', async () => {
  const read = (n: string) => readFile(fileURLToPath(new URL(`../../src/audit/${n}`, import.meta.url)), 'utf8');
  const ig = await read('ignore.ts'); assert.ok(!/node:|\bimport\b|require\(/.test(ig)); assert.ok(!/\b(readFile|readdir|writeFile|console)\b/.test(ig));
- const ri = await read('read-ignore.ts'); assert.deepEqual(ri.split('\n').filter(l => /node:fs/.test(l)), ["import { lstat, open, constants } from 'node:fs/promises';"]);
+ const wrapper = await read('read-ignore.ts'); assert.ok(!/node:fs/.test(wrapper));
+ assert.ok(wrapper.includes("from './read-bounded.ts'"));
+ const ri = await read('read-bounded.ts'); assert.deepEqual(ri.split('\n').filter(l => /node:fs/.test(l)), ["import { lstat, open, constants } from 'node:fs/promises';"]);
  assert.ok(!/from 'node:fs'/.test(ri)); assert.ok(!/\b(readdir|writeFile|readFile|readFileSync|createReadStream|console)\b/.test(ri));
 });
