@@ -57,6 +57,10 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "cyclegauge.reviewKiroConfig",
+        "title": "Cyclegauge: Review Kiro Steering and Hooks"
+      },
+      {
         "command": "cyclegauge.copyDiagnostics",
         "title": "Cyclegauge: Copy Diagnostics"
       },
