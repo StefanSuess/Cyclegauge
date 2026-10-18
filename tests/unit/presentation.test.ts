@@ -171,7 +171,7 @@ test('provisional on-track forecasts are neutral, passed resets are labelled, us
 const card = (audit: AuditSummary | undefined, now = '2030-06-15T12:00:00.000Z') => present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', audit, now).html;
 const allHrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map(m => m[1]);
 // The footer is covered by its own test; the card tests look at the command links only.
-const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('command:') && h !== 'command:cyclegauge.share');
+const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('command:') && h !== 'command:cyclegauge.share' && h !== 'command:cyclegauge.reportProblem');
 const ADVISOR = 'command:cyclegauge.costAdvisor';
 const ALLOWED = ['command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show'];
 const cardHrefs = (html: string) => hrefs(html).filter(h => h !== ADVISOR);
@@ -250,14 +250,14 @@ test('the controller reads the summary on every render, re-renders on request an
  } finally { await rm(base, { recursive: true, force: true }); }
 });
 
-// Community footer: three fixed https constants plus the Share command, in every state; nothing else is linked, no arguments, no scripts.
-const FOOTER_LINKS = ['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.share'];
-test('the footer links exactly the three web constants and the share command, below the main content', () => {
+// Community footer: three fixed https constants plus the Share and Report a problem commands, in every state; nothing else is linked, no arguments, no scripts.
+const FOOTER_LINKS = ['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.share', 'command:cyclegauge.reportProblem'];
+test('the footer links exactly the three web constants plus the share and report-a-problem commands, below the main content', () => {
  for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 2, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
   const html = card(s);
-  assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:cyclegauge.') || h === 'command:cyclegauge.share'), FOOTER_LINKS);
+  assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:cyclegauge.') || h === 'command:cyclegauge.share' || h === 'command:cyclegauge.reportProblem'), FOOTER_LINKS);
   for (const h of allHrefs(html)) assert.ok([ADVISOR, ...ALLOWED, ...FOOTER_LINKS].includes(h!), h);
-  assert.match(html, /<footer class="community muted small"><a href="https:\/\/open-vsx\.org[^"]*">★ Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*">☕ Support<\/a> · <a href="command:cyclegauge\.share">Share<\/a><\/footer><\/main>/);
+  assert.match(html, /<footer class="community muted small"><a href="https:\/\/open-vsx\.org[^"]*">★ Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*">☕ Support<\/a> · <a href="command:cyclegauge\.share">Share<\/a> · <a href="command:cyclegauge\.reportProblem">Report a problem<\/a><\/footer><\/main>/);
   assert.ok(html.indexOf('<footer') > html.indexOf('id="advanced-details"'));
   assert.equal((html.match(/<footer/g) ?? []).length, 1);
   assert.ok(!/<script|javascript:|\?utm_|[?&]ref=|\sonclick=/i.test(html)); assert.match(html, /default-src 'none'; style-src 'unsafe-inline'/);

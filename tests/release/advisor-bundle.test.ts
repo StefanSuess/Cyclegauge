@@ -45,16 +45,16 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,...CONFIG_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
+  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,...CONFIG_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.reportProblem','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
   assert.ok(api.state.providers.has('cyclegauge.auditView'));
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
-  // Scripts stay off; the only command links are exactly four Cyclegauge commands, listed explicitly; the footer adds three fixed web links.
-  assert.deepEqual(options,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  // Scripts stay off; the only command links are exactly five Cyclegauge commands, listed explicitly; the footer adds three fixed web links.
+  assert.deepEqual(options,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'],localResourceRoots:[]});
   const allLinks=()=>visibleHrefs(panel.webview.html);
-  const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
+  const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:cyclegauge.share'&&h!=='command:cyclegauge.reportProblem');
   for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
-  assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));
+  assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));assert.ok(allLinks().includes('command:cyclegauge.reportProblem'));
   assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
   assert.match(panel.webview.html,/Workspace check/);assert.match(panel.webview.html,/<script nonce=/);
   assert.match(panel.webview.html,/cost-advisor/);
@@ -111,7 +111,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');writeFileSync(kiroignore,'/ignored.log\n');writeFileSync(join(workspace,'dist','synthetic.js'),'x');
   const bundle=await builtBundle(work);
   const api=auditApi(),st=api.state;
-  const commands=new Map<string,(...a:any[])=>unknown>(),errors:string[]=[],warnings:string[]=[],infos:{text:string;extra:number}[]=[],clipboard:string[]=[];
+  const commands=new Map<string,(...a:any[])=>unknown>(),errors:string[]=[],errorButtons:string[][]=[],warnings:string[]=[],infos:{text:string;extra:number}[]=[],clipboard:string[]=[];
   let trusted=false,folderPath=workspace,gate:Promise<void>|undefined,failProgress=false,ignoreFiles:unknown=['.kiroignore'],autoSave:unknown='off',failProvider=false,infoChoice:string|undefined;
   const disposable={dispose(){}};
   const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
@@ -124,7 +124,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
     createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}})},
    // No createWebviewPanel: the audit must not open a webview any more.
    window:{...api.window,registerTreeDataProvider(id:string,p:any){if(failProvider)throw new Error('synthetic-provider-failure');return api.window.registerTreeDataProvider(id,p);},createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},
-    async showWarningMessage(m:string){warnings.push(m);},async showErrorMessage(m:string){errors.push(m);},
+    async showWarningMessage(m:string){warnings.push(m);},async showErrorMessage(m:string,...b:string[]){errors.push(m);errorButtons.push(b);},
     async showInformationMessage(m:string,...rest:unknown[]){infos.push({text:m,extra:rest.length});return rest.length?infoChoice:undefined;},
     async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){await gate;if(failProgress)throw new Error('synthetic-progress-failure /private/synthetic-path');return task({},{onCancellationRequested:()=>disposable});}}};
   const require=createRequire(new URL('../../package.json',import.meta.url));
@@ -263,7 +263,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.deepEqual(infos,[]);assert.equal(JSON.stringify(roots()),kept);
   // Any failure becomes one fixed message, and the lock is released.
   folderPath=workspace;failProgress=true;await run();failProgress=false;
-  assert.deepEqual(errors,['The workspace audit failed.']);infos.length=0;await run();assert.deepEqual(infoTexts(),['2 items Kiro may read — see the Kiro Workspace Audit view.']);
+  assert.deepEqual(errors,['The workspace audit failed.']);assert.deepEqual(errorButtons,[['Report a problem']]);infos.length=0;await run();assert.deepEqual(infoTexts(),['2 items Kiro may read — see the Kiro Workspace Audit view.']);
   assert.equal(st.saves,0);
   warnings.length=0;trusted=false;for(const d of subscriptions)d.dispose();assert.equal(commands.size,0);assert.equal(st.providers.size,0);
   // If the list cannot be registered, the commands stay available and a finished audit offers one clipboard-only button.
@@ -505,9 +505,9 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   const env=reminderEnv(work);env.failStart=false;
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const html=()=>env.panels.at(-1).webview.html as string;
-  const hrefs=()=>visibleHrefs(html()).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share');
-  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'];
-  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly four commands.
+  const hrefs=()=>visibleHrefs(html()).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share'&&h!=='command:cyclegauge.reportProblem');
+  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'];
+  // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly five commands.
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);
@@ -580,17 +580,17 @@ test('packaged bundle has no top-level node:sqlite require and still starts with
 
 // Copy Diagnostics opens an unsaved plaintext document and copies the same text; it is registered before the collector starts.
 const diagnosticsHarness=(work:string,source:string,storage:string,allow:(id:string)=>boolean,editor:{appName?:unknown;version?:unknown})=>{
- const commands=new Map<string,()=>unknown>(),opened:any[]=[],shown:any[]=[],clipboard:string[]=[],infos:string[]=[],errors:string[]=[];const disposable={dispose(){}};
- const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ThemeColor:class{},Uri:{file:(fsPath:string)=>({fsPath})},RelativePattern:class{},extensions:{getExtension:()=>undefined},version:editor.version,
+ const commands=new Map<string,()=>unknown>(),opened:any[]=[],shown:any[]=[],clipboard:string[]=[],infos:string[]=[],errors:string[]=[],externals:string[]=[],errorButtons:string[][]=[],failExternal={on:false};const disposable={dispose(){}};
+ const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ThemeColor:class{},Uri:{file:(fsPath:string)=>({fsPath}),parse:(value:string)=>({parsed:value})},RelativePattern:class{},extensions:{getExtension:()=>undefined},version:editor.version,
   commands:{registerCommand(id:string,fn:()=>unknown){if(!allow(id))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
-  env:{appName:editor.appName,clipboard:{async writeText(t:string){clipboard.push(t);}}},
+  env:{appName:editor.appName,clipboard:{async writeText(t:string){clipboard.push(t);}},async openExternal(u:any){if(failExternal.on)throw new Error('synthetic-open-failure /private/synthetic-path');externals.push(u.parsed);return true;}},
   workspace:{getConfiguration:()=>({get:(key:string)=>({sourceRoot:source,storageRoot:storage,sourceTimezone:'Europe/Berlin'} as any)[key]??''}),createFileSystemWatcher:()=>({onDidCreate:()=>disposable,onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){}}),
    async openTextDocument(o:any){opened.push(o);return {untitled:true,...o};}},
   window:{createStatusBarItem(){return {text:'',show(){},hide(){},dispose(){}};},createWebviewPanel(_t:string,_title:string,_c:number,o:any){return {options:o,webview:{html:'',postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose(){return disposable;},onDidChangeViewState(){return disposable;},dispose(){}};},
-   async showTextDocument(d:any){shown.push(d);},async showInformationMessage(m:string){infos.push(m);},async showErrorMessage(m:string){errors.push(m);}}};
+   async showTextDocument(d:any){shown.push(d);},async showInformationMessage(m:string){infos.push(m);},async showErrorMessage(m:string,...b:string[]){errors.push(m);errorButtons.push(b);}}};
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
- return {commands,opened,shown,clipboard,infos,errors,module,load:(bundle:string)=>runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports)};
+ return {commands,opened,shown,clipboard,infos,errors,externals,errorButtons,failExternal,module,load:(bundle:string)=>runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports)};
 };
 const diagnosticsFields=(text:string)=>Object.fromEntries(text.split('\n').slice(1).filter(Boolean).map(l=>[l.slice(0,l.indexOf(': ')),l.slice(l.indexOf(': ')+2)]));
 test('packaged Copy Diagnostics opens an untitled document, copies the same text and leaks nothing',async()=>{
@@ -635,6 +635,39 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
   assert.deepEqual(failing.errors,['Diagnostics could not be copied.']);assert.deepEqual(failing.clipboard,[]);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
+test('packaged Report a Problem copies the Copy Diagnostics text and opens exactly the fixed form address',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-report-bundle-')));
+ const subscriptions:any[]=[];let extension:any;
+ try{
+  const source=join(work,'source');mkdirSync(join(source,'logs'),{recursive:true});
+  const bundle=await builtBundle(work);
+  // Each scenario gets a fresh activation: the command shares the 2-second cooldown of the other footer commands.
+  const fresh=async()=>{const x=diagnosticsHarness(work,source,join(work,'owned'),()=>true,{appName:'Synthetic Editor',version:'1.99.0'});x.load(bundle);await x.module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});extension=x.module.exports;return x;};
+  const h=await fresh();
+  assert.ok(h.commands.has('cyclegauge.reportProblem'));
+  await h.commands.get('cyclegauge.copyDiagnostics')!();const copied=h.clipboard[0]!;
+  await h.commands.get('cyclegauge.reportProblem')!();
+  assert.deepEqual(h.externals,['https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml']);
+  assert.equal(h.clipboard.length,2);assert.equal(h.clipboard[1],copied);assert.equal(h.opened.length,2);assert.equal(h.opened[1].content,copied);assert.equal(h.opened[1].language,'plaintext');assert.equal(h.shown.length,2);assert.equal(h.shown[1].untitled,true);
+  assert.deepEqual(h.errors,[]);
+  // No diagnostics value, path or identifier is in the address.
+  const url=new URL(h.externals[0]!);assert.deepEqual([...url.searchParams.entries()],[['template','bug_report.yml']]);assert.equal(url.hash,'');
+  for(const line of copied.split('\n').slice(1).filter(Boolean)){const value=line.slice(line.indexOf(': ')+2);if(value.length>3)assert.ok(!h.externals[0]!.includes(value),value);}
+  // Cooldown: concurrent and immediate repeat calls in one activation run the command once (one browser tab, one copy, one document).
+  const burst=await fresh();
+  await Promise.all([burst.commands.get('cyclegauge.reportProblem')!(),burst.commands.get('cyclegauge.reportProblem')!()]);await burst.commands.get('cyclegauge.reportProblem')!();
+  assert.equal(burst.externals.length,1);assert.equal(burst.clipboard.length,1);assert.equal(burst.opened.length,1);
+  // A failing Copy Diagnostics registration cannot prevent Report a Problem.
+  const partial=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.reportProblem',{appName:'Synthetic Editor',version:'1.99.0'});
+  partial.load(bundle);await partial.module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});extension=partial.module.exports;
+  assert.deepEqual([...partial.commands.keys()],['cyclegauge.reportProblem']);
+  // Any failure becomes one fixed text without a button, never exception text.
+  const noBrowser=await fresh();noBrowser.failExternal.on=true;await noBrowser.commands.get('cyclegauge.reportProblem')!();
+  assert.deepEqual(noBrowser.errors,['The problem report could not be opened.']);assert.deepEqual(noBrowser.errorButtons,[[]]);
+  const noDocument=await fresh();(noDocument as any).opened.push=()=>{throw new Error('synthetic-open-failure /private/synthetic-path');};await noDocument.commands.get('cyclegauge.reportProblem')!();
+  assert.deepEqual(noDocument.errors,['The problem report could not be opened.']);assert.deepEqual(noDocument.externals,[]);assert.deepEqual(noDocument.clipboard,[]);
+ }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
+});
 
 // Community prompts: footer, share command, the support prompt and the "not Kiro" notice. The bundle sees an injected clock (Date), the 3-minute
 // delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
@@ -654,7 +687,7 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
   globalStorage:join(work,'editor','User','globalStorage','synthetic.ext'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
   answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],calls:[] as unknown[][],keyAtOpen:[] as boolean[],throwOpen:false,updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[],
-  posted:[] as any[],receive:(_m:unknown)=>{},saveTo:undefined as string|undefined|(()=>string|undefined),dialogs:[] as {defaultPath:string;filters:unknown}[],clipboardFails:false};
+  posted:[] as any[],receive:(_m:unknown)=>{},saveTo:undefined as string|undefined|(()=>string|undefined),dialogs:[] as {defaultPath:string;filters:unknown}[],clipboardFails:false,errorButtons:[] as string[][],errorChoice:undefined as string|undefined};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
@@ -672,7 +705,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:'',postMessage(m:any){env.posted.push(m);return Promise.resolve(true);},onDidReceiveMessage(fn:(m:unknown)=>void){env.receive=fn;return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showSaveDialog(o:any){env.dialogs.push({defaultPath:o.defaultUri.fsPath,filters:o.filters});const to=typeof env.saveTo==='function'?env.saveTo():env.saveTo;return to===undefined?undefined:{scheme:'file',fsPath:to};},
-   async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
+   async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string,...b:string[]){env.errors.push(m);env.errorButtons.push(b);return env.errorChoice;},
    async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('cyclegauge.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
@@ -696,24 +729,29 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
 };
 const hrefsOf=visibleHrefs;
 
-test('packaged footer and Share: four command links, three fixed web links, a fixed clipboard text',async()=>{
+test('packaged footer, Share and Report a problem: five command links, three fixed web links, a fixed clipboard text',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-footer-')));
  const open:{dispose():void}[]=[];
  try{
   const env=communityEnv(work,true);
   const s=await communitySession(env,work);open.push(s);
-  assert.ok(s.commands.has('cyclegauge.share'));assert.ok(s.commands.has('cyclegauge.support.reset'));
+  assert.ok(s.commands.has('cyclegauge.share'));assert.ok(s.commands.has('cyclegauge.reportProblem'));assert.ok(s.commands.has('cyclegauge.support.reset'));
   await s.commands.get('cyclegauge.showUsage')!();
-  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share'],localResourceRoots:[]});
+  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'],localResourceRoots:[]});
   const html:string=env.panels.at(-1).webview.html;
   assert.deepEqual(hrefsOf(html).filter(h=>!h.startsWith('command:')),COMMUNITY_LINKS);
   for(const h of hrefsOf(html).filter(h=>h.startsWith('command:')))assert.ok(env.panelOptions.enableCommandUris.includes(h.slice('command:'.length)),h);
-  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
-  assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Share<\/a>/);
+  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.ok(hrefsOf(html).includes('command:cyclegauge.reportProblem'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
+  assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Share<\/a>/);assert.match(html,/>Report a problem<\/a>/);
   // Share copies a fixed text with no user data and confirms in one friendly line.
   env.infos.length=0;await s.commands.get('cyclegauge.share')!();await s.later();
   assert.deepEqual(env.clipboard,["Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge"]);
   assert.deepEqual(env.infos,[{text:'Link copied — thanks for sharing!',buttons:[]}]);assert.ok(!env.clipboard[0]!.includes(work));assert.deepEqual(env.opened,[]);
+  // A failing Share is one fixed error that offers Report a problem; dismissing it does nothing, and only the button runs the command.
+  env.clipboardFails=true;env.errors.length=0;env.executed.length=0;s.advance();await s.commands.get('cyclegauge.share')!();await s.later();
+  assert.deepEqual(env.errors,['The link could not be copied.']);assert.deepEqual(env.errorButtons,[['Report a problem']]);assert.ok(!env.executed.includes('cyclegauge.reportProblem'));
+  env.errorChoice='Report a problem';s.advance();await s.commands.get('cyclegauge.share')!();await s.later();
+  assert.deepEqual(env.executed.filter(id=>id.startsWith('cyclegauge.')),['cyclegauge.reportProblem']);assert.deepEqual(env.opened,[]);
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 

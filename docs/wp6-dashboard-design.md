@@ -22,6 +22,7 @@ Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` r
 
 - `present()` in `src/extension/presentation.ts` renders the whole view as static HTML. The CSP is `default-src 'none'; style-src 'unsafe-inline'`, and the webview is created with `enableScripts: false`.
 - Actions are command links limited by `enableCommandUris` to four commands (`costAdvisor`, `auditWorkspace`, `audit.show`, `share`).
+  - *Update 2026-10-18 (ROADMAP "Report a problem"): a fifth command, `reportProblem`, joins the allowlist with the same one-at-a-time 2 s cooldown; every "four commands" statement below applies to all five.*
 - Each render replaces `webview.html` when it changed, which resets scroll and focus. The controller refreshes every minute.
 - The chart (`src/extension/chart.ts`) is static SVG with `role="img"`. A table with the same data sits in "Advanced details". Both thin out points when there are many.
 - The Cost Advisor asks up to four native questions (`reviewAdvisor` in `advisor-inputs.ts`). Answers live only in memory (`AdvisorInputs`, with an epoch ticket).

@@ -13,7 +13,7 @@ import type { ConfigNode } from './config-model.ts';
 import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
-import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
+import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, REPORT_PROBLEM_ACTION, REPORT_PROBLEM_URL, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
 import { decideBudgetNotice } from './budget-warning.ts';
 import type { view } from '../view.ts';
 import type { PlanInsights } from '../cost/plan-hints.ts';
@@ -52,20 +52,45 @@ const gaugeState: { gauge: 'starting' | 'running' | 'failed_to_start'; diagnosti
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
  await runCyclegauge(context);
 }
-// Builds a reviewable plain-text report in memory, opens it as an unsaved document and copies it; Cyclegauge writes nothing to disk.
+// Builds the reviewable plain-text report in memory (fixed codes, counts and versions only); one function serves Copy Diagnostics and Report a Problem.
+function diagnosticsText(): string {
+ return formatDiagnostics(buildDiagnostics({ ...gaugeState.config, ...gaugeState.diagnostics?.(), ...runtimeFacts(), surface: 'extension', gauge: gaugeState.gauge,
+  editor: vscode.env.appName, editorVersion: vscode.version, audit: true, rejectedMessages, sessionHints: sessionHints?.code() ?? 'not_run', sessionHintNotices: sessionHints?.notices() ?? 0, sessionHintCapped: sessionHints?.capped() ?? 0 }));
+}
+// Opens the report as an unsaved document and copies it; Cyclegauge writes nothing to disk.
+async function showAndCopyDiagnostics(): Promise<void> {
+ const text = diagnosticsText();
+ const document = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
+ await vscode.window.showTextDocument(document);
+ await vscode.env.clipboard.writeText(text);
+}
+// Cyclegauge's own fixed-text error notification with a Report a problem button. Not awaited: the notification resolves only when dismissed.
+// The diagnostics failure messages deliberately offer no button, so a failing report can never loop back into itself.
+function showReportableError(text: string): void {
+ try {
+  void Promise.resolve(vscode.window.showErrorMessage(text, REPORT_PROBLEM_ACTION))
+   .then(choice => choice === REPORT_PROBLEM_ACTION ? vscode.commands.executeCommand(commandId('reportProblem')) : undefined)
+   .catch(() => undefined);
+ } catch { /* nothing more to report */ }
+}
 function registerDiagnostics(context: vscode.ExtensionContext): void {
  const copy = async (): Promise<void> => {
   try {
-   const text = formatDiagnostics(buildDiagnostics({ ...gaugeState.config, ...gaugeState.diagnostics?.(), ...runtimeFacts(), surface: 'extension', gauge: gaugeState.gauge,
-    editor: vscode.env.appName, editorVersion: vscode.version, audit: true, rejectedMessages, sessionHints: sessionHints?.code() ?? 'not_run', sessionHintNotices: sessionHints?.notices() ?? 0, sessionHintCapped: sessionHints?.capped() ?? 0 }));
-   const document = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
-   await vscode.window.showTextDocument(document);
-   await vscode.env.clipboard.writeText(text);
+   await showAndCopyDiagnostics();
    // Not awaited: the notification resolves only when dismissed.
    void Promise.resolve(vscode.window.showInformationMessage('Diagnostics copied. Review them before pasting.')).catch(() => undefined);
   } catch { try { await vscode.window.showErrorMessage('Diagnostics could not be copied.'); } catch { /* nothing more to report */ } }
  };
- context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'copyDiagnostics', copy));
+ // Same text as Copy Diagnostics, then the fixed bug-report form (one at a time with the shared cooldown, as the other footer commands). Nothing, not even a diagnostics value, is put in the address.
+ const report = async (): Promise<void> => {
+  try {
+   await showAndCopyDiagnostics();
+   void Promise.resolve(vscode.window.showInformationMessage('Diagnostics copied. Review them, then paste them into the form.')).catch(() => undefined);
+   await vscode.env.openExternal(vscode.Uri.parse(REPORT_PROBLEM_URL));
+  } catch { try { await vscode.window.showErrorMessage('The problem report could not be opened.'); } catch { /* nothing more to report */ } }
+ };
+ try { context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'copyDiagnostics', copy)); } catch { /* Neither registration may prevent the other. */ }
+ try { context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'reportProblem', guardDashboardCommand(report))); } catch { /* A failing registration must not affect the rest of the extension. */ }
 }
 // The audit runs when the user invokes the command, or from the reminder: a prompt once per window when the workspace has never been
 // audited or is due again (reminderDays), and, only if the user set cyclegauge.auditAutomatically in their own user settings, a silent
@@ -148,7 +173,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    if (viewReady) { notify(message); return; } // not awaited: the notification resolves only when dismissed, and it offers no buttons
    // The list is unavailable: offer the clipboard only. Prompted after the run is released, so it never blocks the next audit.
    if (await vscode.window.showInformationMessage(message, 'Copy suggestions') === 'Copy suggestions') await vscode.env.clipboard.writeText(snippet(visible().filter(f => f.suggestion !== '')));
-  } catch { try { await vscode.window.showErrorMessage('The workspace audit failed.'); } catch { /* nothing more to report */ } }
+  } catch { try { showReportableError('The workspace audit failed.'); } catch { /* nothing more to report */ } }
  };
  // The folder as given and with symlinks resolved, or the fixed reason it must not be audited.
  const folderCheck = (folder: vscode.WorkspaceFolder) => checkFolder(folder.uri.fsPath, [defaultSource(), configured('sourceRoot')], [context.globalStorageUri.fsPath, defaultStorage(), configured('storageRoot')]);
@@ -192,7 +217,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   return result.findings.find(x => findingKey(x) === key);
  };
  const safe = (fn: (arg?: unknown) => Promise<void>) => async (arg?: unknown): Promise<void> => {
-  try { await fn(arg); } catch { try { await vscode.window.showErrorMessage('The audit action failed.'); } catch { /* nothing more to report */ } }
+  try { await fn(arg); } catch { try { showReportableError('The audit action failed.'); } catch { /* nothing more to report */ } }
  };
  // Prepares the change as an unsaved edit (or an unsaved new file) for the user to review and save; nothing is written here.
  const prepare = async (findings: Finding[]): Promise<void> => {
@@ -520,7 +545,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   try {
    await vscode.env.clipboard.writeText(SHARE_TEXT);
    void Promise.resolve(vscode.window.showInformationMessage('Link copied — thanks for sharing!')).catch(() => undefined);
-  } catch { try { await vscode.window.showErrorMessage('The link could not be copied.'); } catch { /* nothing more to report */ } }
+  } catch { try { showReportableError('The link could not be copied.'); } catch { /* nothing more to report */ } }
  }));
  // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
@@ -679,7 +704,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
- // The four command links remain available if the enhanced webview script does not run.
+ // The five command links remain available if the enhanced webview script does not run.
  const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
  advisorItem.name = 'Cyclegauge Cost Advisor';
  advisorItem.text = '$(lightbulb) Cost Advisor';
@@ -727,7 +752,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   },
   showDetails(html) {
    if (panel) { revealing = true; try { panel.reveal(); } finally { revealing = false; } dashboard?.reveal(html); advisorItem.show(); return; }
-   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share'), commandId('reportProblem')], localResourceRoots: [] });
    dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); }, Date.now, m => controllerRef?.submitAdvisor(m.ticket,m) ?? Promise.resolve({status:'stale' as const,epoch:0}), actions);
    dashboard.reveal(html);
    advisorItem.show();

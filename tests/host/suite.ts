@@ -45,6 +45,7 @@ export async function run(): Promise<void> {
   assert.ok(commands.includes('cyclegauge.showUsage')); assert.ok(commands.includes('cyclegauge.costAdvisor'));
   assert.ok(commands.includes('cyclegauge.auditWorkspace')); // registered only; the audit runs only when a user invokes it
   assert.ok(commands.includes('cyclegauge.copyDiagnostics')); // registered only; not executed here
+  assert.ok(commands.includes('cyclegauge.reportProblem')); // registered only; it would open the browser
   assert.ok(commands.includes('cyclegauge.share')); // registered only; the footer link runs it
   phase = 'panel';
   await vscode.commands.executeCommand('cyclegauge.showUsage');

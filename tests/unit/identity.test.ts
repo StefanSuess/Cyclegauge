@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, CONFIG_REVIEW_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SESSION_HINT_SETTING_KEYS, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSessionHints, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
+import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, CONFIG_REVIEW_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, REPORT_PROBLEM_ACTION, REPORT_PROBLEM_URL, SESSION_HINT_SETTING_KEYS, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSessionHints, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
 
 const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const stub = (log: string[]) => (id: string) => { log.push(id); return { dispose() {} }; };
@@ -79,6 +79,13 @@ test('support prompts are on unless explicitly false; Kiro is recognised by name
 test('the external links are fixed https constants without a query string', () => {
  assert.deepEqual(LINKS, { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev' });
  for (const url of Object.values(LINKS)) assert.ok(url.startsWith('https://') && !/[?#]/.test(url), url);
+});
+
+test('the report-a-problem address is one fixed https constant whose only query is the template', () => {
+ assert.equal(REPORT_PROBLEM_URL, 'https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml');
+ assert.deepEqual([...new URL(REPORT_PROBLEM_URL).searchParams.entries()], [['template', 'bug_report.yml']]);
+ assert.equal(new URL(REPORT_PROBLEM_URL).hash, '');
+ assert.equal(REPORT_PROBLEM_ACTION, 'Report a problem');
 });
 
 test('the reset reminder command is declared with its palette title', () => {
