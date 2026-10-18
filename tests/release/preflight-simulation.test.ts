@@ -24,10 +24,10 @@ async function simulate(): Promise<{ bundle: string; output: string; result: Ret
   const input = join(dir, 'input');
   mkdirSync(input);
   const vsix = join(input, 'candidate.vsix');
-  await buildVsix(vsix, true);
+  await buildVsix(vsix);
   const bytes = readFileSync(vsix);
   const sha = createHash('sha256').update(bytes).digest('hex');
-  const verified = verifyVsix(bytes, { expectPreRelease: true });
+  const verified = verifyVsix(bytes);
   writeFileSync(join(input, 'manifest-linux.json'), JSON.stringify({ version: verified.version, files: verified.files }));
   writeFileSync(join(input, 'SHA256SUMS.txt'), `${sha}  candidate.vsix\n`);
   const bundle = join(dir, 'bundle');

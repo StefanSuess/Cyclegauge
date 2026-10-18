@@ -15,7 +15,7 @@ import {CARD_HEIGHT,CARD_WIDTH,encodePng} from '../../src/extension/recap-card.t
 
 let built:Promise<string>|undefined;
 // The shipped bundle is built once per run; only its text is kept.
-const builtBundle=(work:string)=>built??=(async()=>{const vsix=join(work,'candidate.vsix');await buildVsix(vsix,true);return readZip(readFileSync(vsix)).find(e=>e.name==='extension/dist/extension.cjs')!.data.toString();})();
+const builtBundle=(work:string)=>built??=(async()=>{const vsix=join(work,'candidate.vsix');await buildVsix(vsix);return readZip(readFileSync(vsix)).find(e=>e.name==='extension/dist/extension.cjs')!.data.toString();})();
 const visibleHrefs=(html:string)=>[...html.slice(0,html.indexOf('</main>')+7).matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
 // Exercise the shipped bundle with an invented source and explicit roots. No IDE or real profile is opened.
 test('packaged Advisor native commands, conditional figure, cancellation and panel lifecycle',async()=>{
@@ -45,7 +45,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
+  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,...CONFIG_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
   assert.ok(api.state.providers.has('cyclegauge.auditView'));
   const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
   await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
@@ -95,8 +95,11 @@ const auditApi=()=>{
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
 const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
+const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.reviewKiroConfig'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
+// Assertions about the filename audit deliberately exclude the independent configuration section.
+const auditRoots=(provider:any):any[]=>provider.getChildren().filter((n:any)=>n.kind!=='config');
 
 // The audit command is registered before the collector starts, so a failing start leaves it available. It runs only on invocation.
 test('packaged audit sidebar survives a failing start, refuses untrusted workspaces, lists findings and prepares changes without writing',async()=>{
@@ -131,8 +134,8 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,CommandDate);
   extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState});
   assert.deepEqual([...commands.keys()].sort(),AUDIT_COMMANDS);
-  const provider=st.providers.get('cyclegauge.auditView');assert.ok(provider);
-  const roots=()=>provider.getChildren() as any[];const infoTexts=()=>infos.map(i=>i.text);
+  const provider=st.providers.get('cyclegauge.auditView');assert.ok(provider);assert.ok(!provider.getChildren().some((n:any)=>n.kind==='config'),'failed configuration registration must leave the original audit provider available');
+  const roots=()=>auditRoots(provider);const infoTexts=()=>infos.map(i=>i.text);
   const run=()=>{commandNow+=2100;return commands.get('cyclegauge.auditWorkspace')!();};
   const find=(label:string)=>flatTree(roots()).find(n=>n.label===label);
   const state=()=>st.store.get('cyclegauge.audit.dismissed.v1') as {salt:string;hashes:string[]}|undefined;
@@ -289,7 +292,7 @@ const reminderEnv=(work:string)=>{
  writeFileSync(join(workspace,'.env'),'SYNTHETIC_CONTENT_SENTINEL');writeFileSync(join(workspace,'dist','synthetic.js'),'x');
  const store=new Map<string,unknown>(),written:string[]=[];
  const env={now:'2030-03-31T12:00:00Z',trusted:true,folders:[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:workspace}}] as any[],days:undefined as unknown,automatic:undefined as unknown,
-  choice:undefined as string|undefined,onInfo:undefined as (()=>void)|undefined,cancel:false,throwState:false,failStart:true,source,workspace,empty,single,store,written,gate:undefined as Promise<void>|undefined,readdirs:[] as string[],lstats:[] as string[],configCalls:[] as {section:string;args:number}[],
+  choice:undefined as string|undefined,onInfo:undefined as (()=>void)|undefined,cancel:false,throwState:false,failStart:true,failConfigPreview:false,configReads:[] as string[],source,workspace,empty,single,store,written,gate:undefined as Promise<void>|undefined,readdirs:[] as string[],lstats:[] as string[],configCalls:[] as {section:string;args:number}[],
   panels:[] as any[],htmlSets:0,panelOptions:undefined as any,infos:[] as {text:string;buttons:string[]}[],warnings:[] as string[],errors:[] as string[],progress:0,executed:[] as any[][],statusTexts:[] as string[],clipboard:[] as string[]};
  return env;
 };
@@ -298,7 +301,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  const bundle=await builtBundle(work);
  const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
-  commands:{async executeCommand(...a:any[]){env.executed.push(a);},registerCommand(id:string,fn:(...a:any[])=>unknown){if(env.failStart&&!id.startsWith('cyclegauge.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  commands:{async executeCommand(...a:any[]){env.executed.push(a);},registerCommand(id:string,fn:(...a:any[])=>unknown){if(env.failConfigPreview&&id==='cyclegauge.config.preview')throw new Error('synthetic-config-preview-register-failure');if(env.failStart&&!id.startsWith('cyclegauge.audit')&&!CONFIG_COMMANDS.includes(id))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{clipboard:{async writeText(t:string){env.clipboard.push(t);}}},
   workspace:{...api.workspace,get isTrusted(){return env.trusted;},get workspaceFolders(){return env.folders;},
    getConfiguration:(section:string,...more:unknown[])=>(env.configCalls.push({section,args:more.length}),{get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?'off':
@@ -320,7 +323,8 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  const require=createRequire(new URL('../../package.json',import.meta.url));
  const module={exports:{} as any};
  // The walk's file system calls are observed (and the workspace listing can be held) so a run in flight can be inspected.
- const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
+ const configRead=(p:any)=>{const path=String(p);if(/(?:^|[\\/])AGENTS\.md$|[\\/]\.kiro(?:[\\/]|$)/.test(path))env.configReads.push(path);};
+ const fsHook={...realFsPromises,async lstat(p:any,...a:any[]){configRead(p);env.lstats.push(String(p));return (realFsPromises.lstat as any)(p,...a);},async opendir(p:any,...a:any[]){configRead(p);return (realFsPromises.opendir as any)(p,...a);},async open(p:any,...a:any[]){configRead(p);return (realFsPromises.open as any)(p,...a);},async readdir(p:any,...a:any[]){env.readdirs.push(String(p));if(env.gate&&String(p)===env.workspace)await env.gate;return (realFsPromises.readdir as any)(p,...a);}};
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:id==='node:fs/promises'?fsHook:require(id),module,module.exports,SyntheticDate);
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState});}finally{/* restored on disposal so delayed signal timers remain controllable */}
  let done=false;
@@ -328,6 +332,37 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
   fire:async()=>{assert.equal(timers.length,1);assert.equal(timers[0]!.ms,30000);return timers[0]!.fn();},
   dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;}};
 };
+test('packaged configuration registration is isolated, idle until invoked, and keeps its own native section',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-config-registration-bundle-')));
+ const sessions:{dispose():void}[]=[];
+ try{
+  const env=reminderEnv(work);
+  // The existing collector-failure mode permits these two independent commands, so its audit provider includes both sections.
+  let session=await reminderSession(env,work);sessions.push(session);
+  assert.ok(session.provider());
+  for(const id of CONFIG_COMMANDS)assert.equal(typeof session.commands.get(id),'function');
+  const config=()=>session.provider().getChildren().filter((n:any)=>n.kind==='config');
+  assert.equal(config().length,1);assert.equal(config()[0].label,'Kiro Steering and Hooks');
+  const entry=flatTree(config()).find((n:any)=>n.action==='reviewKiroConfig');assert.ok(entry);
+  assert.equal(session.provider().getTreeItem(entry).command.command,'cyclegauge.reviewKiroConfig');
+  assert.deepEqual(env.configReads.slice(),[],'registering and building the initial tree must not access configuration');
+  assert.deepEqual(auditRoots(session.provider()),[]);
+  // Explicit review reads only after invocation, updates its own section and leaves the filename audit/state unchanged.
+  writeFileSync(join(env.workspace,'AGENTS.md'),Buffer.alloc(40000,'x'));
+  const before=JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress});
+  await session.commands.get('cyclegauge.reviewKiroConfig')!();
+  assert.ok(env.configReads.some(p=>p.endsWith('AGENTS.md')));
+  assert.equal(JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress}),before);
+  assert.deepEqual(auditRoots(session.provider()),[]);assert.ok(flatTree(config()).some((n:any)=>n.finding?.id==='S2'));
+  assert.equal(session.api.state.edits.length,0);session.dispose();
+  // A failure after the first config command registers must roll it back and leave the original audit provider usable.
+  env.failConfigPreview=true;env.configReads.length=0;
+  session=await reminderSession(env,work);sessions.push(session);
+  assert.ok(session.provider());assert.equal(session.commands.has('cyclegauge.reviewKiroConfig'),false);assert.equal(session.commands.has('cyclegauge.config.preview'),false);
+  assert.ok(!session.provider().getChildren().some((n:any)=>n.kind==='config'));assert.deepEqual(env.configReads.slice(),[]);
+  await session.commands.get('cyclegauge.auditWorkspace')!();assert.ok(auditRoots(session.provider()).some(n=>n.kind==='header'));
+ }finally{for(const s of sessions)s.dispose();rmSync(work,{recursive:true,force:true});}
+});
 const TODAY='2030-03-31';
 // A function boundary keeps the narrowing from assert.deepEqual(env.infos, []) out of later reads.
 const infoTexts=(env:{infos:{text:string}[]})=>env.infos.map(i=>i.text);
@@ -344,7 +379,7 @@ test('packaged audit reminder: guards, first prompt, buttons and stored state',a
   await s.timers[0]!.fn();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);assert.equal(env.written.length,0);
   // Untrusted, multi-root, non-file, no folder and refused roots: silent, nothing audited, nothing written.
   const folder=(fsPath:string,scheme='file')=>({name:'synthetic-workspace',uri:{scheme,fsPath}});
-  const quiet=async(why:string)=>{s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[],why);assert.deepEqual(env.warnings,[],why);assert.equal(env.progress,0,why);assert.equal(env.written.length,0,why);assert.equal(env.store.size,0,why);assert.deepEqual(s.provider()?.getChildren()??[],[],why);};
+  const quiet=async(why:string)=>{s=await start();assert.ok(s.provider(),'the filename audit provider must survive registration failures');await s.fire();s.dispose();assert.deepEqual(env.infos,[],why);assert.deepEqual(env.warnings,[],why);assert.equal(env.progress,0,why);assert.equal(env.written.length,0,why);assert.equal(env.store.size,0,why);assert.deepEqual(s.provider()?auditRoots(s.provider()):[],[],why);};
   env.trusted=false;await quiet('untrusted');env.trusted=true;
   env.folders=[folder(env.workspace),folder(env.empty)];await quiet('multi-root');
   env.folders=[folder(env.workspace,'vscode-remote')];await quiet('remote');
@@ -355,7 +390,7 @@ test('packaged audit reminder: guards, first prompt, buttons and stored state',a
   // Never audited: one prompt with three buttons; the snooze is recorded when it is shown (today + reminderDays), so it is not repeated.
   s=await start();await s.fire();
   assert.deepEqual(env.infos,[{text:"Cyclegauge can check this workspace for files that may end up in Kiro's context.",buttons:['Run audit','Later',"Don't ask again"]}]);
-  assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);assert.equal(env.progress,0);assert.deepEqual(s.provider().getChildren(),[]);s.dispose();
+  assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);s.dispose();
   // The snooze (today + reminderDays) is already recorded while the prompt is open, so a prompt left unanswered is not repeated either.
   reset();let snoozeWhileOpen:unknown;env.onInfo=()=>{snoozeWhileOpen=env.store.get('cyclegauge.audit.snoozeUntil.v1');};
   s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-30');
@@ -374,7 +409,7 @@ test('packaged audit reminder: guards, first prompt, buttons and stored state',a
   // Run audit: the normal command, with its progress notification; it records the date and fills the list.
   reset();env.choice='Run audit';s=await start();await s.fire();
   assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
-  assert.deepEqual(s.provider().getChildren().map((n:any)=>n.label).slice(0,1),['2 items Kiro may read']);
+  assert.deepEqual(auditRoots(s.provider()).map((n:any)=>n.label).slice(0,1),['2 items Kiro may read']);
   assert.deepEqual(infoTexts(env),["Cyclegauge can check this workspace for files that may end up in Kiro's context.",'2 items Kiro may read — see the Kiro Workspace Audit view.']);s.dispose();
   // A command-driven run records the date too (and only a finished, not cancelled, run does).
   reset();s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
@@ -400,7 +435,7 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   // Due and not automatic: the reminder names the number of days, nothing runs, the list stays empty.
   reset();last('2030-03-01');let s=await start();await s.fire();
   assert.deepEqual(env.infos,[{text:'This workspace was last audited 30 days ago.',buttons:['Run audit','Later',"Don't remind me"]}]);
-  assert.equal(env.progress,0);assert.deepEqual(s.provider().getChildren(),[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');s.dispose();
+  assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');s.dispose();
   // One day short of the period: nothing.
   reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   // Buttons: Later = +7 days, Don't remind me = never, Run audit = the command.
@@ -412,12 +447,12 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   reset();last('2030-03-01');env.automatic=true;s=await start();await s.fire();
   assert.equal(env.progress,0);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
   assert.deepEqual(env.infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',buttons:['Show']}]);
-  assert.equal(s.provider().getChildren()[0].label,'2 items Kiro may read');assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
-  assert.ok(!JSON.stringify(s.provider().getChildren()).includes('SYNTHETIC_CONTENT_SENTINEL'));s.dispose();
+  assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
+  assert.ok(!JSON.stringify(auditRoots(s.provider())).includes('SYNTHETIC_CONTENT_SENTINEL'));s.dispose();
   reset();last('2030-03-01');env.choice='Show';s=await start();await s.fire();assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);s.dispose();
   // No findings: silent. Not due: nothing runs. Never audited or snoozed: the first prompt or nothing, never a background run.
   reset();last('2030-03-01');env.folders=[{name:'synthetic-empty',uri:{scheme:'file',fsPath:env.empty}}];s=await start();await s.fire();
-  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(s.provider().getChildren()[0].label,'No risky files found');s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
+  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(auditRoots(s.provider())[0].label,'No risky files found');s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
   // Automatic modes re-run an audit that is at least one UTC day old (well inside the reminder period), but not one from today.
   reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
   reset();last(TODAY);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);
@@ -442,7 +477,7 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   reset();env.lstats.length=0;env.readdirs.length=0;last('2030-03-01');env.gate=new Promise<void>(r=>{release=r;});
   s=await start();pending=s.fire();while(!env.readdirs.includes(env.workspace))await new Promise(r=>setImmediate(r));
   s.dispose();release();await pending;env.gate=undefined;
-  assert.ok(!env.lstats.includes(nested));assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');assert.equal(env.errors.length,0);assert.deepEqual(s.provider()?.getChildren()??[],[]);
+  assert.ok(!env.lstats.includes(nested));assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');assert.equal(env.errors.length,0);assert.deepEqual(s.provider()?auditRoots(s.provider()):[],[]);
   // The reminder settings are application-scoped: they are read without a folder, so a workspace cannot set them.
   assert.ok(env.configCalls.some(c=>c.section==='cyclegauge'));assert.ok(env.configCalls.filter(c=>c.section==='cyclegauge').every(c=>c.args===0));
   // One counting rule: findings the user has not ignored plus omitted ones; singular forms.
@@ -511,7 +546,7 @@ test('packaged audit reminder: a failing workspaceState never breaks activation,
   env.choice='Later';await s.fire();
   assert.equal(env.infos.length,1);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);
   await s.commands.get('cyclegauge.auditWorkspace')!();
-  assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.equal(s.provider().getChildren()[0].label,'2 items Kiro may read');
+  assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.equal(auditRoots(s.provider())[0].label,'2 items Kiro may read');
   env.automatic=true;env.infos.length=0;await s.fire();assert.deepEqual(env.errors,[]);
  }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -839,7 +874,7 @@ test('packaged re-check after ignore changes: checked workspaces only, ignore fi
   const target=join(env.workspace,'.kiroignore');
   const save=(path:string)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>''});};
   const setting=(key:string)=>{for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k===key});};
-  const envFound=()=>flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).some((n:any)=>n.finding?.path==='.env');
+  const envFound=()=>flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).some((n:any)=>n.finding?.path==='.env');
   // Never checked: nothing starts.
   save(target);setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,0);
   await s.commands.get('cyclegauge.auditWorkspace')!();await s.later();assert.ok(envFound());
@@ -883,7 +918,7 @@ test('packaged watch mode: narrow watcher, debounced re-check and one daily noti
   await fire();await until(()=>notices().length>0);
   assert.deepEqual(notices(),[{text:'A new file that may contain secrets appeared in this workspace. Kiro may read it.',buttons:['Show']}]);
   // The same UTC day: re-checked, but no second notice.
-  create('synthetic-c.ppk');await fire();await until(()=>flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).some((n:any)=>n.finding?.path==='synthetic-c.ppk'));
+  create('synthetic-c.ppk');await fire();await until(()=>flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).some((n:any)=>n.finding?.path==='synthetic-c.ppk'));
   assert.equal(notices().length,1);
   // Turning the mode off removes the watcher and cancels the re-check it had scheduled.
   create('synthetic-f.pem');const scheduled=pending()[0]!;
@@ -906,7 +941,7 @@ test('packaged re-check keeps a prepared Exclude edit',async()=>{
  try{
   const env=communityEnv(work,true);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');
   s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
-  const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+  const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
   await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
   const last=s.api.state.fires;
   for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='kiroAgent.agentIgnoreFiles'});
@@ -936,7 +971,7 @@ test('packaged earlier support signals: distinct detail days and saved accepted 
   env.store.clear();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.infos.length=0;env.timers.length=0;
   s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
   const provider=s.api.state.providers.get('cyclegauge.auditView');
-  const node=flatTree(provider.getChildren()).find((n:any)=>n.finding?.suggestion);
+  const node=flatTree(auditRoots(provider)).find((n:any)=>n.finding?.suggestion);
   await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
   assert.equal(env.timers.filter(t=>t.ms===60000).length,0);
   const doc=s.api.state.shown.at(-1);const target=join(env.workspace,'.kiroignore');
@@ -973,7 +1008,7 @@ test('packaged saved exclusion with auto-save preserves existing ignore text',as
   const env=communityEnv(work,false);env.autoSave='afterDelay';env.store.set('cyclegauge.support.firstSeen.v1','2030-01-03');
   const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
   s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
-  const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+  const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
   await s.commands.get('cyclegauge.audit.accept')!(node);const proposal=s.api.state.contentDocs.at(-1).getText();
   const text='# synthetic-existing\n'+proposal;writeFileSync(path,text);
   for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>text});await s.later();
@@ -985,7 +1020,7 @@ test('packaged saved exclusion with auto-save preserves existing ignore text',as
 const RESULTS_KEY='cyclegauge.results.v1';
 const saveExclude=async(s:any,env:ReturnType<typeof communityEnv>,path:string)=>{
  await s.commands.get('cyclegauge.auditWorkspace')!();
- const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+ const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
  await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.contentDocs.at(-1);
  const text='# synthetic-existing\n'+doc.getText();writeFileSync(path,text);
  return {text,save:(file=path)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:file},getText:()=>text});}};
@@ -1044,7 +1079,7 @@ test('packaged test override requires the isolated synthetic demo profile and ex
   for(const isolated of [false,true]) {
    env.store.clear();env.infos.length=0;env.timers.length=0;if(isolated)env.globalStorage=join(work,'user-data','global');
    s=await communitySession(env,work);await s.commands.get('cyclegauge.support.reset')!();await s.commands.get('cyclegauge.auditWorkspace')!();
-   const node=flatTree(s.api.state.providers.get('cyclegauge.auditView').getChildren()).find((n:any)=>n.finding?.suggestion);
+   const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
    await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.shown.at(-1),path=join(env.workspace,'.kiroignore');writeFileSync(path,doc.getText());
    for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>doc.getText()});await s.later();
    env.infos.length=0;await env.timers.find(t=>t.ms===60000)!.fn();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,isolated?1:0);

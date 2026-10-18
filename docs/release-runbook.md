@@ -7,7 +7,7 @@ Maintainer and agent runbook for `.github/workflows/release.yml`. It complements
 Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps may be done by an AI agent; **[maintainer]** steps are the maintainer's alone. The agent never triggers the live release run, never approves the `release` environment and never changes secrets or repository settings.
 
 **A. Decide the version**
-1. [maintainer] Pick `X.Y.Z` using [Versioning](release-process.md#versioning): an odd minor is the pre-release (beta) line, the release workflow publishes pre-releases only, and the version must be higher than every published one. Versions do not track milestone numbers.
+1. [maintainer] Pick `X.Y.Z` using [Versioning](release-process.md#versioning): the minor number decides the channel (odd = pre-release, even = stable; the pipeline derives it from the version), a stable release still needs native acceptance on every platform it names, and the version must be higher than every published one. Versions do not track milestone numbers.
 
 **B. Merge feature PRs to `main`**
 1. [maintainer] Merge in dependency order; every branch must be up to date with `main` and all required checks green.
@@ -37,12 +37,12 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 2. [maintainer] Dispatch `dry_run = false`, re-read the preflight summary and release notes, then approve the `release` deployment.
 
 **H. After publishing**
-1. [maintainer/agent] Verify the Open VSX listing and version, tag `vX.Y.Z`, and the GitHub pre-release with its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`).
+1. [maintainer/agent] Verify the Open VSX listing and version, tag `vX.Y.Z`, and the GitHub release (pre-release for an odd minor, stable for an even minor) with its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`).
 2. [maintainer] Install from Open VSX in Kiro and run acceptance section C.
 3. [agent] After the release, record the evidence (version, SHA-256, CI run, Kiro and OS versions) in [platform-verification.md](platform-verification.md) via a pull request.
 4. [maintainer] Do not edit published notes or assets. A correction is a higher patch version.
 
-**Automated:** CI build and verification of the candidate, candidate selection and re-verification, release-notes derivation, remote-state checks, publishing after approval, tagging and the GitHub pre-release, and the version-consistency test. **Deliberately manual:** native acceptance, merge approval, the live dispatch, environment approval and publishing.
+**Automated:** CI build and verification of the candidate, candidate selection and re-verification, release-notes derivation, remote-state checks, publishing after approval, tagging and the GitHub release, and the version-consistency test. **Deliberately manual:** native acceptance, merge approval, the live dispatch, environment approval and publishing.
 
 ## Reference
 
@@ -51,7 +51,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 
 ## What the workflow does
 
-CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation, derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub pre-release. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
+CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation, derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub release. The pre-release flag (VSIX, Open VSX, GitHub) follows the version's channel and a mismatch fails closed. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
 
 ## What you must do manually
 
@@ -100,7 +100,7 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 5. [ ] Native macOS acceptance of that VSIX: [macos-acceptance.md](macos-acceptance.md) sections A, B, D, E; smoke test on Windows and Ubuntu when the release names them.
 6. [ ] Dispatch `dry_run = false` with the chosen auth mode.
 7. [ ] In the run, re-read the preflight summary (same commit and SHA-256 as the dry run) and the release notes, then approve the `release` deployment.
-8. [ ] After success: check Open VSX listing/version, tag `vX.Y.Z`, the GitHub pre-release and its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section C.
+8. [ ] After success: check Open VSX listing/version, tag `vX.Y.Z`, the GitHub release (pre-release or stable per channel) and its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section C.
 9. [ ] Revoke or rotate the PAT if it is no longer needed.
 
 ## Failure handling

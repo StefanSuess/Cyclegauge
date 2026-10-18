@@ -1,14 +1,16 @@
 // Release verification: content, not container.
 //
-//   node scripts/release/verify-vsix.ts <file.vsix> [--out manifest.json] [--compare other-manifest.json] [--pre-release]
+//   node scripts/release/verify-vsix.ts <file.vsix> [--out manifest.json] [--compare other-manifest.json]
 //
-// Asserts that the archive holds exactly the allowlisted entries, that the extension manifest and
+// Asserts that the pre-release flag matches the channel of the VSIX's own version (channel.ts), that
+// the archive holds exactly the allowlisted entries, that the extension manifest and
 // bundle are sane, and prints a SHA-256 for every file. ZIP bytes, timestamps and ordering are never
 // compared: two builds are equivalent when their payload file hashes are equal. Output contains only
 // fixed problem codes, names from the allowlist, sizes and hashes.
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { isMain } from '../is-main.ts';
+import { isPlainVersion, isPreReleaseVersion, type ReleaseChannel } from './channel.ts';
 import { readZip, ZipError } from './zip.ts';
 
 export const ALLOWLIST = [
@@ -37,7 +39,7 @@ const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: 
 };
 
 export interface FileHash { name: string; bytes: number; sha256: string }
-export interface VerifyResult { ok: boolean; problems: string[]; files: FileHash[]; version: string }
+export interface VerifyResult { ok: boolean; problems: string[]; files: FileHash[]; version: string; preRelease: boolean; channel: ReleaseChannel | 'unknown' }
 
 const sha256 = (data: Uint8Array) => createHash('sha256').update(data).digest('hex');
 // Strings that would mean a build leaked its environment into the shipped bundle.
@@ -49,9 +51,9 @@ const LEAK_PATTERNS: [string, RegExp][] = [
  ['BUNDLE_CREDENTIAL_MARKER', /-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:ghp|gho|ghs|ghu)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}\b|\bnpm_[A-Za-z0-9]{30,}|\bxox[abprs]-[A-Za-z0-9-]{10,}/],
 ];
 
-export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolean } = {}): VerifyResult {
+export function verifyVsix(archive: Buffer): VerifyResult {
  const problems: string[] = [];
- const result: VerifyResult = { ok: false, problems, files: [], version: 'unknown' };
+ const result: VerifyResult = { ok: false, problems, files: [], version: 'unknown', preRelease: false, channel: 'unknown' };
  let entries;
  try { entries = readZip(archive); } catch (e) { problems.push(e instanceof ZipError ? e.code : 'ZIP_UNREADABLE'); return result; }
  const names = entries.map(e => e.name).sort();
@@ -66,7 +68,10 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
  if (manifestBytes) {
   try {
    const manifest = JSON.parse(manifestBytes.toString('utf8'));
-   result.version = typeof manifest.version === 'string' && /^\d+\.\d+\.\d+$/.test(manifest.version) ? manifest.version : 'unknown';
+   result.version = isPlainVersion(manifest.version) ? manifest.version : 'unknown';
+   if (result.version === 'unknown') problems.push('MANIFEST_VERSION');
+   // The marketplace Preview badge must follow the channel too (package.json cannot compute it).
+   else if ((manifest.preview === true) !== isPreReleaseVersion(result.version)) problems.push('MANIFEST_PREVIEW');
    if (manifest.name !== 'cyclegauge') problems.push('MANIFEST_NAME');
    if (`${manifest.publisher}.${manifest.name}` !== EXPECTED_ID) problems.push('MANIFEST_EXTENSION_ID');
    if (manifest.license !== 'MIT') problems.push('MANIFEST_LICENSE');
@@ -90,8 +95,14 @@ export function verifyVsix(archive: Buffer, options: { expectPreRelease?: boolea
  if (vsixManifest) {
   if (result.version !== 'unknown' && !new RegExp(`<Identity\\b[^>]*\\sVersion="${result.version.replaceAll('.', '\\.')}"`).test(vsixManifest)) problems.push('VSIXMANIFEST_VERSION');
   if (!new RegExp(`<Identity\\b[^>]*\\sPublisher="StefanSuess"`).test(vsixManifest) || !/<Identity\b[^>]*\sId="cyclegauge"/.test(vsixManifest)) problems.push('VSIXMANIFEST_IDENTITY');
+  // The flag must equal the channel of the VSIX's own version, in both directions.
   const flagged = /Microsoft\.VisualStudio\.Code\.PreRelease"\s+Value="true"/.test(vsixManifest);
-  if (options.expectPreRelease && !flagged) problems.push('VSIXMANIFEST_NOT_PRERELEASE');
+  result.preRelease = flagged;
+  if (result.version !== 'unknown') {
+   const expected = isPreReleaseVersion(result.version);
+   result.channel = expected ? 'pre-release' : 'stable';
+   if (flagged !== expected) problems.push('VSIXMANIFEST_CHANNEL_MISMATCH');
+  }
  }
  const license = get('extension/LICENSE.txt')?.toString('utf8');
  if (license !== undefined && !/MIT License/.test(license)) problems.push('LICENSE_TEXT');
@@ -118,27 +129,26 @@ export function comparePayload(a: FileHash[], b: FileHash[]): string[] {
  return differences;
 }
 
-export function parseArgs(argv: string[]): { file: string; out?: string; compare?: string; preRelease: boolean } | undefined {
- let file: string | undefined, out: string | undefined, compare: string | undefined, preRelease = false;
+export function parseArgs(argv: string[]): { file: string; out?: string; compare?: string } | undefined {
+ let file: string | undefined, out: string | undefined, compare: string | undefined;
  for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
-  if (a === '--pre-release') preRelease = true;
-  else if (a === '--out' || a === '--compare') {
+  if (a === '--out' || a === '--compare') {
    const value = argv[++i];
    if (value === undefined || value.startsWith('--')) return undefined;
    if (a === '--out') out = value; else compare = value;
   } else if (a.startsWith('--') || file !== undefined) return undefined;
   else file = a;
  }
- return file === undefined ? undefined : { file, out, compare, preRelease };
+ return file === undefined ? undefined : { file, out, compare };
 }
 
 function main(): number {
  const args = parseArgs(process.argv.slice(2));
  if (!args) { console.log('USAGE'); return 2; }
- const result = verifyVsix(readFileSync(args.file), { expectPreRelease: args.preRelease });
+ const result = verifyVsix(readFileSync(args.file));
  if (args.out) writeFileSync(args.out, JSON.stringify({ version: result.version, files: result.files }, null, 1) + '\n');
- console.log(`VSIX_VERIFY ${result.ok ? 'PASS' : 'FAIL'} version=${result.version} files=${result.files.length}`);
+ console.log(`VSIX_VERIFY ${result.ok ? 'PASS' : 'FAIL'} version=${result.version} channel=${result.channel} files=${result.files.length}`);
  for (const f of result.files) console.log(`  ${f.sha256}  ${f.name}`);
  for (const problem of result.problems) console.log(`  PROBLEM ${problem}`);
  if (args.compare) {

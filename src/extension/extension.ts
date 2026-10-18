@@ -7,7 +7,9 @@ import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
-import { refusal } from './audit-root.ts';
+import { folderCheck as checkFolder } from './audit-root.ts';
+import { registerConfigReview } from './config-review.ts';
+import type { ConfigNode } from './config-model.ts';
 import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
@@ -86,7 +88,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
- let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
+ let changed: vscode.EventEmitter<AuditNode | ConfigNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
  let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
@@ -101,8 +103,6 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    onSaved(accepted);
   } catch { /* a save signal never affects the audit */ }
  }));
- // Every spelling of a path that exists: as given and with symlinks resolved.
- const forms = (p: string): string[] => { if (p === '') return []; try { const real = realpathSync.native(p); return real === p ? [p] : [p, real]; } catch { return [p]; } };
  const notify = (text: string): void => { void Promise.resolve(vscode.window.showInformationMessage(text)).catch(() => undefined); };
  const readDismissed = (): Dismissed | undefined => {
   try {
@@ -151,14 +151,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   } catch { try { await vscode.window.showErrorMessage('The workspace audit failed.'); } catch { /* nothing more to report */ } }
  };
  // The folder as given and with symlinks resolved, or the fixed reason it must not be audited.
- const folderCheck = (folder: vscode.WorkspaceFolder): { chosen: string; resolved: string } | { reason: string } => {
-  const chosen = folder.uri.fsPath;
-  let resolved: string | undefined;
-  try { resolved = realpathSync.native(chosen); } catch { /* refused below */ }
-  const reason = resolved === undefined ? 'its real location could not be resolved'
-   : refusal([chosen, resolved], [defaultSource(), configured('sourceRoot')].flatMap(forms), [context.globalStorageUri.fsPath, defaultStorage(), configured('storageRoot')].flatMap(forms), forms(homedir()));
-  return reason || resolved === undefined ? { reason: reason ?? 'its real location could not be resolved' } : { chosen, resolved };
- };
+ const folderCheck = (folder: vscode.WorkspaceFolder) => checkFolder(folder.uri.fsPath, [defaultSource(), configured('sourceRoot')], [context.globalStorageUri.fsPath, defaultStorage(), configured('storageRoot')]);
  // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
  // `recheckOf` pins a silent re-check to the folder already checked and keeps its prepared, unsaved Exclude edit.
  const auditOnce = async (silent = false, signal?: AbortSignal, recheckOf?: string): Promise<AuditResult | undefined> => {
@@ -416,17 +409,22 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidChangeWorkspaceFolders) context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => syncWatcher()));
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
+ let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [] };
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined)); }
+ catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
-  const emitter = new vscode.EventEmitter<AuditNode | undefined>();
+  const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();
   changed = emitter;
-  const provider: vscode.TreeDataProvider<AuditNode> = {
+  const provider: vscode.TreeDataProvider<AuditNode | ConfigNode> = {
    onDidChangeTreeData: emitter.event,
-   getChildren: node => node ? node.children ?? [] : roots,
+   getChildren: node => node ? node.children ?? [] : [...roots, ...configReview.nodes()],
    getTreeItem(node) {
-    const item = new vscode.TreeItem(node.label, node.kind === 'group' ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+    const item = new vscode.TreeItem(node.label, node.kind === 'group' || node.kind === 'config' && node.children ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
     item.id = node.id; item.description = node.description; item.tooltip = node.tooltip; item.contextValue = node.contextValue;
     // An explicit icon and no resourceUri, so the editor adds no file decorations.
     item.iconPath = new vscode.ThemeIcon(node.icon);
+    if (node.action === 'reviewKiroConfig') item.command = { command: commandId('reviewKiroConfig'), title: 'Review Kiro Steering and Hooks' };
+    if (node.action === 'previewKiroConfig') item.command = { command: commandId('config.preview'), title: 'Preview configuration suggestion', arguments: [node.id] };
     if (node.action === 'openIgnoreSetting') item.command = { command: 'workbench.action.openSettings', title: 'Open Agent Ignore Files setting', arguments: ['kiroAgent.agentIgnoreFiles'] };
     if (node.action === 'clearDismissed') item.command = { command: commandId('audit.clearDismissed'), title: 'Show hidden items again' };
     return item;

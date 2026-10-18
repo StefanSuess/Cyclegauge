@@ -39,7 +39,7 @@ async function run(): Promise<void> {
       checksums.toString('utf8') !== `${metadata.sha256}  ${metadata.vsixAssetName}\n` || sha256(vsix) !== metadata.sha256) {
     return fail('PROMOTION_BUNDLE_INTEGRITY_FAILED');
   }
-  const verified = verifyVsix(vsix, { expectPreRelease: true });
+  const verified = verifyVsix(vsix);
   if (!verified.ok || verified.version !== version) return fail('PROMOTION_VSIX_INVALID');
 
   const candidate: PromotionCandidate = {
