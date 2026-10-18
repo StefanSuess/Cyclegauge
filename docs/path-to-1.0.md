@@ -1,16 +1,16 @@
 # Path to Cyclegauge 1.0
 
-Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updated 2026-10-17: 0.9.0 beta → 0.11.0 beta → 0.13.0 beta → 1.0.0 stable, and again 2026-10-18: **0.9.0 and 0.11.0 skipped, a single 0.13.0 beta → 1.0.0 stable** (ROADMAP "Release sequence update"; it supersedes every 0.9.0/0.11.0 beta step below); 1.0 scope extended to a feature-complete vertical slice on 2026-10-17 (see ROADMAP "1.0 killer features").** Beyond the recorded [ROADMAP](../ROADMAP.md) decisions, this document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
+Status: **approved by the maintainer on 2026-10-17 (WP0); release sequence updated 2026-10-17 and 2026-10-18; final decision 2026-10-18: 1.0.0 stable is released directly and published quietly, 0.9.0, 0.11.0 and 0.13.0 are skipped and never published, and the public launch follows after 1–2 weeks of 1.0.x with no open crash or data-loss bug** (ROADMAP "Release decision (approved 2026-10-18)"; it supersedes every 0.9.0/0.11.0/0.13.0 beta step below); 1.0 scope extended to a feature-complete vertical slice on 2026-10-17 (see ROADMAP "1.0 killer features"). Beyond the recorded [ROADMAP](../ROADMAP.md) decisions, this document grants no implementation, contract-change, outreach, merge, tag, release or publication approval. Each work package (WP) below needs its own explicit scope approval, as [AGENTS.md](../AGENTS.md) requires. It builds on [#74](https://github.com/StefanSuess/Cyclegauge/issues/74) and [#71](https://github.com/StefanSuess/Cyclegauge/issues/71).
 
 **Direction:** value first, shipped fast. Build the credit-saving workspace/ignore audit (#71 Capability A) **first**, test it quietly with a few users in a 0.9.x beta, add the interactive dashboard in a **0.11.0** beta (the last feature beta), and announce publicly only with **1.0.0**, the first stable release (no stable 0.8 or 0.10). 1.0.0 adds no new features. Stabilisation work is limited to what keeps the extension *working* for users: no lost history on upgrade, no crash on an unsupported runtime, a quick fix when Kiro changes its logs, and a stable release channel.
 
-**Launch strategy:** one strong public launch, not several weak ones. Before 1.0, feedback comes only from a small invited group (no public posts). The public announcement, write-up and demo come with 1.0, when the extension both counts *and* helps save credits.
+**Launch strategy:** one strong public launch, not several weak ones. 1.0.0 is published quietly, without an announcement (decision of 2026-10-18; no beta and no invited-tester round). The public announcement, write-up, demo and community posts follow after 1–2 weeks of 1.0.x with no open crash or data-loss bug, when the extension both counts *and* helps save credits. Fixes ship as 1.0.x patches; feedback arrives through Report a Problem, GitHub issues and Open VSX reviews, with no telemetry.
 
 **Speed:** the audit has a time limit of about four weeks of focused work from WP0 approval to the 0.9.0 beta. If it is not solid by the end of the beta, 1.0 ships without it and the audit moves to 1.1. Heavy review (`security-reviewer`) is reserved for storage, workspace/source reading and release changes; docs and UI changes go straight to a PR after the normal checks.
 
 ## 1. Where Cyclegauge stands
 
-Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list` (recheck before acting). **No release has been cut since 0.7.0**: it is still the last published release (pre-release only on Open VSX and GitHub). Everything below marked "merged" is on `main` but unreleased; the 0.9.0, 0.11.0 and 0.13.0 betas have not been published.
+Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list` (recheck before acting). **No release has been cut since 0.7.0**: it is still the last published release (pre-release only on Open VSX and GitHub). Everything below marked "merged" is on `main` but unreleased; the 0.9.0, 0.11.0 and 0.13.0 betas have not been published and will not be (decision of 2026-10-18).
 
 | Area | State | Gap for 1.0 |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list`
 
 **Dropped from the critical path:** a stable 0.8 dress rehearsal (replaced by release-workflow dry runs and tests), a separate compatibility document (a short section in `docs/usage.md` is enough), full itemised platform acceptance, and #59, #60, #62, #63, #64 unless a user hits them.
 
-**Remaining risk:** the audit's value is not yet validated with users. The 0.13.x beta handles this: ship it, ask a handful of users, then cut, simplify or keep it before 1.0. The project rules in AGENTS.md still apply to the audit (no file contents beyond ignore configuration, nothing sent anywhere, Kiro files read-only). They are a scope boundary, not a reason to delay.
+**Remaining risk:** the audit's value is not yet validated with users. With the direct 1.0.0 release (2026-10-18) this happens in the quiet 1.0.x weeks: feedback from Report a Problem, GitHub issues and Open VSX reviews decides whether it is kept, simplified or dropped later. The project rules in AGENTS.md still apply to the audit (no file contents beyond ignore configuration, nothing sent anywhere, Kiro files read-only). They are a scope boundary, not a reason to delay.
 
 ## 3. Goals: credibility and donations
 
@@ -50,14 +50,14 @@ Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list`
 
 ## Release sequence (agreed 2026-10-17, updated 2026-10-18)
 
-**Update 2026-10-18:** 0.9.0 and 0.11.0 are skipped and never published. Their content is merged on `main` and ships in 0.13.0, the single beta and the only build for invited testers. The table keeps the original plan for reference.
+**Update 2026-10-18:** 0.9.0 and 0.11.0 are skipped and never published. **Final decision 2026-10-18 (ROADMAP "Release decision"):** the single 0.13.0 beta is skipped as well. 1.0.0 stable is released directly from `main` and published quietly; the public launch follows after 1–2 weeks of 1.0.x with no open crash or data-loss bug. Everything planned for 0.9.0, 0.11.0 and 0.13.0 ships in 1.0.0. The table keeps the original plan for reference.
 
 | Release | Channel | Content | Gate |
 | --- | --- | --- | --- |
 | **0.9.0** | ~~Pre-release (beta)~~ skipped, content ships in 0.13.0 | Workspace audit (WP1a–e) with plain-language sidebar and detail-view card (WP1f), community prompts (WP1g), storage ladder, runtime guard, diagnostics (WP2). | Native macOS test of the exact candidate, then the maintainer runs the release workflow (dry run, then live). |
 | **0.11.0** | ~~Pre-release (beta)~~ skipped, content ships in 0.13.0 | Budget warning (WP7), overage cost projection with upgrade comparison (WP8), plan right-sizing hint (WP8b), audit size total (WP1i), results summary (WP12), shareable cycle recap (WP14), first-minute walkthrough (WP15), and the interactive dashboard (WP6) with the cycle comparison and today's pace: scripts with a nonce CSP, a validated message protocol and accessibility; chart hovers, inline Cost Advisor form, live updates. Fixes from 0.9 feedback. | WP6 design [#102](https://github.com/StefanSuess/Cyclegauge/pull/102) is approved; phases 6a–6e each need a separate PR and `security-reviewer` review. CSV export is included in 0.11.0. |
-| **0.13.0** | Pre-release (beta), the single beta | Everything planned for 0.9.0 and 0.11.0, plus the Hook and Steering review (WP10); the context/message reminder (WP11) and the model choice hint (WP13) if their evidence checks succeed. | WP10 needs its own design, explicit content-read approval and `security-reviewer` review. |
-| **1.0.0** | Stable | No new features beyond 0.13.x: stable channel in the release pipeline (WP5a), native tests on macOS, Windows and Ubuntu, then the public launch (write-up, demo, community posts). | Exit criteria in section 5. |
+| **0.13.0** | ~~Pre-release (beta), the single beta~~ skipped, content ships in 1.0.0 | Everything planned for 0.9.0 and 0.11.0, plus the Hook and Steering review (WP10); the context/message reminder (WP11) and the model choice hint (WP13) if their evidence checks succeed. | WP10 needs its own design, explicit content-read approval and `security-reviewer` review. |
+| **1.0.0** | Stable, published quietly | Everything planned for 0.9.0, 0.11.0 and 0.13.0: stable channel in the release pipeline (WP5a), native tests on macOS, Windows and Ubuntu. The public launch (write-up, demo, community posts) follows after 1–2 weeks of 1.0.x without an open crash or data-loss bug. | Exit criteria in section 5. |
 
 Not in 1.0: session attribution (#71 C) and analysis of prompt or conversation content.
 
@@ -83,13 +83,13 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP2d Outdated docs.** `SPEC.md` and `ROADMAP.md` status lines, namespace status in `release-process.md` (recheck the registry), #71's stale "0.7.0 freeze" note. Agent: `implementer` (Haiku). Check: `git diff --check`.
 
-### Phase 3 — quiet beta (maintainer; 0.13.0 since 2026-10-18)
+### Phase 3 — quiet beta (skipped, decision of 2026-10-18)
 
-**WP3** Publish 0.13.0 (pre-release) after WP10d, with everything merged on `main` (originally 0.9.0 with WP1 and WP2). Invite 5–10 Kiro users personally (outreach approved by the maintainer); no public announcement yet. Record installs, first useful result, findings acted on and confusing results. Fix what they hit in 0.13.x patches. At the end of the beta decide: keep, simplify or drop the audit for 1.0. Smoke-test the candidate on macOS, Windows and Ubuntu.
+**WP3** Originally a quiet pre-release (0.9.0, then 0.13.0 after WP10d) for 5–10 invited Kiro users. **Skipped by the maintainer's decision of 2026-10-18:** no beta is published, and 1.0.0 stable goes out directly and quietly (see Phase 6). What remains of WP3 is the smoke test of the exact 1.0.0 candidate on macOS, Windows and Ubuntu, which is part of the [acceptance checklist](validation/1.0-acceptance.md), and the feedback loop through Report a Problem, GitHub issues and Open VSX reviews during the 1.0.x weeks.
 
 ### Phase 3b — 0.11.0 beta: interactive dashboard (high risk, gated)
 
-**WP6** Turn the credit detail view into an interactive dashboard: scripts with a per-load nonce CSP, a validated, allowlisted message protocol between webview and extension, and keyboard and screen-reader accessibility. Features: chart hovers, an inline Cost Advisor form and live updates. Also fold in fixes from 0.9 feedback. The maintainer approved [the design](wp6-dashboard-design.md) and its five section 11 decisions on 2026-10-17: scripts, two versioned unsynced keys, CSV in 0.11.0, Save image plus Copy text, and the revised WP12 definitions. Implement phases 6a–6e as separate PRs, starting with the approved 6a shell and message transport. Agent: `implementer-senior`; review: `security-reviewer` for every phase (mandatory, webview scripts are a new trust boundary). Later dashboard features remain assigned to their respective phases. 0.13.0 remains the last feature beta before 1.0.
+**WP6** Turn the credit detail view into an interactive dashboard: scripts with a per-load nonce CSP, a validated, allowlisted message protocol between webview and extension, and keyboard and screen-reader accessibility. Features: chart hovers, an inline Cost Advisor form and live updates. Also fold in fixes from 0.9 feedback. The maintainer approved [the design](wp6-dashboard-design.md) and its five section 11 decisions on 2026-10-17: scripts, two versioned unsynced keys, CSV in 0.11.0, Save image plus Copy text, and the revised WP12 definitions. Implement phases 6a–6e as separate PRs, starting with the approved 6a shell and message transport. Agent: `implementer-senior`; review: `security-reviewer` for every phase (mandatory, webview scripts are a new trust boundary). Later dashboard features remain assigned to their respective phases. (0.13.0 was to be the last feature beta before 1.0; it is skipped, see Phase 6.)
 
 ### Phase 3c — 1.0 killer features (scope approved 2026-10-17; each WP still needs its implementation go-ahead)
 
@@ -129,9 +129,9 @@ Risk follows [the agent workflow](agent-workflow.md): **high-risk** WPs (storage
 
 **WP5b** Candidate filename (#72) if the reviewer agrees it fits; otherwise later.
 
-### Phase 6 — 1.0.0 public launch
+### Phase 6 — 1.0.0 quiet release, then public launch
 
-1.0.0 adds no features beyond 0.13.x. Promote when the exit criteria hold, after native tests of the exact candidate on macOS, Windows and Ubuntu. This is the first public announcement: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved.
+1.0.0 adds no features beyond what is merged on `main`. Promote when the exit criteria that precede publication hold, after native tests of the exact candidate on macOS, Windows and Ubuntu. It is published **quietly** (no announcement). After 1–2 weeks of 1.0.x with no open crash or data-loss bug comes the public launch: the write-up, the demo and posts in Kiro communities (#74 Stage 4), with outreach approved. Fixes in between ship as 1.0.x patches.
 
 ### After 1.0
 
@@ -145,13 +145,14 @@ Native acceptance of the exact candidate is consolidated in the [1.0 acceptance 
 - [x] Storage upgrade ladder, newer-store refusal and evidence pruning tested (merged in #80 with `tests/unit/store-version.test.ts`).
 - [ ] Unsupported runtime shows a clear message (merged, #81); oldest checked Kiro recorded (still open).
 - [x] Copy Diagnostics exists and prints no values, paths or identifiers (merged in #82 with `tests/unit/diagnostics.test.ts`).
-- [ ] Interactive dashboard (with cycle comparison and pace) shipped in 0.13.x with its security review (merged with security review in #104–#108), or deferred to 1.1 by maintainer decision.
-- [ ] Budget warning, overage cost projection with upgrade comparison, plan right-sizing hint, audit size total, results summary, shareable cycle recap and first-minute walkthrough shipped in the 0.13.x beta (merged: #98–#101, #107, #108).
-- [ ] Hook and Steering review shipped in 0.13.x with its security review; context/message reminder and model choice hint each shipped or moved to 1.1 by documented decision (session hints merged in #116).
-- [ ] Workspace audit shipped in the 0.13.x beta within its time limit, used by the invited testers, and kept, simplified or dropped based on their results.
+- [ ] Interactive dashboard (with cycle comparison and pace) shipped in 1.0.0 with its security review (merged with security review in #104–#108), or deferred to 1.1 by maintainer decision.
+- [ ] Budget warning, overage cost projection with upgrade comparison, plan right-sizing hint, audit size total, results summary, shareable cycle recap and first-minute walkthrough shipped in 1.0.0 (merged: #98–#101, #107, #108).
+- [ ] Hook and Steering review shipped in 1.0.0 with its security review; context/message reminder and model choice hint each shipped or moved to 1.1 by documented decision (session hints merged in #116).
+- [ ] Workspace audit shipped in 1.0.0. (The invited-tester evaluation is dropped with the beta, ROADMAP "Release decision" of 2026-10-18.)
 - [ ] Stable channel proven by tests (done: WP5a, #122) and a release dry run; the dry run by the maintainer is still open and is part of the [acceptance checklist](validation/1.0-acceptance.md).
-- [ ] At least one 0.13.x beta with no open crash or data-loss bug for 14 days; upgrade from 0.7.x (the only published predecessor) keeps history.
-- [ ] Native test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days.
+- [ ] Upgrade from 0.7.x (the only published predecessor) keeps history.
+- [ ] Native test of the exact 1.0 candidate on macOS, Windows and Ubuntu; pricing catalog reviewed within 30 days of the release.
+- [ ] **After publication, before the public launch:** 1.0.x published quietly and 1–2 weeks without an open crash or data-loss bug.
 - [ ] Existing gates green: `pnpm typecheck`, `pnpm test`, coverage, `pnpm test:release`, three-OS host tests, attestation, macOS acceptance A/B/D/E.
 
 ## 6. Execution model

@@ -1,4 +1,4 @@
-# Release runbook (Open VSX beta)
+# Release runbook (Open VSX)
 
 Maintainer and agent runbook for `.github/workflows/release.yml`. It complements [release-process.md](release-process.md), which describes the gates. Nothing here publishes anything; the release workflow only runs when you dispatch it.
 
@@ -18,7 +18,8 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 2. [agent] Add a nonempty `CHANGELOG.md` section `## X.Y.Z (...)`, with an upgrade note whenever defaults, storage or settings change. Never edit a released section.
 3. [agent] Update the README badges and platform table, `docs/usage.md`, `docs/version-history.md`, and `ROADMAP.md` if a milestone completes.
 4. [agent] Keep the security checkpoint wording (SC1, SC5) consistent with [release-process.md](release-process.md); file follow-up work as GitHub issues rather than leaving it implicit.
-5. [agent] Run `pnpm typecheck`, `pnpm test`, `pnpm test:release` (includes an automated version-consistency check of `package.json`, `CHANGELOG.md`, `docs/version-history.md` and the README badge), `python3 tests/fixtures/kiro/validate.py` and `git diff --check`.
+5. [agent] Check that `verifiedOn` in `src/cost/catalog.ts` is within 30 days of the planned release; otherwise review the pricing catalog against Kiro's published prices first (the Cost Advisor shows `catalog_review_due` after 30 days).
+6. [agent] Run `pnpm typecheck`, `pnpm test`, `pnpm test:release` (includes an automated version-consistency check of `package.json`, `CHANGELOG.md`, `docs/version-history.md` and the README badge), `python3 tests/fixtures/kiro/validate.py` and `git diff --check`.
 
 **D. Independent review**
 1. [agent] An independent, read-only review of the release PR is mandatory (high-risk change): version, changelog accuracy, evidence claims per platform, no overclaiming. Fix findings before merging.

@@ -1,4 +1,4 @@
-# Release process (Open VSX beta)
+# Release process (Open VSX)
 
 Maintainer-only. For the step-by-step setup, dry run and live checklist see [release-runbook.md](release-runbook.md). `.github/workflows/release.yml` is manually triggered and never runs on merge. A live run pauses at the protected `release` environment so the maintainer can review the verified candidate and explicitly approve publication.
 

@@ -5,15 +5,15 @@
 **See your Kiro credits run out before they do, and spend fewer of them**
 
 [![Kiro IDE](https://img.shields.io/badge/IDE-Kiro-blue)](https://github.com/StefanSuess/Cyclegauge#install)
-[![macOS beta](https://img.shields.io/badge/macOS-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Ubuntu beta](https://img.shields.io/badge/Ubuntu-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
-[![Windows beta](https://img.shields.io/badge/Windows-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![macOS stable](https://img.shields.io/badge/macOS-stable-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Ubuntu smoke-tested](https://img.shields.io/badge/Ubuntu-smoke--tested-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
+[![Windows smoke-tested](https://img.shields.io/badge/Windows-smoke--tested-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
 
 [![CI + coverage ≥80%](https://img.shields.io/github/actions/workflow/status/StefanSuess/Cyclegauge/ci.yml?branch=main&label=CI%20%2B%20coverage%20%E2%89%A580%25)](https://github.com/StefanSuess/Cyclegauge/actions/workflows/ci.yml?query=branch%3Amain)
 [![CI VSIX attestations](https://img.shields.io/badge/CI%20VSIX-attestations-blue)](https://github.com/StefanSuess/Cyclegauge/attestations)
 
 [![Open VSX version](https://img.shields.io/open-vsx/v/StefanSuess/cyclegauge)](https://open-vsx.org/extension/StefanSuess/cyclegauge)
-![Development version 0.9.0 beta](https://img.shields.io/badge/development-0.9.0%20beta-orange)
+![Development version 1.0.0 stable](https://img.shields.io/badge/development-1.0.0%20stable-blue)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
 
 Cyclegauge adds a status-bar item and a dashboard to Kiro IDE. It warns you while you can still change something, and shows where credits and money could be saved:
@@ -62,9 +62,9 @@ The plan hint is unconfirmed and the estimate is conditional, modelled, and befo
 
 ## Install
 
-Cyclegauge is a **beta** for Kiro IDE on macOS, Windows and Ubuntu (extension ID `StefanSuess.cyclegauge`).
+Cyclegauge 1.0 is the first stable release, for Kiro IDE on macOS, Windows and Ubuntu (extension ID `StefanSuess.cyclegauge`). What has been tested on each platform is listed under Platform support and limitations.
 
-1. Install the published beta from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or download the VSIX from the [latest GitHub pre-release](https://github.com/StefanSuess/Cyclegauge/releases) and select **Extensions: Install from VSIX...** in Kiro.
+1. Install from the [Open VSX listing](https://open-vsx.org/extension/StefanSuess/cyclegauge), or download the VSIX from the [latest GitHub release](https://github.com/StefanSuess/Cyclegauge/releases) and select **Extensions: Install from VSIX...** in Kiro.
 2. Reload the window if Kiro asks.
 3. Click the status-bar item, or run **Cyclegauge: Show Account Credits**, to open the detail view.
 
@@ -76,6 +76,8 @@ To build from source you need Node.js 24.13 or newer and [pnpm](https://pnpm.io)
 [five-check synthetic demo guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/synthetic-demo.md).
 Setup uses the same command across platforms.
 
+**Upgrading from 0.7.x?** History is kept: the storage location and store version are unchanged, and nothing is migrated away. New settings and their defaults are listed in the [upgrade note](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-07x).
+
 **Upgrading from 0.5.x?** The default history directory changes and earlier compatibility settings are no longer read. Read the [upgrade guide](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/usage.md#upgrading-from-05x) before installing to retain access to existing history.
 
 ## Privacy
@@ -85,7 +87,7 @@ Setup uses the same command across platforms.
 - **Minimal data.** Each complete log line is parsed briefly in memory, but only allowlisted billing fields are extracted and stored. Prompts, code, conversations, tool data and credentials are dropped after parsing and never stored or shown. Raw account identifiers are not stored; a device-local key is used to tell accounts apart.
 - **Session hints (macOS, on by default).** Cyclegauge parses up to 20 of the most recently changed sessions' `session.json` files (each whole, in memory, including titles and workspace paths) to find the newest session of your open folder, then loads up to the last 256 KiB of that session's conversation file into memory, which can contain prompts and replies. It keeps only that session's model identifier, context percentage and time, compares workspace paths only to find your open folder, and never stores, logs, shows or sends anything else. Local Kiro window only, fixed folder `~/.kiro/sessions`, files opened read-only, nothing written. Turn it off with the user setting `cyclegauge.sessionHints`; when off (or on other platforms or in a remote window) nothing is read.
 - **Workspace audit.** Runs when you start it, or automatically only if you turn that on in your user settings. It reads only file names and sizes and the ignore files listed in Agent Ignore Files, never other file contents or global ignore files. It writes no files and sends nothing: Exclude from Kiro prepares an unsaved change that you save yourself. Per workspace it stores only the last audit date, reminder state and salted hashes of items you hid. Review suggestions before saving them; excluding files can hide them from Kiro.
-- **Separate Steering and Hook review (unreleased).** **Cyclegauge: Review Kiro Steering and Hooks**, also in the Audit view, runs when you click it, or automatically only if you turn on the user setting `cyclegauge.configReviewAutomatically` (off by default; on open and, if chosen, when those files change). It checks up to eight trusted local roots with the audit's folder guards. It reads the first few bytes of each `.kiro/steering/*.md` file (up to 2 KiB only when it starts with front matter), parses `.kiro/hooks/*.json` up to 64 KiB per file, and reads only the size of root `AGENTS.md`. Escaped hook names appear only in sidebar labels; no Steering body, pattern, matcher, prompt or command text is kept or shown. Previews are unsaved text documents; nothing in the workspace is changed, stored or sent. Results stay in memory and do not affect the credit dashboard or support prompts.
+- **Separate Steering and Hook review.** **Cyclegauge: Review Kiro Steering and Hooks**, also in the Audit view, runs when you click it, or automatically only if you turn on the user setting `cyclegauge.configReviewAutomatically` (off by default; on open and, if chosen, when those files change). It checks up to eight trusted local roots with the audit's folder guards. It reads the first few bytes of each `.kiro/steering/*.md` file (up to 2 KiB only when it starts with front matter), parses `.kiro/hooks/*.json` up to 64 KiB per file, and reads only the size of root `AGENTS.md`. Escaped hook names appear only in sidebar labels; no Steering body, pattern, matcher, prompt or command text is kept or shown. Previews are unsaved text documents; nothing in the workspace is changed, stored or sent. Results stay in memory and do not affect the credit dashboard or support prompts.
 - **Cycle recap and exports.** The recap keeps only a cycle identifier and a shown/dismissed flag in the extension's own storage. Saving the recap image or exporting CSV writes only a file you choose, never inside Kiro's or Cyclegauge's storage; copy and save happen only when you click.
 - **Credit view and dashboard.** The detail view runs no scripts. The dashboard runs one bundled script (nonce'd, under a strict content security policy that blocks all network connections) for the chart, CSV export and recap actions. The detail view's only command links are five Cyclegauge commands (Cost Advisor, check workspace, show workspace audit, share, report a problem), none with arguments, plus three fixed web links in the footer (rate, star, support) that open only when you click them.
 
@@ -99,10 +101,10 @@ For future releases, CI attests the exact VSIX after its checks pass on `main`. 
 
 | Platform | Status |
 | --- | --- |
-| macOS | Beta (Apple Silicon; Intel unverified); maintainer-reported synthetic-data testing (Kiro 1.2.56) |
-| Ubuntu | Beta; a development candidate was smoke-tested in native Kiro (Ubuntu 26), no itemised acceptance yet |
+| macOS | Stable release line (Apple Silicon; Intel unverified); maintainer-reported synthetic-data testing (Kiro 1.2.56). Session hints work on macOS only |
+| Ubuntu | Stable release line; a development candidate was smoke-tested in native Kiro (Ubuntu 26), no itemised acceptance yet |
 | RHEL | Unverified, best effort; not an officially supported Kiro platform |
-| Windows | Beta; a development candidate was smoke-tested in native Kiro (Windows 11 Pro), no itemised acceptance yet |
+| Windows | Stable release line; a development candidate was smoke-tested in native Kiro (Windows 11 Pro), no itemised acceptance yet |
 
 Cross-platform CI and the precise remaining gates are described in [platform verification](https://github.com/StefanSuess/Cyclegauge/blob/main/docs/platform-verification.md). One universal VSIX is retained; generic VS Code host tests do not establish native Kiro support.
 

@@ -2,9 +2,9 @@
 
 > Extension ID: `StefanSuess.cyclegauge`; commands and settings use the `cyclegauge.*` prefix.
 
-## Install the published beta or build a development VSIX
+## Install from Open VSX or build a development VSIX
 
-The published beta is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and under [GitHub Releases](https://github.com/StefanSuess/Cyclegauge/releases). To test unreleased changes, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
+Cyclegauge is available on [Open VSX](https://open-vsx.org/extension/StefanSuess/cyclegauge) and under [GitHub Releases](https://github.com/StefanSuess/Cyclegauge/releases). To test unreleased changes, build a VSIX from a checkout (Node.js 24.13 or newer and pnpm):
 
 ```sh
 pnpm install --frozen-lockfile
@@ -31,6 +31,21 @@ Settings: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, and `cyclegauge.sou
 
 After installation, new users inside Kiro get a short walkthrough, **Get started with Cyclegauge**, opened once. It shows where your Kiro credits are, offers the workspace check right away (it needs no usage history), points to the budget warning settings, explains the session hints (and how to turn them off) and says when the forecast appears: a provisional estimate after about 2 days and 3 updates, a regular forecast after 7 days and 8 updates. Open it any time with **Cyclegauge: Get Started** (command ID `cyclegauge.gettingStarted`). Users who already had Cyclegauge (any earlier Cyclegauge state) and users who turned `cyclegauge.supportPrompts` off are not shown it, and it never opens outside Kiro or in extension tests. Only one flag is stored (see [privacy and storage](privacy-and-storage.md)). Walkthrough support is not yet verified in native Kiro; if the editor cannot open it, nothing happens and the gauge is unaffected.
 
+## Credit dashboard
+
+**Cyclegauge: Show Account Credits** (or a click on the status-bar item) opens the credit dashboard. It runs one bundled script under a strict content security policy that blocks all network connections; see [privacy and storage](privacy-and-storage.md). It is built only from what Kiro has logged and Cyclegauge has stored, and gaps are shown as unknown, never as zero.
+
+- **Usage chart.** Hover or keyboard focus shows a tooltip for each point (arrow keys move between points, Escape closes it), with forecast scenarios when there is enough history. A data table accompanies the chart.
+- **Today's pace.** The observed net change within the UTC day, with its start and elapsed time. It is never extrapolated.
+- **Cycle comparison.** Compares with the previous billing cycle at the same elapsed point, only where both cycles have evidence-backed starts; otherwise it shows the bracketing observations or "not comparable".
+- **Cost Advisor.** An inline form with the same result as the native pickers. Answers stay session-only and are never persisted.
+- **Your Cyclegauge summary.** The exclusions you saved in the observed cycle (items, possible secrets, known bytes, as a lower bound when sizes are unknown) and an observed-use trend against the preceding period. Gaps read "not observed" or "not comparable"; no "saved credits" are estimated.
+- **Your Kiro cycle (recap).** When a new billing cycle is first observed and the previous one has an evidence-backed start and end, a dismissible card shows credits used, whether they lasted until the reset (yes, no or unknown), the comparable trend, the exclusions you saved and the busiest observed UTC day (a partial observation). Preview it, then **Save image…** (a save dialog; guarded target) or **Copy text**. It contains no identifiers, paths or workspace names.
+- **Export CSV…** writes your own accepted history to a file you choose: allowlisted columns, exact decimals, `unknown` instead of zero, no free text. With several or unknown accounts a fixed message replaces the export.
+- **Live updates.** The view refreshes as new observations arrive.
+
+Native verification of the dashboard on Windows and Ubuntu is not recorded; see the [acceptance checklist](validation/1.0-acceptance.md).
+
 ## Session hints
 
 On macOS, in a local Kiro window, Cyclegauge can show two short notices about your **most recent Kiro session in this workspace**. The feature is **on by default**; turn it off with the user setting `cyclegauge.sessionHints` or the **Turn off** button on a notice. It is a new read of Kiro's local session files, described exactly in [privacy and storage](privacy-and-storage.md) (it keeps only the model identifier, the context percentage and a time, and never stores or sends anything).
@@ -54,9 +69,28 @@ Transfer any explicit `easykirogauge.sourceRoot`, `easykirogauge.storageRoot` an
 
 ## Upgrading from 0.7.x
 
-By design, the storage location and store version are unchanged from 0.7.0, so existing history and forecast coverage should carry over without changing settings. A native upgrade test has not been recorded.
+Nothing is migrated away. The storage location (the editor's per-extension storage folder, or your `cyclegauge.storageRoot`) and the store version (1) are unchanged from 0.7.0, so existing history and forecast coverage should carry over without changing any setting. A store written by a newer Cyclegauge is refused and never modified. Import evidence is now bounded to 10,000 rows; only old import-evidence rows are pruned, never snapshots or sources. A native upgrade test of the exact 1.0.0 candidate is part of the [acceptance checklist](validation/1.0-acceptance.md).
 
-## Kiro Steering and Hooks review (unreleased)
+Your three existing settings (`cyclegauge.sourceRoot`, `cyclegauge.storageRoot`, `cyclegauge.sourceTimezone`) are unchanged. The new settings are all user-level (a workspace cannot change them):
+
+- **On by default:** `cyclegauge.budgetWarnings` (on), `cyclegauge.budgetWarningPercent` (80), `cyclegauge.supportPrompts` (on), `cyclegauge.auditReminderDays` (30, 0 = off) and `cyclegauge.sessionHints` (on, macOS only).
+- **Off by default:** `cyclegauge.auditAutomatically` (`off`) and `cyclegauge.configReviewAutomatically` (`off`).
+
+After updating you may see budget notices, an occasional support prompt and (once, for a workspace that was never checked) an audit reminder; on macOS session hints read Kiro's session metadata (see Session hints and [privacy and storage](privacy-and-storage.md)). New users get the walkthrough once; users who already had Cyclegauge state do not. The new saved state is small (dates and flags in the editor's own storage); **Cyclegauge: Reset Support Prompts and Summary** clears the prompt, summary and recap state. Coming from 0.5.x or earlier? Read the previous section first.
+
+## Compatibility in 1.x
+
+From 1.0.0 these are kept stable: they are not removed or renamed within 1.x, and a breaking change needs a new major version. New commands, settings and output fields may be added. This section lists what the code and manifest contain today.
+
+- **Command IDs** (all contributed by the extension manifest): `cyclegauge.showUsage`, `cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace`, `cyclegauge.reviewKiroConfig`, `cyclegauge.copyDiagnostics`, `cyclegauge.reportProblem`, `cyclegauge.audit.accept`, `cyclegauge.audit.dismiss`, `cyclegauge.audit.reveal`, `cyclegauge.audit.acceptAll`, `cyclegauge.audit.copy`, `cyclegauge.audit.clearDismissed`, `cyclegauge.audit.show`, `cyclegauge.audit.resetReminder`, `cyclegauge.share`, `cyclegauge.support.reset` and `cyclegauge.gettingStarted`. Internal handlers that are not in the manifest (for example the Steering and Hooks preview action) are not part of the promise.
+- **Setting keys** and their scopes: `cyclegauge.sourceRoot`, `cyclegauge.storageRoot` and `cyclegauge.sourceTimezone` (machine); `cyclegauge.auditReminderDays`, `cyclegauge.auditAutomatically` (`off`, `onOpen`, `onOpenAndChanges`; the earlier `true` means `onOpen`), `cyclegauge.supportPrompts`, `cyclegauge.configReviewAutomatically` (`off`, `onOpen`, `onOpenAndChanges`), `cyclegauge.budgetWarnings`, `cyclegauge.sessionHints` and `cyclegauge.budgetWarningPercent` (user level). Existing values keep their meaning.
+- **CLI options and JSON output.** The options `--source-root`, `--source-timezone`, `--store-dir`, `--max-age-hours`, `--diagnostics`, `--json` and `--help` keep their meaning. With `--json` the top-level fields are `observation`, `import`, `cache`, `platform` and `platformVerification`; inside `observation` the fields are `history`, `forecast`, `status`, `source`, `observedAt`, `observedText`, `sourceTimezone`, `usage`, `baseLimit`, `remainingBaseCredits`, `resetAt`, `resetText`, `availablePerDay`, `allocationBasis`, `totalAvailableCredits`, `dailyConsumption`, `flags` and `interval` (`status`, `netChange`, `dailyConsumption`). Fields are not removed or renamed; the nested `history` and `forecast` objects may gain fields. Exit code 1 with a fixed code still signals configuration, storage or collection failure.
+- **Storage location.** The extension keeps using the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge`) unless `cyclegauge.storageRoot` is set; the CLI keeps its application-data directory (see Default owned storage below).
+- **Store versioning.** The store carries a version (currently 1). An older store is upgraded by an ordered, transactional migration list; a store written by a newer Cyclegauge is refused with the fixed code `STORAGE_NEWER` (status bar "Kiro: update needed"), is never modified, and you can use it again after updating Cyclegauge. Kiro's own files are never changed.
+
+Not promised: the wording of messages and views, the audit's name patterns, the model table of the session hints, the price list and the forecast thresholds (they follow Kiro and are reviewed over time), and anything that depends on Kiro's undocumented log and session formats.
+
+## Kiro Steering and Hooks review
 
 Run **Cyclegauge: Review Kiro Steering and Hooks** (`cyclegauge.reviewKiroConfig`) from the Command Palette or the separate **Kiro Steering and Hooks** section in the **Kiro Workspace Audit** view. This command is separate from the filename audit below. It runs when you click it, or automatically only if you turn on `cyclegauge.configReviewAutomatically` (below). The audit, its reminder and its watcher never start a configuration review.
 
@@ -66,7 +100,7 @@ The native plain-text tree shows escaped relative file names and root names. Hoo
 
 Click a finding with a preview action to open a new unsaved plain-text document containing fixed guidance and relative file names only. Nothing in the workspace changes: review the guidance yourself before editing configuration. Disabling a hook loses its automation; Kiro CLI V1/V2 loads only always-included Steering automatically. The review has no clipboard action, persistence, dashboard summary or support-prompt effect. Results disappear on reload. Native Kiro, Windows and Ubuntu acceptance for this feature has not been recorded.
 
-## Automatic Steering and Hooks review (opt-in, unreleased)
+## Automatic Steering and Hooks review (opt-in)
 
 The user setting `cyclegauge.configReviewAutomatically` is **off** by default. Only your own user (global) value counts; a workspace's `.vscode/settings.json` cannot turn it on, and an unknown value counts as off. `onOpen` runs the same review once per window, about 45 seconds after a trusted workspace opens (staggered after the audit reminder). `onOpenAndChanges` also watches only root `AGENTS.md`, `.kiro/steering/*.md` and `.kiro/hooks/*.json` in each checked root, and re-runs after those files are created, changed or deleted. The watcher reads nothing itself; changes wait 5 seconds (at most 60 seconds during a stream of changes), automatic runs are at least 30 seconds apart, and after 20 automatic runs in a window the header says "automatic review paused (many changes)". Before every automatic run the setting, workspace trust and each root's folder guard are checked again; turning the setting off, losing trust or changing folders cancels a pending run and discards a running one. A manual run always wins and does not count toward the limit. Automatic runs use exactly the same allowlist and limits as the manual command.
 
@@ -107,7 +141,7 @@ After a workspace has been checked in this window, saving `.kiroignore` (or a fi
 
 The credit view (**Show Account Credits**) has a small **Workspace check** card below the main figures: it shows the number of items and when the check ran (or an invitation to check with the last check date in UTC, or "This folder can't be checked. Run Check now to see why."), with **Check now** and, once checked, **Show**. It shows no folder name or path and claims no measured savings. A **Cost Advisor** button at the top of the view opens the same Cost Advisor as the editor-title button and the status bar item. The view still runs no scripts; its only command links are these five Cyclegauge commands (`cyclegauge.costAdvisor`, `cyclegauge.auditWorkspace`, `cyclegauge.audit.show`, `cyclegauge.share`, `cyclegauge.reportProblem`), enabled through the webview's command allowlist, none with arguments. A quiet footer line also links to rating Cyclegauge on Open VSX, starring it on GitHub and supporting it on Ko-fi (fixed addresses, opened only when you click), plus **Share**, which copies a short fixed text with the Open VSX link to your clipboard, and **Report a problem**, which runs **Cyclegauge: Report a Problem** (see Diagnostics below).
 
-The audit, Copy Diagnostics and the gauge of an earlier 0.9.0 candidate were tested by the maintainer in native Kiro on macOS; the audit view wording, the Workspace check card, the Exclude and hide actions, reminders, the footer links, Share, Report a Problem (including the error-notification button and opening the form), the support prompt, the re-check after ignore changes and the onOpenAndChanges watcher have not yet been verified in native Kiro, the "Kiro not detected" note and status have not been verified in any non-Kiro editor, and no 0.9.0 testing on Windows or Ubuntu is recorded. Earlier (0.7.0) testing is described in the changelog.
+The audit, Copy Diagnostics and the gauge of an earlier 0.9.0 candidate were tested by the maintainer in native Kiro on macOS; the audit view wording, the Workspace check card, the Exclude and hide actions, reminders, the footer links, Share, Report a Problem (including the error-notification button and opening the form), the support prompt, the re-check after ignore changes and the onOpenAndChanges watcher have not yet been verified in native Kiro, the "Kiro not detected" note and status have not been verified in any non-Kiro editor, and no testing of these features on Windows or Ubuntu is recorded. Earlier (0.7.0) testing is described in the changelog.
 
 ## Budget warnings
 
