@@ -38,6 +38,15 @@ test('dashboard model rejects attributes and URLs outside the fixed allowlist', 
  assert.throws(() => buildDomModel(body('<p onclick="bad()">bad</p>')));
 });
 
+test('dashboard model accepts only bounded chart interaction and headline attributes', () => {
+ const real = present(view([snapshot('2030-06-08T00:00:00Z', '70')], '2030-06-08T00:00:00Z')).html;
+ const model = buildDomModel(real);
+ assert.ok(JSON.stringify(model).includes('data-chart-point'));
+ const body = (s: string) => `<!doctype html><html><body><main>${s}</main></body></html>`;
+ for (const bad of ['<circle data-chart-point="synthetic-bad"/>', '<circle tabindex="100"/>', '<p hidden>bad</p>', '<span aria-live="assertive">bad</span>'])
+  assert.throws(() => buildDomModel(body(bad)));
+});
+
 test('shell has one nonce for style and script and no inline style attributes', () => {
  const staticHtml = '<!doctype html><html lang="en"><head><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'"><style>p{color:red}</style></head><body><main><p>safe</p></main></body></html>';
  const html = renderDashboardShell(staticHtml, 'syntheticNonce123', 7, 'console.log(1)');

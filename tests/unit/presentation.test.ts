@@ -55,6 +55,20 @@ test('presentation preserves exact amounts and private keys stay absent',()=>{
  assert.match(r.html,/default-src 'none'/);
 });
 
+test('headline live region contains only the changing credit figure', () => {
+ const html = render(10).html;
+ assert.match(html, /<dd id="usage-live" aria-live="polite" aria-atomic="true">70 credits<\/dd>/);
+ assert.equal((html.match(/aria-live=/g) ?? []).length, 1);
+});
+
+test('static view gives UTC-day pace with observed endpoints and no short-window allocation claim', () => {
+ const points = [snapshot('2030-06-08T00:40:00Z', '1.1'), snapshot('2030-06-08T02:50:00Z', '2.223456789')];
+ const html = present(view(points, '2030-06-08T02:51:00Z'), [], '', '', undefined, '2030-06-08T02:51:00Z').html;
+ assert.match(html, /UTC day so far.*since 00:40 UTC: 1\.123456789 credits over 2 h 10 min/);
+ assert.match(html, /as of 2030-06-08T02:50:00\.000Z/);
+ assert.ok(!html.includes('24-hour allocation as of the last update'));
+});
+
 // v0.5.1 progressive disclosure: concise default reading flow, one collapsed Advanced details section.
 const split=(html:string)=>{const i=html.indexOf('<section id="advanced-details"');assert.ok(i>0);return {primary:html.slice(0,i),advanced:html.slice(i)};};
 const visible=(html:string)=>{

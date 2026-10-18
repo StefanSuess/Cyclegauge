@@ -6,7 +6,7 @@ declare function acquireVsCodeApi(): { postMessage(message: object): void };
 const vscode = acquireVsCodeApi();
 const load = Number(document.documentElement.getAttribute('data-cg-load'));
 const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
-const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby scope data-kind x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
+const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic scope data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set(['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
 const SVG = 'http://www.w3.org/2000/svg';
 // Literal DOM sinks make the permitted grammar explicit even if an inbound model is hostile.
@@ -36,6 +36,12 @@ function valid(node: unknown, depth = 0, budget = { n: 0 }): node is DomNode {
   // Links are fixed in the static document; the script never writes URL attributes.
   if (name !== 'href' || n.tag !== 'a' || typeof value !== 'string' || !SAFE_LINKS.has(value)) return false;
  }
+ const attrs = n.attrs as Record<string, string>;
+ if (Object.hasOwn(attrs, 'data-chart-point') && (!['circle', 'polygon'].includes(n.tag) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(attrs['data-chart-point']!))) return false;
+ if (Object.hasOwn(attrs, 'tabindex') && (!['circle', 'polygon'].includes(n.tag) || !['0', '-1'].includes(attrs.tabindex!))) return false;
+ if (Object.hasOwn(attrs, 'aria-live') && (n.tag !== 'dd' || attrs['aria-live'] !== 'polite')) return false;
+ if (Object.hasOwn(attrs, 'aria-atomic') && (n.tag !== 'dd' || attrs['aria-atomic'] !== 'true')) return false;
+ if (Object.hasOwn(attrs, 'hidden') && (n.tag !== 'p' || attrs.id !== 'chart-tooltip' || attrs.hidden !== '')) return false;
  return n.children.every(child => valid(child, depth + 1, budget));
 }
 
@@ -91,6 +97,59 @@ function reconcile(parent: Node, wanted: DomNode[], svg: boolean, links: Element
  while (parent.childNodes.length > wanted.length) parent.removeChild(parent.lastChild!);
 }
 
+const points = (): Element[] => Array.from(document.querySelectorAll('[data-chart-point]'));
+const tooltip = (): Element | null => document.querySelector('#chart-tooltip');
+let selectedAt: string | null = null, hoveredAt: string | null = null;
+function point(target: EventTarget | null): Element | null {
+ let node = target as Element | null;
+ while (node && node !== document.querySelector('main')) {
+  if (node.getAttribute?.('data-chart-point') !== null && node.getAttribute?.('data-chart-point') !== undefined) return node;
+  node = node.parentNode as Element | null;
+ }
+ return null;
+}
+function show(p: Element): void {
+ const tip = tooltip(); if (!tip) return;
+ tip.textContent = p.getAttribute('aria-label') ?? '';
+ tip.removeAttribute('hidden');
+}
+function hide(): void { tooltip()?.setAttribute('hidden', ''); }
+function select(p: Element, focus: boolean): void {
+ selectedAt = p.getAttribute('data-chart-point');
+ for (const item of points()) item.setAttribute('tabindex', item === p ? '0' : '-1');
+ if (focus) (p as HTMLElement).focus();
+ show(p);
+}
+window.addEventListener('focusin', event => {
+ const p = point(event.target); if (p) select(p, false);
+});
+window.addEventListener('focusout', event => {
+ if (point(event.target) && !point(event.relatedTarget) && event.relatedTarget !== tooltip() && !hoveredAt) hide();
+});
+window.addEventListener('pointerover', event => {
+ const p = point(event.target); if (p) { hoveredAt = p.getAttribute('data-chart-point'); show(p); }
+});
+window.addEventListener('pointerout', event => {
+ const frame = tooltip()?.parentNode;
+ if (!frame || !event.target || !frame.contains(event.target as Node)) return;
+ if (event.relatedTarget && frame.contains(event.relatedTarget as Node)) return;
+ hoveredAt = null;
+ if (!point(document.activeElement)) hide();
+});
+window.addEventListener('keydown', event => {
+ if (event.key === 'Escape' && tooltip()?.getAttribute('hidden') === null) {
+  hoveredAt = null; hide(); event.preventDefault(); return;
+ }
+ const p = point(event.target); if (!p) return;
+ const list = points(), index = list.indexOf(p);
+ if (index < 0) return;
+ const next = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? Math.min(index + 1, list.length - 1)
+  : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? Math.max(index - 1, 0)
+  : event.key === 'Home' ? 0 : event.key === 'End' ? list.length - 1 : -1;
+ if (next < 0) return;
+ event.preventDefault(); select(list[next]!, true);
+});
+
 window.addEventListener('message', event => {
  const message = event.data as { type?: unknown; schema?: unknown; version?: unknown; model?: unknown } | null;
  if (!message || message.type !== 'model' || message.schema !== 1 || !Number.isSafeInteger(message.version) || (message.version as number) < 1 || !valid(message.model)) return;
@@ -101,11 +160,24 @@ window.addEventListener('message', event => {
  if (!main || !reserve) return;
  const x = window.scrollX, y = window.scrollY;
  const focused = document.activeElement;
+ const focusedAt = point(focused)?.getAttribute('data-chart-point') ?? null;
+ const tipOpen = tooltip()?.getAttribute('hidden') === null;
  try {
   const links = [...anchors(main), ...anchors(reserve)];
   if (links.some(link => !SAFE_LINKS.has(link.getAttribute('href') ?? ''))) return;
   for (const link of anchors(main)) reserve.appendChild(link);
   reconcile(main, model.children, false, links);
+  const plotted = points();
+  const selected = plotted.find(p => p.getAttribute('data-chart-point') === (focusedAt ?? selectedAt)) ?? plotted[0];
+  if (selected) {
+   selectedAt = selected.getAttribute('data-chart-point');
+   for (const item of plotted) item.setAttribute('tabindex', item === selected ? '0' : '-1');
+   if (focusedAt) (selected as HTMLElement).focus();
+  }
+  if (tipOpen) {
+   const shown = plotted.find(p => p.getAttribute('data-chart-point') === (hoveredAt ?? focusedAt ?? selectedAt));
+   if (shown) show(shown); else hide();
+  }
   if (focused?.localName === 'a' && main.contains(focused)) (focused as HTMLElement).focus();
   window.scrollTo(x, y);
   vscode.postMessage({ type: 'ack', version: message.version });

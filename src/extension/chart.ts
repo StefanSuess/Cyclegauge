@@ -14,7 +14,7 @@ export const CHART_CSS = `.chart-frame{margin:0}.chart-frame svg{display:block;w
 .chart-frame .budget{stroke:var(--vscode-charts-yellow,#cca700);stroke-width:1.5;stroke-dasharray:3 3;fill:none}.chart-frame .reset{stroke:var(--vscode-foreground);stroke-width:1.5;fill:none}
 .chart-frame .query{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1.5;stroke-dasharray:1 4;stroke-linecap:round;fill:none}
 .chart-frame .unk{fill:url(#chart-unknown);stroke:var(--vscode-panel-border,#8888);stroke-dasharray:4 3}.chart-frame .unk-hatch{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1}
-.chart-frame .mark{stroke:var(--vscode-foreground);stroke-width:2.5;fill:none}.chart-frame .flag{fill:var(--vscode-editorWarning-foreground,#cca700);stroke:var(--vscode-foreground);stroke-width:1}
+.chart-frame .mark{stroke:var(--vscode-foreground);stroke-width:2.5;fill:none}.chart-frame .flag{fill:var(--vscode-editorWarning-foreground,#cca700);stroke:var(--vscode-foreground);stroke-width:1}.chart-frame [data-chart-point]:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:3px}.chart-tooltip{border:1px solid var(--vscode-panel-border);padding:6px 9px;margin:6px 0;max-width:max-content;background:var(--vscode-editorWidget-background,var(--vscode-editor-background))}.chart-tooltip[hidden]{display:none}
 .chart-clip{margin:8px 0;padding-left:20px;font-weight:600;font-size:.95rem}.chart-legend{list-style:none;padding:0;margin:10px 0;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85rem}.chart-help{margin-top:6px}.chart-help>summary{font-weight:500}.chart-legend-full{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));font-size:.95rem}.chart-legend li{display:flex;gap:8px;align-items:flex-start}.chart-legend svg{flex:none;margin-top:3px}
 .chart-legend line,.chart-legend path{fill:none}.chart-table th,.chart-table td{padding:6px 8px 6px 0;font-size:.9rem}.chart-table th,.chart-table td{overflow-wrap:normal;word-break:normal}.chart-table th{width:auto}.chart-table th[scope=row]{min-width:9em}.chart-table th[scope=col]{white-space:nowrap}.chart-table td:nth-child(2){min-width:12em}.chart-table td:nth-child(3){white-space:nowrap}.chart-scroll{overflow-x:auto}
 @media(forced-colors:active){.chart-frame .obs,.chart-frame .limit,.chart-frame .central,.chart-frame .lower,.chart-frame .higher,.chart-frame .budget,.chart-frame .reset,.chart-frame .query,.chart-frame .axis,.chart-frame .mark{stroke:CanvasText}.chart-frame circle.pt{fill:CanvasText;stroke:Canvas}.chart-frame polygon.over,.chart-frame .flag{fill:Canvas;stroke:Highlight}.chart-frame .env,.chart-frame .above{fill:Highlight;fill-opacity:.25}.chart-frame text{fill:CanvasText}}`;
@@ -157,12 +157,12 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  // Observed connectors, then points on top
  for (const [a, b] of m.connectors) out.push(`<line class="obs" x1="${n(xt(m.points[a].at))}" y1="${n(y(num(m.points[a].usage)))}" x2="${n(xt(m.points[b].at))}" y2="${n(y(num(m.points[b].usage)))}"><title>Comparable interval; timing within the interval was not observed</title></line>`);
  for (const e of m.events) out.push(`<path class="flag" d="M${n(xt(e.at))} ${H - B - 2} l-6 -11 h12 z"><title>${safe(eventLabels[e.kind] ?? 'Series broken')}</title></path>`);
- const connected = new Set(m.connectors.flat());
- // Markers only where a line cannot carry the point: the ends, isolated updates and above-limit updates. Every update stays in the data table.
+ // Every plotted update is a focusable marker. The source may contain more updates than the plot's bounded selection.
  m.points.forEach((pt, i) => {
-  if (!(i === 0 || i === m.points.length - 1 || pt.aboveLimit || !connected.has(i))) return;
-  const cx = xt(pt.at), cy = y(num(pt.usage)), title = `<title>${safe(pt.at)} · ${safe(pt.usage)} CREDIT${pt.aboveLimit ? ' · above reported limit' : ''}</title>`;
-  out.push(pt.aboveLimit ? `<polygon class="pt over" points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}">${title}</polygon>` : `<circle class="pt obs" cx="${n(cx)}" cy="${n(cy)}" r="3.5">${title}</circle>`);
+  const cx = xt(pt.at), cy = y(num(pt.usage));
+  const label = `${pt.at} UTC, ${pt.usage} credits used; change since previous update: ${pt.change === null ? 'not comparable' : `${pt.change} credits`}`;
+  const attrs = `data-chart-point="${safe(pt.at)}" tabindex="${i === 0 ? '0' : '-1'}" aria-label="${safe(label)}"`;
+  out.push(pt.aboveLimit ? `<polygon class="pt over" ${attrs} points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}"/>` : `<circle class="pt obs" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="3.5"/>`);
  });
  if (m.exhaustion?.approxAt) { const ex = xt(m.exhaustion.approxAt), ey = y(num(lastLimit.value)); out.push(`<path class="mark" d="M${n(ex - 6)} ${n(ey - 6)} l12 12 m0 -12 l-12 12"><title>Reported limit reached (conditional): UTC day ${safe(m.exhaustion.day)}</title></path>`); }
 
@@ -197,11 +197,11 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
   + (p ? `<p class="muted small">The shaded range is a scenario range, not a statistical confidence interval. Lower-usage means lower consumption (${LOWER_FACTOR.label} of the selected observed rate); higher-usage means higher consumption (${HIGHER_FACTOR.label}). Observed history is never scaled.</p>` : '');
  const caption = p ? `Expected usage assumes the observed rate continues; the shaded range is a ${LOWER_FACTOR.label}–${HIGHER_FACTOR.label} scenario, not a confidence interval.` : 'No forecast trajectory is drawn while the forecast is unavailable or stale.';
  const main = `<section id="usage-chart" aria-labelledby="chart-heading"><h2 id="chart-heading">Usage trajectory</h2>`
-  + `<figure class="chart-frame"><svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc" xmlns="http://www.w3.org/2000/svg"><title id="chart-title">Observed credit usage and scenario trajectories until the billing reset</title><desc id="chart-desc">${safe(summary)}</desc>${out.join('')}</svg></figure>`
+  + `<figure class="chart-frame"><svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title" aria-describedby="chart-desc chart-data-table" xmlns="http://www.w3.org/2000/svg"><title id="chart-title">Observed credit usage and scenario trajectories until the billing reset</title><desc id="chart-desc">${safe(summary)} Use arrow keys to move through plotted account updates.</desc>${out.join('')}</svg><p id="chart-tooltip" class="chart-tooltip" role="tooltip" hidden></p></figure>`
   + (clipNotes ? `<ul class="chart-clip">${clipNotes}</ul>` : '')
   + `<ul class="chart-legend">${brief.join('')}</ul><p class="muted small">${safe(caption)}</p>`
   + `<details class="chart-help"><summary>How to read this chart</summary>${notes}<h4>Chart key</h4><ul class="chart-legend chart-legend-full">${legend.join('')}</ul></details></section>`;
  const advanced = `<div id="chart-details"><h3>Chart details</h3><p id="chart-summary">${safe(summary)}</p>`
-  + `<details><summary>Chart data table</summary><div class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; credits are the CREDIT unit)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
+  + `<details><summary>Chart data table</summary><div id="chart-data-table" class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; credits are the CREDIT unit)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
  return { main, advanced };
 }

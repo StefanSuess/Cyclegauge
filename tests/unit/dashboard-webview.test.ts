@@ -16,11 +16,12 @@ class FakeNode {
  childNodes: FakeNode[] = [];
  parentNode?: FakeNode;
  focusCount = 0;
+ textWrites = 0;
  private value = '';
  private attrs = new Map<string, string>();
  constructor(tag: string, value = '') { this.nodeType = tag === '#text' ? 3 : 1; this.localName = tag; this.value = value; }
  get textContent(): string { return this.nodeType === 3 ? this.value : this.childNodes.map(n => n.textContent).join(''); }
- set textContent(value: string) { if (this.nodeType === 3) this.value = value; else this.childNodes = [new FakeNode('#text', value)]; }
+ set textContent(value: string) { this.textWrites++; if (this.nodeType === 3) this.value = value; else this.childNodes = [new FakeNode('#text', value)]; }
  get attributes() { return [...this.attrs].map(([name, value]) => ({ name, value })); }
  get lastChild(): FakeNode | null { return this.childNodes.at(-1) ?? null; }
  setAttribute(name: string, value: string) { this.attrs.set(name, value); }
@@ -42,6 +43,7 @@ const fromModel = (node: DomNode): FakeNode => {
  return result;
 };
 const find = (node: FakeNode, predicate: (n: FakeNode) => boolean): FakeNode | undefined => predicate(node) ? node : node.childNodes.map(n => find(n, predicate)).find(Boolean);
+const all = (node: FakeNode, predicate: (n: FakeNode) => boolean): FakeNode[] => [node, ...node.childNodes.flatMap(child => all(child, predicate))].filter(predicate);
 const anchors = (node: FakeNode): FakeNode[] => [node, ...node.childNodes.flatMap(anchors)].filter(n => n.localName === 'a');
 const html = (rows: string) => `<!doctype html><html><body><main><details><summary>History</summary><table>${rows}</table><a href="command:cyclegauge.share">Share</a></details></main></body></html>`;
 const script = async () => (await build({ entryPoints: ['src/extension/dashboard-webview.ts'], bundle: true, platform: 'browser', format: 'iife', write: false, logLevel: 'silent' })).outputFiles[0]!.text;
@@ -53,14 +55,67 @@ async function start(initial: string) {
   const link = e('a');link.setAttribute('href', href);reserve.appendChild(link);
  }
  const root = e('html');root.setAttribute('data-cg-load', '7');
- const sent: unknown[] = [], created: string[] = []; let onMessage: ((event: { data: unknown }) => void) | undefined, scroll: [number, number] | undefined;
+ const sent: unknown[] = [], created: string[] = []; const handlers = new Map<string, (event: any) => void>(); let scroll: [number, number] | undefined;
  const document = { documentElement: root, activeElement: undefined as FakeNode | undefined,
-  querySelector: (selector: string) => selector === 'main' ? main : selector === '#cg-link-reserve' ? reserve : null,
+  querySelector: (selector: string) => selector === 'main' ? main : selector === '#cg-link-reserve' ? reserve : selector.startsWith('#') ? find(main, n => n.getAttribute('id') === selector.slice(1)) ?? null : null,
+  querySelectorAll: (selector: string) => selector === '[data-chart-point]' ? all(main, n => n.getAttribute('data-chart-point') !== null) : [],
   createTextNode: t, createElement: (tag: string) => { assert.notEqual(tag, 'a', 'browser must never create an anchor');created.push(tag);return e(tag); }, createElementNS: (ns: string, tag: string) => { assert.equal(ns, 'http://www.w3.org/2000/svg');created.push(`svg:${tag}`);return e(tag); } };
- const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(_type: string, fn: typeof onMessage) { onMessage = fn; } };
+ const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(type: string, fn: (event: any) => void) { handlers.set(type, fn); } };
  runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), Object, Number, Set, Array });
- return { main, reserve, document, sent, created, scroll: () => scroll, send(model: unknown, version = 1, schema = 1) { onMessage!({ data: { type: 'model', schema, version, model } }); } };
+ return { main, reserve, document, sent, created, scroll: () => scroll, emit(type: string, event: object) { handlers.get(type)!({ ...event }); }, send(model: unknown, version = 1, schema = 1) { handlers.get('message')!({ data: { type: 'model', schema, version, model } }); } };
 }
+
+test('chart keyboard and hover keep one tab stop and a dismissible hoverable tooltip', async () => {
+ const points = [snapshot('2030-06-08T00:00:00Z', '1'), snapshot('2030-06-08T01:00:00Z', '2')];
+ const app = await start(present(view(points, '2030-06-08T01:00:00Z')).html);
+ const markers = () => all(app.main, n => n.getAttribute('data-chart-point') !== null);
+ const tooltip = find(app.main, n => n.getAttribute('id') === 'chart-tooltip')!;
+ assert.deepEqual(markers().map(n => n.getAttribute('tabindex')), ['0', '-1']);
+ app.document.activeElement = markers()[0]; app.emit('focusin', { target: markers()[0] });
+ assert.equal(tooltip.getAttribute('hidden'), null); assert.match(tooltip.textContent, /1 credits used.*not comparable/);
+ app.emit('keydown', { target: markers()[0], key: 'ArrowRight', preventDefault() {} });
+ assert.deepEqual(markers().map(n => n.getAttribute('tabindex')), ['-1', '0']);
+ assert.equal(markers()[1].focusCount, 1); assert.match(tooltip.textContent, /2 credits used.*1 credits/);
+ app.emit('keydown', { target: markers()[1], key: 'Escape', preventDefault() {} });
+ assert.equal(tooltip.getAttribute('hidden'), '');
+ app.document.activeElement = undefined;
+ app.emit('pointerover', { target: markers()[1] });
+ const svg = markers()[1].parentNode!;
+ app.emit('pointerout', { target: markers()[1], relatedTarget: svg });
+ assert.equal(tooltip.getAttribute('hidden'), null, 'tooltip survives the blank SVG area');
+ app.emit('pointerout', { target: svg, relatedTarget: tooltip });
+ assert.equal(tooltip.getAttribute('hidden'), null);
+ app.emit('pointerout', { target: tooltip, relatedTarget: null });
+ assert.equal(tooltip.getAttribute('hidden'), '');
+});
+
+test('Escape dismisses a hovered chart tooltip even with focus outside the chart', async () => {
+ const points = [snapshot('2030-06-08T00:00:00Z', '1'), snapshot('2030-06-08T01:00:00Z', '2')];
+ const app = await start(present(view(points, '2030-06-08T01:00:00Z')).html);
+ const marker = all(app.main, n => n.getAttribute('data-chart-point') !== null)[0]!;
+ const tooltip = find(app.main, n => n.getAttribute('id') === 'chart-tooltip')!;
+ app.document.activeElement = app.main;
+ app.emit('pointerover', { target: marker });
+ assert.equal(tooltip.getAttribute('hidden'), null);
+ let prevented = false;
+ app.emit('keydown', { target: app.main, key: 'Escape', preventDefault() { prevented = true; } });
+ assert.equal(tooltip.getAttribute('hidden'), '');
+ assert.equal(prevented, true);
+});
+
+test('live model preserves selected chart point and leaves an unchanged headline figure untouched', async () => {
+ const points = [snapshot('2030-06-08T00:00:00Z', '1'), snapshot('2030-06-08T01:00:00Z', '2')];
+ const before = present(view(points, '2030-06-08T01:00:00Z')).html;
+ const after = present(view(points, '2030-06-08T01:01:00Z')).html;
+ const app = await start(before);
+ const markers = () => all(app.main, n => n.getAttribute('data-chart-point') !== null);
+ const figure = find(app.main, n => n.getAttribute('id') === 'usage-live')!;
+ app.document.activeElement = markers()[1]; app.emit('focusin', { target: markers()[1] });
+ app.send(buildDomModel(after));
+ assert.deepEqual(markers().map(n => n.getAttribute('tabindex')), ['-1', '0']);
+ assert.equal(figure.textWrites, 0);
+ assert.equal(markers()[1].focusCount, 1);
+});
 
 test('hostile tags never reach element creation or receive an ACK; allowed SVG stays namespaced', async () => {
  const initial = '<!doctype html><html><body><main><svg><circle cx="1" cy="2"/></svg></main></body></html>';

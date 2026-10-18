@@ -216,7 +216,7 @@ test('decimation is bounded, keeps barriers and the table lists exactly the plot
  assert.equal((table(html).match(/data-kind="point"/g) ?? []).length, m.points.length);
  { const markers = (plot(html).match(/<(circle|polygon) class="pt/g) ?? []).length; assert.ok(markers >= 2 && markers <= m.points.length); }
  assert.match(text(html), new RegExp(`${m.omittedPoints} retained account updates`));
- assert.ok(html.length < 60_000, `chart HTML ${html.length} bytes`);
+ assert.ok(html.length < 72_000, `chart HTML ${html.length} bytes`); // Measured at 62 KB for 96 keyboard-labeled points.
 });
 
 test('decimation never drops a barrier endpoint', () => {
@@ -247,7 +247,10 @@ test('chart output is script-free, escaped and carries no private identifiers', 
 
 test('accessible alternatives and non-color encodings are present', () => {
  const html = presentChart(observe(series(10, '100')));
- assert.match(html, /aria-labelledby="chart-title chart-desc"/);
+ assert.match(html, /role="group" aria-labelledby="chart-title" aria-describedby="chart-desc chart-data-table"/);
+ assert.equal((html.match(/data-chart-point="/g) ?? []).length, chartModel(observe(series(10, '100'))).points.length);
+ assert.equal((html.match(/tabindex="0"/g) ?? []).length, 1);
+ assert.match(html, /id="chart-tooltip"[^>]*role="tooltip" hidden/);
  assert.match(html, /<title id="chart-title">/);
  assert.match(html, /<desc id="chart-desc">/);
  assert.match(html, /stroke-dasharray=/);
@@ -256,6 +259,15 @@ test('accessible alternatives and non-color encodings are present', () => {
  assert.match(html, /class="chart-legend"/);
  assert.match(CHART_CSS, /forced-colors:active/);
  assert.match(present(observe(series(10, '100'))).html, /forced-colors:active/);
+});
+
+test('plotted points report the change from the preceding observed update and barriers as not comparable', () => {
+ const points = [snapshot(day(0), '1'), snapshot(day(1), '2.25'), snapshot(day(2), '0.5'), snapshot(day(3), '1.75')];
+ const model = chartModel(observe(points, day(3)));
+ assert.deepEqual(model.points.map(p => p.change), [null, '1.25', null, '1.25']);
+ const html = presentChart(observe(points, day(3)));
+ assert.match(html, /change since previous update: 1\.25 credits/);
+ assert.match(html, /change since previous update: not comparable/);
 });
 
 test('unavailable history renders an honest empty state', () => {
