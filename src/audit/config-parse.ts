@@ -13,7 +13,7 @@ const BROAD = new Set(['*', '**', '**/*', '.*', '.+', '^.*$']);
 const ALL = new Set(['**', '**/*', '**/**']);
 export const hasFrontMatter = (b: Uint8Array) => b[0] === 45 && b[1] === 45 && b[2] === 45 && (b[3] === 10 || (b[3] === 13 && b[4] === 10));
 // Byte scanning precedes decoding: no Steering body byte, including invalid UTF-8, is decoded.
-function frontMatterEnd(b: Uint8Array, complete: boolean): number | undefined {
+export function frontMatterEnd(b: Uint8Array, complete: boolean): number | undefined {
  let start = b[3] === 13 ? 5 : 4;
  while (start < b.length) {
   let end = b.indexOf(10, start); const eof = end < 0;
@@ -25,7 +25,7 @@ function frontMatterEnd(b: Uint8Array, complete: boolean): number | undefined {
  }
  return undefined;
 }
-function scalar(raw: string): string | undefined {
+export function scalar(raw: string): string | undefined {
  const s = raw.trim();
  if (!s || /[\t\r\n]/.test(s)) return undefined;
  if (s.startsWith('"')) { try { const v: unknown = JSON.parse(s); return typeof v === 'string' ? v : undefined; } catch { return undefined; } }

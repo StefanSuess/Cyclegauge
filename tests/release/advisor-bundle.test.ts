@@ -95,7 +95,7 @@ const auditApi=()=>{
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
 const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
-const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.reviewKiroConfig'];
+const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
 const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 // Assertions about the filename audit deliberately exclude the independent configuration section.

@@ -62,6 +62,36 @@
         "icon": "$(checklist)"
       },
       {
+        "command": "cyclegauge.config.loadWhenNeeded",
+        "title": "Load only when needed",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "cyclegauge.config.narrowPattern",
+        "title": "Narrow the pattern",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "cyclegauge.config.runManually",
+        "title": "Run only manually",
+        "icon": "$(play)"
+      },
+      {
+        "command": "cyclegauge.config.disable",
+        "title": "Disable",
+        "icon": "$(circle-slash)"
+      },
+      {
+        "command": "cyclegauge.config.open",
+        "title": "Open file",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "cyclegauge.config.preview",
+        "title": "Show suggestion",
+        "icon": "$(lightbulb)"
+      },
+      {
         "command": "cyclegauge.copyDiagnostics",
         "title": "Cyclegauge: Copy Diagnostics"
       },
@@ -307,6 +337,66 @@
           "command": "cyclegauge.audit.reveal",
           "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
           "group": "inline@3"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "inline@2"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "view == cyclegauge.auditView && viewItem == config-agents",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.preview",
+          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "group": "inline@1"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "1_config@1"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "group": "1_config@2"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "view == cyclegauge.auditView && viewItem =~ /^config-(steering-always|steering-match|hook|agents)$/",
+          "group": "1_config@3"
+        },
+        {
+          "command": "cyclegauge.config.preview",
+          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "group": "1_config@1"
         }
       ],
       "commandPalette": [
@@ -320,6 +410,30 @@
         },
         {
           "command": "cyclegauge.audit.reveal",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.loadWhenNeeded",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.narrowPattern",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.runManually",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.disable",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.open",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.config.preview",
           "when": "false"
         }
       ]

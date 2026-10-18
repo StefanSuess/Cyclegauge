@@ -9,6 +9,16 @@ export const CONFIG_EXCLUSIONS = 'Global Steering and Hooks in your home folder,
 const CLI_NOTE = 'Kiro CLI V1/V2 loads only always-included files automatically.';
 const PREVIEW_HEADER = '# Suggested by Cyclegauge - review before saving; nothing was changed';
 const MANUAL = '---\ninclusion: manual\n---\n\nThis is a preview, not a replacement for the existing file.\nFor fileMatch, choose a pattern for the files it applies to.\nFor auto, write a name and a description.\n' + CLI_NOTE;
+const APPLY_NOTE = 'The actions prepare an unsaved edit in the file for you to review and save. Cyclegauge writes nothing itself.';
+/** Apply actions (approved 2026-10-18). Each prepares an unsaved edit in the real file, or only opens it; Cyclegauge writes nothing itself. */
+export type ConfigApplyAction = 'loadWhenNeeded' | 'narrowPattern' | 'runManually' | 'disable' | 'open';
+const ACTIONS: Record<FindingId, readonly ConfigApplyAction[]> = {
+ S1: ['loadWhenNeeded', 'open'], S2: ['open'], S3: [], S4: ['narrowPattern', 'open'],
+ H1: ['runManually', 'disable', 'open'], H2: ['runManually', 'disable', 'open'], H3: ['runManually', 'disable', 'open'], H4: ['runManually', 'disable', 'open'], H5: [],
+};
+/** The apply actions for a finding. A finding without any (S3 and H5 span several files or hooks) keeps the read-only suggestion. */
+export const configActions = (finding: Pick<ConfigFinding, 'id'>): readonly ConfigApplyAction[] => ACTIONS[finding.id] ?? [];
+const CONTEXT: Record<FindingId, string> = { S1: 'config-steering-always', S2: 'config-agents', S3: 'config-finding', S4: 'config-steering-match', H1: 'config-hook', H2: 'config-hook', H3: 'config-hook', H4: 'config-hook', H5: 'config-finding' };
 export interface ConfigNode {
  id: string; kind: 'config'; label: string; description?: string; tooltip?: string; icon: string; contextValue: string;
  children?: ConfigNode[]; action?: 'reviewKiroConfig' | 'previewKiroConfig'; finding?: ConfigFinding;
@@ -34,8 +44,8 @@ const WHY: Record<FindingId, string> = {
  H5: 'These enabled hooks share an event and have broad or lexically identical matchers. They may overlap; this does not prove duplicate work.',
 };
 const NEXT: Record<FindingId, string> = {
- S1: 'Preview manual inclusion', S2: 'Review moving detail to focused Steering files', S3: 'Review narrower inclusion for contributors', S4: 'Review replacing the match-all pattern',
- H1: 'Preview disabling or narrowing the automation', H2: 'Preview disabling or narrowing the automation', H3: 'Preview the optional disable setting', H4: 'Review keeping the agent prompt concise', H5: 'Review the overlapping automation',
+ S1: 'Load only when needed', S2: 'Open the file to move detail into focused Steering files', S3: 'Review narrower inclusion for contributors', S4: 'Narrow the pattern',
+ H1: 'Run only manually or disable', H2: 'Run only manually or disable', H3: 'Run only manually or disable (optional)', H4: 'Keep the agent prompt concise, run it only manually or disable it', H5: 'Review the overlapping automation',
 };
 const node = (id: string, label: string, extra: Partial<ConfigNode> = {}): ConfigNode => ({id, kind: 'config', label, icon: 'info', contextValue: 'config-info', ...extra});
 // Ordinals are positions in the projected hook array; they reveal no name, matcher or action text.
@@ -47,20 +57,14 @@ function location(review: ConfigReview, loc: ConfigLocation): string {
  return `hook ${position < 0 ? loc.hook + 1 : position + 1} of ${hooks.length} in ${file}`;
 }
 const safeFile = (rel: string): boolean => rel === 'AGENTS.md' || configPathAllowed(rel, 'steering') || configPathAllowed(rel, 'hooks');
-/** Only fixed text and validated relative file names reach an untitled document. Never a root or a hook name. */
+/** Only fixed text and validated relative file names reach an untitled document. Never a root or a hook name. Only S3 and H5, which have no apply action, have a suggestion. */
 export function configPreview(review: ConfigReview, finding: ConfigFinding): string | undefined {
+ if (finding.id !== 'S3' && finding.id !== 'H5') return undefined;
  const locations = finding.id === 'S3' ? review.alwaysIncluded.contributors.slice(0, 3) : finding.related ?? [finding];
  if (!locations.length || locations.some(loc => !safeFile(loc.rel))) return undefined;
  const header = `${PREVIEW_HEADER}\n# ${locations.map(loc => location(review, loc)).join('; ')}\n\n`;
- switch (finding.id) {
-  case 'S1': return header + MANUAL + '\n';
-  case 'S3': return locations.every(loc => loc.rel === 'AGENTS.md') ? header + 'AGENTS.md has no inclusion modes. Review moving detailed sections into focused Steering files with manual or fileMatch inclusion. The combined size is a lower bound; cross-root aggregation is an inference from Kiro documentation.\n' : header + 'Review the listed Steering contributors individually; AGENTS.md has no inclusion modes. The combined size is a lower bound; cross-root aggregation is an inference from Kiro documentation.\n\n' + MANUAL + '\n';
-  case 'S2': return header + 'AGENTS.md has no inclusion modes. Review moving detailed sections into focused Steering files with manual or fileMatch inclusion. Choose any pattern yourself.\n';
-  case 'S4': return header + 'Review replacing the match-all pattern with one specific to the files it applies to. No pattern is generated.\n';
-  case 'H1': case 'H2': case 'H3': return header + 'Optional setting for the listed hook:\n"enabled": false\n\nDisabling loses the automation. Review whether a command action suits a deterministic task, or choose a more specific matcher. No matcher or command is generated.\n';
-  case 'H4': return header + 'Review keeping the agent prompt concise and focused on the automation it needs to perform. No prompt text is included here.\n';
-  case 'H5': return header + 'Review whether these hooks need to run for the same event. Keep the automation you need and review disabling or narrowing any redundant hook. No matcher is generated.\n';
- }
+ if (finding.id === 'H5') return header + 'Review whether these hooks need to run for the same event. Keep the automation you need and review disabling or narrowing any redundant hook. No matcher is generated.\n';
+ return locations.every(loc => loc.rel === 'AGENTS.md') ? header + 'AGENTS.md has no inclusion modes. Review moving detailed sections into focused Steering files with manual or fileMatch inclusion. The combined size is a lower bound; cross-root aggregation is an inference from Kiro documentation.\n' : header + 'Review the listed Steering contributors individually; AGENTS.md has no inclusion modes. The combined size is a lower bound; cross-root aggregation is an inference from Kiro documentation.\n\n' + MANUAL + '\n';
 }
 function findingNode(review: ConfigReview, f: ConfigFinding, index: number, names: readonly string[], fresh = false): ConfigNode {
  const ordinal = f.id === 'S3' ? 'Across checked roots' : location(review, f);
@@ -68,13 +72,13 @@ function findingNode(review: ConfigReview, f: ConfigFinding, index: number, name
  const suffix = hook?.name ? ` · ${escapeText(Array.from(hook.name).slice(0, 60).join(''))}` : '';
  const basis = f.behaviour === 'inferred' ? CONFIG_BASIS[2] : f.threshold === 'heuristic' ? CONFIG_BASIS[1] : CONFIG_BASIS[0];
  const credit = f.id.startsWith('S') ? CONFIG_CREDITS[1] : f.id === 'H5' && f.agentHooks === 0 ? CONFIG_CREDITS[2] : CONFIG_CREDITS[0];
- const preview = configPreview(review, f);
+ const preview = configPreview(review, f), actions = configActions(f);
  const gaps = f.id === 'S3' && review.alwaysIncluded.incomplete ? ['Some configuration was not checked; the lower bound may omit additional always-included files.'] : [];
  const details = f.id === 'S3' ? review.alwaysIncluded.contributors.slice(0,3).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)} · ${formatSize(c.size)}`) : (f.related ?? []).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)}`);
  return node(`config:f:${index}`, `${TITLES[f.id]} · ${ordinal}${suffix}`, {
   description: [fresh ? 'new this session' : '', names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, NEXT[f.id]].filter(Boolean).join(' · '),
-  tooltip: [TITLES[f.id], ordinal, WHY[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, NEXT[f.id], ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
-  icon: f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: 'config-finding', finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
+  tooltip: [TITLES[f.id], ordinal, WHY[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, NEXT[f.id], ...(actions.length ? [APPLY_NOTE] : []), ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
+  icon: f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: CONTEXT[f.id], finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
  });
 }
 /** How a result was produced (automatic mode, section 4.1). `fresh` holds finding indices first seen after this window's first review. In memory only. */
