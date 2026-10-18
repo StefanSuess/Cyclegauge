@@ -1,8 +1,10 @@
 # WP10 Hook and Steering review: design
 
-Status: **proposed; security-reviewed with fixes applied; awaiting maintainer approval.** On 2026-10-18 the maintainer approved the direction: Cyclegauge may read Kiro configuration text in the workspace for this feature (bounded `.kiro/steering/*.md`, `AGENTS.md`, Hook definitions). Where Kiro's documentation gives recommendations or limits for Steering and Hooks they are adopted; where it gives none, Cyclegauge proposes thresholds labelled as **Cyclegauge heuristics**. This document is a design, not an approval to implement: the questions in section 15 need maintainer answers, and each phase in section 13 still gets its own `security-reviewer` review. Scope comes from the WP10 paragraph of [path to 1.0](path-to-1.0.md); evidence and the first read-allowlist proposal come from [wp10-13-evidence](wp10-13-evidence.md). Kiro documentation was re-read on 2026-10-18 (pages in section 2); it changes often, so the rule table in section 7 carries a re-check date.
+Status: **approved by the maintainer on 2026-10-18 after security review; the automatic-mode addition (sections 4.1, 11 and phase 10d) needs a scoped security re-review.** On 2026-10-18 the maintainer approved the direction: Cyclegauge may read Kiro configuration text in the workspace for this feature (bounded `.kiro/steering/*.md`, `AGENTS.md`, Hook definitions). Where Kiro's documentation gives recommendations or limits for Steering and Hooks they are adopted; where it gives none, Cyclegauge proposes thresholds labelled as **Cyclegauge heuristics**. The maintainer answered the section 15 questions on 2026-10-18 (recorded there); each phase in section 13 still gets its own `security-reviewer` review before its PR. Scope comes from the WP10 paragraph of [path to 1.0](path-to-1.0.md); evidence and the first read-allowlist proposal come from [wp10-13-evidence](wp10-13-evidence.md). Kiro documentation was re-read on 2026-10-18 (pages in section 2); it changes often, so the rule table in section 7 carries a re-check date.
 
 ## 1. Purpose and user-visible value
+
+**Direction.** Cyclegauge should become more of an advisor than a gauge: it notices things for the user and explains them. Every finding is therefore written advisor-style: **what** was found, **why** it matters (with the documented-or-heuristic basis), and a concrete **next step** (a reviewable preview or a plain-language action). Further advisor features are separate work packages and are not part of WP10; this design does not approve them.
 
 Kiro loads Steering into every interaction and can start agent work from Hooks. Both are easy to over-use and invisible once set up. The review turns two folders of configuration into a short list of concrete findings, each with a plain-language reason and a preview of a narrower setting.
 
@@ -33,17 +35,43 @@ Additional documented facts the rules use: agent prompt actions consume credits 
 - No execution of hooks or commands, no Kiro command, no Kiro-owned files. Global `~/.kiro/steering` and `~/.kiro/hooks` are **not read** (stated in the view as not checked).
 - No Steering body content (see the prefix rule in section 5), no hook prompt or command text kept, displayed or stored. No `#[[file:...]]` reference resolution.
 - No estimated credits, no content-quality or redundancy analysis, no session or usage analysis.
-- No writing: nothing is written into `.kiro` or anywhere; previews only (section 9).
+- No writing: nothing is written into `.kiro` or anywhere; previews only (section 9). The only write the feature may cause is the user's own `cyclegauge.configReviewAutomatically` setting, and only when the user clicks "Turn on" (section 4.1).
+- No automatic reads outside the allowlist of section 5, and no automatic mode that is on without the user's choice.
 - No new runtime dependency (no YAML or glob library), no network.
 - Nested `AGENTS.md` files, legacy `.kiro.hook` files, custom agent `resources` and cloud configuration: not checked.
 
 ## 4. Trigger, consent and trust
 
 - **Own explicit command**, not part of the filename-only audit: `cyclegauge.reviewKiroConfig` ("Cyclegauge: Review Kiro Steering and Hooks"), also offered as a node in the existing Audit view. A new contributed command needs maintainer approval (question 2 in section 15).
-- **Never automatic in v1.** The silent audit, the reminder and the file watcher never run it, because the audit's published promise is "does not read other file contents".
+- **Manual by default; automatic only as an opt-in setting** (section 4.1). The existing silent audit, its reminder and its file watcher **never** run this review: they keep the promise "does not read other file contents". The review has its own setting, its own scheduler and its own watcher.
 - **Workspace trust required.** `vscode.workspace.isTrusted` false: nothing is read; the view says "Not checked: workspace is not trusted". Only `file:` folders.
 - **Same folder guards as the audit.** Each root goes through the existing `folderCheck` / `refusal()` (filesystem root, home folder, Kiro data, Cyclegauge storage, broad roots). A refused root is "not checked" with the existing fixed reason.
 - **Multi-root: all trusted `file:` roots, deduplicated by real path, at most 8.** Kiro reads `.kiro` under each root (documented) and always-included Steering applies in all roots, so the always-included total is summed across checked roots; that cross-root sum is labelled **inference** (precedence and de-duplication across roots are not documented). Each root passes its own `folderCheck`; two spellings of the same real folder count once. The audit picks one root; this review differs on purpose. Roots beyond 8 are counted as not checked. Findings carry the root's folder name (escaped), as the audit header does.
+
+### 4.1 Automatic mode (opt-in, off by default)
+
+Maintainer direction (2026-10-18): automate as much as possible. The review mirrors the audit's automatic modes, without a new storage key.
+
+- **Setting** `cyclegauge.configReviewAutomatically`: `off` | `onOpen` | `onOpenAndChanges`. Default **`off`**, application scope (read without a folder, so only the user's own settings count and a cloned repository's `.vscode/settings.json` can never turn it on). The name and values follow `cyclegauge.auditAutomatically` for consistency; `manual` in place of `off` was considered and rejected as a second vocabulary. Default `off` follows the audit's convention and the fact that this is the first feature that parses file contents: nothing is read by itself until the user chooses. The new setting needs maintainer approval (question 10).
+- **`onOpen`:** one run per window, a few seconds after activation (same delay constant as the audit reminder), only when the workspace is trusted and each root passes `folderCheck`. There is no "last reviewed" date, so no one-day age rule: without persistence, "once per window" is the rule.
+- **`onOpenAndChanges`:** as `onOpen`, plus a re-run when an allowlisted file changes (below).
+- **Narrow watcher.** One `createFileSystemWatcher` per checked root (at most 8) with `RelativePattern(root, '{AGENTS.md,.kiro/steering/*.md,.kiro/hooks/*.json}')`, subscribed to create, change and delete (a size change matters, unlike the audit's create-only watcher). The handler keeps **no path**: it validates that the event URI is a `file:` URI whose root-relative path has exactly one of the three allowlisted shapes (no deeper nesting, no `..`) and only sets a per-root "dirty" flag. Anything else is ignored. The watcher is created only in `onOpenAndChanges`, in a trusted workspace, for roots that pass `folderCheck`; it is disposed and rebuilt when the setting, the workspace folders or workspace trust change, exactly as the audit's `syncWatcher` does.
+- **Debounce, single-flight, minimum interval, cap.**
+  - Trailing debounce 5 s, and a run is forced after 60 s of continuous events (the audit's `WATCH_DELAY_MS` and `WATCH_MAX_WAIT_MS`).
+  - One review at a time, shared with the manual command. A trigger while one runs is coalesced into one follow-up run.
+  - **Minimum interval of 30 s** between the end of one automatic run and the start of the next.
+  - **At most 20 automatic runs per window.** After that automatic mode pauses for the rest of the window, the view header says "automatic review paused (many changes)" and the manual command still works. This bounds repeated reads (section 11).
+- **Same bounds and gates as the manual run:** workspace trust, `folderCheck`, the section 5 allowlist and limits, the 3 s budget and abort signal. An automatic run reads nothing a manual run could not read. Trust is re-checked when a debounced run fires.
+- **Silent unless there is news.** No progress notification, no focus change, no modal. The Audit view's Steering and Hooks section updates in place and its header says "checked automatically · just now". Failures and "not checked" results are shown in the view only, never as a notification.
+- **Notification only for a new finding class, specified exactly (no persistence).**
+  - A *class* is a finding id (S1, S2, S3, S4, H1, H2, H4, H5; H3 is information and never notifies), not an instance.
+  - The window keeps an in-memory set `notified` of classes already announced. After each automatic run, if the result contains a class not in `notified`, the classes are added and **one** non-modal information message is shown with a **Show** button: "Cyclegauge found things to review in your Kiro Steering and Hooks." (fixed text; no counts of names, no file names, no hook names).
+  - At most one message per run, at most 3 per window, and not within 60 s of the previous one. A class that disappears and reappears in the same window is not announced again.
+  - Because the set starts empty, the first automatic run of a window announces every class it finds ("new since this session" means new since the window opened), consistent with the audit's automatic open message. Instances new to an already announced class are only marked "new this session" in the view (in-memory).
+  - A manual run never shows this notification; it shows the view.
+  - The set is lost on reload by design. A new storage key (for example to remember announced classes across windows) would need separate approval.
+- **One-time offer, no new key.** After the user's **manual** run, once per window, a non-modal message may offer "Check automatically when this workspace opens or its Kiro files change?" with **Turn on** (writes only the user setting, `onOpenAndChanges`) and **Not now**. It is not shown in `onOpen`/`onOpenAndChanges`, or when the support-prompt setting `cyclegauge.supportPrompts` is off, and never before a manual run. Without a stored flag it can recur once per window until the user turns the mode on or off in settings; whether to add one boolean key to stop that is question 11.
+- **Does not touch audit state.** The scheduler reads neither the audit's reminder keys nor its snooze or "never remind" flags and writes none of them.
 
 ## 5. Read allowlist and limits
 
@@ -139,7 +167,7 @@ The existing audit already shows workspace-relative paths of the user's own file
 
 ### 8.2 Tree
 
-One header node "Kiro Steering and Hooks" (counts, "checked just now", "partial check" when relevant), then groups: "Always-included Steering", "AGENTS.md", "Hooks that start agent work", "Overlapping hooks", "Not checked". Same icons, group and tooltip structure as `auditTree`; opaque ids (position-based, no path in an id). Pure vscode-free builder next to `audit-model.ts`.
+One header node "Kiro Steering and Hooks" (counts, "checked just now" or "checked automatically · just now", "partial check" and "automatic review paused" when relevant), then groups: "Always-included Steering", "AGENTS.md", "Hooks that start agent work", "Overlapping hooks", "Not checked". Each finding row ends with its advisor-style next step (the preview action or one plain sentence). Findings first seen after the window opened carry an in-memory "new this session" marker. Same icons, group and tooltip structure as `auditTree`; opaque ids (position-based, no path in an id). Pure vscode-free builder next to `audit-model.ts`.
 
 ### 8.3 Wording rules
 
@@ -193,13 +221,17 @@ Inconsistencies in Kiro's documentation and the decision for each:
 - **Deep or huge JSON.** 64 KiB cap, `try/catch` including `RangeError`, no recursion, `JSON.stringify` or `structuredClone` over the parsed value; prototype-pollution keys are harmless because only explicit own fields are read into fresh structs.
 - **Symlink escapes and Kiro data.** Ancestor and file symlinks refused; `refusal()` keeps Kiro data and Cyclegauge storage out; `~/.kiro` is not read.
 - **Misleading output.** A hook name cannot imitate Cyclegauge text because it is only a suffix on a sidebar label, capped and escaped. A finding never claims an outcome ("saves N credits").
-- **Consent drift.** Because the content-read is a new boundary, every place that says the audit "never reads other file contents" is updated in the phase 10c PR: `docs/usage.md` (line 53), `docs/privacy-and-storage.md` (line 23), `README.md` (line 75) and the trust-boundary entry in `ARCHITECTURE.md`. The wording must say: the review is a separate command from the audit and runs only when you click it; it reads the first few bytes of each Steering file (and up to 2 KiB only when a front-matter block follows) and parses Hook JSON files up to 64 KiB; hook names are read and shown in the sidebar; only the size of `AGENTS.md` is read; nothing else from those files is kept or shown.
+- **Consent drift.** Because the content-read is a new boundary, every place that says the audit "never reads other file contents" is updated in the phase 10c PR: `docs/usage.md` (line 53), `docs/privacy-and-storage.md` (line 23), `README.md` (line 75) and the trust-boundary entry in `ARCHITECTURE.md`. The wording must say: the review is a separate command from the audit; it runs when you click it, or automatically only if you turn on `cyclegauge.configReviewAutomatically` (off by default, a user setting): then on workspace open and when `AGENTS.md`, `.kiro/steering/*.md` or `.kiro/hooks/*.json` change, reading nothing else; it reads the first few bytes of each Steering file (and up to 2 KiB only when a front-matter block follows) and parses Hook JSON files up to 64 KiB; hook names are read and shown in the sidebar; only the size of `AGENTS.md` is read; nothing else from those files is kept or shown.
 - **State separation.** The review result is held apart from the audit result. A review never changes `AuditSummary` (the dashboard's Workspace card), the `support.valueSeen` flag, the audit's reminder state or the Copy-suggestions clipboard text.
-- **Denial of service.** Time budget, one run at a time, no watcher.
+- **Denial of service.** Time budget, one run at a time.
+- **Automatic mode: watcher event storms** (a build, checkout or formatter touching thousands of files, or a hostile repository toggling an allowlisted file in a loop). The watcher pattern is narrow and its handler stores no path, only a per-root flag; events outside the three allowlisted shapes are dropped before any work. Trailing debounce (5 s, forced after 60 s), single-flight, a 30 s minimum interval and a hard cap of 20 automatic runs per window bound the work. Worst-case repeated reading per window is about 20 runs times (100 files x 5 bytes or 2 KiB prefix, hook files up to the 2 MiB run cap) per root, and the cap pauses automatic mode afterwards.
+- **Automatic mode: hostile repository toggling files to nag.** The notification is limited to new finding classes, 1 per run, 3 per window, 60 s apart, with fixed text; repeated toggling cannot produce more. A hostile repo cannot enable the mode (application-scope setting) and cannot make it read outside the allowlist (the path shape check runs on watcher events and again in the reader).
+- **Automatic mode: cost of repeated reads.** Reads are bounded prefixes and capped hook files on the user's own machine; the run yields between files and honours the abort signal, so the editor stays responsive. Cloud-placeholder download and slow network drives (section 5) matter more in automatic mode: the 3 s budget and the 20-run cap apply, and a run still outstanding blocks the next.
+- **Automatic mode: consent.** Opt-in, off by default, user-scope, and the offer only writes that one user setting after a click.
 
 ## 12. Persistence, diagnostics, data model, code layout
 
-**Persistence: none in v1.** No new `globalState` or `workspaceState` keys, no files, no cache. Results live in memory like the audit result and are cleared on the next run or window reload. A hide/dismiss action, "last reviewed" date or summary counts on the dashboard would each need a new key and separate approval (question 8 in section 15). Dismissals of the existing audit are unaffected.
+**Persistence: none in v1.** No new `globalState` or `workspaceState` keys, no files, no cache. Results, the automatic mode's `notified` class set, run counters, "new this session" markers and the once-per-window offer flag live in memory only and are cleared on window reload. The one new configuration item is the user setting `cyclegauge.configReviewAutomatically`, which Cyclegauge writes only when the user clicks "Turn on". A hide/dismiss action, "last reviewed" date or summary counts on the dashboard would each need a new key and separate approval (question 8 in section 15). Dismissals of the existing audit are unaffected.
 
 **Diagnostics: no change to the output contract in v1.** Failure codes appear only in the view. If later desired, at most fixed counters (`configReview: available|unavailable`, number of not-checked codes) with no names, as the audit already does; that would be a contract change needing approval.
 
@@ -225,18 +257,20 @@ interface ConfigFinding { id: 'S1'|'S2'|'S3'|'S4'|'H1'|'H2'|'H3'|'H4'|'H5'; root
 - `src/audit/config-rules.ts`: constants, trigger table, thresholds with source and date, and the pure finding functions.
 - `src/audit/config-review.ts`: orchestrates one review (roots, limits, abort, yields).
 - `src/extension/config-model.ts`: vscode-free tree and preview text builders (reuses `escapeText`, `formatSize`).
-- Glue: a registration function beside `registerAudit` for the command, the tree nodes appended to the Audit view provider, and the preview document; `folderCheck` is shared with the audit (small refactor). `package.json` gets one command.
+- `src/extension/config-schedule.ts` (phase 10d): vscode-free decision logic for the automatic mode (when to run, debounce, minimum interval, run cap, which classes are new, notification limits) with an injected clock, tested like `audit-schedule.ts`.
+- Glue: a registration function beside `registerAudit` for the command, the tree nodes appended to the Audit view provider, and the preview document; `folderCheck` is shared with the audit (small refactor). `package.json` gets one command (10c) and one setting (10d). The watcher and scheduler wiring lives in the same registration function and is separate from `registerAudit`'s watcher.
 
 ## 13. Phases and reviews
 
 Every phase gets a mandatory `security-reviewer` review before its PR; implementation by `implementer-senior`; at most one re-review.
 
-| Phase | Content | Sections it must satisfy | Approvals needed first (section 15) |
+| Phase | Content | Sections it must satisfy | Approvals (section 15; 1 to 9 answered 2026-10-18) |
 | --- | --- | --- | --- |
 | 10a | `config-read.ts` and `config-parse.ts` with all limits, plus extraction of `readBounded` with `readIgnoreFile` as a byte-identical wrapper (existing audit tests unchanged and green). No UI. | 5, 6, 11 | 5 (read boundary) |
 | 10b | `config-rules.ts` and `config-review.ts`: findings, codes, orchestration (pure, no UI). | 7, 10 | 3 (thresholds), 4 (multi-root) |
 | 10c | Command, tree nodes, preview documents, trust/multi-root/folder guards, the four documentation updates in section 11, `package.json` command. | 4, 8, 9, 11, 12 | 1, 2, 6, 8 |
-| 10d (optional) | Prepared unsaved edit for Steering without front matter; persistence or dashboard summary, if wanted. | separate design update | 6, 8, new approvals |
+| 10d | **Automatic mode:** the setting, `config-schedule.ts`, narrow watcher, debounce, single-flight, minimum interval and run cap, new-class notification, the one-time offer, documentation wording for the opt-in. Mandatory `security-reviewer` review (scoped to 4.1 and the automatic-mode threat model). | 4.1, 8, 11, 12 | 2 (answered), 10, 11 |
+| 10e (optional, formerly 10d) | Prepared unsaved edit for Steering without front matter; persistence or dashboard summary, if wanted. | separate design update | 6, 8, new approvals |
 
 ## 14. Tests plan (synthetic only)
 
@@ -251,20 +285,30 @@ Fixtures are built in memory or under a per-test temporary directory by the test
 - **Model/presentation:** tree structure, opaque ids, escaping of bidi and control characters in names, basis and credit sentences from the closed sets, preview text exact match, unsafe names get no preview.
 - **Regression of the shared reader:** `readIgnoreFile` returns exactly today's results for `not_allowed`, `unsafe`, `oversized` and `unreadable`, a BOM-prefixed file and an invalid-UTF-8 file; `readBounded` refuses a path that fails `allow` before any `lstat` or `open`.
 - **State separation:** after a review, `AuditSummary` (dashboard Workspace card), `cyclegauge.support.valueSeen.v1` and the Copy-suggestions clipboard text are byte-identical to before; no storage key is written.
-- **Extension glue (mock `vscode`):** untrusted workspace reads nothing; two spellings of one real root are reviewed once; the cross-root sum is labelled inference; refused root; multi-root cap of 8; no automatic run from the watcher, reminder or silent audit; no `WorkspaceEdit` call and no write API in v1; no new storage key written.
+- **Extension glue (mock `vscode`):** untrusted workspace reads nothing; two spellings of one real root are reviewed once; the cross-root sum is labelled inference; refused root; multi-root cap of 8; with `off` (default) nothing runs by itself and no watcher is created; the silent audit, its reminder and its watcher never start a review; no `WorkspaceEdit` call and no write API in v1; no new storage key written.
+- **Automatic mode (phase 10d, pure `config-schedule` tests with a fake clock, plus glue with a mock watcher):**
+  - Setting values `off`, `onOpen`, `onOpenAndChanges`, unknown or workspace-scoped values (treated as `off`); the setting is read at application scope.
+  - `onOpen` runs once per window after the delay and not in an untrusted or refused root; trust granted later starts it; trust or setting changes dispose the watcher.
+  - Watcher: created only in `onOpenAndChanges`, one per root up to 8, exact pattern; events with other shapes (nested, `..`, other names, non-`file:`) are ignored; no path is retained (the dirty flag is the only state).
+  - Event storm: 10,000 events produce one run after the debounce; a continuous stream is forced to run at 60 s; a trigger during a run yields exactly one follow-up; the 30 s minimum interval; the 20-run cap pauses automatic mode, shows the paused header and leaves the manual command working.
+  - Notification: first run announces once; a second run with the same classes is silent; a new class announces; a class that disappears and returns is silent; H3-only and "not checked" results are silent; at most 3 per window and 60 s apart; fixed text with no name or count of files; a manual run shows none.
+  - Offer: only after a manual run, once per window, never when `cyclegauge.supportPrompts` is off or the mode is already on; **Turn on** writes only the user setting; **Not now** writes nothing.
+  - No storage key is written by any automatic path; the audit's reminder keys and `AuditSummary` are unchanged; the sentinel tests of the manual run also run through the automatic path.
 - **Packaged/release:** the VSIX allowlist is unchanged (no new packaged file types); `pnpm test:release` only if release scripts are touched (not expected).
 - **Native check before release:** Kiro on macOS with synthetic workspaces; Windows and Ubuntu are separate claims, not implied.
 
 ## 15. Questions for the maintainer
 
-*Each question carries the security reviewer's recommended answer, **pending maintainer approval**.*
+**Answered by the maintainer 2026-10-18.** Questions 1 and 3 to 9 were approved as the security reviewer recommended; question 2 was changed. Questions 10 and 11 are new and open.
 
-1. **Hook names displayed** in the sidebar (escaped, 60 characters), or ordinal "hook 2 of 3" only (section 8.1)? Recommended answer (pending maintainer approval): names in the sidebar label only; otherwise ordinals.
-2. **New command** `cyclegauge.reviewKiroConfig` and its entry in the Audit view, run only on explicit click, never automatically in v1 (section 4)? Should a later opt-in automatic mode ever exist? Recommended answer (pending maintainer approval): approve the explicit command; no automatic mode before 1.0.
-3. **Thresholds:** 8 KiB / 24 KiB per always-included file and 32 KiB total, 2 KiB hook prompt (section 7), accepted as Cyclegauge heuristics? They are guesses; Kiro publishes none. Recommended answer (pending maintainer approval): acceptable as labelled heuristics, kept in one table.
-4. **Multi-root:** all trusted roots up to 8 (summed always-included total) instead of the audit's one picked folder? Recommended answer (pending maintainer approval): yes, with real-path de-duplication, the inference label on the cross-root sum and a per-root `folderCheck`.
-5. **Reads:** the first few bytes of each Steering file (up to 2 KiB only when a front-matter block follows) and whole Hook JSON files up to 64 KiB, size-only for `AGENTS.md`: acceptable as the exact content-read boundary, and the documentation wording (section 11) to be updated with it? The boundary is the first few bytes of each Steering file and up to 2 KiB only when it starts with a front-matter block. Recommended answer (pending maintainer approval): approve this boundary.
-6. **Preview only in v1** (new untitled document, nothing applied to workspace files)? Is a later prepared-unsaved-edit for Steering files (phase 10d) wanted, given it makes the editor load the file body? Recommended answer (pending maintainer approval): preview-only in v1; defer 10d.
-7. **Nested `AGENTS.md`:** accept "not checked" in v1, or approve a small change so the audit's existing file walk also reports their sizes (touches `audit.ts` result contract)? Recommended answer (pending maintainer approval): not checked in v1; no audit contract change.
-8. **Persistence and surfacing:** none in v1 (no hide, no last-reviewed date, nothing on the credit dashboard). Is that right, or should a dismiss key or dashboard count be designed now? Recommended answer (pending maintainer approval): no persistence, including no `support.valueSeen` effect.
-9. **Global `~/.kiro` steering and hooks and CLI V3:** keep out of scope (the view says so), or schedule a separate approval? Recommended answer (pending maintainer approval): out of scope.
+1. **Hook names displayed** in the sidebar (escaped, 60 characters), or ordinal only (section 8.1)? Answered by the maintainer 2026-10-18: names in the sidebar label only; ordinals everywhere else.
+2. **New command** `cyclegauge.reviewKiroConfig` and its entry in the Audit view. Answered by the maintainer 2026-10-18, **changed from the recommendation**: approved, and an opt-in automatic mode is designed now (section 4.1, phase 10d) instead of being deferred, because Cyclegauge should automate as much as possible and act as an advisor.
+3. **Thresholds** (8 KiB / 24 KiB per always-included file, 32 KiB total, 2 KiB hook prompt, section 7). Answered by the maintainer 2026-10-18: acceptable as labelled heuristics in one table.
+4. **Multi-root:** all trusted roots up to 8. Answered by the maintainer 2026-10-18: yes, with real-path de-duplication, the inference label on the cross-root sum and a per-root `folderCheck`.
+5. **Reads:** the first few bytes of each Steering file (up to 2 KiB only when a front-matter block follows), Hook JSON up to 64 KiB, size-only for `AGENTS.md`. Answered by the maintainer 2026-10-18: approved, with the documentation wording of section 11.
+6. **Preview only in v1.** Answered by the maintainer 2026-10-18: preview-only; a prepared edit (phase 10e) is deferred.
+7. **Nested `AGENTS.md`.** Answered by the maintainer 2026-10-18: not checked in v1; no audit contract change.
+8. **Persistence and surfacing.** Answered by the maintainer 2026-10-18: none in v1, including no `support.valueSeen` effect. (The automatic mode keeps its state in memory only.)
+9. **Global `~/.kiro` steering and hooks and CLI V3.** Answered by the maintainer 2026-10-18: out of scope.
+10. **Setting for the automatic mode (open):** is `cyclegauge.configReviewAutomatically` with `off` (default) | `onOpen` | `onOpenAndChanges`, application scope, acceptable, or should it be named `cyclegauge.configReview.mode` with `manual` | `onOpen` | `onOpenAndChanges`? Are the proposed bounds (5 s debounce, 60 s forced run, 30 s minimum interval, 20 runs and 3 notifications per window) acceptable? Should the default ever become `onOpen`?
+11. **Enable offer (open):** the offer after a manual run is shown once per window and may recur in later windows because no flag is stored. Accept that, or approve one boolean `globalState` key (for example `cyclegauge.configReview.offered.v1`) so it is shown once ever?
