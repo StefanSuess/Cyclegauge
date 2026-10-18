@@ -2,7 +2,7 @@
 
 # Cyclegauge for Kiro IDE
 
-**Credit usage & forecasting for Kiro IDE**
+**See your Kiro credits run out before they do, and spend fewer of them**
 
 [![Kiro IDE](https://img.shields.io/badge/IDE-Kiro-blue)](https://github.com/StefanSuess/Cyclegauge#install)
 [![macOS beta](https://img.shields.io/badge/macOS-beta-lightgrey)](https://github.com/StefanSuess/Cyclegauge#platform-support-and-limitations)
@@ -16,9 +16,19 @@
 ![Development version 0.9.0 beta](https://img.shields.io/badge/development-0.9.0%20beta-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/LICENSE)
 
-Know how many AI credits you've used, how many remain, and whether they'll last until your next reset.
+Cyclegauge adds a status-bar item and a dashboard to Kiro IDE. It warns you while you can still change something, and shows where credits and money could be saved:
 
-Cyclegauge adds a status-bar item and a detail view to Kiro IDE. It reads Kiro's local usage logs (and, for the optional session hints on macOS, Kiro's local session files; see Privacy), needs no separate sign-in, and sends nothing anywhere.
+- **Warns before credits run out.** A notice, at most one at a time and each kind once per billing cycle, when a regular forecast says the reported limit will be reached before the reset, at 80 % of it (adjustable), or when it is reached, so you can adjust early.
+- **Shows the overage in dollars.** The projected overage is valued as modelled USD from a dated price list, next to the cost difference of the next larger plan. A modelled scenario, not an invoice; credits and money are always shown separately.
+- **Hints at the right plan.** When a smaller plan would have covered both this forecast and your last completed cycle, it says so (a hint, not advice).
+- **Finds files Kiro probably doesn't need.** The workspace audit lists secrets, dumps, build output and other large files that no ignore rule covers, with their total size, and prepares a `.kiroignore` you can copy or review and save yourself. It shows exposure, not measured credit savings.
+- **Reviews Hooks and Steering.** One command flags large always-included Steering files and broad or agent-starting hooks, with unsaved previews of narrower alternatives. Run it when you like, or turn on automatic checks when a workspace opens and when those files change.
+- **Session hints (macOS).** A reminder when your latest session's context is about 70 % or 85 % full, and a note when its model is listed above Auto's credit rate. On by default on macOS, one setting to turn off.
+- **Interactive dashboard with a cycle recap.** Usage chart with forecast scenarios, pace against your daily budget and a recap of the cycle that just ended (when your history supports it) that you can copy as text or save as an image to a file you choose.
+
+<!-- TODO(maintainer): add a short synthetic GIF of the warning, overage cost and workspace audit here (see docs/launch/demo-script.md). Synthetic data only. -->
+
+Everything runs locally: no telemetry, no sign-in, Kiro's files are only read, never changed (details under Privacy).
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
@@ -76,7 +86,8 @@ Setup uses the same command across platforms.
 - **Session hints (macOS, on by default).** Cyclegauge parses up to 20 of the most recently changed sessions' `session.json` files (each whole, in memory, including titles and workspace paths) to find the newest session of your open folder, then loads up to the last 256 KiB of that session's conversation file into memory, which can contain prompts and replies. It keeps only that session's model identifier, context percentage and time, compares workspace paths only to find your open folder, and never stores, logs, shows or sends anything else. Local Kiro window only, fixed folder `~/.kiro/sessions`, files opened read-only, nothing written. Turn it off with the user setting `cyclegauge.sessionHints`; when off (or on other platforms or in a remote window) nothing is read.
 - **Workspace audit.** Runs when you start it, or automatically only if you turn that on in your user settings. It reads only file names and sizes and the ignore files listed in Agent Ignore Files, never other file contents or global ignore files. It writes no files and sends nothing: Exclude from Kiro prepares an unsaved change that you save yourself. Per workspace it stores only the last audit date, reminder state and salted hashes of items you hid. Review suggestions before saving them; excluding files can hide them from Kiro.
 - **Separate Steering and Hook review (unreleased).** **Cyclegauge: Review Kiro Steering and Hooks**, also in the Audit view, runs when you click it, or automatically only if you turn on the user setting `cyclegauge.configReviewAutomatically` (off by default; on open and, if chosen, when those files change). It checks up to eight trusted local roots with the audit's folder guards. It reads the first few bytes of each `.kiro/steering/*.md` file (up to 2 KiB only when it starts with front matter), parses `.kiro/hooks/*.json` up to 64 KiB per file, and reads only the size of root `AGENTS.md`. Escaped hook names appear only in sidebar labels; no Steering body, pattern, matcher, prompt or command text is kept or shown. Previews are unsaved text documents; nothing in the workspace is changed, stored or sent. Results stay in memory and do not affect the credit dashboard or support prompts.
-- **Script-free view.** The detail view runs no scripts; its only command links are four Cyclegauge commands (Cost Advisor, check workspace, show workspace audit, share), none with arguments, plus three fixed web links in the footer (rate, star, support) that open only when you click them.
+- **Cycle recap and exports.** The recap keeps only a cycle identifier and a shown/dismissed flag in the extension's own storage. Saving the recap image or exporting CSV writes only a file you choose, never inside Kiro's or Cyclegauge's storage; copy and save happen only when you click.
+- **Credit view and dashboard.** The detail view runs no scripts. The dashboard runs one bundled script (nonce'd, under a strict content security policy that blocks all network connections) for the chart, CSV export and recap actions. The detail view's only command links are four Cyclegauge commands (Cost Advisor, check workspace, show workspace audit, share), none with arguments, plus three fixed web links in the footer (rate, star, support) that open only when you click them.
 
 Details: [privacy and storage](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md). Never post real Kiro data in issues or pull requests.
 
