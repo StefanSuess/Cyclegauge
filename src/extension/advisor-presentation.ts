@@ -125,7 +125,7 @@ function estimateCard(e:SavingsEstimate,context:AdvisorContext,limit:string|null
  if(e.conditions.includes('net_changes_not_gross_billable_usage'))assumes.push('net changes in the reported counter as usage');
  if(e.conditions.includes('short_window_long_horizon'))assumes.push('a short observation window extended over later cycles');
  assumes.push('your usage continues at the forecast','list prices before tax, no promotions');
- const planLine=cur?(confirmed?'':`<p class="small"><strong>Assumes ${cur} (unconfirmed).</strong> Not your plan? Confirm or correct it with the light-bulb <strong>Cost Advisor</strong> item in the status bar.</p>`):'';
+ const planLine=cur?(confirmed?'':`<p class="small"><strong>Assumes ${cur} (unconfirmed).</strong> Not your plan? Change your plan answers below.</p>`):'';
  const foot=e.outcome==='saving'?'Modelled list prices before tax: not a guarantee, not a saving you have realised and not an invoice.':'Modelled list prices before tax. Not a guarantee and not an invoice.';
  const html=`<div class="estimate estimate-${e.tier}" role="group" aria-label="Plan cost estimate"><p class="tier"><span class="badge">${safe(tierLabels[e.tier])}</span> <span class="muted small">${safe(tierText)}</span></p>${figure}`
   +(limitLine?`<p class="small">${limitLine}</p>`:'')
@@ -186,9 +186,9 @@ export function presentAdvisor(o:{hint:PlanHint;context:AdvisorContext;horizons:
    +`<p class="muted small">Bundled list prices: catalog ${safe(catalog.version)}, reviewed ${safe(catalog.verifiedOn.slice(0,10))}. Offline only; nothing is purchased or sent anywhere.</p></details>`
   :'';
  const action=context.planSource==='confirmed'
-  ?`<strong>Change your plan or answers:</strong> use <strong>Open Cost Advisor</strong> below or the light-bulb item in the status bar.`
+  ?`<strong>Change your plan or answers:</strong> open <strong>Change your plan answers</strong> below.`
   :card?''
-  :`<strong>Not your plan? Confirm or correct it:</strong> use <strong>Open Cost Advisor</strong> below or the light-bulb item in the status bar and pick your plan. The figures above update immediately.`;
+  :`<strong>Not your plan?</strong> Change your plan answers below. The figures above update immediately.`;
  return `<section id="cost-advisor" aria-labelledby="advisor-heading"><h2 id="advisor-heading">Cost Advisor</h2>`
   +`<p class="plan-row"><span class="label">${context.planSource==='confirmed'?'Your plan':'Likely plan'}</span> ${planText} ${planLine}</p>${planNote?`<p class="muted small">${planNote}${context.planSource==='hint'?` Hint confidence: ${safe(hint.confidence)}.`:''}</p>`:''}`
   +verdictBlock
