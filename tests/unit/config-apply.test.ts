@@ -14,7 +14,7 @@ import type { ConfigNode } from '../../src/extension/config-model.ts';
 // Synthetic workspaces on disk, a minimal editor double that keeps documents in memory, and the real reviewer.
 const SENTINEL = 'SYNTHETIC-INJECT-IGNORE-PREVIOUS';
 const flatten = (nodes: ConfigNode[]): ConfigNode[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
-interface Doc { languageId: string; uri: { scheme: string; fsPath: string }; text: string; isDirty: boolean; eol: number; getText(range?: { start: { offset: number }; end: { offset: number } }): string; positionAt(offset: number): { offset: number }; save(): Promise<boolean> }
+interface Doc { version: number; languageId: string; uri: { scheme: string; fsPath: string }; text: string; isDirty: boolean; eol: number; getText(range?: { start: { offset: number }; end: { offset: number } }): string; positionAt(offset: number): { offset: number }; save(): Promise<boolean> }
 async function workspace(t: { after(fn: () => unknown): void }, files: Record<string, string>) {
  const root = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-config-apply-')));
  t.after(() => rm(root, { recursive: true, force: true }));
@@ -40,7 +40,7 @@ function setup(root: string, options: { autoSave?: string } = {}) {
    await state.onOpen?.(); state.onOpen = undefined;
    const known = docs.get(uri.fsPath);
    const text = known?.isDirty ? known.text : readFileSync(uri.fsPath, 'utf8');
-   const doc: Doc = known ?? { languageId: 'markdown', uri: { scheme: 'file', fsPath: uri.fsPath }, text, isDirty: false, eol: text.includes('\r\n') ? 2 : 1,
+   const doc: Doc = known ?? { version: 1, languageId: 'markdown', uri: { scheme: 'file', fsPath: uri.fsPath }, text, isDirty: false, eol: text.includes('\r\n') ? 2 : 1,
     getText(range) { return range ? this.text.slice(range.start.offset, range.end.offset) : this.text; }, async save() { log.saves++; return true; }, positionAt: offset => ({ offset: Math.max(0, Math.min(offset, doc.text.length)) }) };
    if (!doc.isDirty) doc.text = text;
    if (state.dirtyNext) { doc.isDirty = true; state.dirtyNext = false; }
@@ -53,7 +53,9 @@ function setup(root: string, options: { autoSave?: string } = {}) {
    // Like the editor, every change of one edit refers to the document as it was before the edit, so they are applied from the end of the text to the start.
    const changes = [...(edit.inserts as { uri: { fsPath: string }; position: { offset: number }; text: string }[]).map(i => ({ uri: i.uri, start: i.position.offset, end: i.position.offset, text: i.text })),
     ...(edit.replaces as { uri: { fsPath: string }; range: Range; text: string }[]).map(r => ({ uri: r.uri, start: r.range.start.offset, end: r.range.end.offset, text: r.text }))].sort((a, b) => b.start - a.start);
-   for (const c of changes) { const d = docs.get(c.uri.fsPath)!; d.text = d.text.slice(0, c.start) + c.text + d.text.slice(c.end); d.isDirty = true; }
+   // The editor rejects an edit whose changes overlap (identical ranges included).
+   if (changes.some((a, i) => changes.some((b, j) => i < j && a.uri.fsPath === b.uri.fsPath && ((a.start === b.start && a.end === b.end) || (a.start < b.end && b.start < a.end))))) return false;
+   for (const c of changes) { const d = docs.get(c.uri.fsPath)!; d.text = d.text.slice(0, c.start) + c.text + d.text.slice(c.end); d.isDirty = true; d.version++; }
    return true;
   },
  };
@@ -427,4 +429,36 @@ test('group commands trust nothing the argument carries: forged, stale, wrong-ki
  assert.deepEqual([s.log.opened.length, s.log.edits.length, s.log.messages.at(-1)], [0, 0, APPLY_TEXT.untrusted]);
  s.state.trusted = true; s.workspace.workspaceFolders = [{ ...s.folder, uri: { scheme: 'file', fsPath: join(root, 'elsewhere') } }];
  await load(groupNode(s, 'config-group-load')); assert.equal(s.log.edits.length, 0); assert.equal(s.log.messages.at(-1), APPLY_TEXT.outdated);
+});
+
+test('one hook with two findings (a broad trigger and a large prompt) is changed once: no overlapping edit', async t => {
+ const root = await workspace(t, { '.kiro/hooks/synthetic.json': hooks(agent('synthetic-one', { action: { type: 'agent', prompt: SENTINEL + pad(2100) } }), agent('synthetic-two')) });
+ const s = setup(root); await s.run();
+ const run = groupNode(s, 'config-group-run');
+ assert.deepEqual(run.children!.slice(1).map(n => `${n.finding!.id}:${n.finding!.hook}`).sort(), ['H1:0', 'H1:1', 'H4:0']);
+ await s.commands.get('cyclegauge.config.runManuallyAll')!(run);
+ assert.equal(s.log.edits.length, 1); assert.equal(s.log.edits[0]!.replaces.length, 2, 'one replace per hook');
+ assert.deepEqual(JSON.parse(s.doc('.kiro/hooks/synthetic.json').text).hooks.map((h: { trigger: string }) => h.trigger), ['Manual', 'Manual']);
+ assert.deepEqual(s.log.messages, [preparedText(1)]); assert.equal(s.log.saves, 0);
+});
+
+test('a file that became unsaved or changed while later items were prepared is skipped and counted, not edited', async t => {
+ for (const change of ['dirty', 'version']) {
+  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/steering/synthetic-b.md': 'b\n' + pad(30000) });
+  const s = setup(root); await s.run(); const load = groupNode(s, 'config-group-load');
+  const open = s.workspace.openTextDocument.bind(s.workspace); let n = 0;
+  s.workspace.openTextDocument = async (u: { fsPath: string }) => { const d = await open(u); if (++n === 2) { const first = [...s.docs.values()][0]!; if (change === 'dirty') first.isDirty = true; else first.version++; } return d; };
+  await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
+  assert.equal(s.log.edits.length, 1, change); assert.equal(s.log.edits[0]!.inserts.length + s.log.edits[0]!.replaces.length, 1, change);
+  assert.deepEqual(s.log.messages, [`${preparedText(1)} ${skippedText(1)}`], change);
+ }
+});
+
+test('static: every applyEdit call passes exactly the edit (no further argument such as a refactoring flag)', async () => {
+ for (const name of ['src/extension/config-apply.ts', 'src/extension/extension.ts']) {
+  const code = await readFile(new URL(`../../${name}`, import.meta.url), 'utf8');
+  const calls = [...code.matchAll(/applyEdit\(([^)]*)\)/g)];
+  assert.ok(calls.length >= 1, name);
+  for (const [, args] of calls) assert.equal(args, 'edit', `${name}: ${args}`);
+ }
 });

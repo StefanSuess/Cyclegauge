@@ -48,7 +48,7 @@ function guardedPath(root: string, rel: string): string | undefined {
  } catch { return undefined; }
 }
 /** One change that passed every guard, ready to go into the single edit. */
-interface Ready { uri: vscode.Uri; document: vscode.TextDocument; planned: Extract<ConfigEditPlan, { kind: 'replace' }>; annotation: Annotation }
+interface Ready { uri: vscode.Uri; document: vscode.TextDocument; version: number; planned: Extract<ConfigEditPlan, { kind: 'replace' }>; annotation: Annotation }
 /** Either a change that passed every guard or the end of this request: `skip` says why when it was one of a group (counted, never shown). */
 type Prepared = { ready: Ready } | { outcome: ApplyOutcome; skip?: 'changed' | 'auto' };
 /** The guards for one request. `quiet` (one of several in a group) suppresses messages and opened tabs: the item is skipped and counted instead. */
@@ -92,7 +92,7 @@ async function prepare(editor: typeof vscode, request: ApplyRequest, quiet: bool
   shown.revealRange(range(planned.start, planned.end));
   say(APPLY_TEXT.selected); return { outcome: 'selected' };
  }
- return { ready: { uri, document, planned, annotation: request.annotation ?? { label: 'Cyclegauge', description: '' } } };
+ return { ready: { uri, document, version: document.version, planned, annotation: request.annotation ?? { label: 'Cyclegauge', description: '' } } };
 }
 /**
  * Review changes… for one request or a whole group: every change that passes its own guards goes into ONE edit, each with an annotation that needs confirmation, so the
@@ -103,16 +103,28 @@ export async function applyConfigChanges(editor: typeof vscode, requests: readon
  if (requests.length === 0) return 'refused';
  const say = (text: string): void => tell(editor, text);
  if (!editor.workspace.isTrusted) { say(APPLY_TEXT.untrusted); return 'refused'; }
- const quiet = requests.length > 1, ready: Ready[] = [];
+ // The same change asked for twice (one hook with two findings, such as a broad trigger and a large prompt) is prepared once: two identical replaces would overlap, and the editor rejects an edit with overlapping ranges.
+ const seen = new Set<string>(), unique = requests.filter(r => { const key = [r.root, r.rel, r.hook ?? '', r.action].join('\0'); if (seen.has(key)) return false; seen.add(key); return true; });
+ const quiet = unique.length > 1, prepared: Ready[] = [];
  let changed = 0, auto = 0, last: ApplyOutcome = 'refused';
- for (const request of requests) {
+ for (const request of unique) {
   const result = await prepare(editor, request, quiet);
-  if ('ready' in result) { ready.push(result.ready); continue; }
+  if ('ready' in result) { prepared.push(result.ready); continue; }
   last = result.outcome;
   if (result.skip === 'auto') auto++; else if (result.skip === 'changed') changed++;
  }
+ // Right before the edit is built: a document that became unsaved or changed while later items were prepared is skipped and counted, and so is a change whose place no longer verifies.
+ // A change that overlaps one already kept in the same file is dropped (never two edits over the same text).
+ const ready: Ready[] = [], spans: { path: string; start: number; end: number }[] = [];
+ for (const item of prepared) {
+  const { document, planned } = item, path = item.uri.fsPath;
+  const verify = (): boolean => document.getText(new editor.Range(document.positionAt(planned.verify.start), document.positionAt(planned.verify.end))) === planned.verify.text;
+  if (document.isDirty || document.version !== item.version || !verify()) { changed++; continue; }
+  if (spans.some(o => o.path === path && ((o.start === planned.start && o.end === planned.end) || (o.start < planned.end && planned.start < o.end)))) continue;
+  spans.push({ path, start: planned.start, end: planned.end }); ready.push(item);
+ }
  const skipped = quiet ? [changed > 0 ? skippedText(changed) : '', auto > 0 ? autoSaveSkippedText(auto) : ''].filter(Boolean) : [];
- if (ready.length === 0) { if (skipped.length) say(skipped.join(' ')); return quiet ? 'refused' : last; }
+ if (ready.length === 0) { if (skipped.length) say(skipped.join(' ')); else if (!quiet && prepared.length > 0) say(APPLY_TEXT.stale); return quiet ? 'refused' : last; }
  const edit = new editor.WorkspaceEdit();
  for (const { uri, document, planned, annotation } of ready) {
   const metadata = { label: annotation.label, description: annotation.description, needsConfirmation: true };
