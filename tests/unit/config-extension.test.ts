@@ -5,7 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promi
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createConfigReviewer } from '../../src/audit/config-review.ts';
-import { registerConfigReview } from '../../src/extension/config-review.ts';
+import { registerConfigReview, startManualReview } from '../../src/extension/config-review.ts';
 import { evaluateConfigRules } from '../../src/audit/config-rules.ts';
 import type { ConfigReview, ConfigReviewRoot } from '../../src/audit/config-review.ts';
 
@@ -99,4 +99,38 @@ test('hostile synthetic content reaches no output surface; hook name is capped a
   const out=JSON.stringify({opened:s.opened,messages:s.messages});
   for(const forbidden of [sentinel,'synthetic-name','😀',base,'SYNTHETIC-NAME-END'])assert.ok(!out.includes(forbidden),forbidden);
  }finally{await rm(base,{recursive:true,force:true});}
+});
+
+// ---- the review next to a manual audit (approved 2026-10-18)
+test('a manual audit starts exactly one manual review run; a failing or throwing review never escapes',async()=>{
+ let runs=0;startManualReview({run:async()=>{runs++;}});await Promise.resolve();assert.equal(runs,1);
+ startManualReview({run:()=>Promise.reject(new Error('synthetic-error-sentinel'))});
+ startManualReview({run:()=>{throw new Error('synthetic-error-sentinel');}});
+ await new Promise(r=>setTimeout(r,5)); // no unhandled rejection and no exception: the audit continues
+ const s=setup();startManualReview(s.link);await new Promise(r=>setTimeout(r,5));assert.equal(s.reads.length,1,'the same bounded run as the review command');
+ assert.equal(s.messages.length,0);
+});
+test('the review run behind a manual audit survives a failing reader and a refused folder without touching anything else',async()=>{
+ const s=setup(async()=>{throw new Error('synthetic-error-sentinel');});
+ await s.link.run();assert.equal(s.reads.length,1);assert.ok(!JSON.stringify(s.link.nodes()).includes('sentinel'));
+ s.workspace.workspaceFolders=[s.folder('synthetic-refused','/synthetic/refused')];
+ await s.link.run();assert.match(JSON.stringify(s.link.nodes()),/it overlaps Kiro data/);
+});
+test('only the manual audit command starts the review: the silent re-runs and the watcher never do',async()=>{
+ const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
+ assert.equal((main.match(/startManualReview\(/g)??[]).length,1);
+ // exactly in the manual `audit` function, right after the (non-silent) run settles, also when it throws
+ assert.match(main,/const audit = async \(\): Promise<void> => \{[\s\S]*?try \{ outcome = await auditOnce\(\); \} finally \{ running = false; if \(!userCancelled\) startManualReview\(configReview\); \}/);
+ const silent=main.match(/auditOnce\(true[^\n]*/g)??[];assert.ok(silent.length>=2);for(const line of silent)assert.ok(!line.includes('startManualReview')&&!line.includes('configReview'),line);
+ const start=main.indexOf('const auditOnce = async');const end=main.indexOf('// Registered independently of the collector');
+ assert.ok(!main.slice(start,end).includes('startManualReview'));
+});
+test('the Audit view gets a Review Steering and Hooks toolbar button after Audit, keeping the order of the other buttons',async()=>{
+ const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
+ const command=manifest.contributes.commands.find((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig');
+ assert.match(command.icon,/^\$\([a-z-]+\)$/);
+ const nav=(manifest.contributes.menus['view/title'] as {command:string;when:string;group:string}[]).filter(m=>m.group.startsWith('navigation@')).sort((a,b)=>Number(a.group.split('@')[1])-Number(b.group.split('@')[1]));
+ assert.deepEqual(nav.map(m=>m.command),['cyclegauge.auditWorkspace','cyclegauge.reviewKiroConfig','cyclegauge.audit.acceptAll','cyclegauge.audit.copy']);
+ assert.ok(nav.every(m=>m.when==='view == cyclegauge.auditView'));
+ assert.equal(new Set(nav.map(m=>m.group)).size,nav.length);
 });

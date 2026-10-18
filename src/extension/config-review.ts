@@ -11,7 +11,14 @@ type FolderCheck = (folder: vscode.WorkspaceFolder) => { chosen: string; resolve
 export interface SupportGate { promptOpen(): boolean; lastPromptAt(): number | undefined; offerOpen(open: boolean): void }
 interface Timers { now(): number; set(fn: () => void, ms: number): unknown; clear(handle: unknown): void }
 interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform }
-export interface ConfigReviewLink { nodes(): ConfigNode[] }
+export interface ConfigReviewLink { nodes(): ConfigNode[]; run(): Promise<void> }
+/**
+ * Starts the manual review next to a manual (user-initiated) workspace audit: exactly the run `cyclegauge.reviewKiroConfig` performs, with the same guards,
+ * bounded reads and manual-run semantics. Not awaited and never throwing, so neither the audit nor the review can block or hide the other's result.
+ */
+export function startManualReview(link: Pick<ConfigReviewLink, 'run'>): void {
+ try { void Promise.resolve(link.run()).catch(() => undefined); } catch { /* the audit result never depends on the review */ }
+}
 // The approved boolean (design question 11): set when the enable offer is shown, so it appears once ever. It holds no data.
 export const CONFIG_OFFER_KEY = 'cyclegauge.configReview.offered.v1';
 export const CONFIG_OFFER_TEXT = 'Check Kiro Steering and Hooks automatically in trusted workspaces you open, and when those files change?';
@@ -198,5 +205,5 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   throw new Error('Configuration review registration failed.');
  }
  try { sync(); } catch { /* automatic mode stays off; the manual command works */ }
- return {nodes:()=>nodes};
+ return {nodes:()=>nodes,run};
 }
