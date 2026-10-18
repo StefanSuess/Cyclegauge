@@ -325,7 +325,7 @@ test('the controller passes the not-Kiro flag through and does not report a fore
 const NOW = '2030-06-08T00:00:00Z';
 const at = (v: ReturnType<typeof view>, now = NOW) => present(v, [], '', '', undefined, now);
 const heroText = (html: string) => html.slice(html.indexOf('class="hero'), html.indexOf('<dl class="stats">'));
-const PROJECTED = 'If you continue at this pace: about 200 credits over the reported limit ≈ $8.00 at $0.04 per credit (price list 2026-10-10, reviewed 10 Oct 2026). This is a modelled scenario, not an invoice; whether overage applies depends on your plan and settings.';
+const PROJECTED = 'If you continue at this pace: about 200 credits over the reported limit ≈ $8.00 at $0.04 per credit (price list 2026-10-18, reviewed 18 Oct 2026). This is a modelled scenario, not an invoice; whether overage applies depends on your plan and settings.';
 test('a forecast beyond the reported limit shows the modelled overage below the outlook, with the catalog price and review date', () => {
  const r = at(view(series(10, '100'), NOW));
  const hero = heroText(r.html);

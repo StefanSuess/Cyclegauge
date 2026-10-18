@@ -22,7 +22,7 @@ Status refreshed on 2026-10-18 from `main` (merge history) and `gh release list`
 | Source format | Kiro's log format is undocumented and can change with any Kiro release. **Cyclegauge: Copy Diagnostics** and CLI `--diagnostics` have merged (WP2c, #82) and the bug template points to them. | Only one Kiro log variant has been observed so far, so there are no per-Kiro-version fixtures yet. |
 | Platforms | macOS beta (Kiro 1.2.56); Windows 11 and Ubuntu 26 smoke-tested for 0.7.0; RHEL, macOS Intel unverified. | Smoke tests on the 1.0 candidate are enough; full itemised acceptance (#61) is optional. Native tests of the new features are still open. |
 | Docs | Status lines were refreshed in WP2d (#79) and again on 2026-10-18; the Open VSX namespace is reported verified. README top and the `docs/usage.md` upgrade section (WP4) are deliberately left until WP10 lands; launch drafts live in `docs/launch/` and are unpublished. | WP4 listing text and the launch itself need maintainer approval. |
-| Advisor catalog | `verifiedOn: 2026-10-10`; `catalog_review_due` triggers after 30 days (from 2026-11-09). | Review before each release so prices shown (WP8, WP8b) are current. |
+| Advisor catalog | `verifiedOn: 2026-10-18` (re-reviewed, values unchanged); `catalog_review_due` triggers after 30 days (from 2026-11-17). | Review before each release so prices shown (WP8, WP8b) are current. |
 
 ## 2. Why features in 1.0, and which stabilisation still matters
 
