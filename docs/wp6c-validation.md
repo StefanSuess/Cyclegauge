@@ -1,6 +1,6 @@
 # WP6c inline Cost Advisor validation
 
-Phase 6c adds a session-only inline form to the credit view. Native pickers remain available from the status bar and command link. Both paths use the same pure validation for plan, billing, purchased add-ons, decimal credits, Enterprise Free, and clearing answers.
+Phase 6c adds a session-only inline form to the credit view. Native pickers remain available from the status bar and, as a fallback while the page script is not live, the command link (2026-10-18: the form sits in a collapsible "Change your plan answers" disclosure). Both paths use the same pure validation for plan, billing, purchased add-ons, decimal credits, Enterprise Free, and clearing answers.
 
 The form sends only exact, bounded `advisorSubmit` fields. The host refreshes the observed account context, compares the edit ticket with the current epoch, then commits and advances the epoch. Native picker start and cancellation also advance the epoch. An account change or ambiguous account refuses a late form submit. A dirty form keeps the user's draft across model updates and asks for review when the epoch changes. The form uses a fieldset, legend, field errors and a live status region; no answer is persisted or sent to a network service.
 

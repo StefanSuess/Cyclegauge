@@ -193,6 +193,50 @@ test('real Advisor unconfirmed-to-confirmed render keeps the command anchor thro
  assert.match(app.main.textContent, /confirmed/i);
 });
 
+test('the page is marked live only after the first model is applied, which swaps the Advisor link fallback for the form', async () => {
+ const observed = view([snapshot('2030-06-08T00:00:00Z', '70', { limit: '1000' })], '2030-06-08T00:00:00Z');
+ const page = present(observed, [], '', '<section id="cost-advisor"></section>', undefined, '2030-06-08T00:00:00Z', false, undefined, inlineAdvisorForm({ plan: null, billing: null, addOns: null, addOnCredits: null }, 1)).html;
+ const app = await start(page);
+ assert.equal(app.document.documentElement.getAttribute('data-cg-live'), null);
+ app.send(buildDomModel(page));
+ assert.equal(app.document.documentElement.getAttribute('data-cg-live'), '');
+});
+
+test('the Advisor disclosure keeps its open state and the saved status stays visible across a real unconfirmed-to-confirmed render', async () => {
+ const observed = view([snapshot('2030-06-08T00:00:00Z', '70', { limit: '1000' })], '2030-06-08T00:00:00Z');
+ const hint = planHint('1000', reviewedCatalog);
+ const context = (confirmed: boolean): AdvisorContext => ({ planSource: confirmed ? 'confirmed' : 'hint', plan: 'pro', billingConfirmed: confirmed, addOns: confirmed ? 'none' : 'assumed_none', assumptions: confirmed ? [] : ['plan_is_hint', 'billing_assumed_consumer', 'add_ons_assumed_none'] });
+ const page = (confirmed: boolean) => present(observed, [], '', presentAdvisor({ hint, context: context(confirmed), horizons: [], advice: [], singleAccount: true, limit: '1000' }), { state: 'never' }, '2030-06-08T00:00:00Z', false, undefined, inlineAdvisorForm({ plan: confirmed ? 'pro' : null, billing: null, addOns: null, addOnCredits: '' }, confirmed ? 2 : 1)).html;
+ const disclosure = (app: Awaited<ReturnType<typeof start>>) => find(app.main, n => n.getAttribute('id') === 'advisor-change')!;
+ const status = (app: Awaited<ReturnType<typeof start>>) => find(app.main, n => n.getAttribute('id') === 'advisor-status')!;
+ // Open (the static page is open while unconfirmed): it stays open after the form is saved and the page re-renders as confirmed.
+ const app = await start(page(false));
+ disclosure(app).setAttribute('open', '');
+ app.send(buildDomModel(page(true)));
+ assert.equal(disclosure(app).getAttribute('open'), '');
+ assert.equal(find(disclosure(app), n => n.getAttribute('id') === 'advisor-status'), undefined, 'the status line is outside the disclosure');
+ app.emit('message', { data: { type: 'advisorResult', status: 'ok', epoch: 2 } });
+ assert.match(status(app).textContent, /Cost Advisor review saved/);
+ assert.equal(disclosure(app).getAttribute('open'), '');
+ // Closed by the user: a later render does not reopen it.
+ const closed = await start(page(false));
+ closed.send(buildDomModel(page(true)));
+ assert.equal(disclosure(closed).getAttribute('open'), null);
+ // A submit result keeps a closed disclosure's message visible by opening it.
+ closed.emit('message', { data: { type: 'advisorResult', status: 'stale' } });
+ assert.equal(disclosure(closed).getAttribute('open'), '');
+});
+
+test('focus on the fallback command link moves to the disclosure summary when the page goes live', async () => {
+ const page = present(view([], '2030-01-01T00:00:00Z'), [], '', '<section id="cost-advisor"></section>', undefined, '2030-01-01T00:00:00Z', false, undefined, inlineAdvisorForm({ plan: null, billing: null, addOns: null, addOnCredits: '' }, 1)).html;
+ const app = await start(page);
+ const link = anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.costAdvisor')!;
+ app.document.activeElement = link;
+ app.send(buildDomModel(page));
+ const summary = find(app.main, n => n.localName === 'summary' && n.parentNode?.getAttribute('id') === 'advisor-change')!;
+ assert.equal(summary.focusCount, 1);assert.equal(link.focusCount, 0);
+});
+
 test('shell includes inert copies of every reviewed fixed link', () => {
  const staticHtml = present(view([], '2030-01-01T00:00:00Z')).html;
  const shell = renderDashboardShell(staticHtml, 'syntheticNonce123', 7, 'console.log(1)');
@@ -228,7 +272,7 @@ test('Advisor shows review warning when coalesced model skips the committed epoc
  app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
  app.send(buildDomModel(page(3)));
  assert.equal(credits.value,'15');
- assert.match(find(form,n=>n.getAttribute('id')==='advisor-status')!.textContent,/review and submit again/i);
+ assert.match(find(app.main,n=>n.getAttribute('id')==='advisor-status')!.textContent,/review and submit again/i);
  assert.equal(find(form,n=>n.getAttribute('id')==='advisor-review-again')!.getAttribute('hidden'),null);
 });
 
@@ -237,7 +281,7 @@ test('Advisor timeout and host busy reply explain the wait and allow a later ret
  const answers={plan:'pro' as const,billing:'consumer_prepaid' as const,addOns:'none' as const,addOnCredits:null};
  const page=present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm(answers,1)).html;
  const app=await start(page);const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
- const status=find(form,n=>n.getAttribute('id')==='advisor-status')!;
+ const status=find(app.main,n=>n.getAttribute('id')==='advisor-status')!;
  app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.tick();
  assert.match(status.textContent,/not finished/i);
  app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});

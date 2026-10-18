@@ -182,8 +182,10 @@ function applyAdvisor(form:HTMLFormElement, draft:AdvisorDraft):void {
 }
 function advisorStatus(text:string,fields:string[]=[]):void {
  const form=advisorForm();if(!form)return;
- const status=form.querySelector('#advisor-status'),error=form.querySelector('#advisor-error');
+ // The status line sits outside the disclosure so it stays visible; a message about the answers also keeps the disclosure open.
+ const status=document.querySelector('#advisor-status'),error=form.querySelector('#advisor-error');
  if(status)status.textContent=text;
+ if(text)document.querySelector('#advisor-change')?.setAttribute('open','');
  if(error)error.textContent=fields.length?'Check the marked Cost Advisor answer.':'';
  for(const name of ['plan','billing','addOns','addOnCredits']) {
   const field=form.elements.namedItem(name) as Element|null;
@@ -320,6 +322,9 @@ window.addEventListener('message', event => {
  const focused = document.activeElement;
  const focusedAt = point(focused)?.getAttribute('data-chart-point') ?? null;
  const tipOpen = tooltip()?.getAttribute('hidden') === null;
+ // The disclosure's open state is the user's; a model carries none, so a re-created element is reopened from what was seen before.
+ const advisorWasOpen = document.querySelector('#advisor-change')?.getAttribute('open') != null;
+ const wasLive = document.documentElement.getAttribute('data-cg-live') !== null;
  try {
   const links = [...anchors(main), ...anchors(reserve)];
   if (links.some(link => !SAFE_LINKS.has(link.getAttribute('href') ?? ''))) return;
@@ -327,6 +332,11 @@ window.addEventListener('message', event => {
   reconcile(main, model.children, false, links);
   syncAdvisor();
   syncTools();
+  document.documentElement.setAttribute('data-cg-live', ''); // the page now follows live models: the stylesheet swaps the command-link fallback for the inline form
+  if (advisorWasOpen) document.querySelector('#advisor-change')?.setAttribute('open', '');
+  // The fallback link is hidden from now on: focus moves to the form's summary instead of a hidden element.
+  const lostLink = !wasLive && focused?.localName === 'a' && focused.getAttribute('href') === 'command:cyclegauge.costAdvisor';
+  if (lostLink) { const summary = document.querySelector('#advisor-change')?.childNodes[0]; if (summary?.nodeType === Node.ELEMENT_NODE && (summary as Element).localName === 'summary') (summary as HTMLElement).focus(); }
   const plotted = points();
   const selected = plotted.find(p => p.getAttribute('data-chart-point') === (focusedAt ?? selectedAt)) ?? plotted[0];
   if (selected) {
@@ -338,7 +348,7 @@ window.addEventListener('message', event => {
    const shown = plotted.find(p => p.getAttribute('data-chart-point') === (hoveredAt ?? focusedAt ?? selectedAt));
    if (shown) show(shown); else hide();
   }
-  if (focused?.localName === 'a' && main.contains(focused)) (focused as HTMLElement).focus();
+  if (!lostLink && focused?.localName === 'a' && main.contains(focused)) (focused as HTMLElement).focus();
   window.scrollTo(x, y);
   vscode.postMessage({ type: 'ack', version: message.version });
  } catch { /* The host's 5-second timer restores a fresh static document. */ }
