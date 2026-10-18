@@ -11,6 +11,7 @@ import {planHint,advisorProfile,classifyAdvice} from '../cost/advisor.ts';
 import {reviewedCatalog} from '../cost/catalog.ts';
 import {estimateSavings} from '../cost/estimate.ts';
 import {planInsights,NO_INSIGHTS,type PlanInsights} from '../cost/plan-hints.ts';
+import {observedCycleKey,type StoredResults} from './results-summary.ts';
 
 export interface ExtensionUi {
  setStatus(text: string, detail: string, meta?: { tooltip: string; warning: boolean; severity?: 'none' | 'warning' | 'error' }): void;
@@ -25,6 +26,8 @@ export interface ExtensionUi {
 export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number;
  // Counts and times of the workspace check for the detail view's card; read on every render and never allowed to affect the gauge.
  auditSummary?: () => AuditSummary;
+ // The validated saved-exclusion summary for "Your Cyclegauge summary"; read on every render and never allowed to affect the gauge.
+ resultsSummary?: () => StoredResults;
  // Not running in Kiro and no source chosen: an empty source is then shown as "Kiro not detected". Default: false (no change).
  notKiro?: boolean;
  // Called when a render shows a provisional or regular forecast; used only for the support prompt and never allowed to affect the gauge.
@@ -62,7 +65,9 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   }
   let audit:AuditSummary|undefined;
   try{audit=options.auditSummary?.();}catch{audit=undefined;}
-  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights,inlineAdvisorForm(advisor.value,advisor.epoch));
+  let results:StoredResults|undefined;
+  try{results=options.resultsSummary?.();}catch{results=undefined;}
+  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights,inlineAdvisorForm(advisor.value,advisor.epoch),results);
   detail=presentation.html;
   if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
   if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
@@ -129,5 +134,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   observedAgeMs:facts.latestMs===undefined?null:Date.parse(now())-facts.latestMs,importCodes:facts.importCodes});
  // Re-renders with the current workspace-check summary; no collection and no IO.
  const rerender=()=>{if(!disposed)render();};
- return { refresh, diagnostics, rerender, submitAdvisor, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
+ // The billing cycle new exclusions are counted under, or null when none is observed. No IO.
+ const cycle=():string|null=>{try{return observedCycleKey(observation.history,now());}catch{return null;}};
+ return { refresh, diagnostics, rerender, cycle, submitAdvisor, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
 }

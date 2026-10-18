@@ -9,6 +9,7 @@ import { overageOver } from '../cost/overage.ts';
 import { observedOverageText, projectedOverageText, rightSizeText, largerPlanText } from './budget-warning.ts';
 import { NO_INSIGHTS, type PlanInsights } from '../cost/plan-hints.ts';
 import { cycleComparison, todayPace } from './dashboard-insights.ts';
+import { resultsText, type StoredResults } from './results-summary.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -91,8 +92,17 @@ function observedContext(h: ReturnType<typeof view>['history'], now: string): st
  return `<section id="usage-context" aria-labelledby="usage-context-heading"><h2 id="usage-context-heading">Observed usage context</h2><p>${safe(cycle)}</p><p>${safe(today)}</p></section>`;
 }
 
+// Static, script-free summary of saved exclusions and the observed use trend; every string is escaped here and a failure only omits the section.
+function resultsSection(results: StoredResults | undefined, h: ReturnType<typeof view>['history'], now: string): string {
+ if (!results) return '';
+ try {
+  const t = resultsText(results, h, now);
+  return `<section id="results-summary" aria-labelledby="results-summary-heading"><h2 id="results-summary-heading">${safe(t.heading)}</h2><p class="muted small">${safe(t.scope)}</p><h3>${safe(t.exclusionsHeading)}</h3><ul>${t.exclusions.map(l => `<li>${safe(l)}</li>`).join('')}</ul>${t.notes.map(l => `<p class="muted small">${safe(l)}</p>`).join('')}<h3>${safe(t.trendHeading)}</h3><p>${safe(t.trend)}</p></section>`;
+ } catch { return ''; }
+}
+
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS, advisorForm = '') {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS, advisorForm = '', results?: StoredResults) {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -180,6 +190,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
  @media(max-width:540px){.stats{grid-template-columns:minmax(0,1fr)}.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
  @media(forced-colors:active){a.button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
+ #results-summary ul{margin:8px 0;padding-left:1.4em}
  #advisor-form fieldset{border:1px solid var(--vscode-panel-border);margin-top:12px}#advisor-form label{display:block;margin:8px 0 3px}#advisor-form select,#advisor-form input{display:block;max-width:100%;width:24rem;box-sizing:border-box}#advisor-form button{margin:10px 8px 0 0}#advisor-error{color:var(--vscode-errorForeground)}#advisor-form [aria-invalid="true"]{outline:2px solid var(--vscode-errorForeground)}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
@@ -192,6 +203,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${withAdvisorButton(advisorHtml,advisorForm)}
  ${chart.main}
  ${observedContext(h, now)}
+ ${resultsSection(results, h, now)}
  ${costHtml}
  <section id="advanced-details" aria-label="Advanced details"><details class="advanced"><summary>Advanced details</summary><p class="muted small">Forecast methods and evidence, coverage, exact UTC timestamps, qualifiers, chart data and billing assumptions.</p>
  <h3>Forecast</h3><p>${safe(tier)}</p>${collecting ? `<p>${safe(COLLECTING_POLICY)}</p>` : ''}<table>${forecastRows}</table><p class="muted small">Estimates assume the observed rate continues. They are not guarantees or statistical confidence intervals. Negative projected credits indicate usage beyond the reported limit; this does not by itself establish overage charges.</p>

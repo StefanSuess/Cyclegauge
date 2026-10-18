@@ -18,6 +18,7 @@ import type { PlanInsights } from '../cost/plan-hints.ts';
 import { LATER_DAYS, addDays, auditDue, daysBetween, isDate, utcDate } from './audit-schedule.ts';
 import { SNOOZE_DAYS, afterChoice, supportDue, type SupportChoice } from './support-schedule.ts';
 import { DashboardPanel } from './dashboard-panel.ts';
+import { RESULTS_KEY, aggregateFindings, readResults, record, type ExclusionAggregate, type StoredResults } from './results-summary.ts';
 
 declare const __DASHBOARD_SCRIPT__: string;
 let rejectedMessages = 0;
@@ -70,22 +71,23 @@ const MAX_CREATED = 1_000; // created paths kept in memory between re-checks; be
 interface Dismissed { salt: string; hashes: string[] }
 // What the credit detail view may show about the audit: a counts-and-times summary, plus a hook that re-renders the view when it changes.
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
-function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: () => void): AuditLink {
+function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: (accepted: ExclusionAggregate) => void): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
  let changed: vscode.EventEmitter<AuditNode | undefined> | undefined, viewReady = false;
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
- let pendingSave: { path: string; text?: string; lines?: string[] } | undefined;
+ let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
  if (vscode.workspace.onDidSaveTextDocument) context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
   try {
    if (!pendingSave || document.uri.scheme !== 'file' || document.uri.fsPath !== pendingSave.path) return;
    const text = document.getText();
    if (pendingSave.text !== undefined ? text !== pendingSave.text : !pendingSave.lines?.every(line => text.split(/\r?\n/).includes(line))) return;
    if (!lstatSync(pendingSave.path).isFile() || realpathSync.native(pendingSave.path) !== join(realRoot, '.kiroignore')) return;
+   const accepted = pendingSave.accepted;
    pendingSave = undefined;
-   onSaved();
+   onSaved(accepted);
   } catch { /* a save signal never affects the audit */ }
  }));
  // Every spelling of a path that exists: as given and with symlinks resolved.
@@ -194,6 +196,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const lines = [...new Set(findings.map(f => f.suggestion).filter(x => x !== ''))].sort();
   if (lines.length === 0 || root === '') { notify('There is no safe suggestion to accept.'); return; }
   const path = join(root, '.kiroignore');
+  const aggregate = aggregateFindings(findings); // counts, sizes and the secret count only; kept in memory until the matching save
   let exists = false;
   try {
    if (!lstatSync(path).isFile()) { notify('The .kiroignore in this workspace is not a regular file, so no change was prepared.'); return; }
@@ -203,7 +206,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const autoSave = exists ? vscode.workspace.getConfiguration('files', vscode.Uri.file(path)).get<string>('autoSave') : undefined;
   if (exists && autoSave !== 'off') {
    const proposal = await vscode.workspace.openTextDocument({ content: kiroignoreAppend(undefined, lines), language: 'ignore' });
-   pendingSave = { path, lines };
+   pendingSave = { path, lines, accepted: aggregate };
    await vscode.window.showTextDocument(proposal);
    notify('Your editor saves files automatically, so the suggested lines are shown in a new tab. Copy them into .kiroignore and save.');
    for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
@@ -217,7 +220,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const edit = new vscode.WorkspaceEdit();
   edit.insert(document.uri, document.positionAt(current.length), text);
   if (!(await vscode.workspace.applyEdit(edit))) throw new Error('EDIT_REJECTED');
-  pendingSave = { path, text: current + text };
+  pendingSave = { path, text: current + text, accepted: aggregate };
   await vscode.window.showTextDocument(document);
   for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
   render();
@@ -432,6 +435,29 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
 // Community prompts: a share command, one support prompt per window once the user has seen value, and a one-time note outside Kiro.
 // State is bounded dates and flags in the editor's global state, never workspace data. Every failure is swallowed: nothing here may affect the gauge,
 // the collector, the Store or the audit, and nothing is sent anywhere (links open only when the user clicks a button).
+// "Your Cyclegauge summary": the saved-Exclude aggregates, per observed billing cycle, in the editor's global state under one versioned key.
+// It holds bounded numbers and a billing reset time, never a path or identifier, and is not registered for Settings Sync. Reads and writes
+// are fail-silent; a value of an unknown shape is shown as unknown and never overwritten (the explicit reset clears it).
+interface ResultsLink { summary(): StoredResults; record(accepted: ExclusionAggregate): void }
+function registerResults(context: vscode.ExtensionContext, cycle: () => string | null, changed: () => void): ResultsLink {
+ let queue: Promise<void> = Promise.resolve();
+ const read = (): StoredResults => { try { return readResults(context.globalState.get<unknown>(RESULTS_KEY)); } catch { return { status: 'unknown', entries: [] }; } };
+ return {
+  summary: read,
+  record(accepted) {
+   queue = queue.then(async () => {
+    try {
+     const key = cycle(), current = read();
+     if (key === null || current.status !== 'ok') return;
+     const next = record(current.entries, key, accepted);
+     if (next === current.entries) return;
+     await context.globalState.update(RESULTS_KEY, next);
+     changed();
+    } catch { /* the summary never affects the audit */ }
+   });
+  },
+ };
+}
 const SUPPORT_FIRST_KEY = 'cyclegauge.support.firstSeen.v1';
 const SUPPORT_NEXT_KEY = 'cyclegauge.support.next.v1';
 const SUPPORT_NEVER_KEY = 'cyclegauge.support.never.v1';
@@ -465,7 +491,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  }));
  // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
-  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY]) await store(key, undefined);
+  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
   void Promise.resolve(vscode.window.showInformationMessage('Support prompts reset.')).catch(() => undefined);
  });
@@ -593,11 +619,13 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
- let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined;
+ let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined, results: ResultsLink | undefined;
+ let controllerRef: Awaited<ReturnType<typeof startExtension>> | undefined;
  try { registerWalkthrough(context); } catch { /* The walkthrough must never stop the gauge either. */ }
  try { support = registerSupport(context); } catch { /* Nor must the community prompts. */ }
  try { budget = registerBudget(context, () => support?.pause()); } catch { /* Nor the budget warning. */ }
- try { audit = registerAudit(context, () => support?.valueSeen(), () => support?.auditSaved()); } catch { /* The audit must never stop the gauge from starting. */ }
+ try { results = registerResults(context, () => controllerRef?.cycle() ?? null, () => controllerRef?.rerender()); } catch { /* Nor the results summary. */ }
+ try { audit = registerAudit(context, () => support?.valueSeen(), accepted => { try { support?.auditSaved(); } catch { /* the support prompt never affects the audit */ } results?.record(accepted); }); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -613,7 +641,6 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  advisorItem.command = commandId('costAdvisor');
  let panel: vscode.WebviewPanel | undefined;
  let dashboard: DashboardPanel | undefined;
- let controllerRef: Awaited<ReturnType<typeof startExtension>> | undefined;
  let revealing = false;
  let detail = '';
  const disposables: vscode.Disposable[] = [item, advisorItem];
@@ -664,7 +691,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, resultsSummary: results?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
   controllerRef = controller;
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';
