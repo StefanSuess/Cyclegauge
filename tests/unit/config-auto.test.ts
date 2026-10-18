@@ -70,7 +70,8 @@ function setup(o: { mode?: unknown; workspaceMode?: unknown; supportPrompts?: bo
  const context = { subscriptions,
   globalState: { get: (key: string) => key === CONFIG_OFFER_KEY ? state.offered : undefined, update: async (key: string, value: unknown) => { globalWrites.push([key, value]); if (key === CONFIG_OFFER_KEY) state.offered = value; } },
   workspaceState: { get() { throw Error('audit storage touched'); }, update() { throw Error('audit storage touched'); } } } as unknown as vscode.ExtensionContext;
- const check = (f: vscode.WorkspaceFolder) => { checks++; return f.uri.fsPath.includes('refused') ? { reason: 'it overlaps Kiro data' } : { chosen: f.uri.fsPath, resolved: f.uri.fsPath }; };
+ const refusedNow = new Set<string>();
+ const check = (f: vscode.WorkspaceFolder) => { checks++; return f.uri.fsPath.includes('refused') || refusedNow.has(f.uri.fsPath) ? { reason: 'it overlaps Kiro data' } : { chosen: f.uri.fsPath, resolved: f.uri.fsPath }; };
  const reviewer = { async review(roots: readonly ConfigReviewRoot[], opts?: { signal?: AbortSignal }) { reads.push([...roots]); if (opts?.signal) signals.push(opts.signal); return gate ? gate(roots, opts?.signal) : review(ids); } };
  const support = { promptOpen: () => o.support?.open ?? false, lastPromptAt: () => o.support?.last, offerOpen: (v: boolean) => { offerOpen.push(v); } };
  const link = registerConfigReview(context, editor, check, () => { refreshes++; }, { reviewer, timers: clock, platform: o.platform ?? 'linux', support });
@@ -78,7 +79,7 @@ function setup(o: { mode?: unknown; workspaceMode?: unknown; supportPrompts?: bo
  const emit = (rel: string, scheme = 'file', w = live()[0]!) => { for (const h of w.handlers) h({ scheme, fsPath: rel.startsWith('/') ? rel : `${(w.pattern.base as { uri: { fsPath: string } }).uri.fsPath}/${rel}` }); };
  const changeMode = (mode: unknown) => { state.mode = mode; for (const fn of listeners.config) fn({ affectsConfiguration: k => k === 'cyclegauge.configReviewAutomatically' }); };
  const flatten = (nodes: ConfigNode[]): ConfigNode[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
- return { clock, reads, signals, messages, executed, updates, globalWrites, watchers, live, emit, changeMode, listeners, workspace, link, subscriptions, offerOpen, flatten,
+ return { refusedNow, clock, reads, signals, messages, executed, updates, globalWrites, watchers, live, emit, changeMode, listeners, workspace, link, subscriptions, offerOpen, flatten,
   header: () => link.nodes()[0]!.description ?? '',
   run: () => commands.get('cyclegauge.reviewKiroConfig')!() as Promise<void>,
   set ids(v: FindingId[]) { ids = v; }, set gate(v: typeof gate) { gate = v; }, set answer(v: string | undefined) { answer = v; },
@@ -212,4 +213,24 @@ test('automatic runs never touch audit or support state: no workspace state, no 
  for (const d of s.subscriptions) d.dispose();
  assert.equal(w.disposed, true);
  s.emit('AGENTS.md', 'file', w); await s.clock.advance(10 * 60_000); assert.equal(s.reads.length, 2, 'nothing runs after disposal');
+});
+test('a manual run clears dirty flags; a root refused at fire time is never read and the watchers are rebuilt', async () => {
+ const s = setup({ mode: 'onOpenAndChanges', folders: [['synthetic-a', '/synthetic/a'], ['synthetic-b', '/synthetic/b']] });
+ await s.clock.advance(CONFIG_REVIEW_DELAY_MS); assert.equal(s.reads.length, 1);
+ s.emit('AGENTS.md'); await s.run(); assert.equal(s.reads.length, 2);
+ await s.clock.advance(10 * 60_000); assert.equal(s.reads.length, 2, 'the manual run covered the change');
+ s.refusedNow.add('/synthetic/b'); const before = s.watchers.length;
+ s.emit('AGENTS.md'); await s.clock.advance(CONFIG_DEBOUNCE_MS);
+ assert.equal(s.reads.length, 2, 'nothing is read when a guard answer changed');
+ assert.equal(s.live().length, 1); assert.ok(s.watchers.length > before, 'watchers rebuilt for the roots that pass');
+ s.emit('AGENTS.md'); await s.clock.advance(CONFIG_MIN_INTERVAL_MS);
+ assert.deepEqual(s.reads.at(-1), ['/synthetic/a']); assert.ok(s.reads.every(r => !r.includes('/synthetic/b') || s.reads.indexOf(r) < 2));
+});
+test('a discarded open run does not use up the window open run', async () => {
+ const s = setup({ mode: 'onOpen' });
+ let release: (() => void) | undefined;
+ s.gate = () => new Promise<ConfigReview>(resolve => { release = () => resolve(review(['S1'])); });
+ await s.clock.advance(CONFIG_REVIEW_DELAY_MS); s.changeMode('off'); release!(); await s.clock.flush();
+ s.gate = undefined; s.changeMode('onOpen'); await s.clock.advance(CONFIG_REVIEW_DELAY_MS);
+ assert.equal(s.reads.length, 2); assert.equal(s.refreshes, 1);
 });

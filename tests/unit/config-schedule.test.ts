@@ -117,3 +117,10 @@ test('the enable offer: support prompts, any global value, the stored mark and s
  assert.equal(offerDue({ ...base, lastSupportAt: 100_000 - 59_999 }), false);
  assert.equal(offerDue({ ...base, lastSupportAt: 100_000 - 60_000 }), true);
 });
+test('changes seen while the open run is pending are covered by it', async () => {
+ const h = harness();
+ h.s.open(); await h.clock.advance(1_000);
+ for (let i = 0; i < 100; i++) h.s.event();
+ await h.clock.advance(CONFIG_REVIEW_DELAY_MS); assert.deepEqual(h.runs.map(r => r.trigger), ['open']);
+ await h.clock.advance(10 * 60_000); assert.equal(h.runs.length, 1);
+});

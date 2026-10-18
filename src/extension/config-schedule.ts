@@ -41,7 +41,7 @@ interface SchedulerDeps {
 export interface ConfigScheduler {
  /** Arm the once-per-window open run after CONFIG_REVIEW_DELAY_MS. */
  open(): void;
- /** An allowlisted file changed: trailing debounce, forced after CONFIG_MAX_WAIT_MS. */
+ /** An allowlisted file changed: trailing debounce, forced after CONFIG_MAX_WAIT_MS; absorbed by a pending open run. */
  event(): void;
  /** Forget pending triggers (setting off, trust or roots changed, manual run). A running run is aborted by the caller. */
  cancel(): void;
@@ -92,6 +92,8 @@ export function createConfigScheduler(deps: SchedulerDeps): ConfigScheduler {
   open() { if (disposed || paused) return; openAt = deps.now() + CONFIG_REVIEW_DELAY_MS; arm(); },
   event() {
    if (disposed || paused) return;
+   // While the staggered open run is pending it covers the change, so startup activity (a checkout) does not run before it.
+   if (openAt !== undefined && !running) return;
    const t = deps.now();
    if (firstAt === undefined) firstAt = t;
    lastAt = t;

@@ -536,12 +536,16 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
   try {
    const today = utcDate(new Date());
    if (!supportDue({ today, firstSeen: firstDate(), auditSaved, detailDays: detailDays().length, advisorUsed: stored(SUPPORT_ADVISOR_KEY), next: stored(SUPPORT_NEXT_KEY), never: stored(SUPPORT_NEVER_KEY), valueSeen: !strongPending && (seen || stored(SUPPORT_VALUE_KEY)), enabled: readSupportPrompts(get), kiro: inKiro() })) return;
-   if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
-   if (disposed) return;
-   shown = true; promptOpen = true;
+   // Reserved synchronously, before any await, so the configuration review's offer (which reserves the same way) never shows alongside it.
+   promptOpen = true;
    let choice: SupportChoice | undefined;
-   try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
-   finally { promptOpen = false; lastPromptAt = Date.now(); }
+   try {
+    if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
+    if (disposed) return;
+    shown = true;
+    try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
+    finally { lastPromptAt = Date.now(); }
+   } finally { promptOpen = false; }
    if (disposed) return;
    if (choice === 'Rate') open(LINKS.rate); else if (choice === 'Support') open(LINKS.support);
    const after = afterChoice(choice, today);

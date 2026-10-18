@@ -27,7 +27,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
  let nodes = configTree(), disposed = false, running = false, abort: AbortController | undefined;
  let current: ConfigReview | undefined, generation = 0;
  // Automatic mode, in memory only: the in-flight automatic run, the watcher generation, dirty roots (by index) and notice state.
- let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false;
+ let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false, resync = false;
  let watchers: vscode.Disposable[] = [];
  let drawn: { result: ConfigReview; names: string[]; refused: RefusedConfigRoot[]; checkedAt: string; automatic: boolean } | undefined;
  const dirty = new Set<number>(), notice = createNoticeState(), known = new Set<string>(), fresh = new Set<string>();
@@ -73,10 +73,12 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    drawn = undefined; nodes = configTree(current); refresh(); return 'ran';
   }
   const { roots, names, refused } = resolveRoots();
-  if (origin !== 'manual' && (!roots.length || mode() === 'off' || (origin === 'watch' && (mode() !== 'onOpenAndChanges' || roots.join('\n') !== watchKey)))) return 'skipped';
+  if (origin === 'watch' && mode() === 'onOpenAndChanges' && roots.join('\n') !== watchKey) { resync = true; return 'skipped'; } // a root's guard answer changed: rebuild, read nothing
+  if (origin !== 'manual' && (!roots.length || mode() === 'off' || (origin === 'watch' && mode() !== 'onOpenAndChanges'))) return 'skipped';
   const result = roots.length ? await reviewer.review(roots, {signal:controller.signal}) : { ...evaluateConfigRules([]),roots:[],status:'unavailable' as const,bytesRead:0,notChecked: refused.length ? {} : {root_not_local:1} };
   if (!stillValid()) return roots.length ? 'ran' : 'skipped';
   if (refused.length && result.status === 'complete') result.status = 'partial';
+  if (origin === 'open') openDone = true; // only a drawn result is the window's open run; a discarded one still counts toward the cap
   current = result; drawn = { result, names, refused, checkedAt: new Date(timers.now()).toISOString(), automatic: origin !== 'manual' }; draw();
   // Fixed text only: no count, file name or hook name.
   if (noticeDecision(notice, result.findings.map(f => f.id), origin, timers.now())) {
@@ -93,8 +95,8 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   const controller = new AbortController();
   const promise = collect(trigger, controller).catch((): RunOutcome => { if (!disposed && !controller.signal.aborted) failed(); return 'ran'; });
   auto = { controller, promise };
-  try { const outcome = await promise; if (trigger === 'open' && outcome === 'ran') openDone = true; return outcome; }
-  finally { if (auto?.controller === controller) auto = undefined; }
+  try { return await promise; }
+  finally { if (auto?.controller === controller) auto = undefined; if (resync && !disposed) { resync = false; sync(); } }
  };
  const scheduler = createConfigScheduler({ now: () => timers.now(), setTimer: (fn, ms) => timers.set(fn, ms), clearTimer: h => timers.clear(h), run: autoRun, onPause: draw });
  // Setting, folders or trust changed: cancel pending runs, abort and discard an in-flight one, rebuild the watchers.
@@ -135,10 +137,11 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    const due = offerDue({ supportPrompts: readSupportPrompts((prefix, key) => editor.workspace.getConfiguration(prefix).get<unknown>(key)), globalValue: config.inspect<unknown>(SETTING)?.globalValue,
     offered: context.globalState.get<unknown>(CONFIG_OFFER_KEY), supportOpen: options.support?.promptOpen() ?? false, lastSupportAt: options.support?.lastPromptAt(), now: timers.now() });
    if (!due) return;
-   try { await context.globalState.update(CONFIG_OFFER_KEY, true); } catch { return; } // an offer whose mark cannot be saved is not shown
-   if (disposed) return;
+   // Reserved synchronously, before any await, so the support prompt (which reserves the same way) never shows alongside it.
    options.support?.offerOpen(true);
    try {
+    try { await context.globalState.update(CONFIG_OFFER_KEY, true); } catch { return; } // an offer whose mark cannot be saved is not shown
+    if (disposed) return;
     const choice = await editor.window.showInformationMessage(CONFIG_OFFER_TEXT, 'Turn on', 'Not now');
     if (choice === 'Turn on' && !disposed) await config.update(SETTING, 'onOpenAndChanges', editor.ConfigurationTarget.Global);
    } finally { options.support?.offerOpen(false); }
