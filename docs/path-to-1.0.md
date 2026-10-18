@@ -137,6 +137,8 @@ A terminal status line (an opt-in status file in Cyclegauge's own storage that s
 
 ## 5. 1.0 exit criteria
 
+Native acceptance of the exact candidate is consolidated in the [1.0 acceptance checklist](validation/1.0-acceptance.md).
+
 - [x] WP0 scope recorded (ROADMAP "Path to 1.0 — scope decision" and later dated decisions, #75, #93, #97).
 - [x] Storage upgrade ladder, newer-store refusal and evidence pruning tested (merged in #80 with `tests/unit/store-version.test.ts`).
 - [ ] Unsupported runtime shows a clear message (merged, #81); oldest checked Kiro recorded (still open).
