@@ -9,15 +9,16 @@ import { demoParentDir } from './base.mjs';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
 if (args.includes('--help')) {
- console.log('Usage: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>]\nChecks fresh synthetic usage; --open launches an isolated Kiro window. Default: build the current checkout.');
+ console.log('Usage: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>] [--pace high]\nChecks fresh synthetic usage; --open launches an isolated Kiro window; --pace high invents about 200 credits/day instead of 20 so budget warnings and the overage projection appear. Default: build the current checkout.');
  process.exit(0);
 }
-let open = false, candidate, kiro;
+let open = false, candidate, kiro, pace;
 for (let i = 0; i < args.length; i++) {
  if (args[i] === '--open' && !open) open = true;
  else if (args[i] === '--vsix' && candidate === undefined && args[i + 1] && !args[i + 1].startsWith('--')) candidate = resolve(args[++i]);
+ else if (args[i] === '--pace' && pace === undefined && args[i + 1] === 'high') { pace = 'high'; i++; }
  else if (args[i] === '--kiro' && kiro === undefined && args[i + 1] && !args[i + 1].startsWith('--')) kiro = resolve(args[++i]);
- else { console.log('USAGE: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>]'); process.exit(2); }
+ else { console.log('USAGE: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>] [--pace high]'); process.exit(2); }
 }
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major < 24 || (major === 24 && minor < 13)) {
@@ -40,13 +41,14 @@ try {
  mkdirSync(logs, { recursive: true, mode: 0o700 });
  const anchor = new Date(Math.floor(Date.now() / 1000) * 1000);
  const lines = [];
+ const perDay = pace === 'high' ? 200 : 20; // invented pace; high reaches the 5000 limit before the reset
  for (let offset = 35; offset >= 0; offset--) {
   const at = new Date(anchor.getTime() - offset * 86_400_000);
   const reset = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, 1)).toISOString();
   const envelope = { commandName: 'GetUsageLimitsCommand', input: {}, output: {
    userInfo: { userId: 'synthetic-acceptance-account' }, nextDateReset: reset,
    usageBreakdownList: [{ resourceType: 'CREDIT', unit: 'INVOCATIONS',
-    currentUsageWithPrecision: 20 * (at.getUTCDate() - 1) + 10, usageLimitWithPrecision: 5000,
+    currentUsageWithPrecision: perDay * (at.getUTCDate() - 1) + 10, usageLimitWithPrecision: 5000,
     nextDateReset: reset, bonuses: [], overageCredits: [] }],
   }, metadata: { httpStatusCode: 200 } };
   lines.push(`${at.toISOString()} [info] synthetic-envelope ${JSON.stringify(envelope)}\n`);
@@ -64,7 +66,7 @@ try {
  const { buildVsix } = await import('../release/build-vsix.ts');
  const { verifyVsix } = await import('../release/verify-vsix.ts');
  const vsix = candidate ?? join(base, 'synthetic-demo.vsix');
- if (!candidate) await buildVsix(vsix, true);
+ if (!candidate) await buildVsix(vsix); // channel derived from the version (channel.ts)
  const verified = verifyVsix(readFileSync(vsix));
  if (!verified.ok) throw new Error('PACKAGE_CHECK_FAILED');
  console.log(`VSIX content verification PASS; version ${verified.version} (${candidate ? 'supplied candidate' : 'current checkout'}).`);
