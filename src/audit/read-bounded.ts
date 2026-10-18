@@ -55,13 +55,16 @@ export async function readLegacyBounded(root: string, rel: string, mode: Bounded
  let handle: ReadHandle | undefined, buf: Uint8Array | undefined, done = false, aborted = false, cleanup = () => {};
  try {
   const abs = join(root, ...rel.split('/'));
-  // `go` runs one step; with a signal, an abort ends the wait at once and the handle is closed in `finally`.
+  // Legacy aborts race each step. Guarded configuration steps drain before aborting, keeping their run single-flight through cleanup.
   let go = <T>(p: Promise<T>): Promise<T> => p;
   if (signal) {
    if (signal.aborted) throw ABORT;
-   const aborted = new Promise<never>((_, reject) => { const on = () => reject(ABORT); signal.addEventListener('abort', on, { once: true }); cleanup = () => signal.removeEventListener('abort', on); });
-   aborted.catch(() => undefined);
-   go = p => Promise.race([p, aborted]);
+   if (guarded) go = async p => { const value = await p; if (signal.aborted) throw ABORT; return value; };
+   else {
+    const aborted = new Promise<never>((_, reject) => { const on = () => reject(ABORT); signal.addEventListener('abort', on, { once: true }); cleanup = () => signal.removeEventListener('abort', on); });
+    aborted.catch(() => undefined);
+    go = p => Promise.race([p, aborted]);
+   }
   }
   const dirs = guarded ? await go(ancestorIds(fs, root, rel)) : undefined;
   if (guarded && !dirs) return { code: 'unsafe' };
@@ -73,8 +76,9 @@ export async function readLegacyBounded(root: string, rel: string, mode: Bounded
   if (options.singleLink && st.nlink !== 1) return { code: 'unsafe' };
   if (whole && st.size > max) return { code: 'oversized' };
   const opening = fs.open(abs, constants.O_RDONLY | ((constants.O_NOFOLLOW as number | undefined) ?? 0) | ((constants.O_NONBLOCK as number | undefined) ?? 0));
-  // An abort while the open is pending abandons the wait, but a handle that arrives later is still closed.
-  try { handle = await go(opening); } catch (e) { if (e === ABORT) opening.then(h => h.close()).catch(() => undefined); throw e; }
+  // Guarded open first owns the arriving handle, so abort cleanup is awaited in finally. Legacy callers retain prompt abort.
+  if (guarded) { handle = await opening; if (signal?.aborted) throw ABORT; }
+  else try { handle = await go(opening); } catch (e) { if (e === ABORT) opening.then(h => h.close()).catch(() => undefined); throw e; }
   const fst = await go(handle.stat());
   if (!fst.isFile() || !same(fst.dev, st.dev) || !same(fst.ino, st.ino)) return { code: 'unsafe' };
   if (options.singleLink && fst.nlink !== 1) return { code: 'unsafe' };
@@ -119,10 +123,9 @@ export async function readLegacyBounded(root: string, rel: string, mode: Bounded
   cleanup();
   const held = buf, wipe = () => { if (!done) held?.fill(0); };
   if (handle) {
-   // Close first, so that a read finishing during the close cannot leave bytes behind a finished wipe. On abort the close is started but not awaited
-   // (a close waiting for a hung read must not delay the abort); the handle is closed exactly once and the wipe follows the close.
+   // Close before wiping. Guarded config aborts await all I/O and close; legacy aborts retain their deferred cleanup semantics.
    const closing = Promise.resolve().then(() => handle!.close()).catch(() => undefined);
-   if (aborted) void closing.finally(wipe); else { await closing; wipe(); }
+   if (aborted && !guarded) void closing.finally(wipe); else { await closing; wipe(); }
   } else wipe();
  }
 }

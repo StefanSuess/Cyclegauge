@@ -53,3 +53,8 @@ test('ordinary leading whitespace body stays always; body and bytes beyond closi
  assert.equal(parseSteering(bytes('---\n' + '# synthetic\n'.repeat(200) + '---\n'), 3000).mode, 'unrecognised');
  const a = parseHooks(json([hook({ name: 'synthetic-' + 'x'.repeat(300), trigger: 'x'.repeat(65), matcher: '(synthetic-a+)+'.repeat(10000) })])); assert.ok('code' in a || a.hooks[0]!.name === '');
 });
+test('ambiguous lexical broad patterns keep only a fixed boolean, distinct from match-all and specific patterns',()=>{
+ for(const pattern of ['*','*.*','./*',' ./*.* ']) {const r=parseSteering(fm(`inclusion: fileMatch\nfileMatchPattern: '${pattern}'`),100);assert.equal(r.matchAll,false);assert.equal(r.broadUncertain,true);assert.ok(!JSON.stringify(r).includes(pattern));}
+ assert.equal(parseSteering(fm("inclusion: fileMatch\nfileMatchPattern: 'synthetic/**/*.ts'"),100).broadUncertain,undefined);
+ assert.equal(parseSteering(fm('inclusion: fileMatch\nfileMatchPattern: ['+Array(21).fill('"*"').join(',')+']'),100).matchAll,'unknown');
+});

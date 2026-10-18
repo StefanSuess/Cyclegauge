@@ -5,7 +5,7 @@ import { nodeFs, readBounded, type ReadFs, type Id } from './read-bounded.ts';
 import { hasFrontMatter, parseSteering, parseHooks, type SteeringConfig, type HookParseResult } from './config-parse.ts';
 export const CONFIG_LIMITS = { entries: 500, files: 100, steeringBytes: 2048, hookBytes: 65536, runBytes: Math.floor(3.6 * 1024 * 1024), timeMs: 3000 };
 export type ConfigKind = 'steering' | 'hooks';
-export type ConfigReadCode = 'not_allowed' | 'file_unsafe' | 'link_not_followed' | 'folder_unreadable' | 'file_unreadable' | 'file_too_large' | 'too_many_entries' | 'limit_bytes' | 'time_limit' | 'cancelled';
+export type ConfigReadCode = 'not_allowed' | 'folder_symlink' | 'file_unsafe' | 'link_not_followed' | 'folder_unreadable' | 'file_unreadable' | 'file_too_large' | 'too_many_entries' | 'limit_bytes' | 'time_limit' | 'cancelled';
 type Failure = { code: ConfigReadCode };
 type Absent = { absent: true };
 type Stat = Awaited<ReturnType<ReadFs['lstat']>>;
@@ -43,7 +43,8 @@ async function directories(root: string, rel: string, io: Io): Promise<{ dirs: S
   if (part) path = join(path, part);
   const r = await attempt(() => fs.lstat(path), 'folder_unreadable'); if (!('value' in r)) return r;
   const st = r.value;
-  if (st.isSymbolicLink() || !st.isDirectory() || (dirs.length > 0 && !same(st.dev, dirs[0]!.dev))) return { code: 'file_unsafe' };
+  if (st.isSymbolicLink()) return { code: 'folder_symlink' };
+  if (!st.isDirectory() || (dirs.length > 0 && !same(st.dev, dirs[0]!.dev))) return { code: 'file_unsafe' };
   dirs.push(st);
  }
  return { dirs };

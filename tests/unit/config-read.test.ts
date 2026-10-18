@@ -68,7 +68,7 @@ test('symlinked ancestors/files and hard-linked hooks are refused', async () => 
  assert.deepEqual(await readSteeringFile(root, '.kiro/steering/synthetic-link.md', budget()), { code: 'file_unsafe' });
  for (const rel of ['.kiro/steering', '.kiro/hooks', '.kiro']) {
   await rm(join(root, rel), { recursive: true }); await symlink(root, join(root, rel));
-  assert.deepEqual(await listConfigFiles(root, rel.endsWith('hooks') ? 'hooks' : 'steering'), { code: 'file_unsafe' }); await rm(join(root, rel));
+  assert.deepEqual(await listConfigFiles(root, rel.endsWith('hooks') ? 'hooks' : 'steering'), { code: 'folder_symlink' }); await rm(join(root, rel));
  }
  await remove(root);
 });
