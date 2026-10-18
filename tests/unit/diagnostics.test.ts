@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { join, resolve } from 'node:path';
+import { HINT_CODES } from '../../src/session/codes.ts';
 import { snapshotFacts, buildDiagnostics, formatDiagnostics, DIAGNOSTICS_HEADER, STATUSES, FORECAST_TIERS, storeStateFor, type DiagnosticsInput } from '../../src/diagnostics.ts';
 import { startExtension } from '../../src/extension/controller.ts';
 import { STORE_VERSION } from '../../src/store.ts';
@@ -45,15 +46,24 @@ test('a clean report has the header and exactly the allowlisted fields', () => {
  const text = formatDiagnostics(buildDiagnostics({ surface: 'extension', editor: 'Synthetic Editor-1.2', editorVersion: '1.99.0', platform: 'darwin', arch: 'arm64', node: '24.13.0', electron: '39.0.0-beta.1', sqlite: true, store: 'ok',
   storage: 'default', source: 'chosen', timezone: 'device', gauge: 'running', status: 'observed', forecast: 'provisional', snapshots: 3, accounts: 1, observedAgeMs: 5_400_000, importCodes: { no_source_logs: 1, source_changed: 2 }, discoveredLogs: 4, audit: true }));
  assert.ok(text.startsWith(DIAGNOSTICS_HEADER + '\n')); assert.ok(text.endsWith('\n'));
- assert.deepEqual(Object.keys(fields(text)), ['cyclegauge', 'surface', 'editor', 'editor_version', 'platform', 'arch', 'node', 'electron', 'sqlite', 'store_version', 'store', 'storage', 'source', 'timezone', 'gauge', 'status', 'forecast', 'snapshots', 'accounts', 'unassociated', 'freshness', 'import_codes', 'discovered_logs', 'audit', 'rejected_messages']);
+ assert.deepEqual(Object.keys(fields(text)), ['cyclegauge', 'surface', 'editor', 'editor_version', 'platform', 'arch', 'node', 'electron', 'sqlite', 'store_version', 'store', 'storage', 'source', 'timezone', 'gauge', 'status', 'forecast', 'snapshots', 'accounts', 'unassociated', 'freshness', 'import_codes', 'discovered_logs', 'audit', 'rejected_messages', 'session_hints', 'session_hint_notices', 'session_hint_capped']);
  assert.deepEqual(fields(text), { cyclegauge: fields(text).cyclegauge, surface: 'extension', editor: 'Synthetic Editor-1.2', editor_version: '1.99.0', platform: 'darwin', arch: 'arm64', node: '24.13.0', electron: '39.0.0-beta.1', sqlite: 'available',
   store_version: String(STORE_VERSION), store: 'ok', storage: 'default', source: 'chosen', timezone: 'device', gauge: 'running', status: 'observed', forecast: 'provisional', snapshots: '3', accounts: '1', unassociated: 'unavailable', freshness: '1-24h',
-  import_codes: 'no_source_logs=1, source_changed=2', discovered_logs: '4', audit: 'available', rejected_messages: '0' });
+  import_codes: 'no_source_logs=1, source_changed=2', discovered_logs: '4', audit: 'available', rejected_messages: '0', session_hints: 'not_run', session_hint_notices: '0', session_hint_capped: '0' });
  assert.match(fields(text).cyclegauge, /^\d+\.\d+\.\d+/);
  for (const [age, label] of [[null, 'none'], [0, '<1h'], [-5, '<1h'], [3_599_999, '<1h'], [3_600_000, '1-24h'], [86_400_000, '1-24h'], [86_400_001, '>24h']] as const) assert.equal(fields(formatDiagnostics(buildDiagnostics({ observedAgeMs: age }))).freshness, label);
  assert.equal(fields(formatDiagnostics(buildDiagnostics({}))).import_codes, 'none');
  assert.equal(fields(formatDiagnostics(buildDiagnostics({ rejectedMessages: 7 }))).rejected_messages, '7');
  assert.equal(fields(formatDiagnostics(buildDiagnostics({ rejectedMessages: 'synthetic-private' }))).rejected_messages, 'unavailable');
+});
+
+test('session hint diagnostics are a closed code and a count; hostile values become placeholders and the CLI has no such field', () => {
+ const f = (input: DiagnosticsInput) => fields(formatDiagnostics(buildDiagnostics(input)));
+ for (const code of HINT_CODES) assert.equal(f({ sessionHints: code }).session_hints, code);
+ for (const hostile of ['claude-sonnet-4.5', '72 %', '/Users/synthetic/.kiro', '12:34', 'synthetic-title-sentinel', 5, null, {}]) assert.equal(f({ sessionHints: hostile }).session_hints, hostile === null ? 'not_run' : 'other', String(hostile));
+ assert.equal(f({ sessionHintNotices: 3 }).session_hint_notices, '3'); assert.equal(f({ sessionHintNotices: -1 }).session_hint_notices, 'unavailable'); assert.equal(f({ sessionHintNotices: 'synthetic-model' }).session_hint_notices, 'unavailable');
+ assert.equal(f({ sessionHintCapped: 2 }).session_hint_capped, '2'); assert.equal(f({ sessionHintCapped: 'synthetic-folder' }).session_hint_capped, 'unavailable');
+ const cli = f({ surface: 'cli', sessionHints: 'ok', sessionHintNotices: 4, sessionHintCapped: 1 }); assert.ok(!('session_hints' in cli) && !('session_hint_notices' in cli) && !('session_hint_capped' in cli));
 });
 
 test('accounts count only associated partitions and unassociated snapshots are counted separately', () => {

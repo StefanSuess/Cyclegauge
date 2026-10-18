@@ -26,7 +26,7 @@ Account snapshots determine current observed account usage. Local events explain
 
 ## Boundaries and proposed interfaces
 
-- **Discovery:** platform-specific candidates plus an explicit root override. Check existence and access without starting Kiro. Do not traverse session source snapshots or follow symlinks outside a selected root.
+- **Discovery (usage readers):** platform-specific candidates plus an explicit root override. This rule is for the account-usage readers only; the session hints reader (third boundary below) has a fixed root and no override. Check existence and access without starting Kiro. Do not traverse session source snapshots or follow symlinks outside a selected root.
 - **Read-only adapters:** separate version/shape-aware adapters for `GetUsageLimitsCommand` log envelopes, notification cache JSON, IDE `usage_summary`, and CLI turn metadata. Adapter results are accepted projections or fixed diagnostic/status codes; raw records never leave the adapter.
 - **AccountSnapshot:** device-local opaque account partition when continuity can be established, source kind, observed-at time with timestamp confidence, ingested-at time, resource type, precise usage/limit and supported overage fields, reset-at UTC, provenance, and quality flags. No raw envelope, identity, request data, or unknown arrays are retained.
 - **LocalUsageEvent:** opaque local deduplication key, source/format, completion timestamp, credit amount only when interpretation is supported, and interpretation/coverage flags. Account association may be unknown; do not silently attach historical sessions to the currently logged-in account.
@@ -34,6 +34,15 @@ Account snapshots determine current observed account usage. Local events explain
 - **Persistence:** a Cyclegauge-owned SQLite database in the editor's per-extension storage folder (`User/globalStorage/stefansuess.cyclegauge` beneath the editor's data root), as other extensions use; the CLI, which has no editor, defaults to the OS application-data directory. Never among Kiro's logs, in another Kiro-owned folder or in the repository. Store normalized billing observations, private opaque partition/deduplication keys, safe provenance tokens, and import cursors. Apply restrictive owner access/Windows ACLs; no raw records or private source paths. Keep any keyed pseudonymization secret device-local and outside diagnostics.
 
 The implemented billing-only query is `view()` in `src/view.ts` and CLI `--json`; private `Store.snapshots()` is internal and must not be logged/exported. SQLite schema version 1 stores normalized account observations, private deduplication/account/source tokens and fixed-code import evidence. Local event/cache contracts remain proposed. See docs/usage.md and docs/privacy-and-storage.md for runtime commands and bounds.
+
+## Session hints (third read class)
+
+A third, separate read class: *Kiro session metadata, IDE format, read at runtime* (macOS, local extension host, `cyclegauge.sessionHints`, default on). It is not an input of the collector, Store, history, forecast, CLI JSON or diagnostics beyond fixed codes and counts. The design and its hardening criteria are in [the data proof](docs/wp11-13-data-proof.md#combined-implementation-design-wp11-plus-wp13-one-feature-session-hints).
+
+- `src/audit/read-ignore.ts`: the one bounded file reader (lstat, ancestry walk without symlinks, `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, `fstat` equal to `lstat`, regular file, same device, repeated checks after the read with `changed`, abort signal), with a `whole` mode with a byte cap (the audit's ignore files, behaviour unchanged) and a `tail` mode with a byte window (the session conversation file).
+- `src/session/`: no editor API and no Store/history import. `parse.ts` (strict timestamps, `session.json` projection, workspace string match, byte-level tail scan, percentage range), `models.ts` (dated table, hint decision), `notices.ts` (thresholds, hysteresis, rate limits, arbiter, fixed texts), `reader.ts` (listing caps, newest-session selection, bounded reads), `hints.ts` (gate and one check), `codes.ts` (closed code list).
+- `src/extension/session-hints.ts`: the only editor wiring (timer, setting, one non-modal message). Gating happens before any filesystem call: disabled, not macOS, a remote host, not Kiro, or no `file:` folder means zero filesystem access.
+- The root `~/.kiro/sessions` is fixed; a test-injected root exists only as an argument of the reader. A symlink at `~/.kiro` or on the way fails closed. Only the model identifier, a percentage and timestamps survive a check, in memory; nothing is persisted.
 
 ## Account snapshot collection and reconciliation
 

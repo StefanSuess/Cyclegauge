@@ -2,6 +2,23 @@
 
 All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x, 0.7.x, 0.9.x) are beta builds; see [versioning](docs/release-process.md#versioning).
 
+## Unreleased
+
+Beta, macOS. Adds **session hints**: a context-fill reminder and a model hint taken from the newest IDE session of the open workspace. **It is on by default** and is a new, narrow read of Kiro's local session files (see Privacy below); turn it off with the user setting `cyclegauge.sessionHints`. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
+
+### Added
+
+- **Context reminder**: a non-modal notice when your most recent Kiro session in this workspace is about 70 % and again about 85 % full ("as of HH:MM"). The percentage is the latest value Kiro wrote for that session, a snapshot of the selected model's window, not Kiro's live meter. A threshold is armed again once the value falls 10 points below it (compaction, model switch). The thresholds are educated guesses, not evidence.
+- **Model hint**: a notice when the session's model is listed by Kiro above Auto's credit rate ("Kiro lists it at about 1.3x the credits of Auto (Kiro model table, as of 2026-10-18); actual credits per task vary"). It uses a dated table inside the extension, and is silent for Auto, unknown models and models at or below 1.0x. The table covers the 22 models of Kiro's published table (as of 2026-10-18); GPT-5.6 notices say "from about" because Kiro bills a higher factor above 272K tokens, and the retired Claude Sonnet 4.0 stays silent. Only Claude Sonnet 4.5 (and two cheaper MiniMax models) were seen in real session files; other identifiers come from Kiro's documentation or its published names and may be wrong or out of date, in which case no hint appears.
+- At most one notice per check, per session at most one in 30 minutes and three per run; only for sessions active after the window started and within about 10 minutes. The setting `cyclegauge.sessionHints` (user level, default on) and the notice's **Turn off** button switch it off; a new step in the **Get started** walkthrough explains it.
+- Diagnostics gain `session_hints` (the last check's fixed code) `session_hint_notices` (a count) and `session_hint_capped` (a count of workspace folders skipped because they hold more than 200 sessions).
+
+### Privacy
+
+- macOS only, local extension host only (no remote, WSL or SSH window), and only in Kiro. When the setting is off, on another platform or in a remote window, no filesystem access happens at all.
+- Cyclegauge parses up to 20 of the most recently changed sessions' `session.json` files (each whole, in memory, including titles and workspace paths) to find the newest session of your open folder, then loads up to the last 256 KiB of that session's `messages.jsonl` (which can contain prompts and replies) into memory. It keeps only that session's model identifier, context percentage and time, compares workspace paths only to find your open folder, and never stores, logs, shows or sends anything else. Nothing is written; Kiro's files are opened read-only. The root (`~/.kiro/sessions`) is fixed; if `~/.kiro` is a symlink, the feature stays silent.
+- The shared bounded file reader of the workspace audit was generalised (whole-file and tail modes); the audit's behaviour is unchanged.
+
 ## 0.9.0 (beta, macOS, Windows, Ubuntu)
 
 Adds a workspace audit with a native view, Accept/Ignore actions and reminders, a diagnostics report, a clear "update needed" message on unsupported runtimes, and a storage migration path. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
