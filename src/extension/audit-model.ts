@@ -70,8 +70,27 @@ export type NodeKind = 'header' | 'info' | 'group' | 'finding' | 'footer';
 export type NodeAction = 'openIgnoreSetting' | 'clearDismissed';
 export interface AuditNode {
  id: string; kind: NodeKind; label: string; description?: string; tooltip?: string; icon: string; contextValue: string;
- children?: AuditNode[]; finding?: Finding; action?: NodeAction;
+ children?: AuditNode[]; finding?: Finding; action?: NodeAction; expanded?: boolean;
 }
+/** The line under every apply group: the edit is only prepared, never saved by Cyclegauge. */
+export const NOTHING_CHANGES = 'Nothing changes until you save.';
+const EXCLUDE_NOTE = "Kiro may read these files into the agent's context; excluding them keeps requests smaller. Review changes… shows exactly what would be added to .kiroignore, and nothing changes until you save. Alternative: Not a problem hides an item.";
+/** The annotation of the one .kiroignore change shown in the editor's change preview: the short why and the alternative. `rules` is the number of lines added. */
+export const excludeAnnotation = (rules: number): { label: string; description: string } => ({
+ label: 'Exclude from Kiro',
+ description: `Adds ${rules} ${rules === 1 ? 'line' : 'lines'} to .kiroignore. Kiro may read ${rules === 1 ? 'this file' : 'these files'} into the agent's context; excluding ${rules === 1 ? 'it' : 'them'} keeps requests smaller. Alternative: Not a problem.`,
+});
+/** Local time of the check as HH:MM when it was today, otherwise the relative wording (yesterday, N days ago); '' when unknown. */
+export function checkedLabel(checkedAt: string | undefined, now: Date): string {
+ const then = checkedAt === undefined ? NaN : Date.parse(checkedAt);
+ if (!Number.isFinite(then) || !Number.isFinite(now.getTime()) || then > now.getTime() + 60_000) return '';
+ const d = new Date(then), sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+ return sameDay ? `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : relativeTime(checkedAt, now);
+}
+/** What the combined status line may say about the filename audit: counts, a size phrase and times, never a path. */
+export interface AuditStats { suggestions: number; size: string; partial: boolean; checkedAt?: string; folder: string; notes: string[] }
+/** The audit part of the view in display order; the combiner adds the status line and the Steering and Hooks groups. */
+export interface AuditParts { unavailable?: AuditNode; stats?: AuditStats; info: AuditNode[]; exclude?: AuditNode; footers: AuditNode[] }
 /** In-memory identity of a finding within one result; never stored. */
 export const findingKey = (f: Pick<Finding, 'category' | 'path'>): string => `${f.category}\0${f.path}`;
 /** Salted SHA-256 of category and path: the only form in which an ignored finding is ever stored. */
@@ -149,17 +168,20 @@ function findingNode(f: Finding, index: number, accepted: ReadonlySet<string>, r
  return { id: `finding:${f.category}:${index}`, kind: 'finding', label, description, tooltip, icon: ICONS[f.category], contextValue: f.suggestion === '' ? 'finding' : 'finding-suggestible', finding: f };
 }
 
+/** Largest first; a finding without a size (a pruned folder) comes after the sized ones; equal sizes keep their order in the result. */
+const bySize = (a: { f: Finding; i: number }, b: { f: Finding; i: number }): number => (b.f.size ?? -1) - (a.f.size ?? -1) || a.i - b.i;
+
 /**
- * Builds the sidebar tree. `dismissedHashes` are the stored hashes, `hashFn` maps a finding to the same kind of hash and
+ * Builds the audit part of the sidebar. `dismissedHashes` are the stored hashes, `hashFn` maps a finding to the same kind of hash and
  * `accepted` holds findingKey values of findings whose change is prepared but unsaved. `checkedAt` is the in-memory time of the run.
+ * The findings sit in one **Exclude from Kiro** group (the verb of its Review changes… button) with the categories as sub-groups, largest first.
  */
-export function auditTree(result: AuditResult, folderName: string, dismissedHashes: Iterable<string>, hashFn: (category: string, path: string) => string, accepted: ReadonlySet<string> = new Set(), checkedAt?: string, now: Date = new Date()): AuditNode[] {
+export function auditTree(result: AuditResult, folderName: string, dismissedHashes: Iterable<string>, hashFn: (category: string, path: string) => string, accepted: ReadonlySet<string> = new Set(), checkedAt?: string): AuditParts {
  const dismissed = new Set(dismissedHashes);
- const nodes: AuditNode[] = [];
  const name = escapeText(folderName);
  if (result.status === 'unavailable') {
   const message = UNAVAILABLE[result.code ?? ''] ?? 'The folder could not be audited.';
-  return [{ id: 'header', kind: 'header', label: message, description: name, tooltip: message, icon: 'warning', contextValue: 'header' }];
+  return { unavailable: { id: 'header', kind: 'header', label: message, description: name, tooltip: message, icon: 'warning', contextValue: 'header' }, info: [], footers: [] };
  }
  const reasons = result.reasons.map(r => REASONS[r] ?? r.replaceAll('_', ' '));
  const c = result.counts, partial = result.status === 'partial';
@@ -167,32 +189,36 @@ export function auditTree(result: AuditResult, folderName: string, dismissedHash
  const indexed = result.findings.map((f, i) => ({ f, i })).filter(x => !dismissed.has(hashFn(x.f.category, x.f.path)));
  const visible = indexed.map(x => x.f);
  const hidden = result.findings.length - visible.length;
- const { items, unclear } = countFindings(visible, result.omitted), total = items + unclear;
- const size = sizePhrase(auditSizeTotal(visible, result.omitted));
- const ago = relativeTime(checkedAt, now);
+ const { items, unclear } = countFindings(visible, result.omitted);
+ const total = auditSizeTotal(visible, result.omitted), size = sizePhrase(total);
  const summary = `${c.files} files and ${c.dirs} folders scanned; ${c.ignored} ignored, ${c.unknown} with unknown coverage, ${c.symlinks} symbolic links skipped, ${c.unreadable} unreadable.`;
- nodes.push({
-  id: 'header', kind: 'header', label: countsText(items, unclear),
-  description: [name, ...(ago ? [`checked ${ago}`] : []), ...(partial ? ['partial check'] : []), ...(size ? [size] : [])].join(' · '),
-  tooltip: [items > 0 ? 'These files are in your workspace and not excluded by its ignore files. Excluding the ones Kiro does not need keeps its context smaller and can save credits. Being listed does not mean Kiro has read them.'
+ const stats: AuditStats = {
+  suggestions: items + unclear, size: size ? `Kiro may read ${size}` : '', partial, checkedAt, folder: name,
+  notes: [items > 0 ? 'These files are in your workspace and not excluded by its ignore files. Excluding the ones Kiro does not need keeps its context smaller and can save credits. Being listed does not mean Kiro has read them.'
     : unclear > 0 ? 'Cyclegauge could not tell whether these are excluded by the ignore files. Review them: excluding the ones Kiro does not need keeps its context smaller. Being listed does not mean Kiro has read them.'
     : `No files matching these kinds by name or size were found. This does not prove there are no secrets.${hidden > 0 ? ' Items you hid are not counted.' : ''}`, GLOBAL_RULES_NOTE,
-   ...(size ? [`Total size of the files Kiro may read but probably doesn't need.${auditSizeTotal(visible, result.omitted).lowerBound ? ' Some of them have no size, or the list is cut short, so the total is a lower bound.' : ''}`] : []),
-   ...(partial ? ['The check is partial, so results may be incomplete:', ...(reasons.length ? reasons.map(r => `- ${escapeText(r)}`) : ['- Some results may be missing.'])] : []), summary].join('\n'),
-  icon: partial ? 'warning' : total > 0 ? 'eye' : 'pass', contextValue: 'header',
- });
- if (result.ignore === 'disabled') nodes.push({ id: 'info:disabled', kind: 'info', label: 'Workspace ignore files are turned off', tooltip: 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.', icon: 'info', contextValue: 'info' });
- if (result.ignore === 'setting_unknown') nodes.push({ id: 'info:setting_unknown', kind: 'info', label: "Couldn't read the Agent Ignore Files setting", description: 'Coverage unknown', tooltip: 'The kiroAgent.agentIgnoreFiles value could not be interpreted, so every coverage is unknown.', icon: 'info', contextValue: 'info' });
- if (result.kiroignoreNotListed) nodes.push({ id: 'info:not_listed', kind: 'info', label: ".kiroignore isn't active yet", description: 'open setting', tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' });
+   ...(size ? [`Total size of the files Kiro may read but probably doesn't need.${total.lowerBound ? ' Some of them have no size, or the list is cut short, so the total is a lower bound.' : ''}`] : []),
+   ...(partial ? ['The check is partial, so results may be incomplete:', ...(reasons.length ? reasons.map(r => `- ${escapeText(r)}`) : ['- Some results may be missing.'])] : []), summary],
+ };
+ const parts: AuditParts = { stats, info: [], footers: [] };
+ if (result.ignore === 'disabled') parts.info.push({ id: 'info:disabled', kind: 'info', label: 'Workspace ignore files are turned off', tooltip: 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.', icon: 'info', contextValue: 'info' });
+ if (result.ignore === 'setting_unknown') parts.info.push({ id: 'info:setting_unknown', kind: 'info', label: "Couldn't read the Agent Ignore Files setting", description: 'Coverage unknown', tooltip: 'The kiroAgent.agentIgnoreFiles value could not be interpreted, so every coverage is unknown.', icon: 'info', contextValue: 'info' });
+ if (result.kiroignoreNotListed) parts.info.push({ id: 'info:not_listed', kind: 'info', label: ".kiroignore isn't active yet", description: 'open setting', tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' });
  const reason = unclearReason(result);
+ const categories: AuditNode[] = [];
  for (const category of CATEGORY_ORDER) {
-  const rows = indexed.filter(x => x.f.category === category);
+  const rows = indexed.filter(x => x.f.category === category).sort(bySize);
   if (rows.length === 0) continue;
-  nodes.push({ id: category, kind: 'group', label: `${LABELS[category]} (${rows.length})`, description: WHY[category], tooltip: EXPLANATIONS[category], icon: ICONS[category], contextValue: 'group', children: rows.map(x => findingNode(x.f, x.i, accepted, reason)) });
+  categories.push({ id: category, kind: 'group', label: `${LABELS[category]} (${rows.length})`, description: WHY[category], tooltip: EXPLANATIONS[category], icon: ICONS[category], contextValue: 'group', expanded: false, children: rows.map(x => findingNode(x.f, x.i, accepted, reason)) });
  }
- if (hidden > 0) nodes.push({ id: 'footer:dismissed', kind: 'footer', label: `${hidden} hidden by you`, description: 'Show again', tooltip: 'These items are hidden for this workspace. Select to show them again.', icon: 'eye-closed', contextValue: 'footer-action', action: 'clearDismissed' });
- if (result.omitted > 0) nodes.push({ id: 'footer:omitted', kind: 'footer', label: `${result.omitted} more not shown`, tooltip: 'Only the first 200 items are listed; the rest are counted.', icon: 'ellipsis', contextValue: 'footer' });
- return nodes;
+ if (indexed.length > 0) {
+  const ready = visible.some(f => f.suggestion !== '');
+  parts.exclude = { id: 'group:exclude', kind: 'group', label: `Exclude from Kiro (${indexed.length})`, description: 'adds lines to .kiroignore', tooltip: EXCLUDE_NOTE, icon: 'eye-closed', contextValue: ready ? 'group-exclude' : 'group-exclude-none', expanded: true,
+   children: [{ id: 'info:exclude', kind: 'info', label: NOTHING_CHANGES, icon: 'info', contextValue: 'info' }, ...categories] };
+ }
+ if (hidden > 0) parts.footers.push({ id: 'footer:dismissed', kind: 'footer', label: `${hidden} hidden by you`, description: 'Show again', tooltip: 'These items are hidden for this workspace. Select to show them again.', icon: 'eye-closed', contextValue: 'footer-action', action: 'clearDismissed' });
+ if (result.omitted > 0) parts.footers.push({ id: 'footer:omitted', kind: 'footer', label: `${result.omitted} more not shown`, tooltip: 'Only the first 200 items are listed; the rest are counted.', icon: 'ellipsis', contextValue: 'footer' });
+ return parts;
 }
 
 /** Findings of a tree (or result) that are not dismissed, in display order. */

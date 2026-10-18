@@ -5,7 +5,7 @@ import { evaluateConfigRules, type ConfigFinding, type FindingId } from '../../s
 import type { ConfigReview, ConfigReviewRoot } from '../../src/audit/config-review.ts';
 import { CONFIG_NOTICE_TEXT, CONFIG_OFFER_KEY, CONFIG_OFFER_TEXT, registerConfigReview } from '../../src/extension/config-review.ts';
 import { CONFIG_DEBOUNCE_MS, CONFIG_MAX_AUTO_RUNS, CONFIG_MIN_INTERVAL_MS, CONFIG_REVIEW_DELAY_MS, CONFIG_WATCH_GLOB } from '../../src/extension/config-schedule.ts';
-import type { ConfigNode } from '../../src/extension/config-model.ts';
+import { reviewTree, type ConfigNode } from '../../src/extension/config-model.ts';
 
 function fakeClock() {
  let t = Date.UTC(2030, 0, 1), seq = 0;
@@ -80,7 +80,8 @@ function setup(o: { mode?: unknown; workspaceMode?: unknown; supportPrompts?: bo
  const changeMode = (mode: unknown) => { state.mode = mode; for (const fn of listeners.config) fn({ affectsConfiguration: k => k === 'cyclegauge.configReviewAutomatically' }); };
  const flatten = (nodes: ConfigNode[]): ConfigNode[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
  return { refusedNow, clock, reads, signals, messages, executed, updates, globalWrites, watchers, live, emit, changeMode, listeners, workspace, link, subscriptions, offerOpen, flatten,
-  header: () => link.nodes()[0]!.description ?? '',
+  // The status line the Audit view shows for the review alone (no filename audit result).
+  header: () => { const line = reviewTree(undefined, link.summary(), link.nodes(), { audit: 'off', config: 'off' }, new Date(clock.now()))[0]; return line ? `${line.label} ${line.description ?? ''}` : ''; },
   run: () => commands.get('cyclegauge.reviewKiroConfig')!() as Promise<void>,
   set ids(v: FindingId[]) { ids = v; }, set gate(v: typeof gate) { gate = v; }, set answer(v: string | undefined) { answer = v; },
   get checks() { return checks; }, get refreshes() { return refreshes; } };
@@ -101,7 +102,7 @@ test('onOpen: one silent run per window after the staggered delay, no watcher, n
  assert.equal(s.watchers.length, 0);
  await s.clock.advance(CONFIG_REVIEW_DELAY_MS - 1); assert.equal(s.reads.length, 0);
  await s.clock.advance(1); assert.deepEqual(s.reads, [['/synthetic/root']]);
- assert.match(s.header(), /checked automatically · just now/);
+ assert.match(s.header(), /^Checked \d\d:\d\d · \d+ suggestions? checked automatically/);
  s.ids = ['S1', 'H1', 'H2']; s.changeMode('onOpen'); await s.clock.advance(30 * 60_000);
  assert.equal(s.reads.length, 1, 'once per window'); assert.equal(s.messages.length, 0); assert.deepEqual(s.executed, []);
  const u = setup({ mode: 'onOpen', trusted: false });
