@@ -9,8 +9,10 @@ import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
 import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type SupportGate } from './config-review.ts';
-import type { ConfigNode } from './config-model.ts';
-import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
+import { configSummary, reviewTree, type ConfigNode, type ViewNode } from './config-model.ts';
+import { preparedText } from './config-apply.ts';
+import { readConfigReviewMode } from './config-schedule.ts';
+import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, REPORT_PROBLEM_ACTION, REPORT_PROBLEM_URL, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
@@ -111,11 +113,11 @@ interface Dismissed { salt: string; hashes: string[] }
 interface AuditLink { summary(): AuditSummary; onChange(fn: () => void): void }
 function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, onSaved: (accepted: ExclusionAggregate) => void, configGate?: SupportGate): AuditLink {
  const configured = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
- let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
+ let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', parts: AuditParts | undefined;
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
- let changed: vscode.EventEmitter<AuditNode | ConfigNode | undefined> | undefined, viewReady = false;
+ let changed: vscode.EventEmitter<ViewNode | undefined> | undefined, viewReady = false;
  let userCancelled = false; // the user dismissed the folder picker or cancelled the progress notification of the current manual audit: no review then
- let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], run: async () => undefined }; // replaced when the review registers
+ let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], summary: () => configSummary(), run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
  let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
@@ -141,7 +143,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  const hasher = (d: Dismissed | undefined) => (category: string, path: string) => dismissHash(d?.salt ?? '', category, path);
  const render = (): void => {
   const d = readDismissed();
-  roots = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted, checkedAt) : [];
+  parts = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted, checkedAt) : undefined;
   changed?.fire(undefined);
   summaryChanged();
   try { if (visible().length > 0) onFinding(); } catch { /* the support prompt never affects the audit */ }
@@ -252,11 +254,17 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const current = document.getText();
   const text = kiroignoreAppend(exists || current !== '' ? current : undefined, lines);
   if (text === '') { await vscode.window.showTextDocument(document); notify('These lines are already in .kiroignore.'); return; }
+  // One edit with an annotation that needs confirmation, so the editor shows its change preview (a diff with Apply and Discard) before anything changes.
+  const rules = text.split(/\r?\n/).filter(line => line !== '' && !line.startsWith('#')).length;
   const edit = new vscode.WorkspaceEdit();
-  edit.insert(document.uri, document.positionAt(current.length), text);
-  if (!(await vscode.workspace.applyEdit(edit))) throw new Error('EDIT_REJECTED');
-  pendingSave = { path, text: current + text, accepted: aggregate };
+  edit.insert(document.uri, document.positionAt(current.length), text, { ...excludeAnnotation(rules), needsConfirmation: true });
+  const applied = await vscode.workspace.applyEdit(edit);
+  // Discarding the preview (or unchecking the change) leaves the document as it was; that is not an error and prepares nothing.
+  const after = document.getText();
+  if (!applied || after === current) { notify('No changes were made.'); return; }
+  pendingSave = { path, text: after, accepted: aggregate };
   await vscode.window.showTextDocument(document);
+  notify(preparedText(1));
   for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
   render();
  };
@@ -441,20 +449,24 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
 
+ const automaticModes = () => {
+  try { return { audit: readAuditAutomatically((prefix, key) => vscode.workspace.getConfiguration(prefix).get<unknown>(key)), config: readConfigReviewMode(vscode.workspace.getConfiguration(ID_PREFIX).inspect<unknown>('configReviewAutomatically')) }; }
+  catch { return { audit: 'off' as const, config: 'off' as const }; }
+ };
  try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate, reportError: showReportableError }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
-  const emitter = new vscode.EventEmitter<AuditNode | ConfigNode | undefined>();
+  const emitter = new vscode.EventEmitter<ViewNode | undefined>();
   changed = emitter;
-  const provider: vscode.TreeDataProvider<AuditNode | ConfigNode> = {
+  // The one tree: the status line and the groups by action. The automatic modes only decide the "checks again …" wording.
+  const provider: vscode.TreeDataProvider<ViewNode> = {
    onDidChangeTreeData: emitter.event,
-   getChildren: node => node ? node.children ?? [] : [...roots, ...configReview.nodes()],
+   getChildren: node => node ? node.children ?? [] : reviewTree(parts, configReview.summary(), configReview.nodes(), automaticModes(), new Date()),
    getTreeItem(node) {
-    const item = new vscode.TreeItem(node.label, node.kind === 'group' || node.kind === 'config' && node.children ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.None);
+    const item = new vscode.TreeItem(node.label, node.children ? (node.expanded === false ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded) : vscode.TreeItemCollapsibleState.None);
     item.id = node.id; item.description = node.description; item.tooltip = node.tooltip; item.contextValue = node.contextValue;
     // An explicit icon and no resourceUri, so the editor adds no file decorations.
     item.iconPath = new vscode.ThemeIcon(node.icon);
-    if (node.action === 'reviewKiroConfig') item.command = { command: commandId('reviewKiroConfig'), title: 'Review Kiro Steering and Hooks' };
     if (node.action === 'previewKiroConfig') item.command = { command: commandId('config.preview'), title: 'Preview configuration suggestion', arguments: [node.id] };
     if (node.action === 'openIgnoreSetting') item.command = { command: 'workbench.action.openSettings', title: 'Open Agent Ignore Files setting', arguments: ['kiroAgent.agentIgnoreFiles'] };
     if (node.action === 'clearDismissed') item.command = { command: commandId('audit.clearDismissed'), title: 'Show hidden items again' };

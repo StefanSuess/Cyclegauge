@@ -69,7 +69,7 @@ test('unconfirmed current plan: the estimate lists every assumption and never re
  assert.match(html,/inferred from your reported 1000-credit limit, not confirmed/);
  assert.match(html,/personal \(consumer\) billing/);assert.match(html,/no purchased add-on credits/);
  // The plan can be corrected from the same view.
- assert.match(html,/Not your plan\? Confirm or correct it/);assert.match(html,/status bar/);
+ assert.match(html,/Not your plan\? Change your plan answers below\./);assert.ok(!html.includes('status bar'));assert.ok(!html.includes('light-bulb'));assert.ok(!html.includes('Open Cost Advisor'));
  // A tiny forecast fits the Free plan; that switch carries its own caveat.
  assert.equal(est.base?.best?.plan,'free');assert.ok(est.conditions.includes('free_plan_terms_unverified'));
  assert.match(html,/Free plan terms for your account were not verified/);
@@ -85,7 +85,7 @@ test('confirmed plan and billing details are shown as confirmed; the figure stay
  assert.match(html,/Pro\+ to Pro at your next billing reset: USD 40 becomes USD 20/);
  assert.match(html,/USD 20 under your current forecast<\/strong> <span>modelled saving per billing cycle/);
  assert.match(html,/from 2030-01-01 UTC, 1 month/);assert.match(html,/<li>Your forecast of about 900 credits per cycle fits within Pro's 1000 credits\.<\/li>/);
- assert.match(html,/Change your plan or answers/);
+ assert.match(html,/Change your plan or answers/);assert.ok(!html.includes('status bar'));assert.ok(!html.includes('Open Cost Advisor'));
 });
 
 test('supported tier needs the engine to agree: only an unconditional engine verdict upgrades a modelled figure',()=>{
@@ -249,9 +249,9 @@ test('a move to Free is never supported, is caveated in the card and a tiny fore
 test('an unconfirmed plan qualifies the figure itself and puts the confirmation next to it',()=>{
  const e=estimate('900');
  const html=present(e,{planSource:'hint',assumptions:['plan_is_hint']});
- assert.match(html,/Assumes Pro\+ \(unconfirmed\)\./);assert.match(html,/Not your plan\? Confirm or correct it/);
+ assert.match(html,/Assumes Pro\+ \(unconfirmed\)\./);assert.match(html,/Not your plan\? Change your plan answers below\./);
  // The instruction appears exactly once in the unconfirmed view.
- assert.equal(html.split('Confirm or correct it').length-1,1);assert.ok(!html.includes('Change your plan or answers'));
+ assert.equal(html.split('Change your plan answers below').length-1,1);assert.ok(!html.includes('Change your plan or answers'));
  assert.ok(!html.includes('aria-label="Savings estimate"'));
 });
 

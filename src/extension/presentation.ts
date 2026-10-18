@@ -63,22 +63,25 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
  return `<section class="audit-card" aria-labelledby="audit-heading"><h3 id="audit-heading">Workspace check</h3><p>${safe(text)}</p><p class="audit-actions"><a class="button primary" href="${AUDIT_LINK.check}">Check now</a>${a.state === 'checked' ? ` <a class="button secondary" href="${AUDIT_LINK.show}">Show</a>` : ''}</p></section>`;
 }
 
-// The advisor section itself has no command links; its one button is added here, inside the section when it is present.
+// The advisor section itself has no command links. With the inline form present, the one command link is only a fallback:
+// the stylesheet hides it once the page script has delivered a live model (html[data-cg-live]) and hides the form until then.
 function withAdvisorButton(advisorHtml: string, formHtml: string): string {
- const button = `<p class="advisor-actions"><a class="button primary" href="${ADVISOR_LINK}">Open Cost Advisor</a></p>`;
+ const link = `<a class="button primary" href="${ADVISOR_LINK}">Open Cost Advisor</a>`;
+ const button = formHtml ? `<p class="advisor-actions advisor-fallback"><span class="small">Update your plan answers:</span> ${link}</p>` : `<p class="advisor-actions">${link}</p>`;
  return advisorHtml.endsWith('</section>') ? `${advisorHtml.slice(0, -'</section>'.length)}${button}${formHtml}</section>` : `${advisorHtml}${button}${formHtml}`;
 }
 
 export function inlineAdvisorForm(a:AdvisorAnswers,epoch:number):string {
  const plan=a.plan??'unsure',billing=a.billing??'unsure',addOns=a.addOns??'unsure',credits=a.addOnCredits??'';
  const options=(values:[string,string][])=>values.map(([value,label])=>`<option value="${value}">${label}</option>`).join('');
- return `<form id="advisor-form" data-advisor-epoch="${epoch}" data-plan="${plan}" data-billing="${billing}" data-add-ons="${addOns}" data-add-on-credits="${safe(credits)}"><fieldset><legend>Review your Cost Advisor answers</legend>
- <label for="advisor-plan">Plan</label><select id="advisor-plan" name="plan">${options([['unsure','Not sure'],['free','Free'],['pro','Pro'],['pro_plus','Pro+'],['pro_max','Pro Max'],['power','Power'],['reset','Clear my answers']])}</select>
- <label for="advisor-billing">Billing</label><select id="advisor-billing" name="billing">${options([['unsure','Not sure'],['consumer_prepaid','Personal subscription'],['enterprise_postpaid','Enterprise']])}</select>
- <label for="advisor-add-ons">Purchased add-on credits</label><select id="advisor-add-ons" name="addOns">${options([['unsure','Not sure'],['none','None'],['some','Yes']])}</select>
- <label for="advisor-credits">Remaining add-on credits, if known</label><input id="advisor-credits" name="addOnCredits" type="text" aria-describedby="advisor-error"/>
- <p id="advisor-error"></p><p id="advisor-status" role="status" aria-live="polite"></p>
- <button type="submit">Review costs</button><button id="advisor-review-again" type="button" hidden>Review current answers</button></fieldset></form>`;
+ // Open while the plan is unconfirmed so the question is visible; a confirmed plan keeps the form folded away.
+ return `<details id="advisor-change" class="advisor-change"${a.plan===null?' open':''}><summary>Change your plan answers</summary><form id="advisor-form" data-advisor-epoch="${epoch}" data-plan="${plan}" data-billing="${billing}" data-add-ons="${addOns}" data-add-on-credits="${safe(credits)}"><fieldset><legend>Review your Cost Advisor answers</legend>
+ <div class="field"><label for="advisor-plan">Plan</label><select id="advisor-plan" name="plan">${options([['unsure','Not sure'],['free','Free'],['pro','Pro'],['pro_plus','Pro+'],['pro_max','Pro Max'],['power','Power'],['reset','Clear my answers']])}</select></div>
+ <div class="field"><label for="advisor-billing">Billing</label><select id="advisor-billing" name="billing">${options([['unsure','Not sure'],['consumer_prepaid','Personal subscription'],['enterprise_postpaid','Enterprise']])}</select></div>
+ <div class="field"><label for="advisor-add-ons">Purchased add-on credits</label><select id="advisor-add-ons" name="addOns">${options([['unsure','Not sure'],['none','None'],['some','Yes']])}</select></div>
+ <div class="field"><label for="advisor-credits">Remaining add-on credits, if known</label><input id="advisor-credits" name="addOnCredits" type="text" aria-describedby="advisor-error"/></div>
+ <p id="advisor-error"></p>
+ <div class="form-actions"><button type="submit">Review costs</button><button id="advisor-review-again" type="button" hidden>Review current answers</button></div></fieldset></form></details><p id="advisor-status" class="small" role="status" aria-live="polite"></p>`;
 }
 
 function observedContext(h: ReturnType<typeof view>['history'], now: string): string {
@@ -198,11 +201,15 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .estimate{border:1px solid var(--vscode-panel-border);border-left:5px solid var(--neutral);border-radius:8px;padding:12px 16px;margin:12px 0}.estimate-supported{border-left-color:var(--ok)}.estimate-modelled{border-left-color:var(--warn)}.estimate-comparison_only{border-left-color:var(--neutral)}.estimate p{margin:6px 0}.estimate .tier{margin-top:0}.estimate .figure{font-size:1rem}.estimate .figure strong{font-size:1.6rem;margin-right:6px}.estimate .verdict{font-size:1rem;font-weight:500}
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
  @media(max-width:540px){.stats{grid-template-columns:minmax(0,1fr)}.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
- @media(forced-colors:active){a.button,.recap-actions button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
+ @media(forced-colors:active){a.button,.recap-actions button,#advisor-form button,#advisor-form select,#advisor-form input{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
  #results-summary ul,#recap-lines{margin:8px 0;padding-left:1.4em}
  .recap-actions{display:flex;flex-wrap:wrap;gap:8px}.recap-actions button{padding:4px 12px;border:1px solid var(--vscode-button-border,transparent);border-radius:4px;font:inherit;font-weight:500;cursor:pointer;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}.recap-actions button:hover{background:var(--vscode-button-secondaryHoverBackground)}.recap-actions button:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
  #recap-preview{margin:12px 0}#recap-canvas{display:block;max-width:100%;height:auto;border:1px solid var(--vscode-panel-border)}
- #advisor-form fieldset{border:1px solid var(--vscode-panel-border);margin-top:12px}#advisor-form label{display:block;margin:8px 0 3px}#advisor-form select,#advisor-form input{display:block;max-width:100%;width:24rem;box-sizing:border-box}#advisor-form button{margin:10px 8px 0 0}#advisor-error{color:var(--vscode-errorForeground)}#advisor-form [aria-invalid="true"]{outline:2px solid var(--vscode-errorForeground)}
+ .advisor-change{border:1px solid var(--vscode-panel-border);border-radius:8px;padding:0 14px;margin:12px 0}.advisor-change>summary{margin:10px 0}.advisor-change[open]>summary{margin-bottom:6px}.advisor-fallback{align-items:center}html:not([data-cg-live]) .advisor-change{display:none}#advisor-status{margin:4px 0}html[data-cg-live] .advisor-fallback{display:none}
+ #advisor-form fieldset{border:0;margin:0;padding:0;min-width:0}#advisor-form legend{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}#advisor-form .field{margin:0 0 14px;max-width:26rem}#advisor-form label{display:block;margin:0 0 4px;font-weight:500}
+ #advisor-form select,#advisor-form input{display:block;width:100%;min-height:28px;padding:4px 8px;font:inherit;border-radius:4px}#advisor-form select{color:var(--vscode-dropdown-foreground);background:var(--vscode-dropdown-background);border:1px solid var(--vscode-dropdown-border,var(--vscode-panel-border))}#advisor-form input{color:var(--vscode-input-foreground);background:var(--vscode-input-background);border:1px solid var(--vscode-input-border,var(--vscode-panel-border))}#advisor-form input::placeholder{color:var(--vscode-input-placeholderForeground)}
+ #advisor-form select:focus,#advisor-form input:focus{outline:2px solid var(--vscode-focusBorder);outline-offset:-1px}#advisor-form select[aria-invalid="true"],#advisor-form input[aria-invalid="true"]{outline:2px solid var(--vscode-errorForeground);outline-offset:-1px}#advisor-error{color:var(--vscode-errorForeground)}
+ #advisor-form .form-actions{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}#advisor-form button{padding:4px 14px;min-height:28px;border:1px solid var(--vscode-button-border,transparent);border-radius:4px;font:inherit;font-weight:500;cursor:pointer}#advisor-form button[type="submit"]{background:var(--vscode-button-background);color:var(--vscode-button-foreground)}#advisor-form button[type="submit"]:hover{background:var(--vscode-button-hoverBackground)}#advisor-form #advisor-review-again{background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}#advisor-form #advisor-review-again:hover{background:var(--vscode-button-secondaryHoverBackground)}#advisor-form button:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>

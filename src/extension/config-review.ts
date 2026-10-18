@@ -3,8 +3,8 @@ import { isAbsolute, relative, sep } from 'node:path';
 import { createConfigReviewer, CONFIG_MAX_ROOTS, type ConfigReview } from '../audit/config-review.ts';
 import { stampKey } from '../audit/config-read.ts';
 import { evaluateConfigRules, type ConfigFinding } from '../audit/config-rules.ts';
-import { APPLY_TEXT, applyConfigAction, tell } from './config-apply.ts';
-import { configActions, configPreview, configTree, type ConfigApplyAction, type ConfigNode, type RefusedConfigRoot } from './config-model.ts';
+import { APPLY_TEXT, applyConfigChanges, tell, type ApplyRequest } from './config-apply.ts';
+import { configActions, configAnnotation, configPreview, configSummary, configTree, type ConfigApplyAction, type ConfigNode, type ConfigSummary, type RefusedConfigRoot } from './config-model.ts';
 import { CONFIG_WATCH_GLOB, createConfigScheduler, createNoticeState, noticeDecision, offerDue, readConfigReviewMode, watchShape, type ReviewOrigin, type RunOutcome, type RunTrigger } from './config-schedule.ts';
 import { ID_PREFIX, commandId, readSupportPrompts } from './identity.ts';
 
@@ -14,7 +14,8 @@ export interface SupportGate { promptOpen(): boolean; lastPromptAt(): number | u
 interface Timers { now(): number; set(fn: () => void, ms: number): unknown; clear(handle: unknown): void }
 /** Cyclegauge's own fixed-text error notification with a Report a problem button, supplied by the extension. */
 interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform; reportError?: (text: string) => void }
-export interface ConfigReviewLink { nodes(): ConfigNode[]; run(): Promise<void> }
+/** `nodes` are the top-level groups of the review (Load only when needed, Run only manually, Worth a look, Not checked); `summary` is what the combined status line may say. */
+export interface ConfigReviewLink { nodes(): ConfigNode[]; summary(): ConfigSummary; run(): Promise<void> }
 /**
  * Starts the manual review next to a manual (user-initiated) workspace audit: exactly the run `cyclegauge.reviewKiroConfig` performs, with the same guards,
  * bounded reads and manual-run semantics. Not awaited and never throwing, so neither the audit nor the review can block or hide the other's result.
@@ -34,7 +35,7 @@ const defaultTimers: Timers = { now: Date.now, set(fn, ms) { const t = setTimeou
 export function registerConfigReview(context: vscode.ExtensionContext, editor: typeof vscode, folderCheck: FolderCheck, refresh: () => void, options: Options = {}): ConfigReviewLink {
  const reviewer = options.reviewer ?? createConfigReviewer(), timers = options.timers ?? defaultTimers;
  const platform = options.platform ?? process.platform, ci = platform === 'darwin' || platform === 'win32';
- let nodes = configTree(), disposed = false, running = false, abort: AbortController | undefined;
+ let nodes = configTree(), summary = configSummary(), disposed = false, running = false, abort: AbortController | undefined;
  let current: ConfigReview | undefined, generation = 0;
  // Automatic mode, in memory only: the in-flight automatic run, the watcher generation, dirty roots (by index) and notice state.
  let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false, resync = false;
@@ -68,9 +69,10 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    if (fresh.has(key)) marked.add(i);
   });
   seeded = true;
-  nodes = configTree(result,names,checkedAt,new Date(timers.now()),refused,++generation,{automatic,paused:scheduler.paused,fresh:marked}); refresh();
+  const state = {automatic,paused:scheduler.paused,fresh:marked};
+  nodes = configTree(result,names,refused,++generation,state); summary = configSummary(result,checkedAt,state); refresh();
  };
- const failed = (): void => { current = { ...evaluateConfigRules([]),roots:[],status:'unavailable',bytesRead:0,notChecked:{folder_unreadable:1} }; drawn = undefined; nodes = configTree(current); refresh(); };
+ const failed = (): void => { current = { ...evaluateConfigRules([]),roots:[],status:'unavailable',bytesRead:0,notChecked:{folder_unreadable:1} }; drawn = undefined; nodes = configTree(current); summary = configSummary(); refresh(); };
  // One review. Automatic runs re-check the setting, trust and every root's folder guard before any read, and discard a result
  // whose answers changed meanwhile. 'ran' means the reader was called (it counts toward the cap even when discarded).
  const collect = async (origin: ReviewOrigin, controller: AbortController): Promise<RunOutcome> => {
@@ -80,7 +82,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   if (!editor.workspace.isTrusted) {
    if (origin !== 'manual') return 'skipped';
    current = { ...evaluateConfigRules([]), roots:[], status:'unavailable',bytesRead:0,notChecked:{untrusted:1} };
-   drawn = undefined; nodes = configTree(current); refresh(); return 'ran';
+   drawn = undefined; nodes = configTree(current); summary = configSummary(); refresh(); return 'ran';
   }
   const { roots, names, refused } = resolveRoots();
   if (origin === 'watch' && mode() === 'onOpenAndChanges' && roots.join('\n') !== watchKey) { resync = true; return 'skipped'; } // a root's guard answer changed: rebuild, read nothing
@@ -196,16 +198,39 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   try { const document = await editor.workspace.openTextDocument({content,language:'plaintext'}); await editor.window.showTextDocument(document); }
   catch { /* no exception text leaves the preview */ }
  };
- // Prepares an unsaved edit in the real file (or only opens it). The review result, the checked roots and the workspace folders must be the ones the node was drawn from.
+ // Review changes…: one edit for an item or a whole group, shown in the editor's change preview, then left unsaved. The review result, the checked roots and the workspace folders
+ // must be the ones the node was drawn from. Every request is built from the current tree and the review's own stamps, never from the argument.
+ const requestOf = (f: ConfigFinding, action: ConfigApplyAction, roots: readonly string[]): ApplyRequest | undefined => {
+  if (!current || !configActions(f).includes(action)) return undefined;
+  const rel = f.id === 'S2' ? 'AGENTS.md' : f.rel, root = roots[f.root];
+  if (root === undefined) return undefined;
+  return { action, root, rel, ...(f.hook === undefined ? {} : { hook: f.hook }), ...(current.stamps?.has(stampKey(f.root, rel)) ? { stamp: current.stamps.get(stampKey(f.root, rel))! } : {}),
+   ...(action === 'loadWhenNeeded' || action === 'runManually' || action === 'disable' ? { annotation: configAnnotation(action, f) } : {}) };
+ };
+ const outdated = (): boolean => !drawn || signature() !== drawn.signature;
  const apply = (action: ConfigApplyAction) => async (arg: unknown): Promise<void> => {
   try {
    if (disposed || !current || !drawn) return;
    const node = nodeOf(arg), f = node?.finding;
    if (!f || !configActions(f).includes(action)) return;
-   const rel = f.id === 'S2' ? 'AGENTS.md' : f.rel, root = drawn.paths[f.root];
    if (!editor.workspace.isTrusted) { tell(editor, APPLY_TEXT.untrusted); return; }
-   if (root === undefined || signature() !== drawn.signature || resolveRoots().roots[f.root] !== root) { tell(editor, APPLY_TEXT.outdated); return; }
-   await applyConfigAction(editor, { action, root, rel, ...(f.hook === undefined ? {} : { hook: f.hook }), ...(current.stamps?.has(stampKey(f.root, rel)) ? { stamp: current.stamps.get(stampKey(f.root, rel))! } : {}) });
+   const root = drawn.paths[f.root];
+   if (root === undefined || outdated() || resolveRoots().roots[f.root] !== root) { tell(editor, APPLY_TEXT.outdated); return; }
+   const request = requestOf(f, action, drawn.paths);
+   if (request) await applyConfigChanges(editor, [request]);
+  } catch { try { options.reportError?.(APPLY_TEXT.failed); } catch { /* nothing more to report */ } }
+ };
+ // The group's button does the verb of its heading for every item of the group as drawn now; an item whose guard fails is skipped and counted.
+ const applyGroup = (action: 'loadWhenNeeded' | 'runManually', context: string) => async (arg: unknown): Promise<void> => {
+  try {
+   if (disposed || !current || !drawn) return;
+   const group = nodeOf(arg);
+   if (!group || group.contextValue !== context) return;
+   if (!editor.workspace.isTrusted) { tell(editor, APPLY_TEXT.untrusted); return; }
+   const resolved = resolveRoots().roots;
+   const findings = (group.children ?? []).flatMap(child => child.finding ? [child.finding] : []), paths = drawn.paths;
+   if (outdated() || findings.some(f => paths[f.root] === undefined || resolved[f.root] !== paths[f.root])) { tell(editor, APPLY_TEXT.outdated); return; }
+   await applyConfigChanges(editor, findings.flatMap(f => { const r = requestOf(f, action, paths); return r ? [r] : []; }));
   } catch { try { options.reportError?.(APPLY_TEXT.failed); } catch { /* nothing more to report */ } }
  };
  const registrations: vscode.Disposable[] = [];
@@ -213,6 +238,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   registrations.push(editor.commands.registerCommand(commandId('reviewKiroConfig'),run));
   registrations.push(editor.commands.registerCommand(commandId('config.preview'),preview));
   for (const action of ['loadWhenNeeded','narrowPattern','runManually','disable','open'] as const) registrations.push(editor.commands.registerCommand(commandId(`config.${action}`),apply(action)));
+  registrations.push(editor.commands.registerCommand(commandId('config.loadWhenNeededAll'),applyGroup('loadWhenNeeded','config-group-load')),editor.commands.registerCommand(commandId('config.runManuallyAll'),applyGroup('runManually','config-group-run')));
   const ws = editor.workspace;
   if (ws.onDidChangeConfiguration) registrations.push(ws.onDidChangeConfiguration(event => { try { if (event.affectsConfiguration(`${ID_PREFIX}.${SETTING}`)) sync(); } catch { /* the watchers stay as they were */ } }));
   if (ws.onDidChangeWorkspaceFolders) registrations.push(ws.onDidChangeWorkspaceFolders(() => sync()));
@@ -220,7 +246,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   context.subscriptions.push(...registrations,{dispose(){
    disposed=true; abort?.abort(); auto?.controller.abort(); scheduler.dispose(); watchGeneration++;
    for (const w of watchers) { try { w.dispose(); } catch { /* already gone */ } }
-   watchers=[]; dirty.clear(); current=undefined; drawn=undefined; nodes=configTree();
+   watchers=[]; dirty.clear(); current=undefined; drawn=undefined; nodes=configTree(); summary=configSummary();
   }});
  } catch {
   for (const registration of registrations) { try { registration.dispose(); } catch { /* best-effort rollback */ } }
@@ -228,5 +254,5 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   throw new Error('Configuration review registration failed.');
  }
  try { sync(); } catch { /* automatic mode stays off; the manual command works */ }
- return {nodes:()=>nodes,run};
+ return {nodes:()=>nodes,summary:()=>summary,run};
 }
