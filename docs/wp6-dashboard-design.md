@@ -83,7 +83,7 @@ The webview is untrusted. One function, `acceptMessage(raw)`, dispatches through
 | `exportCsv` | none | Section 5.5. |
 | `saveRecapImage` | `{ png }`: base64, at most 2 MB | Section 5.4. |
 | `copyRecapText` | none | The extension builds the fixed recap text and puts it on the clipboard. |
-| `dismissRecap` | none | Hides the shown recap; the extension writes the dismissed state to `cyclegauge.recap.v1`. Pending maintainer approval (added in 6e). |
+| `dismissRecap` | none | Hides the shown recap; the extension writes the dismissed state to `cyclegauge.recap.v1`. Approved by the maintainer on 2026-10-18 (added in 6e). |
 
 Limits:
 - Plain objects only, a known `type`, no extra keys, string length caps (4 KB, except the PNG).
