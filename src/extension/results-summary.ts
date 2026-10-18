@@ -36,7 +36,8 @@ export function observedCycleKey(h: AccountHistory, now: string): string | null 
 
 const isSafeCount = (v: unknown, max: number): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 && v <= max;
 const FIELDS = ['cycle', 'bytes', 'bytesLowerBound', 'items', 'secrets'];
-function plain(value: unknown, fields: readonly string[]): Record<string, unknown> | undefined {
+/** An own-data-property object with exactly these keys, copied into a null-prototype record; anything else (getters, extra keys, arrays) is undefined. */
+export function plain(value: unknown, fields: readonly string[]): Record<string, unknown> | undefined {
  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
  const proto = Object.getPrototypeOf(value);
  if (proto !== Object.prototype && proto !== null) return undefined;
@@ -139,13 +140,15 @@ export function observedTrend(h: AccountHistory): ObservedTrend {
 const size = (e: ExclusionAggregate): string =>
  e.bytesLowerBound ? e.bytes > 0 ? `at least ${formatBytes(e.bytes)}` : 'size unknown' : `about ${formatBytes(e.bytes)}`;
 const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`;
+/** The count, secret count and size of one saved-exclusion aggregate, as plain text. */
+export const describeExclusions = (e: ExclusionAggregate): string => `${n(e.items, 'item', 'items')} (${n(e.secrets, 'possible secret', 'possible secrets')}), ${size(e)}`;
 export interface ResultsText { heading: string; scope: string; exclusionsHeading: string; exclusions: string[]; notes: string[]; trendHeading: string; trend: string }
 export const RESULTS_HEADING = 'Your Cyclegauge summary';
 /** All wording of the summary section, as plain text for the renderer to escape. */
 export function resultsText(results: StoredResults, h: AccountHistory, now: string): ResultsText {
  const current = observedCycleKey(h, now), trend = observedTrend(h);
  const label = (e: ResultsEntry) => `${e.cycle === current ? 'This cycle' : 'Other cycle'}, resetting ${date(e.cycle, true)} (UTC)`;
- const exclusions = results.entries.map(e => `${label(e)}: ${n(e.items, 'item', 'items')} (${n(e.secrets, 'possible secret', 'possible secrets')}), ${size(e)}.`);
+ const exclusions = results.entries.map(e => `${label(e)}: ${describeExclusions(e)}.`);
  const notes: string[] = [];
  if (results.status === 'ok') notes.push('These are exclusions you saved, not what Kiro can read today. Saving an exclusion again can count it twice.');
  if (results.entries.some(e => e.bytesLowerBound)) notes.push('A folder Cyclegauge did not walk has no known size, so a total marked "at least" or "size unknown" is only a minimum, never zero.');

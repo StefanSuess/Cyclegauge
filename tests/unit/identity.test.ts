@@ -46,7 +46,7 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([days.type, days.default, days.minimum, days.maximum], ['number', 30, 0, 365]);
  assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
- assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge."]);
+ assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap."]);
  const { budgetWarnings: budget, budgetWarningPercent: percent } = Object.fromEntries(BUDGET_SETTING_KEYS.map(k => [k, props[`cyclegauge.${k}`]]));
  assert.deepEqual([budget.type, budget.default, budget.scope], ['boolean', true, 'application']);
  assert.deepEqual([percent.type, percent.default, percent.minimum, percent.maximum, percent.scope], ['number', 80, 0, 100, 'application']);

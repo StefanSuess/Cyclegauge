@@ -1,7 +1,7 @@
 import { allocation, compare, subtract } from '../decimal.ts';
 import type { AccountHistory, EvidenceCycle } from '../history.ts';
 
-type Observation = { at: string; usage: string };
+export type Observation = { at: string; usage: string };
 export type CycleComparison = {
  status: 'observed' | 'bracketed' | 'not_observed' | 'not_comparable'; offsetMs: number | null;
  current: Observation | null; previous: Observation | null; before: Observation | null; after: Observation | null;
@@ -16,7 +16,7 @@ const add = (a: string, b: string) => subtract(a, subtract('0', b));
 
 // A cycle counter is known only at the ends of an unbroken chain beginning with
 // history()'s own zero-to-first-observation interval. No baseline is invented here.
-function observedCycle(h: AccountHistory, cycle: EvidenceCycle): Observation[] | null {
+export function observedCycle(h: AccountHistory, cycle: EvidenceCycle): Observation[] | null {
  if (!cycle.startAt || Date.parse(cycle.startAt) >= Date.parse(cycle.firstObservedAt)) return null;
  const startAt = cycle.startAt;
  const intervals = h.evidence.intervals.filter(iv => iv.resetAt === cycle.resetAt && Date.parse(iv.from) >= Date.parse(startAt) && Date.parse(iv.to) <= Date.parse(cycle.lastObservedAt));

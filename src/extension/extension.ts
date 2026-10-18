@@ -17,7 +17,10 @@ import type { view } from '../view.ts';
 import type { PlanInsights } from '../cost/plan-hints.ts';
 import { LATER_DAYS, addDays, auditDue, daysBetween, isDate, utcDate } from './audit-schedule.ts';
 import { SNOOZE_DAYS, afterChoice, supportDue, type SupportChoice } from './support-schedule.ts';
-import { DashboardPanel } from './dashboard-panel.ts';
+import { DashboardPanel, type DashboardActions } from './dashboard-panel.ts';
+import { RECAP_KEY, nextRecapState, readRecap, type StoredRecap } from './recap.ts';
+import { protectedRoots } from './file-target.ts';
+import { exportCsv, saveRecapImage, type SaveDeps } from './recap-io.ts';
 import { RESULTS_KEY, aggregateFindings, readResults, record, type ExclusionAggregate, type StoredResults } from './results-summary.ts';
 
 declare const __DASHBOARD_SCRIPT__: string;
@@ -33,6 +36,12 @@ function guardDashboardCommand<T extends unknown[]>(fn: (...args: T) => unknown)
  };
 }
 
+// The folder named `logs` above an extension log folder (or the folder itself when there is none); empty when unknown.
+function logsRoot(path: string | undefined): string {
+ if (typeof path !== 'string' || path === '') return '';
+ for (let p = path; dirname(p) !== p; p = dirname(p)) if (basename(p) === 'logs') return p;
+ return path;
+}
 let stop: (() => void) | undefined;
 // What Copy Diagnostics may report: fixed states only. Kept outside runCyclegauge so the command also works after a failed start.
 const gaugeState: { gauge: 'starting' | 'running' | 'failed_to_start'; diagnostics?: () => DiagnosticsInput; config?: Pick<DiagnosticsInput, 'storage' | 'source' | 'timezone'> } = { gauge: 'starting' };
@@ -458,6 +467,28 @@ function registerResults(context: vscode.ExtensionContext, cycle: () => string |
   },
  };
 }
+// "Your Kiro cycle": whether the recap card of a cycle was shown or dismissed, in the editor's global state under one versioned key. It holds
+// a billing reset time and a flag, never a path or identifier, and is not registered for Settings Sync. Reads and writes are fail-silent and
+// serialised; a value of an unknown shape hides the card and is never overwritten (the explicit reset clears it).
+interface RecapLink { state(): StoredRecap; shown(cycle: string): void; dismiss(cycle: string): Promise<boolean> }
+function registerRecap(context: vscode.ExtensionContext): RecapLink {
+ let queue: Promise<unknown> = Promise.resolve();
+ const read = (): StoredRecap => { try { return readRecap(context.globalState.get<unknown>(RECAP_KEY)); } catch { return { status: 'unknown' }; } };
+ // True when, afterwards, the stored value says `state` for this cycle.
+ const write = (cycle: string, state: 'shown' | 'dismissed'): Promise<boolean> => {
+  const run = queue.then(async () => {
+   try {
+    const current = read(), next = nextRecapState(current, cycle, state);
+    if (!next) return current.status === 'ok' && current.value?.cycle === cycle && current.value.state === state;
+    await context.globalState.update(RECAP_KEY, next);
+    return true;
+   } catch { return false; }
+  });
+  queue = run;
+  return run;
+ };
+ return { state: read, shown(cycle) { void write(cycle, 'shown'); }, dismiss: cycle => write(cycle, 'dismissed') };
+}
 const SUPPORT_FIRST_KEY = 'cyclegauge.support.firstSeen.v1';
 const SUPPORT_NEXT_KEY = 'cyclegauge.support.next.v1';
 const SUPPORT_NEVER_KEY = 'cyclegauge.support.never.v1';
@@ -491,7 +522,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  }));
  // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
-  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY]) await store(key, undefined);
+  for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY, RECAP_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
   void Promise.resolve(vscode.window.showInformationMessage('Support prompts reset.')).catch(() => undefined);
  });
@@ -619,12 +650,13 @@ async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
- let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined, results: ResultsLink | undefined;
+ let audit: AuditLink | undefined, support: SupportLink | undefined, budget: BudgetLink | undefined, results: ResultsLink | undefined, recap: RecapLink | undefined;
  let controllerRef: Awaited<ReturnType<typeof startExtension>> | undefined;
  try { registerWalkthrough(context); } catch { /* The walkthrough must never stop the gauge either. */ }
  try { support = registerSupport(context); } catch { /* Nor must the community prompts. */ }
  try { budget = registerBudget(context, () => support?.pause()); } catch { /* Nor the budget warning. */ }
  try { results = registerResults(context, () => controllerRef?.cycle() ?? null, () => controllerRef?.rerender()); } catch { /* Nor the results summary. */ }
+ try { recap = registerRecap(context); } catch { /* Nor the cycle recap. */ }
  try { audit = registerAudit(context, () => support?.valueSeen(), accepted => { try { support?.auditSaved(); } catch { /* the support prompt never affects the audit */ } results?.record(accepted); }); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
@@ -650,6 +682,26 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  const chosenStorage = setting('storageRoot');
  const storage = chosenStorage || context.globalStorageUri.fsPath;
  const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+ // The recap image and the CSV are written only through the save dialog, outside Cyclegauge storage and every Kiro folder (re-read at each save).
+ const saving: SaveDeps = {
+  async dialog(defaultPath, filter) {
+   const uri = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(defaultPath), filters: { [filter.name]: [filter.extension] }, saveLabel: 'Save', title: 'Save a file you can share' });
+   return uri ? { scheme: uri.scheme, fsPath: uri.fsPath } : undefined;
+  },
+  // Also the editor's own data root (three levels above this extension's global storage folder) and its log root.
+  protectedPaths: () => protectedRoots([context.globalStorageUri.fsPath, dirname(dirname(dirname(context.globalStorageUri.fsPath))), logsRoot(context.logUri?.fsPath), storage, defaultStorage(), source, defaultSource(), setting('storageRoot'), setting('sourceRoot')].filter(Boolean)),
+ };
+ const actions: DashboardActions = {
+  async exportCsv() { return controllerRef ? exportCsv(saving, await controllerRef.exportSnapshots()) : 'unavailable'; },
+  // The image is saved only while a card is shown; the clipboard text is always built here, never by the page.
+  async saveRecapImage(png) { return controllerRef?.recapText() ? saveRecapImage(saving, png) : 'unavailable'; },
+  async copyRecapText() {
+   const text = controllerRef?.recapText();
+   if (!text) return 'unavailable';
+   try { await vscode.env.clipboard.writeText(text); return 'copied'; } catch { return 'failed'; }
+  },
+  async dismissRecap() { return controllerRef && await controllerRef.dismissRecap() ? 'dismissed' : 'failed'; },
+ };
  const register = (suffix: string, fn: () => unknown) => disposables.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
  const ui: ExtensionUi = {
   setStatus(text, html, meta) {
@@ -662,7 +714,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   showDetails(html) {
    if (panel) { revealing = true; try { panel.reveal(); } finally { revealing = false; } dashboard?.reveal(html); advisorItem.show(); return; }
    panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
-   dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); }, Date.now, m => controllerRef?.submitAdvisor(m.ticket,m) ?? Promise.resolve({status:'stale' as const,epoch:0}));
+   dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); }, Date.now, m => controllerRef?.submitAdvisor(m.ticket,m) ?? Promise.resolve({status:'stale' as const,epoch:0}), actions);
    dashboard.reveal(html);
    advisorItem.show();
    disposables.push(panel.webview.onDidReceiveMessage(raw => dashboard?.receive(raw)));
@@ -691,7 +743,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  };
  gaugeState.config = { storage: chosenStorage ? 'chosen' : 'default', source: setting('sourceRoot') ? 'chosen' : 'default', timezone: setting('sourceTimezone') ? 'chosen' : 'device' };
  try {
-  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, resultsSummary: results?.summary, notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
+  const controller = await startExtension(ui, { source, storage, profileStorage: !chosenStorage, timezone, auditSummary: audit?.summary, resultsSummary: results?.summary, recapState: recap?.state, recapLink: () => readSupportPrompts((prefix, key) => vscode.workspace.getConfiguration(prefix).get<unknown>(key)), recapShown: cycle => recap?.shown(cycle), recapDismiss: cycle => recap?.dismiss(cycle) ?? Promise.resolve(false), notKiro: !inKiro() && !setting('sourceRoot'), onAdvisorUsed: () => support?.advisorUsed(), onForecast: () => support?.valueSeen(), onAbsent: () => support?.absent(), onBudget: (o, eligible, now, insights) => budget?.evaluate(o, eligible, now, insights) });
   controllerRef = controller;
   audit?.onChange(controller.rerender);
   gaugeState.diagnostics = controller.diagnostics; gaugeState.gauge = 'running';

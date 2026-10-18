@@ -1,4 +1,6 @@
 import {reconcileAdvisorDraft} from './advisor-draft.js';
+import {BRAND, CARD_HEIGHT, CARD_WIDTH, encodePng, toBase64, wrapText} from './recap-card.js';
+import {ACTION_CODES, ACTION_NAMES, ACTION_TEXT, type ActionCode, type ActionName} from './recap-actions.js';
 // Bundled separately into one nonce'd inline script. No Node or extension APIs are available here.
 type DomNode = { kind: 'text'; text: string } | DomElement;
 interface DomElement { kind: 'element'; tag: string; attrs: Record<string, string>; children: DomNode[] }
@@ -6,10 +8,12 @@ interface DomElement { kind: 'element'; tag: string; attrs: Record<string, strin
 declare function acquireVsCodeApi(): { postMessage(message: object): void };
 const vscode = acquireVsCodeApi();
 const load = Number(document.documentElement.getAttribute('data-cg-load'));
-const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer form fieldset legend label select option input button a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
+const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer form fieldset legend label select option input button a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br canvas'.split(' '));
 const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic aria-invalid scope type name for value data-advisor-epoch data-plan data-billing data-add-ons data-add-on-credits data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set(['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
 const SVG = 'http://www.w3.org/2000/svg';
+// `hidden` is allowed only on these ids, each on its own tag; the script reveals them once it runs.
+const HIDDEN_IDS: Record<string, string> = Object.assign(Object.create(null), { 'chart-tooltip': 'p', 'advisor-review-again': 'button', 'recap-save': 'button', 'recap-copy': 'button', 'recap-dismiss': 'button', 'export-csv': 'button', 'recap-preview': 'figure' });
 // Literal DOM sinks make the permitted grammar explicit even if an inbound model is hostile.
 const HTML_ELEMENTS: Record<string, () => Element> = {
  main: () => document.createElement('main'), section: () => document.createElement('section'), article: () => document.createElement('article'), div: () => document.createElement('div'),
@@ -18,7 +22,7 @@ const HTML_ELEMENTS: Record<string, () => Element> = {
  details: () => document.createElement('details'), summary: () => document.createElement('summary'), table: () => document.createElement('table'), caption: () => document.createElement('caption'),
  thead: () => document.createElement('thead'), tbody: () => document.createElement('tbody'), tr: () => document.createElement('tr'), th: () => document.createElement('th'), td: () => document.createElement('td'),
  footer: () => document.createElement('footer'), form: () => document.createElement('form'), fieldset: () => document.createElement('fieldset'), legend: () => document.createElement('legend'), label: () => document.createElement('label'), select: () => document.createElement('select'), option: () => document.createElement('option'), input: () => document.createElement('input'), button: () => document.createElement('button'), ul: () => document.createElement('ul'), li: () => document.createElement('li'), figure: () => document.createElement('figure'),
- figcaption: () => document.createElement('figcaption'), strong: () => document.createElement('strong'), em: () => document.createElement('em'), small: () => document.createElement('small'), br: () => document.createElement('br'),
+ figcaption: () => document.createElement('figcaption'), canvas: () => document.createElement('canvas'), strong: () => document.createElement('strong'), em: () => document.createElement('em'), small: () => document.createElement('small'), br: () => document.createElement('br'),
 };
 const SVG_ELEMENTS: Record<string, () => Element> = {
  svg: () => document.createElementNS(SVG, 'svg'), defs: () => document.createElementNS(SVG, 'defs'), pattern: () => document.createElementNS(SVG, 'pattern'),
@@ -50,7 +54,8 @@ function valid(node: unknown, depth = 0, budget = { n: 0 }): node is DomNode {
  if (Object.hasOwn(attrs, 'tabindex') && (!['circle', 'polygon'].includes(n.tag) || !['0', '-1'].includes(attrs.tabindex!))) return false;
  if (Object.hasOwn(attrs, 'aria-live') && (!['dd','p'].includes(n.tag) || attrs['aria-live'] !== 'polite')) return false;
  if (Object.hasOwn(attrs, 'aria-atomic') && (n.tag !== 'dd' || attrs['aria-atomic'] !== 'true')) return false;
- if (Object.hasOwn(attrs, 'hidden') && (!['p','button'].includes(n.tag) || !['chart-tooltip','advisor-review-again'].includes(attrs.id) || attrs.hidden !== '')) return false;
+ if (Object.hasOwn(attrs, 'hidden') && (HIDDEN_IDS[attrs.id ?? ''] !== n.tag || attrs.hidden !== '')) return false;
+ if (n.tag === 'canvas' && (attrs.id !== 'recap-canvas' || attrs.width !== String(CARD_WIDTH) || attrs.height !== String(CARD_HEIGHT) || n.children.length)) return false;
  return n.children.every(child => valid(child, depth + 1, budget));
 }
 
@@ -215,8 +220,88 @@ window.addEventListener('submit',event=>{
  vscode.postMessage({type:'advisorSubmit',ticket:advisorTicket, ...draft});
 });
 
+// Recap card and CSV export. The static page already holds the card's text; this only reveals the buttons, draws the same text on the canvas
+// (brand colours, fixed size) and sends the fixed action messages from trusted clicks. Nothing here sets markup, a link or an image source.
+const el = (id: string): Element | null => document.querySelector(`#${id}`);
+const TOOL_BUTTONS = ['recap-save', 'recap-copy', 'recap-dismiss', 'export-csv'];
+const STATUS_OF: Record<ActionName, string> = { exportCsv: 'export-status', copyRecapText: 'recap-status', saveRecapImage: 'recap-status', dismissRecap: 'export-status' };
+const statuses = new Map<string, string>(), inFlight = new Set<string>(), flightTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let drawnCanvas: Element | null = null, drawnKey = '';
+function say(id: string, text: string): void { statuses.set(id, text); const node = el(id); if (node && node.textContent !== text) node.textContent = text; }
+function paint(ctx: CanvasRenderingContext2D, title: string, period: string, lines: string[]): void {
+ const pad = 56, width = CARD_WIDTH - 2 * pad, family = 'system-ui, -apple-system, "Segoe UI", sans-serif', top = 112;
+ ctx.fillStyle = BRAND.background; ctx.fillRect(0, 0, CARD_WIDTH, CARD_HEIGHT);
+ ctx.fillStyle = BRAND.accent; ctx.fillRect(0, 0, 12, CARD_HEIGHT);
+ ctx.textBaseline = 'top';
+ ctx.font = `700 52px ${family}`; ctx.fillStyle = BRAND.title; ctx.fillText(title, pad, 40);
+ const sizes = [26, 24, 22, 20, 18, 16];
+ for (const size of sizes) {
+  ctx.font = `400 ${size}px ${family}`;
+  const measure = (text: string) => ctx.measureText(text).width, height = Math.round(size * 1.35), gap = Math.round(size * 0.55);
+  const blocks = [period, ...lines].map(text => wrapText(text, width, measure));
+  if (blocks.reduce((n, b) => n + b.length * height + gap, 0) > CARD_HEIGHT - top - 40 && size !== sizes.at(-1)) continue;
+  let y = top;
+  blocks.forEach((block, i) => { ctx.fillStyle = i === 0 ? BRAND.muted : BRAND.text; for (const line of block) { ctx.fillText(line, pad, y); y += height; } y += gap; });
+  return;
+ }
+}
+function drawCard(): void {
+ const canvas = el('recap-canvas') as HTMLCanvasElement | null, figure = el('recap-preview');
+ if (!canvas || !figure || typeof canvas.getContext !== 'function') return;
+ const title = el('recap-title')?.textContent ?? '', period = el('recap-period')?.textContent ?? '';
+ const lines = Array.from(el('recap-lines')?.childNodes ?? []).map(node => node.textContent ?? '').filter(Boolean);
+ const key = JSON.stringify([title, period, lines]);
+ if (canvas !== drawnCanvas || key !== drawnKey) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return; // without a canvas the text above remains the card
+  paint(ctx, title, period, lines);
+  drawnCanvas = canvas; drawnKey = key;
+ }
+ figure.removeAttribute('hidden');
+}
+function syncTools(): void {
+ for (const id of TOOL_BUTTONS) el(id)?.removeAttribute('hidden');
+ if (!el('recap-card')) { statuses.delete('recap-status'); drawnCanvas = null; }
+ for (const [id, text] of statuses) { const node = el(id); if (node && node.textContent !== text) node.textContent = text; }
+ try { drawCard(); } catch { /* the static text is the card */ }
+}
+async function deflate(raw: Uint8Array): Promise<Uint8Array> {
+ if (typeof CompressionStream !== 'function') throw new Error('NO_COMPRESSION');
+ return new Uint8Array(await new Response(new Blob([raw as BlobPart]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+}
+function finish(name: ActionName): void { inFlight.delete(name); const timer = flightTimers.get(name); if (timer) clearTimeout(timer); flightTimers.delete(name); }
+function request(name: ActionName, working: string, build: () => Promise<object> | object): void {
+ if (inFlight.has(name)) return;
+ inFlight.add(name);
+ flightTimers.set(name, setTimeout(() => { if (inFlight.has(name)) { finish(name); say(STATUS_OF[name], ACTION_TEXT.unavailable); } }, 300000)); // a save dialog can stay open for a long time
+ say(STATUS_OF[name], working);
+ Promise.resolve().then(build).then(message => vscode.postMessage(message)).catch(() => { finish(name); say(STATUS_OF[name], ACTION_TEXT.failed); });
+}
+async function cardMessage(): Promise<object> {
+ const canvas = el('recap-canvas') as HTMLCanvasElement | null, ctx = canvas?.getContext('2d', { willReadFrequently: true });
+ if (!canvas || !ctx) throw new Error('NO_CANVAS');
+ drawCard();
+ return { type: 'saveRecapImage', png: toBase64(await encodePng(ctx.getImageData(0, 0, CARD_WIDTH, CARD_HEIGHT).data, deflate)) };
+}
+window.addEventListener('click', event => {
+ if (!event.isTrusted) return;
+ const id = (event.target as Element | null)?.getAttribute?.('id');
+ if (id === 'recap-copy') request('copyRecapText', 'Copying…', () => ({ type: 'copyRecapText' }));
+ else if (id === 'recap-dismiss') request('dismissRecap', 'Dismissing…', () => ({ type: 'dismissRecap' }));
+ else if (id === 'export-csv') request('exportCsv', 'Choose where to save the CSV file…', () => ({ type: 'exportCsv' }));
+ else if (id === 'recap-save') request('saveRecapImage', 'Choose where to save the image…', cardMessage);
+});
+function actionResult(message: { action?: unknown; code?: unknown }): void {
+ const name = ACTION_NAMES.find(n => n === message.action), code = ACTION_CODES.find((c): c is ActionCode => c === message.code);
+ if (!name || !code || !inFlight.has(name)) return;
+ finish(name);
+ say(STATUS_OF[name], ACTION_TEXT[code]);
+ if (name === 'dismissRecap' && code === 'dismissed') (el('export-csv') as HTMLElement | null)?.focus?.();
+}
+
 window.addEventListener('message', event => {
  const message = event.data as { type?: unknown; schema?: unknown; version?: unknown; model?: unknown; status?: unknown; fields?: unknown; epoch?: unknown; reason?: unknown } | null;
+ if (message?.type === 'actionResult') { actionResult(message as { action?: unknown; code?: unknown }); return; }
  if(message?.type==='advisorResult') {
   advisorPending=false;if(advisorTimer)clearTimeout(advisorTimer);advisorTimer=undefined;
   if(Number.isSafeInteger(message.epoch)&&(message.epoch as number)>=0)advisorHostEpoch=message.epoch as number;
@@ -241,6 +326,7 @@ window.addEventListener('message', event => {
   for (const link of anchors(main)) reserve.appendChild(link);
   reconcile(main, model.children, false, links);
   syncAdvisor();
+  syncTools();
   const plotted = points();
   const selected = plotted.find(p => p.getAttribute('data-chart-point') === (focusedAt ?? selectedAt)) ?? plotted[0];
   if (selected) {
@@ -258,4 +344,5 @@ window.addEventListener('message', event => {
  } catch { /* The host's 5-second timer restores a fresh static document. */ }
 });
 syncAdvisor();
+syncTools();
 if (Number.isSafeInteger(load) && load > 0) vscode.postMessage({ type: 'ready', load });

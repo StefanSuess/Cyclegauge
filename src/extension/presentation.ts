@@ -10,6 +10,8 @@ import { observedOverageText, projectedOverageText, rightSizeText, largerPlanTex
 import { NO_INSIGHTS, type PlanInsights } from '../cost/plan-hints.ts';
 import { cycleComparison, todayPace } from './dashboard-insights.ts';
 import { resultsText, type StoredResults } from './results-summary.ts';
+import type { Recap } from './recap.ts';
+import { EXPORT_SECTION, recapSection } from './recap-presentation.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -101,8 +103,14 @@ function resultsSection(results: StoredResults | undefined, h: ReturnType<typeof
  } catch { return ''; }
 }
 
+// The recap card is static text; a failure only omits it.
+function recapCard(recap: Recap | undefined): string {
+ if (!recap) return '';
+ try { return recapSection(recap); } catch { return ''; }
+}
+
 /** Presentation only: billing eligibility and exact projections remain in the core. */
-export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS, advisorForm = '', results?: StoredResults) {
+export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], costHtml = '', advisorHtml = '', audit?: AuditSummary, now = new Date().toISOString(), notKiro = false, insights: PlanInsights = NO_INSIGHTS, advisorForm = '', results?: StoredResults, recap?: Recap) {
  const h=o.history,f=o.forecast;
  const selected=f.estimates.find(e=>e.method===f.selectedMethod && e.status==='qualified');
  const stale=o.status==='stale' || f.reasons.includes('stale');
@@ -189,8 +197,10 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  .estimate{border:1px solid var(--vscode-panel-border);border-left:5px solid var(--neutral);border-radius:8px;padding:12px 16px;margin:12px 0}.estimate-supported{border-left-color:var(--ok)}.estimate-modelled{border-left-color:var(--warn)}.estimate-comparison_only{border-left-color:var(--neutral)}.estimate p{margin:6px 0}.estimate .tier{margin-top:0}.estimate .figure{font-size:1rem}.estimate .figure strong{font-size:1.6rem;margin-right:6px}.estimate .verdict{font-size:1rem;font-weight:500}
  .cost-strategy{border-top:1px solid var(--vscode-panel-border);padding:10px 0}.cost-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 16px}.cost-grid dt{color:var(--vscode-descriptionForeground)}.cost-grid dd{margin:0}.cost-grid dt,.cost-grid dd,.cost-result li{overflow-wrap:anywhere}
  @media(max-width:540px){.stats{grid-template-columns:minmax(0,1fr)}.estimate{padding:10px 12px}body{padding:12px}section{padding:14px}.hero h2{font-size:1.5rem}.cost-grid{grid-template-columns:minmax(0,1fr)}.cost-grid dd{margin-bottom:6px}th{width:42%}}
- @media(forced-colors:active){a.button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
- #results-summary ul{margin:8px 0;padding-left:1.4em}
+ @media(forced-colors:active){a.button,.recap-actions button{border-color:ButtonText}.hero{border-left-color:Highlight}.bar>rect{fill:Highlight}}
+ #results-summary ul,#recap-lines{margin:8px 0;padding-left:1.4em}
+ .recap-actions{display:flex;flex-wrap:wrap;gap:8px}.recap-actions button{padding:4px 12px;border:1px solid var(--vscode-button-border,transparent);border-radius:4px;font:inherit;font-weight:500;cursor:pointer;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground)}.recap-actions button:hover{background:var(--vscode-button-secondaryHoverBackground)}.recap-actions button:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}
+ #recap-preview{margin:12px 0}#recap-canvas{display:block;max-width:100%;height:auto;border:1px solid var(--vscode-panel-border)}
  #advisor-form fieldset{border:1px solid var(--vscode-panel-border);margin-top:12px}#advisor-form label{display:block;margin:8px 0 3px}#advisor-form select,#advisor-form input{display:block;max-width:100%;width:24rem;box-sizing:border-box}#advisor-form button{margin:10px 8px 0 0}#advisor-error{color:var(--vscode-errorForeground)}#advisor-form [aria-invalid="true"]{outline:2px solid var(--vscode-errorForeground)}
  ${CHART_CSS}
  </style></head><body><main><h1>Your credit budget</h1>
@@ -199,11 +209,13 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${usedPct===null ? '' : `<svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="${usedPct}% of the reported credit limit used"><rect width="${usedPct}" height="10"/></svg><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`,true)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
+ ${recapCard(recap)}
  ${auditCard(audit, now)}
  ${withAdvisorButton(advisorHtml,advisorForm)}
  ${chart.main}
  ${observedContext(h, now)}
  ${resultsSection(results, h, now)}
+ ${EXPORT_SECTION}
  ${costHtml}
  <section id="advanced-details" aria-label="Advanced details"><details class="advanced"><summary>Advanced details</summary><p class="muted small">Forecast methods and evidence, coverage, exact UTC timestamps, qualifiers, chart data and billing assumptions.</p>
  <h3>Forecast</h3><p>${safe(tier)}</p>${collecting ? `<p>${safe(COLLECTING_POLICY)}</p>` : ''}<table>${forecastRows}</table><p class="muted small">Estimates assume the observed rate continues. They are not guarantees or statistical confidence intervals. Negative projected credits indicate usage beyond the reported limit; this does not by itself establish overage charges.</p>
