@@ -332,3 +332,41 @@ test('an open that finishes after the abort is closed anyway; the buffer is wipe
  release(); await new Promise(r => setTimeout(r, 20));
  assert.deepEqual(order, ['opened', 'closed']);
 });
+
+// ---- Windows and Linux (enabled, not observed): a simulated Windows-style path set and the fail-closed behaviour; only strings differ, the tree is a real temp tree
+test('windows-style workspace paths: drive letter, backslashes and the /c:/ form match with the win32 rule only', async () => {
+ const { base, home } = await temp();
+ await put(home, 'synthetic-ws', 'synthetic-slash-form', { model: 'claude-sonnet-4.5', paths: ['/c:/Synthetic/Project/'], last: NOW - 60_000 });
+ await put(home, 'synthetic-ws', 'synthetic-backslash-form', { model: 'auto', paths: ['c:\\synthetic\\project'], last: NOW - 120_000 });
+ const folders = ['C:\\SYNTHETIC\\project'];
+ const win = await read(home, { folders, platform: 'win32' });
+ assert.deepEqual(win.code === 'ok' && win.observation.key, 'synthetic-ws/synthetic-slash-form');
+ // linux (case-sensitive) finds nothing: silent, never a fallback to the newest session; darwin only matches the literal backslash form (case-insensitive)
+ assert.equal((await read(home, { folders, platform: 'linux' })).code, 'no_match');
+ const mac = await read(home, { folders, platform: 'darwin' });
+ assert.deepEqual(mac.code === 'ok' && mac.observation.key, 'synthetic-ws/synthetic-backslash-form');
+ // another drive: silent
+ assert.equal((await read(home, { folders: ['D:\\synthetic\\project'], platform: 'win32' })).code, 'no_match');
+ await clean(base);
+});
+
+test('linux paths are case-sensitive: a differently cased folder is silent, the exact one matches', async () => {
+ const { base, home } = await temp();
+ await put(home, 'ws', 'a', { paths: ['/synthetic/Project'] });
+ assert.equal((await read(home, { folders: ['/synthetic/project'], platform: 'linux' })).code, 'no_match');
+ assert.equal((await read(home, { folders: ['/synthetic/Project/'], platform: 'linux' })).code, 'ok');
+ assert.equal((await read(home, { folders: ['/synthetic/project'], platform: 'darwin' })).code, 'ok');
+ await clean(base);
+});
+
+test('a layout that differs (no root) or a junction/reparse point reported as a symbolic link fails closed with a fixed code', async () => {
+ const { base, home } = await temp();
+ await put(home, 'ws', 'a', { paths: ['/c:/synthetic/project'] });
+ for (const platform of ['win32', 'linux']) {
+  assert.equal((await read(join(base, 'synthetic-missing-home'), { platform })).code, 'no_root');
+  // Node reports a Windows junction as a symbolic link; the injected fs does the same for the .kiro folder
+  const junction: SessionFs = { ...defaultFs, lstat: async p => { const s = await defaultFs.lstat(p); return p === join(home, '.kiro') ? { ...s, isSymbolicLink: () => true, isDirectory: () => false } : s; } };
+  assert.deepEqual(await read(home, { platform, folders: ['C:\\synthetic\\project'], fs: junction }), { code: 'unsafe', opened: 0, capped: 0 });
+ }
+ await clean(base);
+});

@@ -45,11 +45,11 @@ The unreleased manual **Cyclegauge: Review Kiro Steering and Hooks** command (`c
 
 ## Session hints (third read class)
 
-A third, separate read class: *Kiro session metadata, IDE format, read at runtime* (macOS, local extension host, `cyclegauge.sessionHints`, default on). It is not an input of the collector, Store, history, forecast, CLI JSON or diagnostics beyond fixed codes and counts. The design and its hardening criteria are in [the data proof](docs/wp11-13-data-proof.md#combined-implementation-design-wp11-plus-wp13-one-feature-session-hints).
+A third, separate read class: *Kiro session metadata, IDE format, read at runtime* (macOS observed, Windows and Linux enabled but not yet verified natively; local extension host, `cyclegauge.sessionHints`, default on). It is not an input of the collector, Store, history, forecast, CLI JSON or diagnostics beyond fixed codes and counts. The design and its hardening criteria are in [the data proof](docs/wp11-13-data-proof.md#combined-implementation-design-wp11-plus-wp13-one-feature-session-hints).
 
 - `src/audit/read-ignore.ts`: the one bounded file reader (lstat, ancestry walk without symlinks, `O_RDONLY | O_NOFOLLOW | O_NONBLOCK`, `fstat` equal to `lstat`, regular file, same device, repeated checks after the read with `changed`, abort signal), with a `whole` mode with a byte cap (the audit's ignore files, behaviour unchanged) and a `tail` mode with a byte window (the session conversation file).
 - `src/session/`: no editor API and no Store/history import. `parse.ts` (strict timestamps, `session.json` projection, workspace string match, byte-level tail scan, percentage range), `models.ts` (dated table, hint decision), `notices.ts` (thresholds, hysteresis, rate limits, arbiter, fixed texts), `reader.ts` (listing caps, newest-session selection, bounded reads), `hints.ts` (gate and one check), `codes.ts` (closed code list).
-- `src/extension/session-hints.ts`: the only editor wiring (timer, setting, one non-modal message). Gating happens before any filesystem call: disabled, not macOS, a remote host, not Kiro, or no `file:` folder means zero filesystem access.
+- `src/extension/session-hints.ts`: the only editor wiring (timer, setting, one non-modal message). Gating happens before any filesystem call: disabled, a platform other than macOS, Windows or Linux, a remote host, not Kiro, or no `file:` folder means zero filesystem access.
 - The root `~/.kiro/sessions` is fixed; a test-injected root exists only as an argument of the reader. A symlink at `~/.kiro` or on the way fails closed. Only the model identifier, a percentage and timestamps survive a check, in memory; nothing is persisted.
 
 ## Account snapshot collection and reconciliation

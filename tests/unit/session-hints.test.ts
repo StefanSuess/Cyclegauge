@@ -29,11 +29,13 @@ async function home(o: { model?: string; pct?: number; sentinel?: boolean } = {}
 }
 const request = (home: () => string, over: Partial<TickRequest> = {}): TickRequest => ({ enabled: true, platform: 'darwin', remote: false, folders: [FOLDER], home, now: NOW, started: STARTED, state: newHintState(), ...over });
 
-test('the gate: disabled, not macOS, remote or no file folder is closed with a fixed code', () => {
+test('the gate: disabled, unsupported platform, remote or no file folder is closed with a fixed code', () => {
  const ok = { enabled: true, platform: 'darwin', remote: false, folders: [FOLDER] };
  assert.equal(gate(ok), undefined);
  assert.equal(gate({ ...ok, enabled: false }), 'disabled');
- for (const platform of ['linux', 'win32', 'freebsd', '']) assert.equal(gate({ ...ok, platform }), 'unsupported_platform', platform);
+ for (const platform of ['darwin', 'win32', 'linux']) assert.equal(gate({ ...ok, platform }), undefined, platform);
+ for (const platform of ['freebsd', 'aix', 'sunos', 'android', '']) assert.equal(gate({ ...ok, platform }), 'unsupported_platform', platform);
+ for (const platform of ['darwin', 'win32', 'linux']) assert.equal(gate({ ...ok, platform, remote: true }), 'unsupported_platform', platform);
  assert.equal(gate({ ...ok, remote: true }), 'unsupported_platform');
  assert.equal(gate({ ...ok, folders: [] }), 'no_match');
 });
@@ -64,7 +66,7 @@ test('fs-spy: disabled, unsupported platform, remote host and a window without a
  const results = [];
  try {
   const lazyHome = () => { homeCalls++; return fixture.home; };
-  for (const over of [{ enabled: false }, { platform: 'linux' }, { platform: 'win32' }, { remote: true }, { folders: [] }] as Partial<TickRequest>[]) results.push(await tick(request(lazyHome, over)));
+  for (const over of [{ enabled: false }, { platform: 'freebsd' }, { platform: 'aix' }, { remote: true }, { folders: [] }] as Partial<TickRequest>[]) results.push(await tick(request(lazyHome, over)));
  } finally { spy.restore(); }
  assert.deepEqual(results.map(r => r.code), ['disabled', 'unsupported_platform', 'unsupported_platform', 'unsupported_platform', 'no_match']);
  assert.deepEqual(spy.calls, []); assert.equal(homeCalls, 0, 'the home folder is not even resolved');
@@ -133,4 +135,15 @@ test('module boundaries: the session modules import no editor API, Store, histor
  const wiring = await readFile(fileURLToPath(new URL('../../src/extension/session-hints.ts', import.meta.url)), 'utf8');
  assert.ok(!/node:fs/.test(wiring) && !/globalState|workspaceState|\.update\('(?!sessionHints)/.test(wiring), 'the wiring touches no filesystem and persists nothing');
  assert.ok(/inspect<boolean>\('sessionHints'\)/.test(wiring) && /remoteName/.test(wiring));
+});
+
+test('windows and linux ticks run the same bounded read; an unmatched layout is silent with a fixed code', async () => {
+ const fixture = await home();
+ for (const platform of ['win32', 'linux']) {
+  const r = await tick(request(() => fixture.home, { platform }));
+  assert.equal(r.code, 'ok', platform); // FOLDER is a POSIX path: it matches as a string on both rules
+  const other = await tick(request(() => fixture.home, { platform, folders: ['C:\\synthetic\\other'] }));
+  assert.equal(other.code, 'no_match', platform);
+  assert.equal((await tick(request(() => join(fixture.home, 'synthetic-missing'), { platform }))).code, 'no_root', platform);
+ }
 });

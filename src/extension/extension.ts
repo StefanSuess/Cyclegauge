@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
-import { CONFIG_OFFER_KEY, registerConfigReview, type SupportGate } from './config-review.ts';
+import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type SupportGate } from './config-review.ts';
 import type { ConfigNode } from './config-model.ts';
 import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
@@ -114,6 +114,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
  let changed: vscode.EventEmitter<AuditNode | ConfigNode | undefined> | undefined, viewReady = false;
+ let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
  let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
@@ -164,7 +165,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   running = true;
   try {
    let outcome: AuditResult | undefined;
-   try { outcome = await auditOnce(); } finally { running = false; }
+   // A manual audit also runs the Steering and Hooks review (approved 2026-10-18), whatever the audit's outcome; the silent re-runs (auditOnce(true, ...)) never do.
+   try { outcome = await auditOnce(); } finally { running = false; startManualReview(configReview); }
    if (!outcome) return;
    if (viewReady) try { await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); } catch { /* the list is still updated */ }
    if (outcome.status === 'unavailable') return;
@@ -434,7 +436,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  if (vscode.workspace.onDidChangeWorkspaceFolders) context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => syncWatcher()));
  if (vscode.workspace.onDidGrantWorkspaceTrust) context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => syncWatcher()));
  syncWatcher();
- let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [] };
+
  try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {

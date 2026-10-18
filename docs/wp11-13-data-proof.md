@@ -317,6 +317,21 @@ All fixtures hand-written with `synthetic-*` identifiers, invented numbers and i
 - *Sentinels (M2, M4):* sentinel strings in `title`, `rootPaths`, `workspacePaths`, folder names, file names, `display`, content lines and in the message of an injected thrown error never appear in results, notices, diagnostics, logs or persisted output; diagnostics contain only the closed code list and counts and never the model name, percentage, as-of time or title.
 - *Boundaries:* the reader module imports nothing from the editor API and nothing from Store/history; nothing is written to storage; a packaging check that no fixtures or Kiro-derived data are in the VSIX; the audit's existing `read-ignore` tests still pass after the shared-reader extraction.
 
+## Implementation notes 2026-10-18: Windows and Linux
+
+**Maintainer decision (2026-10-18).** The session hints are also enabled on Windows and Linux, not only on macOS. Nothing else about the approved read changes: same allowlisted fields, read-only handles, bounds, no persistence, local extension host only, Kiro only, setting `cyclegauge.sessionHints`. This is **not** approval for session aggregation or any other read.
+
+**Evidence status.** Only macOS has observed evidence (this document). On Windows and Linux the session root and the format of `workspacePaths` are **unverified assumptions** (Unknown); the feature must fail closed silently with a fixed code when the layout differs, and native verification on both platforms remains open.
+
+- **Gate** (`gate` in `src/session/hints.ts`): `darwin`, `win32` and `linux` pass; every other platform is `unsupported_platform`. A remote, WSL or SSH host, a disabled setting or a window without a `file:` folder stay closed on all three, with zero filesystem calls.
+- **Root:** the fixed `<home>/.kiro/sessions` from `os.homedir()` on all three platforms (on Windows `%USERPROFILE%`); still no user-configurable root. A symlink anywhere on the way (home, `.kiro`, `sessions`, the workspace and session folders, the files) fails closed with `unsafe`. Node's `lstat` reports a Windows junction or symlink reparse point as a symbolic link, so the same check covers them (a test injects a junction as a symbolic link); other reparse point kinds are not detected specifically. A missing folder is `no_root`.
+- **Workspace match** (`normalizePath` in `src/session/parse.ts`, pure string comparison, no filesystem call, platform passed from the extension, default `process.platform`):
+  - macOS: Unicode NFC, case-insensitive, trailing `/` trimmed (unchanged).
+  - Windows: NFC, case-insensitive, backslashes read as `/`, a leading `/` before a drive letter removed (`/c:/x` equals `c:/x`), trailing separators trimmed. Assumption: Kiro writes either `C:\...`, `C:/...` or `/c:/...` (the form of a `file:` URI path); UNC paths and 8.3 short names are compared as plain strings and may not match.
+  - Linux: NFC, case-**sensitive**, trailing `/` trimmed.
+  - No match on any platform is silent (`no_match`); there is never a fallback to the newest session overall.
+- **Native-test items still open:** the actual session root and `workspacePaths` form on Windows and Linux, and whether Kiro on those platforms writes the same `session.json` and `messages.jsonl` fields.
+
 ## Summary
 
 | Item | Data proof | Recommendation |

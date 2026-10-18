@@ -58,7 +58,8 @@
       },
       {
         "command": "cyclegauge.reviewKiroConfig",
-        "title": "Cyclegauge: Review Kiro Steering and Hooks"
+        "title": "Cyclegauge: Review Kiro Steering and Hooks",
+        "icon": "$(checklist)"
       },
       {
         "command": "cyclegauge.copyDiagnostics",
@@ -155,7 +156,7 @@
           {
             "id": "cyclegauge.gettingStarted.sessionHints",
             "title": "Hints from your latest Kiro session",
-            "description": "On macOS, Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
+            "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
             "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
           }
         ]
@@ -243,7 +244,7 @@
         "cyclegauge.sessionHints": {
           "type": "boolean",
           "default": true,
-          "description": "On macOS, show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
+          "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
           "scope": "application"
         },
         "cyclegauge.budgetWarningPercent": {
@@ -271,14 +272,19 @@
           "group": "navigation@1"
         },
         {
-          "command": "cyclegauge.audit.acceptAll",
+          "command": "cyclegauge.reviewKiroConfig",
           "when": "view == cyclegauge.auditView",
           "group": "navigation@2"
         },
         {
-          "command": "cyclegauge.audit.copy",
+          "command": "cyclegauge.audit.acceptAll",
           "when": "view == cyclegauge.auditView",
           "group": "navigation@3"
+        },
+        {
+          "command": "cyclegauge.audit.copy",
+          "when": "view == cyclegauge.auditView",
+          "group": "navigation@4"
         },
         {
           "command": "cyclegauge.audit.clearDismissed",

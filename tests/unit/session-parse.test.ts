@@ -44,13 +44,45 @@ test('session projection keeps only the allowlisted fields and checks versions a
 
 test('workspace matching is a pure string comparison', () => {
  assert.equal(normalizePath('/Users/Synthetic/Pröject/'), normalizePath('/users/synthetic/pröject')); // NFC versus NFD, case, trailing separator
- assert.equal(normalizePath('/'), '/');
- assert.equal(workspaceMatches(['/synthetic/a', '/synthetic/b'], ['/synthetic/b/']), true);
- assert.equal(workspaceMatches(['/synthetic/A'], ['/synthetic/a']), true);
- assert.equal(workspaceMatches(['/synthetic/a'], ['/synthetic/ab']), false);
- assert.equal(workspaceMatches(['/synthetic/a/b'], ['/synthetic/a']), false); // no prefix or parent matching
- assert.equal(workspaceMatches(['/synthetic/x'], ['/synthetic/y', '/synthetic/x']), true); // multi-root: any folder
- assert.equal(workspaceMatches([], ['/synthetic/x']), false); assert.equal(workspaceMatches(['/synthetic/x'], []), false); assert.equal(workspaceMatches([''], ['']), false);
+ assert.equal(normalizePath('/', 'darwin'), '/');
+ assert.equal(workspaceMatches(['/synthetic/a', '/synthetic/b'], ['/synthetic/b/'], 'darwin'), true);
+ assert.equal(workspaceMatches(['/synthetic/A'], ['/synthetic/a'], 'darwin'), true);
+ assert.equal(workspaceMatches(['/synthetic/a'], ['/synthetic/ab'], 'darwin'), false);
+ assert.equal(workspaceMatches(['/synthetic/a/b'], ['/synthetic/a'], 'darwin'), false); // no prefix or parent matching
+ assert.equal(workspaceMatches(['/synthetic/x'], ['/synthetic/y', '/synthetic/x'], 'darwin'), true); // multi-root: any folder
+ assert.equal(workspaceMatches([], ['/synthetic/x'], 'darwin'), false); assert.equal(workspaceMatches(['/synthetic/x'], [], 'darwin'), false); assert.equal(workspaceMatches([''], [''], 'darwin'), false);
+});
+
+test('workspace normalisation is platform-aware: windows (drive letters, backslashes, case), linux (case-sensitive), darwin unchanged', () => {
+ // win32: NFC, case-insensitive, backslashes as /, a leading / before a drive letter removed, trailing separators trimmed
+ const win = (p: string) => normalizePath(p, 'win32');
+ assert.equal(win('C:\\Synthetic\\Project'), 'c:/synthetic/project');
+ assert.equal(win('c:\\synthetic\\project\\'), 'c:/synthetic/project');
+ assert.equal(win('/c:/Synthetic/Project'), 'c:/synthetic/project');
+ assert.equal(win('/C:/Synthetic/Project//'), 'c:/synthetic/project');
+ assert.equal(win('C:/Synthetic/Project/'), 'c:/synthetic/project');
+ assert.equal(win('/synthetic/no-drive/'), '/synthetic/no-drive'); // only a drive letter loses its leading slash
+ assert.equal(win('/'), '/');
+ assert.equal(win('/Users/Synthetic/Pro\u0308ject'), win('\\users\\synthetic\\pr\u00f6ject')); // NFD versus NFC
+ assert.equal(workspaceMatches(['/c:/Synthetic/Project'], ['C:\\synthetic\\PROJECT\\'], 'win32'), true);
+ assert.equal(workspaceMatches(['c:\\synthetic\\project'], ['C:\\Synthetic\\Project'], 'win32'), true);
+ assert.equal(workspaceMatches(['/c:/synthetic/project'], ['D:\\synthetic\\project'], 'win32'), false); // another drive
+ assert.equal(workspaceMatches(['/c:/synthetic/project/sub'], ['C:\\synthetic\\project'], 'win32'), false); // no parent matching
+ // linux: NFC and trailing / only; case-sensitive; backslash is an ordinary character; no drive-letter handling
+ const lin = (p: string) => normalizePath(p, 'linux');
+ assert.equal(lin('/synthetic/Project/'), '/synthetic/Project');
+ assert.notEqual(lin('/synthetic/Project'), lin('/synthetic/project'));
+ assert.equal(lin('/synthetic/Pro\u0308ject'), lin('/synthetic/Pr\u00f6ject'));
+ assert.equal(lin('/synthetic/a\\b'), '/synthetic/a\\b');
+ assert.notEqual(lin('/c:/x'), lin('c:/x'));
+ assert.equal(lin('/'), '/');
+ assert.equal(workspaceMatches(['/synthetic/Project'], ['/synthetic/project'], 'linux'), false);
+ assert.equal(workspaceMatches(['/synthetic/Project'], ['/synthetic/Project/'], 'linux'), true);
+ // darwin: case-insensitive, no backslash or drive-letter rules
+ assert.equal(workspaceMatches(['/synthetic/Project'], ['/synthetic/project'], 'darwin'), true);
+ assert.notEqual(normalizePath('/synthetic/a\\b', 'darwin'), normalizePath('/synthetic/a/b', 'darwin'));
+ // default platform is the running one
+ assert.equal(normalizePath('/Synthetic/X/'), normalizePath('/Synthetic/X/', process.platform));
 });
 
 test('context scanning: newest by timestamp, not by line; ties go to the later line', () => {
