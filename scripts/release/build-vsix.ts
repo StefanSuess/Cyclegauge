@@ -2,6 +2,9 @@
 // repository (dist/, existing artifacts) is touched. Works the same on every OS.
 //
 //   node scripts/release/build-vsix.ts <output.vsix> [--pre-release]
+//
+// The pre-release flag is derived from the package version (see channel.ts). `--pre-release` is
+// optional and only asserts that expectation: a flag that disagrees with the channel fails.
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -10,6 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMain } from '../is-main.ts';
 import { buildExtension } from '../build-extension.ts';
+import { isPreReleaseVersion } from './channel.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STAGED = ['package.json', 'README.md', 'LICENSE', 'CHANGELOG.md', '.vscodeignore', 'assets/branding/cyclegauge-icon-256.png'];
@@ -35,7 +39,10 @@ export function classifyVsceFailure(result: {
  return 'VSCE_PACKAGE_FAILED';
 }
 
-export async function buildVsix(output: string, preRelease = false): Promise<void> {
+export async function buildVsix(output: string, expectPreRelease?: boolean): Promise<void> {
+ const version = (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version?: unknown }).version;
+ const preRelease = isPreReleaseVersion(version);
+ if (expectPreRelease !== undefined && expectPreRelease !== preRelease) throw new Error('CHANNEL_MISMATCH');
  const stage = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-vsix-stage-')));
  try {
   for (const file of STAGED) {
@@ -59,8 +66,8 @@ if (isMain(import.meta.url)) {
  const flags = args.filter(a => a.startsWith('--'));
  const out = args.find(a => !a.startsWith('--'));
  if (!out || flags.some(f => f !== '--pre-release')) { console.log('USAGE'); process.exitCode = 2; }
- else buildVsix(out, flags.length > 0).then(() => console.log('VSIX_BUILT'), (err: unknown) => {
-  const codes = new Set(['VSCE_SPAWN_FAILED', 'VSCE_TERMINATED', 'VSCE_TYPES_ENGINE_MISMATCH', 'VSCE_PACKAGE_FAILED']);
+ else buildVsix(out, flags.length > 0 ? true : undefined).then(() => console.log('VSIX_BUILT'), (err: unknown) => {
+  const codes = new Set(['VERSION_INVALID', 'CHANNEL_MISMATCH', 'VSCE_SPAWN_FAILED', 'VSCE_TERMINATED', 'VSCE_TYPES_ENGINE_MISMATCH', 'VSCE_PACKAGE_FAILED']);
   const diagnostic = err instanceof Error && codes.has(err.message) ? err.message : 'BUILD_FAILED';
   console.log(`VSIX_BUILD_FAILED ${diagnostic}`);
   process.exitCode = 1;

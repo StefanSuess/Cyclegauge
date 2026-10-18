@@ -64,4 +64,4 @@ The identifiers live in code in `src/extension/identity.ts` and the contributed 
 
 ## Real extension-host integration
 
-Build a development candidate with `pnpm release:build candidate.vsix --pre-release`, then run `pnpm test:host candidate.vsix` (`xvfb-run -a pnpm test:host candidate.vsix` on headless Linux). CI instead tests the exact shared candidate artifact. See [platform verification](platform-verification.md) for isolation, coverage, host pins and native Kiro limitations.
+Build a development candidate with `pnpm release:build candidate.vsix`, then run `pnpm test:host candidate.vsix` (`xvfb-run -a pnpm test:host candidate.vsix` on headless Linux). CI instead tests the exact shared candidate artifact. See [platform verification](platform-verification.md) for isolation, coverage, host pins and native Kiro limitations.
