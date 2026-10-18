@@ -3,6 +3,7 @@ import { PAYLOAD, type FileHash } from './verify-vsix.ts';
 
 const SHA1 = /^[0-9a-f]{40}$/i;
 const SHA256 = /^[0-9a-f]{64}$/;
+const CANDIDATE_FILE_NAME = /^cyclegauge-v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)-[0-9a-f]{12}-candidate\.vsix$/;
 const CI_WORKFLOW_PATH = '.github/workflows/ci.yml';
 const TRUSTED_EVENTS = new Set(['push', 'workflow_dispatch']);
 const REQUIRED_CI_JOBS = [
@@ -156,12 +157,20 @@ function validPayload(files: FileHash[]): Map<string, string> {
   return result;
 }
 
+/** The VSIX name inside the CI `release-candidate` artifact: plain version plus the first 12 hex digits of the full build commit. */
+export function candidateFileName(version: string, commit: string): string {
+  if (!isPlainVersion(version)) return fail('VERSION_INVALID');
+  if (typeof commit !== 'string' || !SHA1.test(commit)) return fail('COMMIT_INVALID');
+  return `cyclegauge-v${version}-${commit.toLowerCase().slice(0, 12)}-candidate.vsix`;
+}
+
 export function verifyCandidateIntegrity(input: {
   requestedVersion: string;
   packageVersion: string;
   vsixVersion: string;
   preRelease: boolean;
   actualSha256: string;
+  candidateFileName: string;
   checksumText: string;
   verifiedPayload: FileHash[];
   ciPayload: FileHash[];
@@ -176,8 +185,10 @@ export function verifyCandidateIntegrity(input: {
   const lines = input.checksumText.split(/\r?\n/);
   if (lines.at(-1) === '') lines.pop();
   if (lines.length !== 1) return fail('CHECKSUM_MALFORMED');
-  const match = /^([0-9a-f]{64})  candidate\.vsix$/.exec(lines[0]);
-  if (!match) return fail('CHECKSUM_MALFORMED');
+  if (typeof input.candidateFileName !== 'string' || !CANDIDATE_FILE_NAME.test(input.candidateFileName) ||
+      !input.candidateFileName.startsWith(`cyclegauge-v${input.requestedVersion}-`)) return fail('CANDIDATE_NAME_INVALID');
+  const match = /^([0-9a-f]{64})  (.+)$/.exec(lines[0]);
+  if (!match || match[2] !== input.candidateFileName) return fail('CHECKSUM_MALFORMED');
   if (match[1] !== input.actualSha256) return fail('CHECKSUM_MISMATCH');
 
   const verified = validPayload(input.verifiedPayload);

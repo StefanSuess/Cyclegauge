@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { appendFileSync } from 'node:fs';
 import { isMain } from '../is-main.ts';
 import { ALLOWLIST, PAYLOAD, verifyVsix, type FileHash } from './verify-vsix.ts';
-import { buildReleaseNotes, renderReleaseNotesForApproval, verifyCandidateIntegrity } from './promotion-policy.ts';
+import { buildReleaseNotes, candidateFileName, renderReleaseNotesForApproval, verifyCandidateIntegrity } from './promotion-policy.ts';
 
 const sha256 = (value: Uint8Array) => createHash('sha256').update(value).digest('hex');
 const fail = (code: string): never => { throw new Error(code); };
@@ -49,12 +49,13 @@ function run(): void {
   const bundleDir = process.env.BUNDLE_DIR || 'release/promotion-bundle';
   if (commit.toLowerCase() !== requiredEnv('GITHUB_SHA').toLowerCase()) return fail('MAIN_SHA_MISMATCH');
   const entries = readdirSync(sourceDir, { withFileTypes: true });
-  const expectedNames = ['candidate.vsix', 'manifest-linux.json', 'SHA256SUMS.txt'];
+  const candidateName = candidateFileName(version, commit);
+  const expectedNames = [candidateName, 'manifest-linux.json', 'SHA256SUMS.txt'];
   if (entries.length !== expectedNames.length ||
       entries.some(entry => !entry.isFile() || !expectedNames.includes(entry.name)) ||
       expectedNames.some(name => !entries.some(entry => entry.name === name))) return fail('CI_ARTIFACT_CONTENTS_INVALID');
 
-  const vsixPath = join(sourceDir, 'candidate.vsix');
+  const vsixPath = join(sourceDir, candidateName);
   const vsix = readFileSync(vsixPath);
   const verification = verifyVsix(vsix);
   if (!verification.ok) return fail('VSIX_VERIFICATION_FAILED');
@@ -70,6 +71,7 @@ function run(): void {
     vsixVersion: verification.version,
     preRelease: verification.preRelease,
     actualSha256: sha256(vsix),
+    candidateFileName: candidateName,
     checksumText: readFileSync(join(sourceDir, 'SHA256SUMS.txt'), 'utf8'),
     verifiedPayload,
     ciPayload,
@@ -92,6 +94,7 @@ function run(): void {
     sha256: result.sha256,
     releaseNotesSha256: sha256(Buffer.from(notes)),
     checksumFileSha256: sha256(Buffer.from(`${result.sha256}  ${assetName}\n`)),
+    candidateFileName: candidateName,
     vsixAssetName: assetName,
     checksumAssetName: 'SHA256SUMS.txt',
     releaseName: `Cyclegauge v${version}`,
@@ -104,6 +107,7 @@ function run(): void {
     '',
     `- Version: \`${version}\`; package and VSIX versions match`,
     `- Release channel: ${verification.channel}; pre-release flag matches the version`,
+    `- CI artifact file: \`${candidateName}\` (renamed to \`${assetName}\` without changing bytes)`,
     `- Exact VSIX SHA-256: \`${result.sha256}\``,
     `- Allowlisted payload files compared with CI manifest: ${verifiedPayload.length}`,
     '- CI checksum entry and package manifest match',
