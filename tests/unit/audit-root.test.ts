@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, symlink, rm, realpath } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, parse } from 'node:path';
-import { refusal } from '../../src/extension/audit-root.ts';
+import { refusal, folderCheck } from '../../src/extension/audit-root.ts';
 
 const base = resolve(parse(process.cwd()).root, 'synthetic-audit-root'), p = (...s: string[]) => join(base, ...s);
 const home = p('home'), kiro = p('home', 'kiro-data'), own = p('home', 'storage'), cfgSource = p('elsewhere', 'source'), cfgStorage = p('elsewhere', 'storage');
@@ -52,3 +52,15 @@ test('refuses folders inside scanner-pruned or Kiro CLI folders, at any depth', 
  if (process.platform === 'darwin' || process.platform === 'win32') assert.match(check(p('work', 'Kiro-CLI', 'x'))!, /never audited/); else assert.equal(check(p('work', 'Kiro-CLI', 'x')), undefined);
 });
 test('storage defaults are protected like any other storage path', () => { assert.match(refusal([p('cyclegauge-default', 'x')], [], [p('cyclegauge-default')], home)!, /Cyclegauge storage/); });
+
+test('shared folderCheck resolves aliases and refuses protected real locations without changing the audit guard', async () => {
+ const dir = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-shared-folder-')));
+ try {
+  const ordinary=join(dir,'synthetic-project'),protectedDir=join(dir,'synthetic-protected'),alias=join(dir,'synthetic-alias');
+  await mkdir(ordinary);await mkdir(protectedDir);await symlink(protectedDir,alias,process.platform==='win32'?'junction':'dir');
+  assert.deepEqual(folderCheck(ordinary,[],[]),{chosen:ordinary,resolved:ordinary});
+  assert.deepEqual(folderCheck(alias,[protectedDir],[]),{reason:'it overlaps Kiro data'});
+  assert.deepEqual(folderCheck(alias,[],[protectedDir]),{reason:'it overlaps Cyclegauge storage'});
+  assert.deepEqual(folderCheck(join(dir,'synthetic-missing'),[],[]),{reason:'its real location could not be resolved'});
+ } finally {await rm(dir,{recursive:true,force:true});}
+});
