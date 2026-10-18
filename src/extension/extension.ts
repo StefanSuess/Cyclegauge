@@ -114,6 +114,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  let running = false, disposed = false, reminderAbort: AbortController | undefined, result: AuditResult | undefined, folderName = '', root = '', realRoot = '', roots: AuditNode[] = [];
  let checkedAt: string | undefined, refused = false, summaryChanged: () => void = () => undefined, recheckTimer: ReturnType<typeof setTimeout> | undefined;
  let changed: vscode.EventEmitter<AuditNode | ConfigNode | undefined> | undefined, viewReady = false;
+ let userCancelled = false; // the user dismissed the folder picker or cancelled the progress notification of the current manual audit: no review then
  let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
@@ -166,7 +167,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   try {
    let outcome: AuditResult | undefined;
    // A manual audit also runs the Steering and Hooks review (approved 2026-10-18), whatever the audit's outcome; the silent re-runs (auditOnce(true, ...)) never do.
-   try { outcome = await auditOnce(); } finally { running = false; startManualReview(configReview); }
+   userCancelled = false;
+   try { outcome = await auditOnce(); } finally { running = false; if (!userCancelled) startManualReview(configReview); }
    if (!outcome) return;
    if (viewReady) try { await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); } catch { /* the list is still updated */ }
    if (outcome.status === 'unavailable') return;
@@ -191,7 +193,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
    const picked = await vscode.window.showQuickPick(folders.map(f => ({ label: f.name, folder: f })), { title: 'Folder to audit' });
    folder = picked?.folder;
   }
-  if (!folder) return;
+  if (!folder) { userCancelled = !silent; return; }
   const checked = folderCheck(folder);
   if ('reason' in checked) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage(`This folder can't be audited: ${checked.reason}.`); return; }
   const { chosen, resolved } = checked;
@@ -199,7 +201,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const outcome = silent ? await runAudit(chosen, setting, { signal })
    : await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Auditing workspace…', cancellable: true }, async (_progress, token) => {
     const abort = new AbortController();
-    token.onCancellationRequested(() => abort.abort());
+    token.onCancellationRequested(() => { userCancelled = true; abort.abort(); });
     return runAudit(chosen, setting, { signal: abort.signal });
    });
   if (silent && disposed) return;

@@ -25,7 +25,7 @@ async function put(home: string, ws: string, sess: string, o: Put = {}) {
  if (o.messages !== undefined) await writeFile(join(dir, 'messages.jsonl'), o.messages);
  return dir;
 }
-const read = (home: string, extra: Partial<Parameters<typeof readSession>[0]> = {}) => readSession({ home, folders: [FOLDER], now: NOW, ...extra });
+const read = (home: string, extra: Partial<Parameters<typeof readSession>[0]> = {}) => readSession({ home, folders: [FOLDER], platform: 'darwin', now: NOW, ...extra });
 const clean = (base: string) => rm(base, { recursive: true, force: true });
 const spyFs = (log: string[]): SessionFs => ({
  ...defaultFs,
@@ -111,8 +111,13 @@ test('timestamps are strict: future, far from the file time, non-ISO and offset-
  }
  const { base, home } = await temp();
  await put(home, 'ws', 'multi', { paths: ['/synthetic/one', '/synthetic/two'] });
- assert.equal((await readSession({ home, folders: ['/synthetic/zero', '/synthetic/two'], now: NOW })).code, 'ok'); // multi-root: any folder
- assert.equal((await readSession({ home, folders: ['/synthetic/zero'], now: NOW })).code, 'no_match');
+ assert.equal((await readSession({ home, folders: ['/synthetic/zero', '/synthetic/two'], platform: 'darwin', now: NOW })).code, 'ok'); // multi-root: any folder
+ assert.equal((await readSession({ home, folders: ['/synthetic/zero'], platform: 'darwin', now: NOW })).code, 'no_match');
+ // the same rows on linux: the case-insensitive rows have no match there, the others are unchanged
+ await put(home, 'ws', 'case', { paths: ['/SYNTHETIC/Project'], last: NOW - 60_000 });
+ assert.equal((await read(home, { platform: 'darwin', folders: ['/synthetic/project'] })).code, 'ok');
+ assert.equal((await read(home, { platform: 'linux', folders: ['/synthetic/project'] })).code, 'no_match');
+ assert.equal((await read(home, { platform: 'linux', folders: ['/SYNTHETIC/Project/'] })).code, 'ok');
  await clean(base);
 });
 
@@ -120,7 +125,7 @@ test('NFC and NFD folder names match; no filesystem call happens during matching
  const { base, home } = await temp();
  await put(home, 'ws', 'one', { paths: ['/synthetic/pröject'] });
  const log: string[] = [];
- const r = await readSession({ home, folders: ['/synthetic/pröject'], now: NOW, fs: spyFs(log) });
+ const r = await readSession({ home, folders: ['/synthetic/pröject'], platform: 'darwin', now: NOW, fs: spyFs(log) });
  assert.equal(r.code, 'ok');
  assert.ok(log.every(l => /^(lstat|readdir|open) /.test(l)) && !log.some(l => l.includes('pro')), 'no path derived from workspacePaths is ever touched');
  await clean(base);

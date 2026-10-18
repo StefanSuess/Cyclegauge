@@ -120,7 +120,7 @@ test('only the manual audit command starts the review: the silent re-runs and th
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.equal((main.match(/startManualReview\(/g)??[]).length,1);
  // exactly in the manual `audit` function, right after the (non-silent) run settles, also when it throws
- assert.match(main,/const audit = async \(\): Promise<void> => \{[\s\S]*?try \{ outcome = await auditOnce\(\); \} finally \{ running = false; startManualReview\(configReview\); \}/);
+ assert.match(main,/const audit = async \(\): Promise<void> => \{[\s\S]*?try \{ outcome = await auditOnce\(\); \} finally \{ running = false; if \(!userCancelled\) startManualReview\(configReview\); \}/);
  const silent=main.match(/auditOnce\(true[^\n]*/g)??[];assert.ok(silent.length>=2);for(const line of silent)assert.ok(!line.includes('startManualReview')&&!line.includes('configReview'),line);
  const start=main.indexOf('const auditOnce = async');const end=main.indexOf('// Registered independently of the collector');
  assert.ok(!main.slice(start,end).includes('startManualReview'));

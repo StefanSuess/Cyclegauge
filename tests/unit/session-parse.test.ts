@@ -43,7 +43,7 @@ test('session projection keeps only the allowlisted fields and checks versions a
 });
 
 test('workspace matching is a pure string comparison', () => {
- assert.equal(normalizePath('/Users/Synthetic/Pröject/'), normalizePath('/users/synthetic/pröject')); // NFC versus NFD, case, trailing separator
+ assert.equal(normalizePath('/Users/Synthetic/Pröject/', 'darwin'), normalizePath('/users/synthetic/pröject', 'darwin')); // NFC versus NFD, case, trailing separator
  assert.equal(normalizePath('/', 'darwin'), '/');
  assert.equal(workspaceMatches(['/synthetic/a', '/synthetic/b'], ['/synthetic/b/'], 'darwin'), true);
  assert.equal(workspaceMatches(['/synthetic/A'], ['/synthetic/a'], 'darwin'), true);
@@ -81,8 +81,6 @@ test('workspace normalisation is platform-aware: windows (drive letters, backsla
  // darwin: case-insensitive, no backslash or drive-letter rules
  assert.equal(workspaceMatches(['/synthetic/Project'], ['/synthetic/project'], 'darwin'), true);
  assert.notEqual(normalizePath('/synthetic/a\\b', 'darwin'), normalizePath('/synthetic/a/b', 'darwin'));
- // default platform is the running one
- assert.equal(normalizePath('/Synthetic/X/'), normalizePath('/Synthetic/X/', process.platform));
 });
 
 test('context scanning: newest by timestamp, not by line; ties go to the later line', () => {

@@ -12,7 +12,7 @@ export interface DirEntry { name: string; isDirectory(): boolean }
 export interface SessionFs extends ReadFs { readdir(path: string): Promise<DirEntry[]> }
 export const defaultFs: SessionFs = { ...nodeFs, readdir: path => readdir(path, { withFileTypes: true }) };
 export const READER_LIMITS = { entriesPerLevel: 200, openPerTick: 20, inactiveMs: 12 * 3_600_000 } as const;
-export interface ReadRequest { home: string; folders: readonly string[]; platform?: string; now: number; signal?: AbortSignal; fs?: SessionFs; decode?: (b: Uint8Array) => string }
+export interface ReadRequest { home: string; folders: readonly string[]; platform: string; now: number; signal?: AbortSignal; fs?: SessionFs; decode?: (b: Uint8Array) => string }
 // capped: workspace folders skipped because they hold more than 200 session folders
 export type ReadOutcome = { code: 'ok'; observation: Observation; contextCode?: HintCode; opened: number; capped: number } | { code: Exclude<HintCode, 'ok'>; opened: number; capped: number };
 const segmentOk = (n: string) => n !== '' && n !== '.' && n !== '..' && !/[/\\\u0000-\u001f\u007f]/.test(n);
