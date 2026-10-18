@@ -1,6 +1,6 @@
 # WP6 interactive dashboard: design
 
-Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` review and one re-review.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). The maintainer approved all five decisions in section 11 and implementation of phase 6a; after PR #104 merged, the continuation on 2026-10-18 proceeds with phase 6c after 6b. Each phase in section 10 lands as its own PR with a mandatory `security-reviewer` review; later phases remain separate work packages. **Phase 6d (results summary, `cyclegauge.results.v1`) is implemented; see [wp6d-validation](wp6d-validation.md).** Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
+Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` review and one re-review.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). The maintainer approved all five decisions in section 11 and implementation of phase 6a; after PR #104 merged, the continuation on 2026-10-18 proceeds with phase 6c after 6b. Each phase in section 10 lands as its own PR with a mandatory `security-reviewer` review; later phases remain separate work packages. **Phase 6d (results summary, `cyclegauge.results.v1`) is implemented; see [wp6d-validation](wp6d-validation.md). Phase 6e (cycle recap, image save, copy text, CSV export, `cyclegauge.recap.v1`) is implemented; see [wp6e-validation](wp6e-validation.md).** Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
 
 ## 1. Goals
 
@@ -83,6 +83,7 @@ The webview is untrusted. One function, `acceptMessage(raw)`, dispatches through
 | `exportCsv` | none | Section 5.5. |
 | `saveRecapImage` | `{ png }`: base64, at most 2 MB | Section 5.4. |
 | `copyRecapText` | none | The extension builds the fixed recap text and puts it on the clipboard. |
+| `dismissRecap` | none | Hides the shown recap; the extension writes the dismissed state to `cyclegauge.recap.v1`. Pending maintainer approval (added in 6e). |
 
 Limits:
 - Plain objects only, a known `type`, no extra keys, string length caps (4 KB, except the PNG).
@@ -101,7 +102,7 @@ Limits:
   - nonce-only `script-src` and `style-src`;
   - no inline handlers, and no anchors or URLs built from data.
 - **A buggy or compromised script.**
-  - It can trigger only the four commands it already has as links, whose handlers are themselves one-at-a-time with a cooldown, plus the messages above, with in-flight and cooldown limits.
+  - It can trigger only the four commands it already has as links, whose handlers are themselves one-at-a-time with a cooldown, plus the messages above (the recap's `dismissRecap` can only record that one recap as dismissed in `cyclegauge.recap.v1`), with in-flight and cooldown limits.
   - File writes need a save dialog the user confirms, and they pass the guards in 5.4.
   - The clipboard text is built by the extension.
 - **Exfiltration.**

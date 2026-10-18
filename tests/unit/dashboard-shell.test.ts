@@ -64,3 +64,31 @@ test('ready and ack accept only exact plain current-load messages', () => {
  assert.deepEqual(allowed({ type: 'ack', version: 4 }), { type: 'ack' });
  for (const raw of [{ type: 'ready', load: 6 }, { type: 'ready', load: 7, extra: 1 }, { type: 'run' }, { type: '__proto__' }, { type: 'ack', version: 3 }, Object.assign(Object.create(null), { type: 'ready', load: 7 }), []]) assert.equal(allowed(raw), null);
 });
+
+test('action messages accept only exact plain objects with the right keys', () => {
+ const allowed = (raw: unknown) => acceptMessage(raw, 7, 4);
+ for (const type of ['exportCsv', 'copyRecapText', 'dismissRecap']) {
+  assert.deepEqual(allowed({ type }), { type });
+  for (const extra of [{ type, png: 'AAAA' }, { type, load: 7 }, { type, ticket: 1 }, JSON.parse(`{"type":"${type}","__proto__":{}}`), JSON.parse(`{"type":"${type}","constructor":1}`)]) assert.equal(allowed(extra), null, JSON.stringify(extra));
+ }
+ assert.deepEqual(allowed({ type: 'saveRecapImage', png: 'AAAA' }), { type: 'saveRecapImage', png: 'AAAA' });
+ const big = 'A'.repeat(2 * 1024 * 1024);
+ assert.deepEqual(allowed({ type: 'saveRecapImage', png: big }), { type: 'saveRecapImage', png: big }, 'exactly 2 MB is the largest image text');
+ for (const raw of [{ type: 'saveRecapImage' }, { type: 'saveRecapImage', png: '' }, { type: 'saveRecapImage', png: big + 'A' }, { type: 'saveRecapImage', png: 5 }, { type: 'saveRecapImage', png: null }, { type: 'saveRecapImage', png: ['AAAA'] }, { type: 'saveRecapImage', png: { length: 4 } },
+  { type: 'saveRecapImage', png: 'AAAA', extra: 1 }, { type: 'saveRecapImage', picture: 'AAAA' }, JSON.parse('{"type":"saveRecapImage","png":"AAAA","__proto__":{"x":1}}'),
+  { type: 'saveRecapImage', pngs: 'AAAA', png2: 'AAAA' }]) assert.equal(allowed(raw), null, JSON.stringify(raw).slice(0, 60));
+ for (const raw of [Object.create(null), Object.assign(Object.create(null), { type: 'exportCsv' }), Object.create({ type: 'exportCsv' }), new (class { type = 'exportCsv'; })(), new Map([['type', 'exportCsv']]), [], 'exportCsv', 5, null, undefined, true])
+  assert.equal(allowed(raw), null);
+ for (const type of ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'get', 'ExportCsv', 'exportCsv ', 'save', 'copyText', 'dismiss', '']) assert.equal(allowed({ type }), null, type);
+ assert.equal(allowed({ type: ['exportCsv'] }), null);
+});
+
+test('only the reviewed ids may be hidden, and the card canvas must have the fixed size', () => {
+ const body = (s: string) => `<!doctype html><html><body><main>${s}</main></body></html>`;
+ for (const ok of ['<button type="button" id="recap-save" hidden>x</button>', '<button id="export-csv" hidden type="button">x</button>', '<figure id="recap-preview" hidden></figure>', '<p id="chart-tooltip" hidden></p>', '<canvas width="1200" height="630" id="recap-canvas" role="img"></canvas>'])
+  assert.doesNotThrow(() => buildDomModel(body(ok)), ok);
+ for (const bad of ['<button type="button" id="other" hidden>x</button>', '<button type="button" hidden>x</button>', '<div id="recap-save" hidden></div>', '<p id="recap-save" hidden></p>', '<figure id="recap-save" hidden></figure>', '<button id="__proto__" hidden type="button"></button>',
+  '<button id="export-csv" hidden="x" type="button"></button>', '<canvas id="recap-canvas" width="1200" height="630" hidden></canvas>',
+  '<canvas id="recap-canvas" width="4000" height="630"></canvas>', '<canvas id="recap-canvas" width="1200"></canvas>', '<canvas id="other" width="1200" height="630"></canvas>', '<canvas width="1200" height="630"></canvas>'])
+  assert.throws(() => buildDomModel(body(bad)), bad);
+});

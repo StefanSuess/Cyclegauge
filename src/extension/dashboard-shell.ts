@@ -1,12 +1,15 @@
 import { LINKS } from './identity.ts';
+import { CARD_HEIGHT, CARD_WIDTH, MAX_PNG_BASE64 } from './recap-card.ts';
 
 // The model is built only from our own escaped presentation, never from Kiro source data.
 // Its element/attribute grammar is deliberately narrower than HTML. New markup must be reviewed here.
 export type DomNode = { kind: 'text'; text: string } | DomElement;
 export interface DomElement { kind: 'element'; tag: string; attrs: Record<string, string>; children: DomNode[] }
-const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer form fieldset legend label select option input button a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
+const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer form fieldset legend label select option input button a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br canvas'.split(' '));
 const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic aria-invalid scope type name for value data-advisor-epoch data-plan data-billing data-add-ons data-add-on-credits data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set([LINKS.rate, LINKS.star, LINKS.support, 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
+// `hidden` is allowed only on these ids (own-property lookup on a null-prototype object), each only on its own tag.
+const HIDDEN_IDS: Record<string, string> = Object.assign(Object.create(null), { 'chart-tooltip': 'p', 'advisor-review-again': 'button', 'recap-save': 'button', 'recap-copy': 'button', 'recap-dismiss': 'button', 'export-csv': 'button', 'recap-preview': 'figure' });
 const decode = (value: string) => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]!);
 
 export function buildDomModel(html: string): DomElement {
@@ -43,8 +46,8 @@ export function buildDomModel(html: string): DomElement {
    if (name === 'data-chart-point' && (!['circle', 'polygon'].includes(tag) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value))) throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'tabindex' && (!['circle', 'polygon'].includes(tag) || !['0', '-1'].includes(value))) throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'aria-live' && (!['dd','p'].includes(tag) || value !== 'polite')) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'hidden' && value !== '') throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'aria-atomic' && (tag !== 'dd' || value !== 'true')) throw new Error('DASHBOARD_MODEL_INVALID');
-   if (name === 'hidden' && (!['p','button'].includes(tag) || value !== '')) throw new Error('DASHBOARD_MODEL_INVALID');
    if (['data-advisor-epoch','data-plan','data-billing','data-add-ons','data-add-on-credits'].includes(name) && tag !== 'form') throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'value' && (tag !== 'option' || !['unsure','free','pro','pro_plus','pro_max','power','reset','consumer_prepaid','enterprise_postpaid','none','some'].includes(value))) throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'type' && !(tag === 'input' && value === 'text' || tag === 'button' && ['submit','button'].includes(value))) throw new Error('DASHBOARD_MODEL_INVALID');
@@ -55,7 +58,9 @@ export function buildDomModel(html: string): DomElement {
    if (name !== 'open' && name !== 'xmlns') attrs[name] = value; // open is UI state; SVG namespace comes from createElementNS
    rest = rest.slice(attr[0].length).trimStart();
   }
-  if (Object.hasOwn(attrs, 'hidden') && !['chart-tooltip','advisor-review-again'].includes(attrs.id)) throw new Error('DASHBOARD_MODEL_INVALID');
+  // Elements the page may toggle by id, and the tag each id belongs to. Everything else stays visible.
+  if (Object.hasOwn(attrs, 'hidden') && HIDDEN_IDS[attrs.id ?? ''] !== tag) throw new Error('DASHBOARD_MODEL_INVALID');
+  if (tag === 'canvas' && (attrs.id !== 'recap-canvas' || attrs.width !== String(CARD_WIDTH) || attrs.height !== String(CARD_HEIGHT))) throw new Error('DASHBOARD_MODEL_INVALID');
   const node: DomElement = { kind: 'element', tag, attrs, children: [] };
   if (stack.length) stack.at(-1)!.children.push(node);
   else if (!root && tag === 'main') root = node;
@@ -78,8 +83,12 @@ export function renderDashboardShell(staticHtml: string, nonce: string, load: nu
 }
 
 export type AdvisorSubmit={type:'advisorSubmit';ticket:number;plan:string;billing:string;addOns:string;addOnCredits:string};
-export type AcceptedMessage = { type: 'ready' } | { type: 'ack' } | AdvisorSubmit;
+// Messages without payload, and the image message whose base64 text is the one string allowed beyond the usual 4 KB cap.
+export type ActionMessage = { type: 'exportCsv' } | { type: 'copyRecapText' } | { type: 'dismissRecap' } | { type: 'saveRecapImage'; png: string };
+export const ACTION_TYPES = ['exportCsv', 'copyRecapText', 'dismissRecap', 'saveRecapImage'] as const;
+export type AcceptedMessage = { type: 'ready' } | { type: 'ack' } | AdvisorSubmit | ActionMessage;
 type Handler=(m:Record<string,unknown>,keys:string[],load:number,version:number)=>AcceptedMessage|null;
+const bare=(type:'exportCsv'|'copyRecapText'|'dismissRecap'):Handler=>(_m,keys)=>keys.length===1?{type}:null;
 const HANDLERS=new Map<string,Handler>([
  ['ready',(m,keys,load)=>keys.length===2&&keys.includes('load')&&m.load===load?{type:'ready'}:null],
  ['ack',(m,keys,_load,version)=>keys.length===2&&keys.includes('version')&&m.version===version&&version>0?{type:'ack'}:null],
@@ -88,6 +97,8 @@ const HANDLERS=new Map<string,Handler>([
   if(!['plan','billing','addOns','addOnCredits'].every(k=>typeof m[k]==='string'&&(m[k] as string).length<=4096))return null;
   return {type:'advisorSubmit',ticket:m.ticket as number,plan:m.plan as string,billing:m.billing as string,addOns:m.addOns as string,addOnCredits:m.addOnCredits as string};
  }],
+ ['exportCsv',bare('exportCsv')],['copyRecapText',bare('copyRecapText')],['dismissRecap',bare('dismissRecap')],
+ ['saveRecapImage',(m,keys)=>keys.length===2&&keys.includes('png')&&typeof m.png==='string'&&m.png.length>0&&m.png.length<=MAX_PNG_BASE64?{type:'saveRecapImage',png:m.png}:null],
 ]);
 export function acceptMessage(raw: unknown, load: number, version: number): AcceptedMessage | null {
  if (!raw || typeof raw !== 'object') return null;

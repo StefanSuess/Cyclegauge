@@ -1,6 +1,9 @@
 import { randomBytes } from 'node:crypto';
-import { acceptMessage, buildDomModel, renderDashboardShell, type AdvisorSubmit } from './dashboard-shell.ts';
+import { acceptMessage, buildDomModel, renderDashboardShell, type ActionMessage, type AdvisorSubmit } from './dashboard-shell.ts';
+import type { ActionCode } from './recap-actions.ts';
 
+/** What the recap card and the export section may ask of the extension. Each answers with a fixed code; none receives a path. */
+export interface DashboardActions { exportCsv(): Promise<ActionCode>; copyRecapText(): Promise<ActionCode>; dismissRecap(): Promise<ActionCode>; saveRecapImage(png: string): Promise<ActionCode> }
 type Webview = { html: string; postMessage(message: object): PromiseLike<boolean> | boolean };
 
 /** One panel document at a time. The static page remains authoritative until its own script says ready. */
@@ -20,11 +23,15 @@ export class DashboardPanel {
  private advisorLast = -Infinity;
  private readonly submitAdvisor?: (m: AdvisorSubmit) => Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch?:number}>;
  private arrivals: number[] = [];
+ // One of each action type at a time, including while its save dialog is open, then a 2 s cooldown per type.
+ private readonly actionBusy = new Set<string>();
+ private readonly actionLast = new Map<string, number>();
+ private readonly actions?: DashboardActions;
  private readonly webview: Webview;
  private readonly script: string;
  private readonly rejected: () => void;
  private readonly now: () => number;
- constructor(webview: Webview, script: string, rejected: () => void, now = Date.now, submitAdvisor?: (m: AdvisorSubmit) => Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch?:number}>) { this.webview = webview; this.script = script; this.rejected = rejected; this.now = now; this.submitAdvisor = submitAdvisor; }
+ constructor(webview: Webview, script: string, rejected: () => void, now = Date.now, submitAdvisor?: (m: AdvisorSubmit) => Promise<{status:'ok'|'stale'|'invalid';fields?:string[];epoch?:number}>, actions?: DashboardActions) { this.webview = webview; this.script = script; this.rejected = rejected; this.now = now; this.submitAdvisor = submitAdvisor; this.actions = actions; }
 
  set(html: string): void {
   if (this.disposed) return;
@@ -56,6 +63,8 @@ export class DashboardPanel {
    if (time - this.advisorLast < 2000) { this.rejected(); this.reply({type:'advisorResult',status:'invalid',fields:[]}); return; }
    this.advisorBusy = true;
    void this.submitAdvisor(message).then(result => this.reply({type:'advisorResult',status:result.status,epoch:result.epoch,fields:result.status==='invalid'?result.fields:undefined}), () => this.reply({type:'advisorResult',status:'invalid'})).finally(() => { this.advisorBusy = false; this.advisorLast = this.now(); });
+  } else if (message.type !== 'ack') {
+   this.act(message, time);
   } else {
    if (!this.ready || !this.pending) { this.rejected(); return; }
    if (time - this.lastAckAt < 2000) { this.rejected(); return; }
@@ -64,6 +73,17 @@ export class DashboardPanel {
    this.pending = 0;
    this.send(); // Delivers one coalesced newer render, if one arrived while ACK was pending.
   }
+ }
+
+ private act(message: ActionMessage, time: number): void {
+  const type = message.type;
+  if (!this.ready || !this.actions) { this.rejected(); return; }
+  if (this.actionBusy.has(type) || time - (this.actionLast.get(type) ?? -Infinity) < 2000) { this.rejected(); this.reply({ type: 'actionResult', action: type, code: 'busy' }); return; }
+  this.actionBusy.add(type);
+  const actions = this.actions;
+  // Started in a promise job so a synchronous throw also ends in a fixed reply and frees the in-flight slot.
+  void Promise.resolve().then(() => message.type === 'saveRecapImage' ? actions.saveRecapImage(message.png) : actions[message.type]()).then(code => this.reply({ type: 'actionResult', action: type, code }), () => this.reply({ type: 'actionResult', action: type, code: 'failed' }))
+   .finally(() => { this.actionBusy.delete(type); this.actionLast.set(type, this.now()); });
  }
 
  private reply(message:object):void { if(this.disposed)return;try{void Promise.resolve(this.webview.postMessage(message)).catch(()=>{});}catch{/* The next user submit can retry. */} }

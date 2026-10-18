@@ -9,6 +9,10 @@ import { planHint, type AdvisorContext } from '../../src/cost/advisor.ts';
 import { reviewedCatalog } from '../../src/cost/catalog.ts';
 import { view } from '../../src/view.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
+import { BRAND, CARD_HEIGHT, CARD_WIDTH } from '../../src/extension/recap-card.ts';
+import { decodeCardPng } from '../../src/extension/recap-png.ts';
+import { ACTION_TEXT } from '../../src/extension/recap-actions.ts';
+import type { Recap } from '../../src/extension/recap.ts';
 
 class FakeNode {
  nodeType: number;
@@ -57,14 +61,14 @@ async function start(initial: string) {
   const link = e('a');link.setAttribute('href', href);reserve.appendChild(link);
  }
  const root = e('html');root.setAttribute('data-cg-load', '7');
- const sent: unknown[] = [], created: string[] = []; const timers = new Map<number, () => void>(); let nextTimer = 0; const handlers = new Map<string, (event: any) => void>(); let scroll: [number, number] | undefined;
+ const sent: unknown[] = [], created: string[] = []; const timers = new Map<number, () => void>(); let nextTimer = 0; const handlers = new Map<string, ((event: any) => void)[]>(); let scroll: [number, number] | undefined;
  const document = { documentElement: root, activeElement: undefined as FakeNode | undefined,
   querySelector: (selector: string) => selector === 'main' ? main : selector === '#cg-link-reserve' ? reserve : selector.startsWith('#') ? find(main, n => n.getAttribute('id') === selector.slice(1)) ?? null : null,
   querySelectorAll: (selector: string) => selector === '[data-chart-point]' ? all(main, n => n.getAttribute('data-chart-point') !== null) : [],
   createTextNode: t, createElement: (tag: string) => { assert.notEqual(tag, 'a', 'browser must never create an anchor');created.push(tag);return e(tag); }, createElementNS: (ns: string, tag: string) => { assert.equal(ns, 'http://www.w3.org/2000/svg');created.push(`svg:${tag}`);return e(tag); } };
- const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(type: string, fn: (event: any) => void) { handlers.set(type, fn); } };
- runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), setTimeout: (fn: () => void) => {const id=++nextTimer;timers.set(id,fn);return id;}, clearTimeout: (id: number) => timers.delete(id), Object, Number, Set, Array });
- return { main, reserve, document, sent, created, scroll: () => scroll, tick() { for(const fn of timers.values())fn();timers.clear(); }, emit(type: string, event: object) { handlers.get(type)!({ ...event }); }, send(model: unknown, version = 1, schema = 1) { handlers.get('message')!({ data: { type: 'model', schema, version, model } }); } };
+ const window = { scrollX: 4, scrollY: 80, scrollTo(x: number, y: number) { scroll = [x, y]; }, addEventListener(type: string, fn: (event: any) => void) { handlers.set(type, [...(handlers.get(type) ?? []), fn]); } };
+ runInNewContext(await script(), { document, window, Node: { TEXT_NODE: 3, ELEMENT_NODE: 1 }, acquireVsCodeApi: () => ({ postMessage: (m: unknown) => sent.push(m) }), setTimeout: (fn: () => void) => {const id=++nextTimer;timers.set(id,fn);return id;}, clearTimeout: (id: number) => timers.delete(id), Object, Number, Set, Array, Blob, Response, CompressionStream, btoa });
+ return { main, reserve, document, sent, created, scroll: () => scroll, tick() { for(const fn of timers.values())fn();timers.clear(); }, emit(type: string, event: object) { for (const fn of handlers.get(type)!) fn({ ...event }); }, send(model: unknown, version = 1, schema = 1) { for (const fn of handlers.get('message')!) fn({ data: { type: 'model', schema, version, model } }); } };
 }
 
 test('chart keyboard and hover keep one tab stop and a dismissible hoverable tooltip', async () => {
@@ -261,4 +265,129 @@ test('timed-out submit followed by a busy retry keeps later edits when the first
  app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
  app.send(buildDomModel(page(2,'15')));
  assert.equal(credits.value,'20','late success for A cannot erase unsent B edit');
+});
+
+// Recap card, image and CSV: the script reveals the buttons, draws the card and sends only fixed messages from trusted clicks.
+const RECAP: Recap = { cycle: '2030-08-01T00:00:00.000Z', period: 'Cycle that ended 1 Jul 2030 (UTC). Figures are observed.', lines: ['Credits used: 900 of 1000 reported credits.', 'Lasted until the reset: yes.', 'Busiest observed day (partial observation): not observed.'] };
+const recapPage = (recap?: Recap) => present(view([], '2030-01-01T00:00:00Z'), [], '', '', undefined, '2030-01-01T00:00:00Z', false, undefined, '', undefined, recap).html;
+const settle = async () => { for (let i = 0; i < 40; i++) await new Promise(r => setImmediate(r)); };
+function canvasContext(node: FakeNode) {
+ const calls: { fills: string[]; texts: string[]; rects: number[][]; styles: string[] } = { fills: [], texts: [], rects: [], styles: [] };
+ let style = '';
+ const ctx = { set fillStyle(v: string) { style = v; calls.styles.push(v); }, get fillStyle() { return style; }, set font(_v: string) {}, set textBaseline(_v: string) {},
+  fillRect(...a: number[]) { calls.rects.push(a); calls.fills.push(style); }, fillText(t: string) { calls.texts.push(t); calls.fills.push(style); }, measureText: (t: string) => ({ width: t.length * 10 }),
+  getImageData: (_x: number, _y: number, w: number, h: number) => { const data = new Uint8ClampedArray(w * h * 4); for (let i = 0; i < data.length; i += 4) { data[i] = 11; data[i + 1] = 37; data[i + 2] = 69; data[i + 3] = 255; } return { data }; } };
+ (node as any).getContext = () => ctx;
+ return calls;
+}
+
+test('script reveals the card tools, draws the card text in brand colours and keeps one text alternative', async () => {
+ const app = await start(recapPage(RECAP));
+ const ids = ['recap-save', 'recap-copy', 'recap-dismiss', 'export-csv', 'recap-preview'];
+ const node = (id: string) => find(app.main, n => n.getAttribute('id') === id)!;
+ assert.ok(ids.slice(0, 4).every(id => node(id).getAttribute('hidden') === null), 'the buttons are revealed by the running script');
+ assert.equal(node('recap-preview').getAttribute('hidden'), '', 'the preview waits for a canvas that can draw');
+ const canvas = node('recap-canvas'); const calls = canvasContext(canvas);
+ app.send(buildDomModel(recapPage({ ...RECAP, lines: [...RECAP.lines, 'Exclusions you saved in that cycle: none counted.'] })));
+ assert.ok(ids.every(id => node(id).getAttribute('hidden') === null), 'a model update that re-hides them is undone in the same step');
+ assert.equal(node('recap-canvas'), canvas, 'the canvas node survives the update');
+ const drawn = calls.texts.join(' ');
+ for (const text of ['Your Kiro cycle', 'Cycle that ended', 'Credits used: 900 of 1000', 'Lasted until the reset: yes.', 'none counted']) assert.ok(drawn.includes(text), text);
+ const allowed = new Set<string>(Object.values(BRAND));
+ assert.ok(calls.styles.length > 0 && calls.styles.every(c => allowed.has(c)), 'only brand colours are used');
+ assert.deepEqual(calls.rects[0], [0, 0, CARD_WIDTH, CARD_HEIGHT]);
+ assert.equal(canvas.getAttribute('aria-labelledby'), 'recap-title'); assert.equal(canvas.getAttribute('aria-describedby'), 'recap-lines');
+ assert.match(app.main.textContent, /Credits used: 900 of 1000 reported credits\./, 'the text alternative is in the page');
+ assert.deepEqual(JSON.parse(JSON.stringify(app.sent.at(-1))), { type: 'ack', version: 1 });
+});
+
+test('without a card the export button is still revealed and a new canvas without a context never breaks the update', async () => {
+ const app = await start(recapPage());
+ assert.equal(find(app.main, n => n.getAttribute('id') === 'export-csv')!.getAttribute('hidden'), null);
+ assert.equal(find(app.main, n => n.getAttribute('id') === 'recap-card'), undefined);
+ app.send(buildDomModel(recapPage(RECAP)));
+ assert.deepEqual(JSON.parse(JSON.stringify(app.sent.at(-1))), { type: 'ack', version: 1 });
+ assert.equal(find(app.main, n => n.getAttribute('id') === 'recap-preview')!.getAttribute('hidden'), '', 'no context: the preview stays hidden and the text remains the card');
+});
+
+test('only trusted clicks send the fixed messages, once at a time, and the answer is a fixed text', async () => {
+ const app = await start(recapPage(RECAP));
+ const node = (id: string) => find(app.main, n => n.getAttribute('id') === id)!;
+ const messages = () => app.sent.slice(1).map(m => JSON.parse(JSON.stringify(m)));
+ app.emit('click', { target: node('recap-copy'), isTrusted: false });
+ app.emit('click', { target: node('recap-copy') });
+ assert.deepEqual(messages(), [], 'synthetic clicks do nothing');
+ app.emit('click', { target: node('recap-copy'), isTrusted: true });
+ app.emit('click', { target: node('recap-copy'), isTrusted: true });
+ await settle();
+ assert.deepEqual(messages(), [{ type: 'copyRecapText' }], 'a second click while one is in flight is ignored');
+ assert.equal(node('recap-status').textContent, 'Copying…');
+ app.emit('message', { data: { type: 'actionResult', action: 'exportCsv', code: 'saved' } });
+ assert.equal(node('recap-status').textContent, 'Copying…', 'a result for another action is ignored');
+ for (const bad of [{ action: 'copyRecapText', code: 'synthetic-code' }, { action: 'synthetic', code: 'copied' }, { action: '__proto__', code: '__proto__' }, { action: ['copyRecapText'], code: 'copied' }, { code: 'copied' }])
+  app.emit('message', { data: { type: 'actionResult', ...bad } });
+ assert.equal(node('recap-status').textContent, 'Copying…', 'unknown actions and codes change nothing');
+ app.emit('message', { data: { type: 'actionResult', action: 'copyRecapText', code: 'copied' } });
+ assert.equal(node('recap-status').textContent, ACTION_TEXT.copied);
+ app.emit('message', { data: { type: 'actionResult', action: 'copyRecapText', code: 'failed' } });
+ assert.equal(node('recap-status').textContent, ACTION_TEXT.copied, 'a replayed answer is ignored');
+ app.emit('click', { target: node('export-csv'), isTrusted: true }); await settle();
+ assert.deepEqual(messages().at(-1), { type: 'exportCsv' });
+ app.emit('message', { data: { type: 'actionResult', action: 'exportCsv', code: 'multiple_accounts' } });
+ assert.equal(node('export-status').textContent, ACTION_TEXT.multiple_accounts);
+ app.send(buildDomModel(recapPage(RECAP)), 2);
+ assert.equal(node('export-status').textContent, ACTION_TEXT.multiple_accounts, 'status text survives a live update');
+ app.emit('click', { target: node('recap-dismiss'), isTrusted: true }); await settle();
+ assert.deepEqual(messages().at(-1), { type: 'dismissRecap' });
+ app.emit('message', { data: { type: 'actionResult', action: 'dismissRecap', code: 'dismissed' } });
+ assert.equal(node('export-status').textContent, ACTION_TEXT.dismissed); assert.equal(node('export-csv').focusCount, 1, 'focus moves to a control that remains');
+});
+
+test('Save image sends a PNG of the drawn card that the extension validator accepts, and a lost answer re-enables the button', async () => {
+ const app = await start(recapPage(RECAP));
+ const node = (id: string) => find(app.main, n => n.getAttribute('id') === id)!;
+ canvasContext(node('recap-canvas'));
+ app.emit('click', { target: node('recap-save'), isTrusted: true });
+ for (let i = 0; i < 300 && app.sent.length < 2; i++) await new Promise(r => setTimeout(r, 10));
+ const message = JSON.parse(JSON.stringify(app.sent.at(-1))) as { type: string; png: string };
+ assert.deepEqual(Object.keys(message).sort(), ['png', 'type']); assert.equal(message.type, 'saveRecapImage');
+ assert.ok(message.png.length > 100 && message.png.length < 2 * 1024 * 1024);
+ assert.ok(decodeCardPng(message.png), 'exactly IHDR, IDAT, IEND of the fixed card size');
+ assert.equal(node('recap-status').textContent, 'Choose where to save the image…');
+ app.emit('click', { target: node('recap-save'), isTrusted: true }); await settle();
+ assert.equal(app.sent.length, 2, 'one save at a time');
+ app.tick(); // the long safety timer ends a lost answer
+ assert.equal(node('recap-status').textContent, ACTION_TEXT.unavailable);
+ app.emit('click', { target: node('recap-save'), isTrusted: true });
+ for (let i = 0; i < 300 && app.sent.length < 3; i++) await new Promise(r => setTimeout(r, 10));
+ assert.equal(app.sent.length, 3);
+});
+
+test('Save image without a canvas context reports a fixed failure and sends nothing', async () => {
+ const app = await start(recapPage(RECAP));
+ const node = (id: string) => find(app.main, n => n.getAttribute('id') === id)!;
+ app.emit('click', { target: node('recap-save'), isTrusted: true }); await settle();
+ assert.equal(app.sent.length, 1);
+ assert.equal(node('recap-status').textContent, ACTION_TEXT.failed);
+});
+
+test('a hostile model cannot hide other controls, resize the canvas or carry a second canvas', async () => {
+ const app = await start(recapPage(RECAP));
+ const model = JSON.parse(JSON.stringify(buildDomModel(recapPage(RECAP)))) as DomNode & { children: any[] };
+ const tweak = (change: (n: any) => void) => { const copy = JSON.parse(JSON.stringify(model)); const walk = (n: any) => { change(n); (n.children ?? []).forEach(walk); }; walk(copy); return copy; };
+ const before = app.sent.length;
+ app.send(tweak(n => { if (n.attrs?.id === 'recap-canvas') n.attrs.width = '9000'; }), 2);
+ app.send(tweak(n => { if (n.attrs?.id === 'recap-canvas') n.attrs.hidden = ''; }), 3);
+ app.send(tweak(n => { if (n.attrs?.id === 'recap-title') n.attrs.hidden = ''; }), 4);
+ app.send(tweak(n => { if (n.tag === 'button' && n.attrs.id === 'recap-save') n.tag = 'div'; }), 5);
+ app.send(tweak(n => { if (n.attrs?.id === 'recap-canvas') n.attrs.id = 'other'; }), 6);
+ app.send(tweak(n => { if (n.attrs?.id === 'recap-canvas') n.children = [{ kind: 'text', text: 'x' }]; }), 7);
+ assert.equal(app.sent.length, before, 'none of them is acknowledged');
+});
+
+test('the dashboard script has no markup, navigation, network, storage or code-evaluation sink', async () => {
+ const text = await script();
+ for (const sink of [/innerHTML/, /outerHTML/, /insertAdjacentHTML/, /document\.write/, /\beval\s*\(/, /new Function/, /\bFunction\s*\(/, /\bfetch\s*\(/, /XMLHttpRequest/, /WebSocket/, /sendBeacon/, /createObjectURL/, /srcdoc/, /toDataURL/, /toBlob/,
+  /\.src\s*=/, /\.href\s*=/, /setAttribute\(\s*["'`](href|src|xlink:href|on\w+)/i, /createElement\(\s*["'`](a|img|script|iframe|link|object|embed)["'`]/, /localStorage|sessionStorage|document\.cookie|indexedDB/, /window\.open|location\.(href|assign|replace)/, /importScripts|postMessage\([^)]*,\s*["'`]\*/])
+  assert.ok(!sink.test(text), String(sink));
 });

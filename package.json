@@ -205,7 +205,7 @@
         "cyclegauge.supportPrompts": {
           "type": "boolean",
           "default": true,
-          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge.",
+          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap.",
           "scope": "application"
         },
         "cyclegauge.budgetWarnings": {

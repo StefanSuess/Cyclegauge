@@ -12,6 +12,8 @@ import {reviewedCatalog} from '../cost/catalog.ts';
 import {estimateSavings} from '../cost/estimate.ts';
 import {planInsights,NO_INSIGHTS,type PlanInsights} from '../cost/plan-hints.ts';
 import {observedCycleKey,type StoredResults} from './results-summary.ts';
+import {computeRecap,recapText,recapVisibility,type Recap,type StoredRecap} from './recap.ts';
+import type {StoredSnapshot} from '../store.ts';
 
 export interface ExtensionUi {
  setStatus(text: string, detail: string, meta?: { tooltip: string; warning: boolean; severity?: 'none' | 'warning' | 'error' }): void;
@@ -28,6 +30,12 @@ export interface ExtensionOptions { source: string; storage: string; profileStor
  auditSummary?: () => AuditSummary;
  // The validated saved-exclusion summary for "Your Cyclegauge summary"; read on every render and never allowed to affect the gauge.
  resultsSummary?: () => StoredResults;
+ // The stored recap state (`cyclegauge.recap.v1`) and whether the Open VSX text belongs on the card. Without `recapState` no card is shown.
+ recapState?: () => StoredRecap;
+ recapLink?: () => boolean;
+ // Called once per session and cycle when a card is first shown, and to dismiss it; both persist only through the caller's validated writer.
+ recapShown?: (cycle: string) => void;
+ recapDismiss?: (cycle: string) => Promise<boolean>;
  // Not running in Kiro and no source chosen: an empty source is then shown as "Kiro not detected". Default: false (no change).
  notKiro?: boolean;
  // Called when a render shows a provisional or regular forecast; used only for the support prompt and never allowed to affect the gauge.
@@ -46,6 +54,9 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  const advisor=new AdvisorInputs();
  let observation= view([],(options.now ?? (() => new Date().toISOString()))());
  let codes:string[]=[];
+ // The retained snapshots of the last refresh, kept in memory only for the user's own CSV export.
+ let snapshotsNow:StoredSnapshot[]=[];
+ let shownRecap:Recap|undefined,askedShown='';
  // Latest fixed status for Copy Diagnostics: codes and counts only, never snapshot values or identifiers.
  let facts:{store:StoreState;importCodes:Record<string,number>;snapshots?:number;accounts?:number;unassociated?:number;latestMs?:number}={store:'not_opened',importCodes:{}};
  const now=()=> (options.now ?? (() => new Date().toISOString()))();
@@ -67,7 +78,18 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
   try{audit=options.auditSummary?.();}catch{audit=undefined;}
   let results:StoredResults|undefined;
   try{results=options.resultsSummary?.();}catch{results=undefined;}
-  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights,inlineAdvisorForm(advisor.value,advisor.epoch),results);
+  // The recap card of the cycle that just ended: shown the first time its cycle is observed and until dismissed; a failure only omits it.
+  let recap:Recap|undefined;
+  try{
+   const candidate=computeRecap(observation.history,results??{status:'unknown',entries:[]},options.recapLink?.()??true);
+   const visibility=recapVisibility(candidate,options.recapState?.()??{status:'unknown'});
+   if(candidate&&visibility!=='hidden'){
+    recap=candidate;
+    if(visibility==='new'&&askedShown!==candidate.cycle){askedShown=candidate.cycle;try{options.recapShown?.(candidate.cycle);}catch{/* the card never depends on its marker */}}
+   }
+  }catch{recap=undefined;}
+  shownRecap=recap;
+  const presentation=present(observation,codes,'',advisorHtml,audit,now(),options.notKiro===true,insights,inlineAdvisorForm(advisor.value,advisor.epoch),results,recap);
   detail=presentation.html;
   if(presentation.forecast)try{options.onForecast?.();}catch{/* the support prompt never affects the gauge */}
   if(presentation.absent)try{options.onAbsent?.();}catch{/* nor the not-Kiro note */}
@@ -83,6 +105,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     const now = (options.now ?? (() => new Date().toISOString()))();
     const imported = await collect(options.source, store, options.timezone, now);
     const snapshots=store.snapshots();
+    snapshotsNow=snapshots;
     observation = view(snapshots, now, options.maxAgeHours ?? 24);
     const partitions=new Set(snapshots.map(s=>s.partition));
     const single=partitions.size===1&&snapshots.every(s=>s.associated)&&observation.status!=='conflicting_snapshots';
@@ -95,6 +118,7 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
     // Only two fixed codes are surfaced; everything else stays the generic 'unavailable'.
     const code=storeStateFor(e);
     advisor.observe(null,'unavailable');
+    snapshotsNow=[];
     facts={store:code,importCodes:{}};
     observation=view([],now());codes=[code];render();
    }
@@ -136,5 +160,14 @@ export async function startExtension(ui: ExtensionUi, options: ExtensionOptions)
  const rerender=()=>{if(!disposed)render();};
  // The billing cycle new exclusions are counted under, or null when none is observed. No IO.
  const cycle=():string|null=>{try{return observedCycleKey(observation.history,now());}catch{return null;}};
- return { refresh, diagnostics, rerender, cycle, submitAdvisor, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
+ // Refreshes, then hands out the retained snapshots for the CSV export; empty when the store is unavailable.
+ const exportSnapshots=async():Promise<StoredSnapshot[]>=>{await refresh();return disposed?[]:[...snapshotsNow];};
+ // The card's own text for the clipboard, or null when no card is shown.
+ const currentRecapText=():string|null=>shownRecap?recapText(shownRecap):null;
+ const dismissRecap=async():Promise<boolean>=>{
+  const recap=shownRecap;
+  if(disposed||!recap||!options.recapDismiss)return false;
+  try{const done=await options.recapDismiss(recap.cycle);if(done)render();return done;}catch{return false;}
+ };
+ return { refresh, diagnostics, rerender, cycle, submitAdvisor, exportSnapshots, recapText:currentRecapText, dismissRecap, dispose() { if (disposed) return; disposed = true; advisor.clear(); store?.close(); ui.dispose(); } };
 }

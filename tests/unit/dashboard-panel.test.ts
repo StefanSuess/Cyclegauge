@@ -136,3 +136,70 @@ test('a never-settling Advisor remains single flight and gives an explicit busy 
  assert.equal(calls,1,'a hanging review never starts a parallel refresh');
  panel.dispose();
 });
+
+const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+function actionPanel(overrides: Partial<import('../../src/extension/dashboard-panel.ts').DashboardActions> = {}) {
+ const sent: any[] = [], calls: string[] = []; let rejected = 0, now = 1000;
+ const actions = {
+  exportCsv: async () => { calls.push('exportCsv'); return 'saved' as const; }, copyRecapText: async () => { calls.push('copyRecapText'); return 'copied' as const; },
+  dismissRecap: async () => { calls.push('dismissRecap'); return 'dismissed' as const; }, saveRecapImage: async (png: string) => { calls.push(`saveRecapImage:${png}`); return 'saved' as const; }, ...overrides,
+ };
+ const panel = new DashboardPanel({ html: '', postMessage(m: object) { sent.push(m); return true; } }, 'console.log(1)', () => { rejected++; }, () => now, undefined, actions);
+ panel.set(one); panel.receive({ type: 'ready', load: 1 });
+ const results = () => sent.filter(m => m.type === 'actionResult');
+ return { panel, sent, calls, results, rejected: () => rejected, advance: (ms: number) => { now += ms; }, setNow: (t: number) => { now = t; } };
+}
+
+test('each action runs once, answers with a fixed code and passes only the image text on', async () => {
+ const t = actionPanel();
+ t.panel.receive({ type: 'exportCsv' }); await flush();
+ t.advance(0); t.panel.receive({ type: 'copyRecapText' }); t.panel.receive({ type: 'dismissRecap' }); t.panel.receive({ type: 'saveRecapImage', png: 'AAAA' }); await flush();
+ assert.deepEqual(t.calls, ['exportCsv', 'copyRecapText', 'dismissRecap', 'saveRecapImage:AAAA']);
+ assert.deepEqual(t.results(), [{ type: 'actionResult', action: 'exportCsv', code: 'saved' }, { type: 'actionResult', action: 'copyRecapText', code: 'copied' }, { type: 'actionResult', action: 'dismissRecap', code: 'dismissed' }, { type: 'actionResult', action: 'saveRecapImage', code: 'saved' }]);
+ assert.equal(t.rejected(), 0); t.panel.dispose();
+});
+
+test('one of each type in flight, including while a save dialog is open, then a 2 s cooldown per type', async () => {
+ let finish!: (code: 'saved') => void; let started = 0;
+ const t = actionPanel({ saveRecapImage: () => { started++; return new Promise(resolve => { finish = resolve; }); } });
+ t.panel.receive({ type: 'saveRecapImage', png: 'AAAA' }); await flush();
+ t.advance(5000); // the dialog stays open for a long time: still one in flight
+ t.panel.receive({ type: 'saveRecapImage', png: 'BBBB' }); await flush();
+ assert.equal(started, 1); assert.equal(t.rejected(), 1);
+ assert.deepEqual(t.results(), [{ type: 'actionResult', action: 'saveRecapImage', code: 'busy' }]);
+ t.panel.receive({ type: 'exportCsv' }); await flush(); // another type is independent
+ assert.deepEqual(t.calls, ['exportCsv']);
+ finish('saved'); await flush();
+ t.panel.receive({ type: 'saveRecapImage', png: 'CCCC' }); await flush();
+ assert.equal(started, 1, 'cooldown starts when the dialog closes'); assert.equal(t.rejected(), 2);
+ t.advance(1999); t.panel.receive({ type: 'saveRecapImage', png: 'CCCC' }); await flush(); assert.equal(started, 1);
+ t.advance(1); t.panel.receive({ type: 'saveRecapImage', png: 'DDDD' }); await flush(); assert.equal(started, 2);
+ t.panel.dispose();
+});
+
+test('an action that throws or rejects ends with a fixed failure and frees its slot after the cooldown', async () => {
+ for (const boom of [() => { throw new Error('synthetic-failure /private/synthetic-path'); }, () => Promise.reject(new Error('synthetic-failure /private/synthetic-path'))]) {
+  const t = actionPanel({ exportCsv: boom as never });
+  t.panel.receive({ type: 'exportCsv' }); await flush();
+  assert.deepEqual(t.results(), [{ type: 'actionResult', action: 'exportCsv', code: 'failed' }]);
+  assert.ok(!JSON.stringify(t.sent).includes('synthetic-path'));
+  t.advance(2001); t.panel.receive({ type: 'exportCsv' }); await flush(); assert.equal(t.results().length, 2);
+  t.panel.dispose();
+ }
+});
+
+test('actions are refused before ready, without handlers, after disposal and above ten messages a second', async () => {
+ const early = new DashboardPanel({ html: '', postMessage() { return true; } }, 'x', () => {}, () => 1000, undefined, { exportCsv: async () => { throw new Error('must not run'); }, copyRecapText: async () => 'copied', dismissRecap: async () => 'dismissed', saveRecapImage: async () => 'saved' });
+ let rejected = 0; const calls: string[] = [];
+ const make = (actions?: any) => new DashboardPanel({ html: '', postMessage() { return true; } }, 'x', () => { rejected++; }, () => 1000, undefined, actions);
+ const notReady = make({ exportCsv: async () => { calls.push('x'); return 'saved'; } }); notReady.set(one); notReady.receive({ type: 'exportCsv' }); await flush();
+ const none = make(); none.set(one); none.receive({ type: 'ready', load: 1 }); none.receive({ type: 'exportCsv' }); await flush();
+ assert.equal(rejected, 2); assert.deepEqual(calls, []);
+ const t = actionPanel(); t.panel.dispose(); t.panel.receive({ type: 'exportCsv' }); await flush(); assert.deepEqual(t.calls, []);
+ const flood = actionPanel();
+ for (let i = 0; i < 12; i++) flood.panel.receive({ type: 'copyRecapText' });
+ await flush(); assert.deepEqual(flood.calls, ['copyRecapText']); assert.ok(flood.rejected() >= 10);
+ for (const hostile of [{ type: 'saveRecapImage' }, { type: 'exportCsv', png: 'AAAA' }, { type: 'dismissRecap', extra: 1 }, { type: '__proto__' }]) { flood.advance(1500); flood.panel.receive(hostile); }
+ await flush(); assert.deepEqual(flood.calls, ['copyRecapText'], 'invalid action messages never reach a handler');
+ early.dispose(); notReady.dispose(); none.dispose(); flood.panel.dispose();
+});

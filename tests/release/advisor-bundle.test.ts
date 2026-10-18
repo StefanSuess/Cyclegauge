@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,realpathSync,rmSync,existsSync,unlinkSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readdirSync,realpathSync,rmSync,existsSync,unlinkSync,symlinkSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import * as realFsPromises from 'node:fs/promises';
@@ -10,6 +10,8 @@ import {runInThisContext} from 'node:vm';
 import {buildVsix} from '../../scripts/release/build-vsix.ts';
 import {readZip} from '../../scripts/release/zip.ts';
 import {buildDomModel} from '../../src/extension/dashboard-shell.ts';
+import {deflateSync} from 'node:zlib';
+import {CARD_HEIGHT,CARD_WIDTH,encodePng} from '../../src/extension/recap-card.ts';
 
 let built:Promise<string>|undefined;
 // The shipped bundle is built once per run; only its text is kept.
@@ -615,8 +617,9 @@ const communityEnv=(work:string,withLogs:boolean)=>{
  // Kiro's standard data folder as the bundle resolves it under the synthetic HOME (set per session).
  const placeDefaultLogs=()=>{const dir=join(process.platform==='darwin'?join(work,'synthetic-home','Library','Application Support','Kiro'):join(work,'synthetic-home','Kiro'),'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');mkdirSync(dir,{recursive:true});writeFileSync(join(dir,'q-client.log'),logText());};
  return {placeDefaultLogs,failWrites:false,now:'2030-01-04T00:00:00Z',appName:'Kiro' as unknown,uriScheme:'kiro' as unknown,sourceRoot:source,mode:1 as unknown,prompts:undefined as unknown,choice:undefined as string|undefined,throwState:false,
-  globalStorage:join(work,'global'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
-  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],calls:[] as unknown[][],keyAtOpen:[] as boolean[],throwOpen:false,updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[]};
+  globalStorage:join(work,'editor','User','globalStorage','synthetic.ext'),home:join(work,'synthetic-home'),workspace,source,store:new Map<string,unknown>(),written:[] as string[],infos:[] as {text:string;buttons:string[]}[],errors:[] as string[],opened:[] as string[],clipboard:[] as string[],statusTexts:[] as string[],panels:[] as any[],panelOptions:undefined as any,
+  answers:[] as (string|undefined)[],autoSave:'off',timers:[] as {fn:()=>unknown;ms:number;cleared:boolean}[],configListeners:[] as ((e:{affectsConfiguration(k:string):boolean})=>void)[],automatic:undefined as unknown,watchers:[] as any[],budget:undefined as unknown,budgetPercent:undefined as unknown,executed:[] as string[],calls:[] as unknown[][],keyAtOpen:[] as boolean[],throwOpen:false,updates:[] as {section:string;key:string;value:unknown;target:unknown}[],atShow:[] as unknown[],
+  posted:[] as any[],receive:(_m:unknown)=>{},saveTo:undefined as string|undefined|(()=>string|undefined),dialogs:[] as {defaultPath:string;filters:unknown}[],clipboardFails:false};
 };
 const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const api=auditApi(),commands=new Map<string,(...a:any[])=>unknown>(),subscriptions:any[]=[],disposable={dispose(){}};
@@ -624,7 +627,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ExtensionMode:{Production:1,Development:2,Test:3},ConfigurationTarget:{Global:1},ThemeColor:class{},Uri:{...api.Uri,parse:(u:string)=>({parsed:u})},RelativePattern:class{base:any;pattern:string;constructor(base:any,pattern:string){this.base=base;this.pattern=pattern;}},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
   commands:{async executeCommand(id:string,...a:unknown[]){env.calls.push([id,...a]);if(id==='workbench.action.openWalkthrough'){env.keyAtOpen.push(env.store.has(WALKTHROUGH_KEY));if(env.throwOpen)throw new Error('synthetic-no-walkthroughs /private/synthetic-path');return;}env.executed.push(id);},registerCommand(id:string,fn:(...a:any[])=>unknown){commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
-  env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
+  env:{get appName(){return env.appName;},get uriScheme(){return env.uriScheme;},clipboard:{async writeText(t:string){if(env.clipboardFails)throw new Error('synthetic-clipboard-failure /private/synthetic-path');env.clipboard.push(t);}},async openExternal(u:any){env.opened.push(u.parsed);return true;}},
   workspace:{...api.workspace,isTrusted:true,get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];},
    getConfiguration:(section:string)=>({get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?env.autoSave:
     ({sourceRoot:env.sourceRoot,storageRoot:'',sourceTimezone:'UTC',supportPrompts:env.prompts,auditAutomatically:env.automatic,budgetWarnings:env.budget,budgetWarningPercent:env.budgetPercent} as any)[key]??'',
@@ -632,7 +635,8 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
    createFileSystemWatcher:(pattern:any,...flags:unknown[])=>{const w={pattern,flags,listeners:[] as any[],disposed:false,onDidCreate(fn:any){w.listeners.push(fn);return disposable;},onDidChange:()=>disposable,onDidDelete:()=>disposable,dispose(){w.disposed=true;}};env.watchers.push(w);return w;},
    onDidChangeConfiguration(fn:any){env.configListeners.push(fn);return disposable;}},
   window:{...api.window,createStatusBarItem(){return {set text(t:string){env.statusTexts.push(t);},show(){},hide(){},dispose(){}};},
-   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:'',postMessage(){return Promise.resolve(true);},onDidReceiveMessage(){return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
+   createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:'',postMessage(m:any){env.posted.push(m);return Promise.resolve(true);},onDidReceiveMessage(fn:(m:unknown)=>void){env.receive=fn;return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
+   async showSaveDialog(o:any){env.dialogs.push({defaultPath:o.defaultUri.fsPath,filters:o.filters});const to=typeof env.saveTo==='function'?env.saveTo():env.saveTo;return to===undefined?undefined:{scheme:'file',fsPath:to};},
    async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string){env.errors.push(m);},
    async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('cyclegauge.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
@@ -650,7 +654,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
  runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
  const later=async()=>{for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));};
  let done=false;
- try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:env.globalStorage},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{/* restored on disposal so delayed signal timers remain controllable */}
+ try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:env.globalStorage},logUri:{fsPath:join(work,'editor','logs','synthetic-session','exthost','synthetic.ext')},workspaceState:api.workspaceState,globalState,extensionMode:env.mode});await later();}finally{/* restored on disposal so delayed signal timers remain controllable */}
  return {commands,api,later,advance:()=>{fixedNow+=2100;},support:()=>env.timers.filter(t=>t.ms===180000),
   fire:async()=>{const t=env.timers.filter(x=>x.ms===180000);assert.equal(t.length,1);await t[0]!.fn();await later();},
   dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;for(const [k,v] of Object.entries(saved)){if(v===undefined)delete process.env[k];else process.env[k]=v;}}};
@@ -1125,7 +1129,7 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   assert.equal(budgetInfos(env).length,1);assert.deepEqual(env.executed,['cyclegauge.showUsage']);env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[]);s.dispose();
   wipe();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.budget=false;s=await start();await s.fire();assert.deepEqual(texts(),[SUPPORT_TEXT]);s.dispose();
   // Only the one documented budget key was written, holding no path, identifier or amount.
-  assert.ok(env.written.every(k=>k===BUDGET_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
+  assert.ok(env.written.every(k=>k===BUDGET_KEY||k===RECAP_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
@@ -1167,7 +1171,7 @@ test('packaged right-sizing hint: shown in the credit view whenever it holds, as
   for(const o of [{last:1200},{withFirst:false}]){wipe();hintData(env,o);env.now='2030-02-23T06:30:00Z';s=await start();await s.later();await s.later();assert.deepEqual(budgetInfos(env),[],JSON.stringify(o));assert.equal(lineIn(await detail(s)),undefined,JSON.stringify(o));s.dispose();}
   // Not Kiro (with a chosen source): the line is part of the view, but there is no notice and nothing is stored.
   wipe();hintData(env);env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot=join(env.source);s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);assert.match(lineIn(await detail(s))??'',RIGHTSIZE_TEXT);s.dispose();env.appName='Kiro';env.uriScheme='kiro';
-  assert.ok(env.written.every(k=>k===BUDGET_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
+  assert.ok(env.written.every(k=>k===BUDGET_KEY||k===RECAP_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
@@ -1201,4 +1205,116 @@ test('packaged next-larger-plan comparison: beside the projected overage and on 
   // Without a projected overage there is no line (and no notice).
   const calm=await run(1000,5,false);assert.equal(calm.notice,'');assert.ok(!calm.html.includes('For comparison'));
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+// "Your Kiro cycle": the recap card, its state key, and the image / CSV / clipboard actions of the packaged bundle with an invented source.
+const RECAP_KEY='cyclegauge.recap.v1';
+const recapLine=(when:string,usage:number,reset:string)=>`${when} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:reset,usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:1000,nextDateReset:reset,bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
+const recapEnv=(work:string)=>{
+ const env=communityEnv(work,false);env.now='2030-07-02T00:00:00Z';
+ const R0='2030-06-01T00:00:00Z',R1='2030-07-01T00:00:00Z',R2='2030-08-01T00:00:00Z';
+ writeFileSync(join(env.source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent','q-client.log'),recapLine('2030-05-20 00:00:00.000',100,R0)+recapLine('2030-06-01 06:00:00.000',30,R1)+recapLine('2030-06-10 00:00:00.000',300,R1)+recapLine('2030-06-30 20:00:00.000',900,R1)+recapLine('2030-07-01 06:00:00.000',10,R2));
+ mkdirSync(join(work,'synthetic-home','Downloads'),{recursive:true});mkdirSync(join(work,'synthetic-out'),{recursive:true});
+ return env;
+};
+const waitFor=async(check:()=>boolean,s:{later():Promise<void>})=>{for(let i=0;i<300&&!check();i++)await new Promise(r=>setTimeout(r,10));await s.later();};
+const readyPanel=async(s:any,env:ReturnType<typeof communityEnv>)=>{
+ await s.commands.get('cyclegauge.showUsage')!();await s.later();
+ const load=Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1]);env.receive({type:'ready',load});await s.later();
+};
+const results=(env:ReturnType<typeof communityEnv>)=>env.posted.filter((m:any)=>m.type==='actionResult').map((m:any)=>`${m.action}:${m.code}`);
+
+test('packaged recap card appears once, is marked shown, copies its own text and is dismissed through the validated key',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-card-')));let s:any;
+ try{
+  const env=recapEnv(work);s=await communitySession(env,work);
+  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  const html:string=env.panels.at(-1).webview.html;
+  assert.match(html,/<h2 id="recap-title">Your Kiro cycle<\/h2>/);assert.match(html,/Credits used: 900 of 1000 reported credits/);assert.match(html,/Busiest observed day \(partial observation\)/);
+  assert.deepEqual(env.store.get(RECAP_KEY),{cycle:'2030-08-01T00:00:00.000Z',state:'shown'});
+  assert.equal(env.written.filter(k=>k===RECAP_KEY).length,1,'written once');
+  assert.ok(!/style=/.test(html.replace(/<style[\s\S]*?<\/style>/,'')));
+  for(const marker of [work,'synthetic-bundle-account','partition'])assert.ok(!JSON.stringify(env.store.get(RECAP_KEY)).includes(marker));
+  const load=Number(/data-cg-load="(\d+)"/.exec(html)![1]);env.receive({type:'ready',load});await s.later();
+  // Copy text: built by the extension from the card, never from the page.
+  env.receive({type:'copyRecapText'});await waitFor(()=>env.clipboard.length>0,s);
+  assert.equal(env.clipboard.length,1);assert.match(env.clipboard[0]!,/^Your Kiro cycle\nCycle that ended 1 Jul 2030 \(UTC\)\./);assert.match(env.clipboard[0]!,/Cyclegauge for Kiro IDE: https:\/\/open-vsx\.org\/extension\/StefanSuess\/cyclegauge$/);
+  assert.ok(!env.clipboard[0]!.includes(work));assert.deepEqual(results(env),['copyRecapText:copied']);
+  // Dismiss writes only the validated shape, and the card is gone from the next page.
+  s.advance();env.receive({type:'dismissRecap'});await waitFor(()=>(env.store.get(RECAP_KEY) as any)?.state==='dismissed',s);
+  assert.deepEqual(env.store.get(RECAP_KEY),{cycle:'2030-08-01T00:00:00.000Z',state:'dismissed'});assert.ok(results(env).includes('dismissRecap:dismissed'));
+  await s.commands.get('cyclegauge.showUsage')!();await s.later();assert.ok(!env.panels.at(-1).webview.html.includes('id="recap-card"'));
+  env.receive({type:'ready',load:Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1])});await s.later();
+  s.advance();env.receive({type:'copyRecapText'});await waitFor(()=>results(env).includes('copyRecapText:unavailable'),s);assert.ok(results(env).includes('copyRecapText:unavailable'));
+  // The explicit reset clears the key; the card returns the next time it is evaluated.
+  await s.commands.get('cyclegauge.support.reset')!();assert.equal(env.store.has(RECAP_KEY),false);
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged recap leaves an unreadable stored value untouched and shows no card; the link follows the support switch',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-unknown-')));let s:any;
+ try{
+  const env=recapEnv(work);env.store.set(RECAP_KEY,{v:2,cycle:'x'});s=await communitySession(env,work);
+  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  assert.ok(!env.panels.at(-1).webview.html.includes('id="recap-card"'));assert.deepEqual(env.store.get(RECAP_KEY),{v:2,cycle:'x'});assert.equal(env.written.includes(RECAP_KEY),false);
+  const load=Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1]);env.receive({type:'ready',load});await s.later();
+  env.receive({type:'dismissRecap'});await s.later();assert.deepEqual(env.store.get(RECAP_KEY),{v:2,cycle:'x'},'dismissing never overwrites it');
+  s.dispose();
+  const root2=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-link-')));
+  try{
+   const env2=recapEnv(root2);env2.prompts=false;s=await communitySession(env2,root2);
+   await s.commands.get('cyclegauge.showUsage')!();await s.later();
+   assert.match(env2.panels.at(-1).webview.html,/id="recap-card"/);assert.ok(!env2.panels.at(-1).webview.html.includes('Cyclegauge for Kiro IDE: https://'));
+  }finally{s?.dispose();rmSync(root2,{recursive:true,force:true});}
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged CSV export and image save write only after a dialog, refuse guarded targets and never touch Kiro or storage folders',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-save-')));let s:any;
+ try{
+  const env=recapEnv(work);s=await communitySession(env,work);await readyPanel(s,env);
+  const downloads=join(env.home,'Downloads'),out=join(work,'synthetic-out');
+  const png=Buffer.from(await encodePng(new Uint8Array(CARD_WIDTH*CARD_HEIGHT*4).fill(255),async raw=>new Uint8Array(deflateSync(raw))));
+  const act=async(message:object)=>{s.advance();const before=results(env).length;env.receive(message);await waitFor(()=>results(env).length>before,s);return results(env).at(-1);};
+  // Dialog opens at a fixed name in Downloads; cancelling writes nothing.
+  env.saveTo=undefined;assert.equal(await act({type:'exportCsv'}),'exportCsv:cancelled');
+  assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'cyclegauge-credit-history.csv'));assert.deepEqual(env.dialogs.at(-1)!.filters,{'CSV file':['csv']});
+  assert.deepEqual(readdirSync(downloads),[]);
+  // A normal target receives the exact CSV: header, one row per snapshot, no identifier.
+  env.saveTo=join(out,'history.csv');assert.equal(await act({type:'exportCsv'}),'exportCsv:saved');
+  const csv=readFileSync(env.saveTo,'utf8').split('\r\n');
+  assert.equal(csv[0],'observed_at_source,observed_at_utc,credits_used,credit_limit,reset_at_utc,flags,conflict');assert.equal(csv.length,7);
+  assert.match(csv[1]!,/^2030-05-20 00:00:00\.000,2030-05-20T00:00:00\.000Z,100,1000,2030-06-01T00:00:00\.000Z,assumed_source_timezone,no$/);
+  assert.ok(!readFileSync(env.saveTo,'utf8').includes('synthetic-bundle-account'));
+  // Guarded targets: Cyclegauge storage, the configured Kiro source, a .kiro folder, a link and a directory are refused and nothing is written there.
+  mkdirSync(env.globalStorage,{recursive:true});mkdirSync(join(work,'synthetic-home','.kiro'),{recursive:true});writeFileSync(join(out,'victim.txt'),'synthetic-victim');
+  mkdirSync(join(work,'editor','logs','synthetic-session'),{recursive:true});mkdirSync(join(work,'synthetic-home','.ssh'),{recursive:true});
+  const refused:string[]=[join(env.globalStorage,'x.csv'),join(work,'editor','User','x.csv'),join(work,'editor','logs','synthetic-session','x.csv'),join(env.source,'x.csv'),join(work,'synthetic-home','.kiro','x.csv'),join(work,'synthetic-home','.ssh','x.csv'),out];
+  if(process.platform!=='win32'){symlinkSync(join(out,'victim.txt'),join(out,'link.csv'));refused.push(join(out,'link.csv'));}
+  for(const target of refused){env.saveTo=target;assert.equal(await act({type:'exportCsv'}),'exportCsv:refused_target',target);}
+  assert.equal(readFileSync(join(out,'victim.txt'),'utf8'),'synthetic-victim');assert.equal(existsSync(join(env.globalStorage,'x.csv')),false);assert.equal(existsSync(join(env.source,'x.csv')),false);
+  assert.deepEqual(readdirSync(out).filter(n=>n.endsWith('.tmp')),[]);
+  // Image: validated before any dialog, written only after one.
+  const dialogs=env.dialogs.length;
+  assert.equal(await act({type:'saveRecapImage',png:'AAAA'}),'saveRecapImage:invalid_image');assert.equal(env.dialogs.length,dialogs,'an invalid image never opens the dialog');
+  const bad=Buffer.from(png);bad[40]=bad[40]!^1;assert.equal(await act({type:'saveRecapImage',png:bad.toString('base64')}),'saveRecapImage:invalid_image');
+  env.saveTo=join(out,'card.png');assert.equal(await act({type:'saveRecapImage',png:png.toString('base64')}),'saveRecapImage:saved');
+  assert.deepEqual(readFileSync(env.saveTo),png);assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'cyclegauge-cycle-recap.png'));
+  env.saveTo=join(env.source,'card.png');assert.equal(await act({type:'saveRecapImage',png:png.toString('base64')}),'saveRecapImage:refused_target');
+  // The failure of the clipboard is a fixed code, not a message.
+  env.clipboardFails=true;assert.equal(await act({type:'copyRecapText'}),'copyRecapText:failed');assert.ok(!JSON.stringify(env.posted).includes('synthetic-path'));
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
+});
+
+test('packaged export is refused with a fixed reason for more than one account and nothing is written',async()=>{
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-accounts-')));let s:any;
+ try{
+  const env=recapEnv(work);
+  const log=join(env.source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent','q-client.log');
+  writeFileSync(log,readFileSync(log,'utf8')+recapLine('2030-07-01 07:00:00.000',5,'2030-08-01T00:00:00Z').replace('synthetic-bundle-account','synthetic-second-account'));
+  s=await communitySession(env,work);await readyPanel(s,env);
+  env.saveTo=join(work,'synthetic-out','history.csv');s.advance();env.receive({type:'exportCsv'});await waitFor(()=>results(env).length>0,s);
+  assert.deepEqual(results(env),['exportCsv:multiple_accounts']);assert.equal(env.dialogs.length,0);assert.equal(existsSync(env.saveTo),false);
+  assert.ok(!/id="recap-card"/.test(env.panels.at(-1).webview.html),'no recap across accounts');
+ }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
