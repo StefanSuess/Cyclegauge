@@ -5,7 +5,7 @@ import { LINKS } from './identity.ts';
 export type DomNode = { kind: 'text'; text: string } | DomElement;
 export interface DomElement { kind: 'element'; tag: string; attrs: Record<string, string>; children: DomNode[] }
 const TAGS = new Set('main section article div h1 h2 h3 h4 p span dl dt dd details summary table caption thead tbody tr th td footer a svg defs pattern line rect circle polygon path text title desc ul li figure figcaption strong em small br'.split(' '));
-const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby scope data-kind x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
+const ATTRS = new Set('id class role aria-label aria-hidden aria-labelledby aria-describedby aria-live aria-atomic scope data-kind data-chart-point tabindex hidden x y x1 x2 y1 y2 cx cy r width height viewBox preserveAspectRatio d points text-anchor patternUnits patternTransform stroke-dasharray stroke-width stroke-opacity stroke-linecap fill-opacity'.split(' '));
 const SAFE_LINKS = new Set([LINKS.rate, LINKS.star, LINKS.support, 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share']);
 const decode = (value: string) => value.replace(/&(amp|lt|gt|quot|#39);/g, (_, entity: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]!);
 
@@ -40,10 +40,16 @@ export function buildDomModel(html: string): DomElement {
    if (name === 'href' && (tag !== 'a' || !SAFE_LINKS.has(value))) throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'open' && tag !== 'details') throw new Error('DASHBOARD_MODEL_INVALID');
    if (name === 'xmlns' && (tag !== 'svg' || value !== 'http://www.w3.org/2000/svg')) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'data-chart-point' && (!['circle', 'polygon'].includes(tag) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value))) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'tabindex' && (!['circle', 'polygon'].includes(tag) || !['0', '-1'].includes(value))) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'aria-live' && (tag !== 'dd' || value !== 'polite')) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'aria-atomic' && (tag !== 'dd' || value !== 'true')) throw new Error('DASHBOARD_MODEL_INVALID');
+   if (name === 'hidden' && (tag !== 'p' || value !== '')) throw new Error('DASHBOARD_MODEL_INVALID');
    if (value.length > 4096 || Object.hasOwn(attrs, name)) throw new Error('DASHBOARD_MODEL_INVALID');
    if (name !== 'open' && name !== 'xmlns') attrs[name] = value; // open is UI state; SVG namespace comes from createElementNS
    rest = rest.slice(attr[0].length).trimStart();
   }
+  if (Object.hasOwn(attrs, 'hidden') && attrs.id !== 'chart-tooltip') throw new Error('DASHBOARD_MODEL_INVALID');
   const node: DomElement = { kind: 'element', tag, attrs, children: [] };
   if (stack.length) stack.at(-1)!.children.push(node);
   else if (!root && tag === 'main') root = node;

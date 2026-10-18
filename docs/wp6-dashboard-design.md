@@ -1,6 +1,6 @@
 # WP6 interactive dashboard: design
 
-Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` review and one re-review.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). The maintainer approved all five decisions in section 11 and implementation of phase 6a. Each phase in section 10 lands as its own PR with a mandatory `security-reviewer` review; later phases remain separate work packages. Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
+Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` review and one re-review.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). The maintainer approved all five decisions in section 11 and implementation of phase 6a; after PR #104 merged, the continuation on 2026-10-18 proceeds with phase 6b. Each phase in section 10 lands as its own PR with a mandatory `security-reviewer` review; later phases remain separate work packages. Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
 
 ## 1. Goals
 

@@ -7,6 +7,7 @@ import { LINKS, NOT_KIRO_TEXT } from './identity.ts';
 import { overageOver } from '../cost/overage.ts';
 import { observedOverageText, projectedOverageText, rightSizeText, largerPlanText } from './budget-warning.ts';
 import { NO_INSIGHTS, type PlanInsights } from '../cost/plan-hints.ts';
+import { cycleComparison, todayPace } from './dashboard-insights.ts';
 
 const safe = (s: string | null) => s === null ? 'Not available' : s.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]!);
 const row = (label: string, value: string | null) => `<tr><th scope="row">${safe(label)}</th><td>${safe(value)}</td></tr>`;
@@ -61,6 +62,20 @@ function buildAuditCard(a: AuditSummary | undefined, now: string): string {
 function withAdvisorButton(advisorHtml: string): string {
  const button = `<p class="advisor-actions"><a class="button primary" href="${ADVISOR_LINK}">Open Cost Advisor</a></p>`;
  return advisorHtml.endsWith('</section>') ? `${advisorHtml.slice(0, -'</section>'.length)}${button}</section>` : `${advisorHtml}${button}`;
+}
+
+function observedContext(h: ReturnType<typeof view>['history'], now: string): string {
+ const comparison = cycleComparison(h), pace = todayPace(h, now);
+ const elapsed = (ms: number) => `${Math.floor(ms / 86400000)} d ${Math.floor(ms % 86400000 / 3600000)} h`;
+ const duration = (ms: number) => `${Math.floor(ms / 3600000)} h ${Math.floor(ms % 3600000 / 60000)} min`;
+ let cycle = 'Cycle comparison: not observed — two evidence-backed cycle starts are needed.';
+ if (comparison.status === 'not_comparable') cycle = 'Cycle comparison: not comparable because the retained account updates contain a quality barrier.';
+ if (comparison.status === 'observed') cycle = `Cycle comparison at ${elapsed(comparison.offsetMs!)} into the cycle: ${comparison.current!.usage} credits as of ${comparison.current!.at}; previous cycle ${comparison.previous!.usage} credits as of ${comparison.previous!.at}.`;
+ if (comparison.status === 'bracketed') cycle = `Cycle comparison at ${elapsed(comparison.offsetMs!)} into the cycle: ${comparison.current!.usage} credits as of ${comparison.current!.at}. No previous-cycle update was observed near that offset; the surrounding observations were ${comparison.before!.usage} credits at ${comparison.before!.at} and ${comparison.after!.usage} credits at ${comparison.after!.at}.`;
+ let today = 'UTC day so far: not observed.';
+ if (pace.status === 'not_comparable') today = 'UTC day so far: not comparable across the retained updates.';
+ if (pace.status === 'observed') today = `UTC day so far (${pace.day}), since ${pace.from!.slice(11, 16)} UTC: ${pace.netChange} credits over ${duration(pace.elapsedMs!)}; as of ${pace.asOf}.${pace.allocation === null ? '' : ` The 24-hour allocation as of the last update was ${pace.allocation} credits; this is context, not a daily verdict.`}`;
+ return `<section id="usage-context" aria-labelledby="usage-context-heading"><h2 id="usage-context-heading">Observed usage context</h2><p>${safe(cycle)}</p><p>${safe(today)}</p></section>`;
 }
 
 /** Presentation only: billing eligibility and exact projections remain in the core. */
@@ -133,7 +148,7 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
   +row('Quality codes',notes);
  const chart=presentChartParts(o);
  const freshness=stale ? 'Stale — waiting for a fresh account update' : o.status==='observed' ? 'Fresh' : 'Not available';
- const stat=(label:string,value:string,note='')=>`<div class="stat"><dt>${safe(label)}</dt><dd>${safe(value)}</dd>${note ? `<dd class="muted small">${safe(note)}</dd>` : ''}</div>`;
+ const stat=(label:string,value:string,note='',live=false)=>`<div class="stat"><dt>${safe(label)}</dt><dd${live ? ' id="usage-live" aria-live="polite" aria-atomic="true"' : ''}>${safe(value)}</dd>${note ? `<dd class="muted small">${safe(note)}</dd>` : ''}</div>`;
  const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Your credit budget</title><style>
  :root{--ok:var(--vscode-charts-green,#3fb950);--warn:var(--vscode-editorWarning-foreground,#cca700);--bad:var(--vscode-errorForeground,#f14c4c);--neutral:var(--vscode-descriptionForeground,#888)}
  *{box-sizing:border-box}body{font:var(--vscode-font-size,14px)/1.5 var(--vscode-font-family,sans-serif);color:var(--vscode-foreground);background:var(--vscode-editor-background);padding:24px;margin:0}main{max-width:820px;margin:auto}a{color:var(--vscode-textLink-foreground,#3794ff)}a:focus-visible,summary:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:2px}h1{font-size:1.1rem;font-weight:600;margin:0 0 12px;color:var(--vscode-descriptionForeground)}h2{font-size:1.1rem;margin:0 0 10px}h3{font-size:1rem}h4{margin:8px 0}p{margin:8px 0}.muted,.label{color:var(--vscode-descriptionForeground)}.small{font-size:.9rem}
@@ -157,11 +172,12 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  <section class="hero ${tone}" aria-labelledby="status-heading"><h2 id="status-heading"><span class="status-icon" aria-hidden="true">${icon}</span>${safe(heading)}${eligible ? `<span class="tag">${safe(tier)}</span>` : ''}</h2>
  <p class="lead">${safe(explanation)}</p>${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${noteLines.map(l=>`<p class="small overage">${safe(l)}</p>`).join('')}
  ${usedPct===null ? '' : `<svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="${usedPct}% of the reported credit limit used"><rect width="${usedPct}" height="10"/></svg><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
- <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
+ <dl class="stats">${stat('Credits used',o.usage===null ? 'Not available' : `${o.usage} credits`,o.baseLimit===null ? '' : `of ${o.baseLimit} reported`,true)}${stat('Remaining reported capacity',o.remainingBaseCredits===null ? 'Not available' : `${o.remainingBaseCredits} credits`,budget===null ? '' : `Daily credit budget until reset: ${compact(budget)} credits / day`)}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>
  <p class="meta muted small">Last account update: ${safe(o.observedAt ? `${updated(o.observedAt)} · ${freshness}` : 'Not available')}. Amounts are as of that update; later usage is unknown. The reported limit is not verified as base-only or total capacity.</p></section>
  ${auditCard(audit, now)}
  ${withAdvisorButton(advisorHtml)}
  ${chart.main}
+ ${observedContext(h, now)}
  ${costHtml}
  <section id="advanced-details" aria-label="Advanced details"><details class="advanced"><summary>Advanced details</summary><p class="muted small">Forecast methods and evidence, coverage, exact UTC timestamps, qualifiers, chart data and billing assumptions.</p>
  <h3>Forecast</h3><p>${safe(tier)}</p>${collecting ? `<p>${safe(COLLECTING_POLICY)}</p>` : ''}<table>${forecastRows}</table><p class="muted small">Estimates assume the observed rate continues. They are not guarantees or statistical confidence intervals. Negative projected credits indicate usage beyond the reported limit; this does not by itself establish overage charges.</p>
