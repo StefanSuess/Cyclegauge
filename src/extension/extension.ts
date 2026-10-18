@@ -17,6 +17,20 @@ import type { view } from '../view.ts';
 import type { PlanInsights } from '../cost/plan-hints.ts';
 import { LATER_DAYS, addDays, auditDue, daysBetween, isDate, utcDate } from './audit-schedule.ts';
 import { SNOOZE_DAYS, afterChoice, supportDue, type SupportChoice } from './support-schedule.ts';
+import { DashboardPanel } from './dashboard-panel.ts';
+
+declare const __DASHBOARD_SCRIPT__: string;
+let rejectedMessages = 0;
+// Shared at each native command registration, so links, title buttons and command-palette calls obey the same guard.
+function guardDashboardCommand<T extends unknown[]>(fn: (...args: T) => unknown): (...args: T) => Promise<void> {
+ let busy = false, last = -Infinity;
+ return async (...args: T) => {
+  const now = Date.now();
+  if (busy || now - last < 2000) return;
+  busy = true;
+  try { await fn(...args); } finally { last = Date.now(); busy = false; }
+ };
+}
 
 let stop: (() => void) | undefined;
 // What Copy Diagnostics may report: fixed states only. Kept outside runCyclegauge so the command also works after a failed start.
@@ -29,7 +43,7 @@ function registerDiagnostics(context: vscode.ExtensionContext): void {
  const copy = async (): Promise<void> => {
   try {
    const text = formatDiagnostics(buildDiagnostics({ ...gaugeState.config, ...gaugeState.diagnostics?.(), ...runtimeFacts(), surface: 'extension', gauge: gaugeState.gauge,
-    editor: vscode.env.appName, editorVersion: vscode.version, audit: true }));
+    editor: vscode.env.appName, editorVersion: vscode.version, audit: true, rejectedMessages }));
    const document = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
    await vscode.window.showTextDocument(document);
    await vscode.env.clipboard.writeText(text);
@@ -163,7 +177,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   return outcome;
  };
  // Registered independently of the collector so that it survives a failing start.
- context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'auditWorkspace', audit));
+ context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'auditWorkspace', guardDashboardCommand(audit)));
  // Item commands trust nothing the node carries: the finding is looked up again by category and path in the current result.
  const findingOf = (arg: unknown): Finding | undefined => {
   const n = arg as Partial<AuditNode> | undefined, f = n && typeof n === 'object' && n.kind === 'finding' ? n.finding : undefined;
@@ -235,7 +249,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  register('audit.acceptAll', async () => { if (result) await prepare(visible()); else notify('Run the workspace audit first.'); });
  register('audit.dismiss', dismiss);
  // The credit view's "Show" button: the existing list if there is one, otherwise the audit itself (which then focuses the list).
- register('audit.show', async () => { if (result && viewReady) await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); else await audit(); });
+ register('audit.show', guardDashboardCommand(async () => { if (result && viewReady) await vscode.commands.executeCommand(`${ID_PREFIX}.auditView.focus`); else await audit(); }));
  register('audit.reveal', reveal);
  register('audit.copy', async () => {
   const findings = visible().filter(f => f.suggestion !== '');
@@ -443,12 +457,12 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  const get = (prefix: string, key: string): unknown => vscode.workspace.getConfiguration(prefix).get<unknown>(key);
  const register = (suffix: string, fn: () => Promise<void>) => context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), suffix, fn));
  // Registered first and independently of the collector: the detail view's Share link works even after a failed start.
- register('share', async () => {
+ register('share', guardDashboardCommand(async () => {
   try {
    await vscode.env.clipboard.writeText(SHARE_TEXT);
    void Promise.resolve(vscode.window.showInformationMessage('Link copied — thanks for sharing!')).catch(() => undefined);
   } catch { try { await vscode.window.showErrorMessage('The link could not be copied.'); } catch { /* nothing more to report */ } }
- });
+ }));
  // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
  register('support.reset', async () => {
   for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY]) await store(key, undefined);
@@ -591,14 +605,15 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
- // The webview stays script-free and its only command links are the Cost Advisor, the two audit commands and Share below, so the Cost Advisor needs a native
- // entry point that does not rely only on the easy-to-overlook editor title bar button: a status bar item shown while the panel is open.
+ // The four command links remain available if the enhanced webview script does not run.
  const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
  advisorItem.name = 'Cyclegauge Cost Advisor';
  advisorItem.text = '$(lightbulb) Cost Advisor';
  advisorItem.tooltip = 'Confirm your plan and compare costs';
  advisorItem.command = commandId('costAdvisor');
  let panel: vscode.WebviewPanel | undefined;
+ let dashboard: DashboardPanel | undefined;
+ let revealing = false;
  let detail = '';
  const disposables: vscode.Disposable[] = [item, advisorItem];
  const setting = (key: Parameters<typeof readSetting>[1]) => readSetting((prefix, name) => vscode.workspace.getConfiguration(prefix).get<string>(name), key);
@@ -614,15 +629,17 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
    item.tooltip = meta?.tooltip ?? 'Open your credit budget and forecast';
    item.backgroundColor = meta?.severity === 'error' ? new vscode.ThemeColor('statusBarItem.errorBackground') : meta?.warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
    detail = html;
-   if (panel && panel.webview.html !== detail) panel.webview.html = detail; // identical HTML is not set again
+   dashboard?.set(detail);
   },
   showDetails(html) {
-   if (panel) { panel.reveal(); if (panel.webview.html !== html) panel.webview.html = html; advisorItem.show(); return; }
-   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
-   panel.webview.html = html;
+   if (panel) { revealing = true; try { panel.reveal(); } finally { revealing = false; } dashboard?.reveal(html); advisorItem.show(); return; }
+   panel = vscode.window.createWebviewPanel(PANEL_VIEW_TYPE, 'Your credit budget', vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: false, enableCommandUris: [commandId('costAdvisor'), commandId('auditWorkspace'), commandId('audit.show'), commandId('share')], localResourceRoots: [] });
+   dashboard = new DashboardPanel(panel.webview, __DASHBOARD_SCRIPT__, () => { rejectedMessages = Math.min(Number.MAX_SAFE_INTEGER, rejectedMessages + 1); });
+   dashboard.reveal(html);
    advisorItem.show();
-   disposables.push(panel.onDidChangeViewState(e => { if (e.webviewPanel.visible) advisorItem.show(); else advisorItem.hide(); }));
-   disposables.push(panel.onDidDispose(() => { panel = undefined; advisorItem.hide(); }));
+   disposables.push(panel.webview.onDidReceiveMessage(raw => dashboard?.receive(raw)));
+   disposables.push(panel.onDidChangeViewState(e => { if (e.webviewPanel.visible) { advisorItem.show(); if (!revealing) dashboard?.reveal(detail); } else advisorItem.hide(); }));
+   disposables.push(panel.onDidDispose(() => { dashboard?.dispose(); dashboard = undefined; panel = undefined; advisorItem.hide(); }));
   },
   costInput: {
    async pick(title,items) {const selected=await vscode.window.showQuickPick(items.map(i=>({label:i.label,description:i.description,id:i.id})),{title,ignoreFocusOut:true});return selected?.id;},
@@ -630,7 +647,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   },
   onCostCommand(id,fn) {
    const command={advisor:'costAdvisor'}[id];
-   register(command,fn);
+   register(command,guardDashboardCommand(fn));
   },
   onClick(fn) { register('showUsage', () => { fn(); support?.detailOpened(); }); },
   onChange(fn) {

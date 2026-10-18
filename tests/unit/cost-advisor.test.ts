@@ -215,7 +215,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(!html.includes('Cost Optimizer'));assert.ok(!html.includes('cost-optimizer'));
   // Recommendation at a glance: directly after the current status and before the chart and advanced details.
   assert.ok(html.indexOf('class="hero ')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
-  if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
+  if(html.includes('id="usage-chart"'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="usage-chart"'));
   assert.ok(commands.has('advisor'));assert.ok(!html.includes('Confirmed by you'));
    assert.ok(html.includes('Unconfirmed'));
    const budget=status;
@@ -239,7 +239,7 @@ test('manifest exposes the advisor as the first panel title action',async()=>{
  const ext=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  for(const gone of ['configureCostOptimizer','editCostScenario','clearCostInputs'])assert.ok(!p.contributes.commands.some((c:any)=>c.command.endsWith(gone)),gone);
  assert.ok(!JSON.stringify(p.contributes).includes('Cost Optimizer'));
- assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: false/);
+ assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: true/);
 });
 
 test('advisor verdict wording per outcome never claims a saving unless potential_savings',()=>{

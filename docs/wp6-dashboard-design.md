@@ -1,6 +1,6 @@
 # WP6 interactive dashboard: design
 
-Status: **draft for maintainer approval (2026-10-17), revised after a `security-reviewer` review and one re-review; no privacy or read-only violations were found.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). It approves nothing by itself. Implementation starts only after the maintainer approves this design, and each phase in section 9 lands as its own PR with a mandatory `security-reviewer` review. Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
+Status: **approved by the maintainer on 2026-10-17 after a `security-reviewer` review and one re-review.** This document proposes how the credit view becomes an interactive dashboard for 0.11.0, including WP12 (results summary) and WP14 (cycle recap to share). The maintainer approved all five decisions in section 11 and implementation of phase 6a. Each phase in section 10 lands as its own PR with a mandatory `security-reviewer` review; later phases remain separate work packages. Scope comes from [path to 1.0](path-to-1.0.md) and the ROADMAP entry "1.0 killer features".
 
 ## 1. Goals
 
@@ -271,3 +271,5 @@ Every phase has a mandatory `security-reviewer` review. Implementation is by `im
 3. **CSV export** in 0.11.0, or later?
 4. **Recap sharing** as "Save image…" plus "Copy text", without direct image copy? This changes WP14's "Copy as image".
 5. **Changed WP12 definitions:** the 28-day observed comparison replaces "first two weeks with Cyclegauge", and the plan-change line is dropped for 0.11.0 (§6.3). After approval, `docs/path-to-1.0.md` is updated to match.
+
+**Maintainer decisions (2026-10-17):** yes to scripts, both new keys, CSV export in 0.11.0, Save image plus Copy text, and the changed WP12 definitions. PR #102 may be merged after green CI; update the path to 1.0 and implement phase 6a. Phase PRs may be merged after green CI and security review. No publication is authorized.

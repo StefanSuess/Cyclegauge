@@ -40,7 +40,7 @@ async function setup(){
 }
 test('native security and comparison wiring exclude command URI bridges, persistence and exact analysis',async()=>{
  const nativeSource=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
- assert.match(nativeSource,/enableScripts: false/);assert.match(nativeSource,/enableCommandUris: \[commandId\('costAdvisor'\), commandId\('auditWorkspace'\), commandId\('audit\.show'\), commandId\('share'\)\]/);assert.ok(!/enableCommandUris: (true|false)/.test(nativeSource));assert.match(nativeSource,/advisorItem\.command = commandId\('costAdvisor'\)/);assert.match(nativeSource,/advisorItem\.show\(\)/);
+ assert.match(nativeSource,/enableScripts: true/);assert.match(nativeSource,/retainContextWhenHidden: false/);assert.match(nativeSource,/enableCommandUris: \[commandId\('costAdvisor'\), commandId\('auditWorkspace'\), commandId\('audit\.show'\), commandId\('share'\)\]/);assert.ok(!/enableCommandUris: (true|false)/.test(nativeSource));assert.match(nativeSource,/advisorItem\.command = commandId\('costAdvisor'\)/);assert.match(nativeSource,/advisorItem\.show\(\)/);
  assert.match(nativeSource,/showQuickPick/);assert.match(nativeSource,/showInputBox/);
  const source=await readFile(new URL('../../src/extension/cost-inputs.ts',import.meta.url),'utf8');
  assert.ok(!source.includes('findBreakEven('));assert.ok(!source.includes('globalState'));assert.ok(!source.includes('workspaceState'));
