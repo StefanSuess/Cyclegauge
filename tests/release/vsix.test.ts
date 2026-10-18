@@ -99,6 +99,14 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   assert.ok(edited(p => { delete p[key].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
   assert.ok(edited(p => { delete p[key]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
  }
+ // The session hints setting (a read of Kiro's session files, on by default) is pinned as well: application scope, boolean, default on.
+ const hints = 'cyclegauge.sessionHints';
+ assert.ok(edited(p => { p[hints].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p[hints].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { delete p[hints].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { delete p[hints]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ assert.ok(edited(p => { p[hints].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
+ assert.ok(edited(p => { p[hints].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[warnings].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[warnings].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { p[warnings].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));

@@ -143,6 +143,12 @@
             "title": "When the forecast appears",
             "description": "Cyclegauge learns from your usage over time. A provisional estimate needs about 2 days and 3 updates, a regular forecast 7 days and 8 updates. Nothing to do: keep working in Kiro.",
             "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+          },
+          {
+            "id": "cyclegauge.gettingStarted.sessionHints",
+            "title": "Hints from your latest Kiro session",
+            "description": "On macOS, Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
           }
         ]
       }
@@ -212,6 +218,12 @@
           "type": "boolean",
           "default": true,
           "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, or when usage passes the percent below or reaches the limit (each at most once per billing cycle).",
+          "scope": "application"
+        },
+        "cyclegauge.sessionHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "On macOS, show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
           "scope": "application"
         },
         "cyclegauge.budgetWarningPercent": {

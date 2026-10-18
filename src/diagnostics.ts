@@ -2,6 +2,7 @@
 // Every field is checked against an allowlist or a strict format; anything else becomes a fixed placeholder, never the original text.
 import pkg from '../package.json' with { type: 'json' };
 import { STORE_VERSION } from './store.ts';
+import { HINT_CODES } from './session/codes.ts';
 
 export const DIAGNOSTICS_HEADER = '# Cyclegauge diagnostics — fixed codes and counts only. Review before sharing.';
 // Mirrors the statuses produced by view() in view.ts. A test checks that every status view() produces for its test inputs is allowlisted;
@@ -16,7 +17,7 @@ const GAUGES = ['running', 'failed_to_start', 'starting'] as const;
 export interface DiagnosticsInput {
  surface?: unknown; version?: unknown; editor?: unknown; editorVersion?: unknown; platform?: unknown; arch?: unknown; node?: unknown; electron?: unknown;
  sqlite?: unknown; store?: unknown; storage?: unknown; source?: unknown; timezone?: unknown; gauge?: unknown; status?: unknown; forecast?: unknown;
- snapshots?: unknown; accounts?: unknown; unassociated?: unknown; collection?: unknown; observedAgeMs?: unknown; importCodes?: unknown; discoveredLogs?: unknown; audit?: unknown; rejectedMessages?: unknown;
+ snapshots?: unknown; accounts?: unknown; unassociated?: unknown; collection?: unknown; observedAgeMs?: unknown; importCodes?: unknown; discoveredLogs?: unknown; audit?: unknown; rejectedMessages?: unknown; sessionHints?: unknown; sessionHintNotices?: unknown; sessionHintCapped?: unknown;
 }
 export type Diagnostics = Array<readonly [key: string, value: string]>;
 
@@ -95,6 +96,8 @@ export function buildDiagnostics(input: DiagnosticsInput = {}): Diagnostics {
   ['discovered_logs', count(input.discoveredLogs)],
   ['audit', input.audit === true ? 'available' : 'unavailable']
   ,...(cli ? [] : [['rejected_messages', count(input.rejectedMessages ?? 0)] as const])
+  // Session hints (extension only): the last tick's fixed code and the number of notices shown and of workspace folders skipped as over-full; never a model, percentage, time, title or path.
+  ,...(cli ? [] : [['session_hints', choice(input.sessionHints ?? 'not_run', [...HINT_CODES, 'not_run'])] as const, ['session_hint_notices', count(input.sessionHintNotices ?? 0)] as const, ['session_hint_capped', count(input.sessionHintCapped ?? 0)] as const])
  ];
 }
 export const formatDiagnostics = (d: Diagnostics): string => `${DIAGNOSTICS_HEADER}\n${d.map(([key, value]) => `${key}: ${value}`).join('\n')}\n`;

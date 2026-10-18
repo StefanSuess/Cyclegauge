@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
+import { AUDIT_SETTING_KEYS, BUDGET_SETTING_KEYS, LINKS, PANEL_VIEW_TYPE, SESSION_HINT_SETTING_KEYS, SETTING_KEYS, SUPPORT_SETTING_KEYS, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSessionHints, readSetting, readSupportPrompts, registerCommand } from '../../src/extension/identity.ts';
 
 const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const stub = (log: string[]) => (id: string) => { log.push(id); return { dispose() {} }; };
@@ -21,24 +21,25 @@ test('the getting-started walkthrough is declared with the packaged icon on ever
  const [walkthrough, ...rest] = manifest.contributes.walkthroughs;
  assert.equal(rest.length, 0); assert.equal(walkthrough.id, commandId('gettingStarted')); assert.equal(walkthrough.title, 'Get started with Cyclegauge');
  const steps: any[] = walkthrough.steps;
- assert.deepEqual(steps.map(s => s.title), ['See your Kiro credits', "Find files Kiro doesn't need", 'Get warned before credits run out', 'When the forecast appears']);
+ assert.deepEqual(steps.map(s => s.title), ['See your Kiro credits', "Find files Kiro doesn't need", 'Get warned before credits run out', 'When the forecast appears', 'Hints from your latest Kiro session']);
  for (const step of steps) { assert.ok(step.id && step.description); assert.deepEqual(step.media, { image: manifest.icon, altText: step.media.altText }); assert.equal(step.media.image, 'assets/branding/cyclegauge-icon-256.png'); assert.ok(step.media.altText); }
  assert.match(steps[0].description, /\(command:cyclegauge\.showUsage\)/);
  assert.match(steps[1].description, /\(command:cyclegauge\.auditWorkspace\)/); assert.deepEqual(steps[1].completionEvents, ['onCommand:cyclegauge.auditWorkspace']);
  assert.match(steps[2].description, /\(command:workbench\.action\.openSettings\?/);
  assert.match(steps[3].description, /about 2 days and 3 updates.*7 days and 8 updates/);
+ assert.match(steps[4].description, /On macOS.*nothing is stored or sent.*on by default.*\(command:workbench\.action\.openSettings\?%5B%22cyclegauge\.sessionHints%22%5D\)/s);
  // Only Cyclegauge commands and the editor's settings opener are linked; no web links.
- for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.budget%22%5D)$/);
+ for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.(budget|sessionHints)%22%5D)$/);
 });
 
 test('only current settings are declared under the Cyclegauge prefix', () => {
  const props = manifest.contributes.configuration.properties;
- assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
+ assert.deepEqual(Object.keys(props).sort(), [...SETTING_KEYS, ...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].map(k => `cyclegauge.${k}`).sort());
  for (const k of SETTING_KEYS) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'machine');
  }
- for (const k of [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS]) {
+ for (const k of [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS]) {
   assert.ok(props[`cyclegauge.${k}`] && !props[`cyclegauge.${k}`].deprecationMessage, k);
   assert.equal(props[`cyclegauge.${k}`].scope, 'application');
  }
@@ -47,6 +48,9 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
  assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap."]);
+ const hints = props['cyclegauge.sessionHints'];
+ assert.deepEqual([hints.type, hints.default, hints.scope], ['boolean', true, 'application']);
+ assert.match(hints.description, /macOS/); assert.match(hints.description, /nothing stored or sent/);
  const { budgetWarnings: budget, budgetWarningPercent: percent } = Object.fromEntries(BUDGET_SETTING_KEYS.map(k => [k, props[`cyclegauge.${k}`]]));
  assert.deepEqual([budget.type, budget.default, budget.scope], ['boolean', true, 'application']);
  assert.deepEqual([percent.type, percent.default, percent.minimum, percent.maximum, percent.scope], ['number', 80, 0, 100, 'application']);
@@ -106,6 +110,18 @@ test('budget warning settings are read strictly: on unless explicitly false, who
  for (const bad of ['50', null, Number.NaN, Number.POSITIVE_INFINITY, {}, true, undefined]) assert.equal(readBudgetWarningPercent(get({ 'cyclegauge.budgetWarningPercent': bad })), 80, String(bad));
 });
 
+test('session hints are on unless the user\'s own value is explicitly false; workspace and folder values are never consulted', () => {
+ assert.equal(readSessionHints(undefined), true);
+ assert.equal(readSessionHints({}), true);
+ assert.equal(readSessionHints({ defaultValue: true }), true);
+ assert.equal(readSessionHints({ globalValue: false, defaultValue: true }), false);
+ assert.equal(readSessionHints({ globalValue: true, defaultValue: true }), true);
+ for (const other of ['false', 0, null, '']) assert.equal(readSessionHints({ globalValue: other, defaultValue: true }), true, String(other));
+ // a workspace value (even one that would switch the feature off or on) is not part of what is read
+ assert.equal(readSessionHints({ globalValue: undefined, defaultValue: true, workspaceValue: false, workspaceFolderValue: false } as never), true);
+ assert.equal(readSessionHints({ globalValue: false, defaultValue: true, workspaceValue: true, workspaceFolderValue: true } as never), false);
+});
+
 test('the intended Open VSX ID is StefanSuess.cyclegauge', () => {
  assert.equal(`${manifest.publisher}.${manifest.name}`, 'StefanSuess.cyclegauge');
 });
@@ -139,7 +155,7 @@ test('VSIX allowlist ships exactly manifest, readme, license, changelog, bundle 
  assert.deepEqual(ignore, ['**', '!package.json', '!README.md', '!LICENSE', '!CHANGELOG.md', '!dist/extension.cjs', '!assets/branding/cyclegauge-icon-256.png']);
  assert.equal(manifest.license, 'MIT');
  assert.equal(manifest.preview, true);
- for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
+ for (const key of Object.keys(manifest.contributes.configuration.properties)) assert.equal(manifest.contributes.configuration.properties[key].scope, [...AUDIT_SETTING_KEYS, ...SUPPORT_SETTING_KEYS, ...BUDGET_SETTING_KEYS, ...SESSION_HINT_SETTING_KEYS].some(k => key === `cyclegauge.${k}`) ? 'application' : 'machine', key);
  assert.equal(manifest.icon, 'assets/branding/cyclegauge-icon-256.png');
  assert.ok((await readFile(new URL(`../../${manifest.icon}`, import.meta.url))).length > 0);
  assert.match(await readFile(new URL('../../LICENSE', import.meta.url), 'utf8'), /MIT License/);

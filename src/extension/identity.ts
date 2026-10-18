@@ -9,6 +9,8 @@ export const SUPPORT_SETTING_KEYS = ['supportPrompts'] as const;
 // The budget warning's user settings (application scope): an on/off switch and the usage share (percent of the reported limit) that triggers the early notice.
 export const BUDGET_SETTING_KEYS = ['budgetWarnings', 'budgetWarningPercent'] as const;
 export const BUDGET_PERCENT_DEFAULT = 80;
+// The session hints' user setting (application scope, boolean, default on): the context reminder and the model hint read from the newest IDE session.
+export const SESSION_HINT_SETTING_KEYS = ['sessionHints'] as const;
 // Fixed constants: the only external addresses the extension ever opens, and only when the user clicks. No data, no query strings.
 export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev' } as const;
 export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
@@ -45,6 +47,10 @@ export function readSupportPrompts(get: Getter): boolean {
 /** Budget warnings are on unless the user explicitly sets false. */
 export function readBudgetWarnings(get: Getter): boolean {
  return get(ID_PREFIX, 'budgetWarnings') !== false;
+}
+/** Session hints are on unless the user's own (application-scope) value is explicitly false; workspace and folder values are never consulted. */
+export function readSessionHints(inspect: { globalValue?: unknown; defaultValue?: unknown } | undefined): boolean {
+ return (inspect?.globalValue ?? inspect?.defaultValue) !== false;
 }
 /** Whole percent of the reported limit, 0..100; anything that is not a finite number uses the default. 0 turns the percent notice off. */
 export function readBudgetWarningPercent(get: Getter): number {

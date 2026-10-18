@@ -4,6 +4,8 @@ Investigation date: **2026-10-08**. Verified environment: **macOS, Kiro IDE 1.2.
 
 ## Findings and evidence boundaries
 
+Session metadata fields (`session.json` `modelId` and `lastModifiedAt`, `messages.jsonl` `contextUsage` events) were observed on 2026-10-18 (Kiro 1.3.11, macOS) for the session hints; see the [data proof](wp11-13-data-proof.md). That is a dated observation of an undocumented format, not a contract.
+
 Account snapshots are the source of truth for **current observed account usage**, with an explicit as-of time and freshness. Session metering supplies **observed local daily attribution** where its interpretation is supported. Neither retained sessions nor sparse snapshots establish a complete daily billing ledger. Do not combine their totals.
 
 Labels used here:

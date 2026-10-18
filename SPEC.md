@@ -25,6 +25,10 @@ Provide local credit tracking and qualified forecasts that distinguish account-w
 - Preserve provenance, partial coverage, unsupported-format status, stale/conflicting observations, and unresolved account association. A missing value is not zero.
 - Milestone 3 forecasting discloses its method, observation window, policy and coverage. Insufficient coverage yields unavailable estimates; interval net rates never imply complete daily measurements.
 
+## Session hints (advisory)
+
+Status: implemented in the unreleased beta, macOS only, IDE format only, default on (maintainer decision of 2026-10-18; the narrow runtime read of session metadata was approved the same day, not session aggregation). From the newest IDE session of the open workspace the extension may show (a) a context-fill reminder at about 70 % and 85 % and (b) a hint when the session's model is listed above Auto's credit rate in a dated in-extension table. These are advisory observations labelled "as of HH:MM": the percentage is a snapshot of the selected model's window and not Kiro's live meter, the multiplier is Kiro's published relative rate ("about Nx", actual credits vary), thresholds are educated guesses and only one table row is confirmed by a real session. Silent when the data is missing, stale, out of range, unmatched or uncertain; never stored, never added to account totals, never fed to the forecast. Details and limits: [data proof](docs/wp11-13-data-proof.md) and [privacy and storage](docs/privacy-and-storage.md).
+
 ## Privacy and platform requirements
 
 Follow [AGENTS.md](AGENTS.md). No credentials, raw transcript persistence, raw identifiers in diagnostics, telemetry of private data, or authenticated Kiro API calls. Billing-only normalized observations remain local and outside this repository.
