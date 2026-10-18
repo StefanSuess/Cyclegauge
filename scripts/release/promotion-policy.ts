@@ -1,6 +1,6 @@
+import { isPlainVersion, isPreReleaseVersion } from './channel.ts';
 import { PAYLOAD, type FileHash } from './verify-vsix.ts';
 
-const VERSION = /^\d+\.\d+\.\d+$/;
 const SHA1 = /^[0-9a-f]{40}$/i;
 const SHA256 = /^[0-9a-f]{64}$/;
 const CI_WORKFLOW_PATH = '.github/workflows/ci.yml';
@@ -137,7 +137,7 @@ export function validateReleaseRequest(input: {
   dryRun: boolean;
   authMode: string;
 }): { version: string; dryRun: boolean; authMode: AuthMode } {
-  if (typeof input.version !== 'string' || !VERSION.test(input.version)) return fail('VERSION_INVALID');
+  if (!isPlainVersion(input.version)) return fail('VERSION_INVALID');
   if (typeof input.dryRun !== 'boolean') return fail('DRY_RUN_INVALID');
   if (input.authMode !== 'trusted-publishing' && input.authMode !== 'pat') return fail('AUTH_MODE_INVALID');
   return { version: input.version, dryRun: input.dryRun, authMode: input.authMode };
@@ -166,10 +166,11 @@ export function verifyCandidateIntegrity(input: {
   verifiedPayload: FileHash[];
   ciPayload: FileHash[];
 }): { sha256: string; version: string } {
-  if (!VERSION.test(input.requestedVersion)) return fail('VERSION_INVALID');
+  if (!isPlainVersion(input.requestedVersion)) return fail('VERSION_INVALID');
   if (input.packageVersion !== input.requestedVersion) return fail('PACKAGE_VERSION_MISMATCH');
   if (input.vsixVersion !== input.requestedVersion) return fail('VSIX_VERSION_MISMATCH');
-  if (input.preRelease !== true) return fail('VSIX_NOT_PRERELEASE');
+  // The VSIX pre-release flag must match the channel derived from the version (channel.ts), both ways.
+  if (input.preRelease !== isPreReleaseVersion(input.requestedVersion)) return fail('VSIX_CHANNEL_MISMATCH');
   if (!validSha256(input.actualSha256)) return fail('CHECKSUM_MALFORMED');
 
   const lines = input.checksumText.split(/\r?\n/);
@@ -186,7 +187,7 @@ export function verifyCandidateIntegrity(input: {
 }
 
 export function extractChangelogSection(changelog: string, version: string): string {
-  if (!VERSION.test(version)) return fail('VERSION_INVALID');
+  if (!isPlainVersion(version)) return fail('VERSION_INVALID');
   const escaped = version.replaceAll('.', '\\.');
   const heading = new RegExp(`^##[ \\t]+(?:\\[)?${escaped}(?:\\])?(?:[ \\t].*)?$`);
   const lines = changelog.split(/\r?\n/);
@@ -214,5 +215,5 @@ export function renderReleaseNotesForApproval(notes: string): string {
 }
 
 export function isVersion(value: string): boolean {
-  return VERSION.test(value);
+  return isPlainVersion(value);
 }

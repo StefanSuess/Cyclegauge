@@ -16,7 +16,7 @@ try {
  const args = process.argv.slice(2);
  if (args.length !== 1) throw new Error('HOST_TEST_USAGE');
  const archive = readFileSync(resolve(args[0]));
- if (!verifyVsix(archive, { expectPreRelease: true }).ok) throw new Error('HOST_CANDIDATE_INVALID');
+ if (!verifyVsix(archive).ok) throw new Error('HOST_CANDIDATE_INVALID');
  const sha256 = createHash('sha256').update(archive).digest('hex');
  if (process.env.EXPECTED_CANDIDATE_SHA256 && process.env.EXPECTED_CANDIDATE_SHA256 !== sha256) throw new Error('HOST_CANDIDATE_HASH_MISMATCH');
  // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.

@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildVsix } from '../../scripts/release/build-vsix.ts';
+import { isPreReleaseVersion } from '../../scripts/release/channel.ts';
 import { readZip, writeZip } from '../../scripts/release/zip.ts';
 
 const repository = resolve(import.meta.dirname, '../..');
@@ -27,6 +28,7 @@ test('the actual protected publisher archive extracts with every entrypoint impo
     const unpacked = spawnSync('tar', ['-xzf', archive, '-C', extracted], { encoding: 'utf8' });
     assert.equal(unpacked.status, 0, unpacked.stderr);
     assert.equal(existsSync(join(extracted, 'scripts/release/zip.ts')), true);
+    assert.equal(existsSync(join(extracted, 'scripts/release/channel.ts')), true);
     assert.equal(existsSync(join(extracted, 'publisher-tools/node_modules/synthetic-marker')), true);
     await import(pathToFileURL(join(extracted, 'scripts/release/publish-candidate.ts')).href);
   } finally {
@@ -43,12 +45,13 @@ test('extracted publisher runs the full promotion from a relative bundle directo
     const marker = join(temp, 'openvsx-published');
     const resultFile = join(temp, 'mock-result.json');
     const originalVsix = join(temp, 'original.vsix');
-    const version = '0.6.0';
     const packagedVersion = (JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8')) as { version: string }).version;
+    // A different version on the same channel as the packaged one, so the flag stays valid whatever the package version is.
+    const version = isPreReleaseVersion(packagedVersion) ? '0.7.0' : '0.8.0';
     const commit = 'a'.repeat(40);
     mkdirSync(join(tools, 'ovsx/bin'), { recursive: true });
     writeFileSync(join(tools, 'ovsx/bin/ovsx'), `require('node:fs').writeFileSync(process.env.SYNTHETIC_OPENVSX_MARKER, 'published');\n`);
-    await buildVsix(originalVsix, true);
+    await buildVsix(originalVsix);
     const entries = readZip(readFileSync(originalVsix)).map(entry => {
       let data = entry.data;
       if (entry.name === 'extension/package.json') {
@@ -94,7 +97,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.hostname === 'open-vsx.org') {
     if (!existsSync(process.env.SYNTHETIC_OPENVSX_MARKER)) return json({}, 404);
     if (path.endsWith('/file.vsix')) return new Response(vsix, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
-    return json({ namespace: 'StefanSuess', name: 'cyclegauge', version: '0.6.0', files: { download: 'https://open-vsx.org/api/StefanSuess/cyclegauge/0.6.0/file.vsix' } });
+    return json({ namespace: 'StefanSuess', name: 'cyclegauge', version: '${version}', files: { download: 'https://open-vsx.org/api/StefanSuess/cyclegauge/${version}/file.vsix' } });
   }
   if (url.hostname === 'uploads.github.com' && method === 'POST') {
     const bytes = Buffer.from(init.body);
@@ -104,12 +107,12 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.hostname !== 'api.github.com') throw new Error('UNEXPECTED_REMOTE_HOST');
   if (path.endsWith('/git/ref/heads/main')) return json({ object: { sha: process.env.SOURCE_SHA } });
-  if (path.endsWith('/git/ref/tags/v0.6.0')) return tag ? json({ object: { sha: tag, type: 'commit' } }) : json({}, 404);
+  if (path.endsWith('/git/ref/tags/v${version}')) return tag ? json({ object: { sha: tag, type: 'commit' } }) : json({}, 404);
   if (path.endsWith('/git/refs') && method === 'POST') { tag = JSON.parse(init.body).sha; writes.push('tag'); return json({}, 201); }
   if (path.endsWith('/releases') && method === 'GET') return json(release ? [release] : []);
   if (path.endsWith('/releases') && method === 'POST') {
     const body = JSON.parse(init.body);
-    release = { id: 77, tag_name: body.tag_name, name: body.name, body: body.body, draft: true, prerelease: true };
+    release = { id: 77, tag_name: body.tag_name, name: body.name, body: body.body, draft: true, prerelease: body.prerelease };
     writes.push('draft');
     return json({ id: 77 }, 201);
   }

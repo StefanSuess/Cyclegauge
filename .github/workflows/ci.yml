@@ -89,18 +89,18 @@ jobs:
         id: build
         run: |
           mkdir release
-          pnpm release:build release/candidate.vsix --pre-release
-          pnpm release:verify release/candidate.vsix --pre-release --out release/manifest-linux.json
-          pnpm release:build rebuild.vsix --pre-release
-          pnpm release:verify rebuild.vsix --pre-release --compare release/manifest-linux.json
+          pnpm release:build release/candidate.vsix
+          pnpm release:verify release/candidate.vsix --out release/manifest-linux.json
+          pnpm release:build rebuild.vsix
+          pnpm release:verify rebuild.vsix --compare release/manifest-linux.json
           sha="$(sha256sum release/candidate.vsix | cut -d' ' -f1)"
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
           echo "$sha  candidate.vsix" > release/SHA256SUMS.txt
           {
-            echo '### Release candidate (built once, pre-release flag set)'
+            echo '### Release candidate (built once, release channel derived from the version)'
             echo "SHA-256: $sha"
             echo '```'
-            pnpm release:verify release/candidate.vsix --pre-release
+            pnpm release:verify release/candidate.vsix
             echo '```'
             echo 'Independent rebuild: payload hashes compared (job fails if different).'
           } >> "$GITHUB_STEP_SUMMARY"
@@ -140,7 +140,7 @@ jobs:
         run: npm install --global pnpm@${{ env.PNPM_VERSION }}
       - run: pnpm install --frozen-lockfile
       - name: Content allowlist on the downloaded candidate
-        run: node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts release/candidate.vsix --pre-release
+        run: node --disable-warning=ExperimentalWarning scripts/release/verify-vsix.ts release/candidate.vsix
       - name: Verified candidate in a real VS Code extension host
         if: runner.os != 'Linux'
         env:

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isPreReleaseVersion } from './channel.ts';
 import { isVersion, type AuthMode } from './promotion-policy.ts';
 
 export type OpenVsxState =
@@ -43,11 +44,11 @@ export interface PromotionAdapter {
   readOpenVsx(version: string): Promise<OpenVsxState>;
   readTag(tagName: string): Promise<GitTagState>;
   readRelease(tagName: string): Promise<GitHubReleaseState>;
-  publishOpenVsx(vsix: Uint8Array, authMode: AuthMode): Promise<void>;
+  publishOpenVsx(vsix: Uint8Array, authMode: AuthMode, preRelease: boolean): Promise<void>;
   createTag(tagName: string, targetSha: string): Promise<void>;
-  createDraftRelease(input: { version: string; tagName: string; targetSha: string; name: string; body: string }): Promise<number>;
+  createDraftRelease(input: { version: string; tagName: string; targetSha: string; name: string; body: string; preRelease: boolean }): Promise<number>;
   uploadAsset(releaseId: number, name: string, content: Uint8Array): Promise<void>;
-  publishRelease(releaseId: number): Promise<void>;
+  publishRelease(releaseId: number, preRelease: boolean): Promise<void>;
 }
 
 export class PromotionStateError extends Error {
@@ -125,7 +126,7 @@ function assertReleaseMetadata(
   if (state.kind === 'drafts-unverified') return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
   if (state.kind === 'absent') return undefined;
   if (!Number.isSafeInteger(state.id) || state.id < 1 || state.tagName !== tagName ||
-      state.name !== candidate.releaseName || normalizeNotes(state.body) !== normalizeNotes(candidate.releaseNotes) || state.prerelease !== true ||
+      state.name !== candidate.releaseName || normalizeNotes(state.body) !== normalizeNotes(candidate.releaseNotes) || state.prerelease !== isPreReleaseVersion(candidate.version) ||
       typeof state.draft !== 'boolean') return fail('RELEASE_METADATA_CONFLICT');
   return { missing: inspectAssets(state.assets, expectedAssets, state.draft) };
 }
@@ -210,6 +211,7 @@ export async function promoteCandidate(
   options: { dryRun: boolean; authMode: AuthMode },
 ): Promise<{ status: 'ready' | 'already-published' | 'published'; tagName: string; sha256: string }> {
   const { tagName, expectedAssets } = validateCandidate(candidate);
+  const preRelease = isPreReleaseVersion(candidate.version);
   if (typeof options.dryRun !== 'boolean' || !['pat', 'trusted-publishing'].includes(options.authMode)) return fail('PROMOTION_OPTIONS_INVALID');
   let state = await readState(adapter, candidate, tagName, expectedAssets);
   if (state.release.kind === 'drafts-unverified' && !options.dryRun) return fail('RELEASE_DRAFT_VISIBILITY_LIMITED');
@@ -227,7 +229,7 @@ export async function promoteCandidate(
   assertOpenVsx(openVsx, candidate.sha256);
   if (openVsx.kind === 'absent') {
     await writeThenVerify(
-      () => adapter.publishOpenVsx(candidate.vsixBytes, options.authMode),
+      () => adapter.publishOpenVsx(candidate.vsixBytes, options.authMode, preRelease),
       () => readOpenVsx(adapter, candidate),
       value => {
         const result = value as OpenVsxState;
@@ -256,7 +258,7 @@ export async function promoteCandidate(
   assertReleaseMetadata(releaseState, candidate, tagName, expectedAssets);
   if (releaseState.kind === 'absent') {
     await writeThenVerify(
-      () => adapter.createDraftRelease({ version: candidate.version, tagName, targetSha: candidate.commit, name: candidate.releaseName, body: candidate.releaseNotes }),
+      () => adapter.createDraftRelease({ version: candidate.version, tagName, targetSha: candidate.commit, name: candidate.releaseName, body: candidate.releaseNotes, preRelease }),
       () => readRelease(adapter, tagName),
       value => {
         const result = value as GitHubReleaseState;
@@ -291,7 +293,7 @@ export async function promoteCandidate(
   const missing = inspectAssets(state.release.assets, expectedAssets, false);
   if (missing.size) return fail('PUBLISHED_RELEASE_INCOMPLETE');
   await writeThenVerify(
-    () => adapter.publishRelease(state.release.kind === 'present' ? state.release.id : 0),
+    () => adapter.publishRelease(state.release.kind === 'present' ? state.release.id : 0, preRelease),
     () => readRelease(adapter, tagName),
     value => {
       const result = value as GitHubReleaseState;

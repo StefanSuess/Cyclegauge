@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { PAYLOAD } from '../../scripts/release/verify-vsix.ts';
 import {
   extractChangelogSection,
+  isVersion,
   renderReleaseNotesForApproval,
   selectCandidateArtifact,
   selectTrustedCiRun,
@@ -158,26 +159,26 @@ test('selects only one unexpired candidate artifact associated with the exact ru
 });
 
 test('requires an explicit valid version and supported auth mode; dry run defaults are safe', () => {
-  assert.deepEqual(validateReleaseRequest({ version: '0.6.0', dryRun: true, authMode: 'trusted-publishing' }), {
-    version: '0.6.0', dryRun: true, authMode: 'trusted-publishing',
+  assert.deepEqual(validateReleaseRequest({ version: '0.7.0', dryRun: true, authMode: 'trusted-publishing' }), {
+    version: '0.7.0', dryRun: true, authMode: 'trusted-publishing',
   });
   assert.equal(validateReleaseRequest({
-    version: '0.6.0', dryRun: false, authMode: 'pat',
+    version: '0.7.0', dryRun: false, authMode: 'pat',
   }).dryRun, false);
   expectCode(() => validateReleaseRequest({
-    version: '0.6.0-beta.1', dryRun: true, authMode: 'trusted-publishing',
+    version: '0.7.0-beta.1', dryRun: true, authMode: 'trusted-publishing',
   }), 'VERSION_INVALID');
   expectCode(() => validateReleaseRequest({
-    version: '0.6.0', dryRun: true, authMode: 'repository-secret',
+    version: '0.7.0', dryRun: true, authMode: 'repository-secret',
   }), 'AUTH_MODE_INVALID');
 });
 
 test('checks package/VSIX version, pre-release marker, full-file checksum, and unchanged CI payload', () => {
   const payload = PAYLOAD.map((name, index) => ({ name, bytes: index + 1, sha256: hash(String.fromCharCode(97 + index)) }));
   const expected = {
-    requestedVersion: '0.6.0',
-    packageVersion: '0.6.0',
-    vsixVersion: '0.6.0',
+    requestedVersion: '0.7.0',
+    packageVersion: '0.7.0',
+    vsixVersion: '0.7.0',
     preRelease: true,
     actualSha256: hash('e'),
     checksumText: `${hash('e')}  candidate.vsix\n`,
@@ -185,9 +186,18 @@ test('checks package/VSIX version, pre-release marker, full-file checksum, and u
     ciPayload: payload,
   };
   assert.equal(verifyCandidateIntegrity(expected).sha256, hash('e'));
-  expectCode(() => verifyCandidateIntegrity({ ...expected, packageVersion: '0.6.1' }), 'PACKAGE_VERSION_MISMATCH');
-  expectCode(() => verifyCandidateIntegrity({ ...expected, vsixVersion: '0.6.1' }), 'VSIX_VERSION_MISMATCH');
-  expectCode(() => verifyCandidateIntegrity({ ...expected, preRelease: false }), 'VSIX_NOT_PRERELEASE');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, packageVersion: '0.7.1' }), 'PACKAGE_VERSION_MISMATCH');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, vsixVersion: '0.7.1' }), 'VSIX_VERSION_MISMATCH');
+  expectCode(() => verifyCandidateIntegrity({ ...expected, preRelease: false }), 'VSIX_CHANNEL_MISMATCH');
+  // A stable (even minor) version must not carry the pre-release flag; the check works in both directions.
+  // A leading zero is not a plain version: rejected by the same fixed code, never a channel guess.
+  expectCode(() => verifyCandidateIntegrity({ ...expected, requestedVersion: '0.09.0', packageVersion: '0.09.0', vsixVersion: '0.09.0' }), 'VERSION_INVALID');
+  expectCode(() => extractChangelogSection('## 0.09.0\n\nx', '0.09.0'), 'VERSION_INVALID');
+  assert.equal(isVersion('0.09.0'), false);
+  assert.equal(isVersion('0.9.0'), true);
+  const stable = { ...expected, requestedVersion: '1.0.0', packageVersion: '1.0.0', vsixVersion: '1.0.0', preRelease: false };
+  assert.equal(verifyCandidateIntegrity(stable).version, '1.0.0');
+  expectCode(() => verifyCandidateIntegrity({ ...stable, preRelease: true }), 'VSIX_CHANNEL_MISMATCH');
   expectCode(() => verifyCandidateIntegrity({ ...expected, actualSha256: hash('f') }), 'CHECKSUM_MISMATCH');
   expectCode(() => verifyCandidateIntegrity({ ...expected, actualSha256: 'g'.repeat(64) }), 'CHECKSUM_MALFORMED');
   expectCode(() => verifyCandidateIntegrity({
@@ -205,7 +215,7 @@ test('extracts only the requested changelog section and builds stable release no
   const changelog = [
     '# Changelog',
     '',
-    '## 0.6.0 (beta)',
+    '## 0.7.0 (beta)',
     '',
     'Synthetic release change.',
     '',
@@ -213,6 +223,6 @@ test('extracts only the requested changelog section and builds stable release no
     '',
     'Historical release detail.',
   ].join('\n');
-  assert.equal(extractChangelogSection(changelog, '0.6.0'), 'Synthetic release change.');
-  expectCode(() => extractChangelogSection(changelog, '0.7.0'), 'CHANGELOG_SECTION_MISSING');
+  assert.equal(extractChangelogSection(changelog, '0.7.0'), 'Synthetic release change.');
+  expectCode(() => extractChangelogSection(changelog, '0.8.0'), 'CHANGELOG_SECTION_MISSING');
 });

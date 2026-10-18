@@ -15,7 +15,7 @@ import {CARD_HEIGHT,CARD_WIDTH,encodePng} from '../../src/extension/recap-card.t
 
 let built:Promise<string>|undefined;
 // The shipped bundle is built once per run; only its text is kept.
-const builtBundle=(work:string)=>built??=(async()=>{const vsix=join(work,'candidate.vsix');await buildVsix(vsix,true);return readZip(readFileSync(vsix)).find(e=>e.name==='extension/dist/extension.cjs')!.data.toString();})();
+const builtBundle=(work:string)=>built??=(async()=>{const vsix=join(work,'candidate.vsix');await buildVsix(vsix);return readZip(readFileSync(vsix)).find(e=>e.name==='extension/dist/extension.cjs')!.data.toString();})();
 const visibleHrefs=(html:string)=>[...html.slice(0,html.indexOf('</main>')+7).matchAll(/href="([^"]*)"/g)].map(m=>m[1]!);
 // Exercise the shipped bundle with an invented source and explicit roots. No IDE or real profile is opened.
 test('packaged Advisor native commands, conditional figure, cancellation and panel lifecycle',async()=>{
