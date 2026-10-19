@@ -1,7 +1,7 @@
 import type { ConfigReview } from '../audit/config-review.ts';
 import { configPathAllowed } from '../audit/config-read.ts';
 import { NOT_CHECKED_CODES, type ConfigFinding, type ConfigLocation, type FindingId, type NotCheckedCode } from '../audit/config-rules.ts';
-import { NOTHING_CHANGES, checkedLabel, escapeText, formatSize, type AuditNode, type AuditParts } from './audit-model.ts';
+import { PREPARED_DESCRIPTION, checkedLabel, escapeText, formatSize, unsavedFilesText, type AuditNode, type AuditParts } from './audit-model.ts';
 
 export const CONFIG_BASIS = ["Kiro documents this behavior.", "Kiro documents this behavior; the threshold is a Cyclegauge heuristic.", "Cyclegauge inference from Kiro's documentation."] as const;
 export const CONFIG_CREDITS = ['Kiro documents that agent prompt actions use credits.', 'A larger always-included context is sent with every interaction; Kiro does not publish how this maps to credits.', 'Kiro documents that command actions do not use credits.'] as const;
@@ -23,6 +23,8 @@ const CONTEXT: Record<FindingId, string> = { S1: 'config-steering-always', S2: '
 export interface ConfigNode {
  id: string; kind: 'config'; label: string; description?: string; tooltip?: string; icon: string; contextValue: string;
  children?: ConfigNode[]; action?: 'previewKiroConfig'; finding?: ConfigFinding; expanded?: boolean;
+ /** The review this node was drawn from; a command given an element from an older drawing does nothing. */
+ generation?: number;
 }
 export interface RefusedConfigRoot { name: string; code: 'untrusted' | 'root_refused' | 'root_not_local' | 'limit_roots'; reason?: string }
 const NOT_CHECKED: Record<NotCheckedCode, string> = {
@@ -99,7 +101,7 @@ const GROUPS: Record<GroupKey, { label: string; description: string; tooltip: st
 };
 /** Largest first (bytes), then the more important notice, then the order of the review. */
 const byImpact = (a: { f: ConfigFinding; i: number }, b: { f: ConfigFinding; i: number }): number => (b.f.size ?? -1) - (a.f.size ?? -1) || Number(b.f.severity === 'notice') - Number(a.f.severity === 'notice') || a.i - b.i;
-function findingNode(review: ConfigReview, f: ConfigFinding, index: number, names: readonly string[], fresh = false): ConfigNode {
+function findingNode(review: ConfigReview, f: ConfigFinding, index: number, names: readonly string[], fresh = false, pending = false): ConfigNode {
  const ordinal = f.id === 'S3' ? 'Across checked roots' : location(review, f);
  const hook = f.hook === undefined ? undefined : review.roots.find(r => r.root === f.root)?.hooks.find(h => h.rel === f.rel && h.index === f.hook);
  const suffix = hook?.name ? ` · ${escapeText(Array.from(hook.name).slice(0, 60).join(''))}` : '';
@@ -109,13 +111,14 @@ function findingNode(review: ConfigReview, f: ConfigFinding, index: number, name
  const gaps = f.id === 'S3' && review.alwaysIncluded.incomplete ? ['Some configuration was not checked; the lower bound may omit additional always-included files.'] : [];
  const details = f.id === 'S3' ? review.alwaysIncluded.contributors.slice(0,3).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)} · ${formatSize(c.size)}`) : (f.related ?? []).map(c => `${escapeText(names[c.root] ?? '')}: ${location(review,c)}`);
  return node(`config:f:${index}`, `${TITLES[f.id]} · ${ordinal}${suffix}`, {
-  description: [fresh ? 'new this session' : '', names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, applies ? '' : NEXT[f.id]].filter(Boolean).join(' · '),
-  tooltip: [TITLES[f.id], ordinal, WHY[f.id], ALT[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, ...(applies ? [] : [NEXT[f.id]]), ...(actions.length ? [applies ? EDIT_NOTE : OPEN_NOTE] : []), ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
-  icon: f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: CONTEXT[f.id], finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
+  description: pending ? PREPARED_DESCRIPTION : [fresh ? 'new this session' : '', names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, applies ? '' : NEXT[f.id]].filter(Boolean).join(' · '),
+  tooltip: [TITLES[f.id], ordinal, ...(pending ? ['The change is prepared but not saved. Save the file to apply it.'] : []), WHY[f.id], ALT[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, ...(applies ? [] : [NEXT[f.id]]), ...(actions.length ? [applies ? EDIT_NOTE : OPEN_NOTE] : []), ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
+  icon: pending ? 'edit' : f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: CONTEXT[f.id], finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
  });
 }
 /** How a result was produced (automatic mode, section 4.1). `fresh` holds finding indices first seen after this window's first review. In memory only. */
-export interface ConfigTreeState { automatic?: boolean; paused?: boolean; fresh?: ReadonlySet<number> }
+/** `prepared` holds finding indices whose file has a prepared edit that is still unsaved. */
+export interface ConfigTreeState { automatic?: boolean; paused?: boolean; fresh?: ReadonlySet<number>; prepared?: ReadonlySet<number> }
 /** What the combined status line may say about the review: counts and times only. */
 export interface ConfigSummary { reviewed: boolean; findings: number; checkedAt?: string; partial: boolean; paused: boolean; automatic: boolean }
 export function configSummary(review?: ConfigReview, checkedAt?: string, state: ConfigTreeState = {}): ConfigSummary {
@@ -129,9 +132,8 @@ export function configTree(review?: ConfigReview, names: readonly string[] = [],
   for (const key of ['load','run','look'] as const) {
    const found = indexed.filter(x => groupOf(x.f.id) === key).sort(byImpact), g = GROUPS[key];
    if (!found.length) continue;
-   const items = found.map(x => findingNode(review,x.f,x.i,names,state.fresh?.has(x.i)));
-   top.push(node(`config:g:${key}`, `${g.label} (${found.length})`, { description: g.description, tooltip: g.tooltip, icon: g.icon, contextValue: g.context, expanded: true,
-    children: key === 'look' ? items : [node(`config:g:${key}:note`, NOTHING_CHANGES), ...items] }));
+   const items = found.map(x => findingNode(review,x.f,x.i,names,state.fresh?.has(x.i),state.prepared?.has(x.i)));
+   top.push(node(`config:g:${key}`, `${g.label} (${found.length})`, { description: g.description, tooltip: g.tooltip, icon: g.icon, contextValue: g.context, expanded: false, children: items }));
   }
   const gaps = NOT_CHECKED_CODES.filter(code => review.notChecked[code]).map((code,index) => node(`config:n:${index}`,NOT_CHECKED[code],{description:`${review.notChecked[code]}`,tooltip:NOT_CHECKED[code]}));
   for (const [i,r] of refused.entries()) gaps.push(node(`config:r:${i}`,escapeText(r.name),{description:NOT_CHECKED[r.code],tooltip: r.reason ? `Not checked: ${r.reason}.` : NOT_CHECKED[r.code],icon:'warning'}));
@@ -140,7 +142,8 @@ export function configTree(review?: ConfigReview, names: readonly string[] = [],
   for (const [i,loc] of review.patternNotAnalysed.entries()) gaps.push(node(`config:p:${i}`,`${location(review,loc)} · Pattern too broad to judge`,{tooltip:'The pattern was not analysed. Its text is not shown.'}));
   if (gaps.length) top.push(node('config:unchecked','Not checked',{description:`${Object.values(review.notChecked).reduce((sum,n)=>sum+(n??0),0)+refused.length+nested+review.patternNotAnalysed.length} items`,children:gaps,icon:'warning',contextValue:'config-group',expanded:false}));
  }
- const identify = (nodes: ConfigNode[]): void => { for (const n of nodes) { n.id += `:${generation}`; if (n.children) identify(n.children); } };
+ // Group ids stay the same across refreshes, so the editor keeps what the user expanded or collapsed; items carry the generation.
+ const identify = (nodes: ConfigNode[]): void => { for (const n of nodes) { n.generation = generation; if (!n.id.startsWith('config:g:') && n.id !== 'config:unchecked') n.id += `:${generation}`; if (n.children) identify(n.children); } };
  identify(top);
  return top;
 }
@@ -159,7 +162,7 @@ const NO_CHANGES = 'No findings in the checked configuration.';
  * notes, the groups by action (Exclude from Kiro, Load only when needed, Run only manually, Worth a look), the hidden/omitted footers and Not checked.
  * Empty (so the view's welcome text shows) when neither the audit nor the review has produced anything.
  */
-export function reviewTree(audit: AuditParts | undefined, config: ConfigSummary | undefined, configNodes: readonly ConfigNode[], automatic: { audit: AutoMode; config: AutoMode }, now: Date = new Date()): ViewNode[] {
+export function reviewTree(audit: AuditParts | undefined, config: ConfigSummary | undefined, configNodes: readonly ConfigNode[], automatic: { audit: AutoMode; config: AutoMode }, now: Date = new Date(), preparedFiles = 0): ViewNode[] {
  const reviewed = !!config?.reviewed;
  if (!audit && !reviewed && configNodes.length === 0) return [];
  const out: ViewNode[] = [];
@@ -171,7 +174,7 @@ export function reviewTree(audit: AuditParts | undefined, config: ConfigSummary 
   const label = [time ? `Checked ${time}` : '', suggestions === 0 ? 'nothing to suggest' : `${suggestions} ${suggestions === 1 ? 'suggestion' : 'suggestions'}`].filter(Boolean).join(' · ');
   const partial = !!stats?.partial || !!config?.partial;
   out.push({ id: 'status', kind: 'header', label: label.charAt(0).toUpperCase() + label.slice(1),
-   description: [stats?.size, !stats && config?.automatic ? 'checked automatically' : '', again, partial ? 'partial check' : '', config?.paused ? 'automatic review paused (many changes)' : ''].filter(Boolean).join(' · ') || undefined,
+   description: [stats?.size, !stats && config?.automatic ? 'checked automatically' : '', again, partial ? 'partial check' : '', preparedFiles > 0 ? unsavedFilesText(preparedFiles) : '', config?.paused ? 'automatic review paused (many changes)' : ''].filter(Boolean).join(' · ') || undefined,
    tooltip: [stats?.folder ? `Folder: ${stats.folder}` : '', ...(stats?.notes ?? []), ...(reviewed && config!.findings === 0 ? [NO_CHANGES] : []), CONFIG_EXCLUSIONS].filter(Boolean).join('\n'),
    icon: partial ? 'warning' : suggestions > 0 ? 'eye' : 'pass', contextValue: 'header' });
  }

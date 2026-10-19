@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { configTree, configPreview, configActions, configAnnotation, configSummary, reviewTree, CONFIG_BASIS, CONFIG_CREDITS, CONFIG_EXCLUSIONS, type ConfigNode } from '../../src/extension/config-model.ts';
-import { auditTree, dismissHash, NOTHING_CHANGES } from '../../src/extension/audit-model.ts';
+import { auditTree, dismissHash, NOTHING_CHANGES, PREPARED_DESCRIPTION } from '../../src/extension/audit-model.ts';
 import type { AuditResult } from '../../src/audit/audit.ts';
 import { evaluateConfigRules, type FindingId } from '../../src/audit/config-rules.ts';
 import type { ConfigReview } from '../../src/audit/config-review.ts';
@@ -86,15 +86,15 @@ test('S3 size is always a lower bound and AGENTS-only totals have a text-only pr
 
 const OFF = { audit: 'off', config: 'off' } as const;
 const top = (r: ConfigReview, state = {}) => configTree(r, ['synthetic-root'], [], 0, state);
-test('three groups by action with fixed verbs, plain headings, a "nothing changes until you save" line and group context values', () => {
+test('three collapsed groups by action with fixed verbs, plain headings, no note row (the sentence is in the tooltips) and group context values', () => {
  const groups = top(review());
  assert.deepEqual(groups.map(g => g.label), ['Load only when needed (1)', 'Run only manually (4)', 'Worth a look (3)']);
  assert.deepEqual(groups.map(g => g.description), ['Kiro loads the file only when you reference it', 'the hook runs only when you start it', 'no automatic change']);
  assert.deepEqual(groups.map(g => g.contextValue), ['config-group-load', 'config-group-run', 'config-group']);
- assert.ok(groups.every(g => g.expanded === true));
- assert.equal(groups[0]!.children![0]!.label, NOTHING_CHANGES); assert.equal(groups[1]!.children![0]!.label, NOTHING_CHANGES); assert.notEqual(groups[2]!.children![0]!.label, NOTHING_CHANGES);
- assert.deepEqual(groups[0]!.children!.slice(1).map(n => n.finding!.id), ['S1']);
- assert.deepEqual(groups[1]!.children!.slice(1).map(n => n.finding!.id).sort(), ['H1', 'H1', 'H4', 'H4']);
+ assert.ok(groups.every(g => g.expanded === false));
+ for (const g of groups) assert.ok(g.children!.every(n => n.finding && n.label !== NOTHING_CHANGES), 'no note row');
+ assert.deepEqual(groups[0]!.children!.map(n => n.finding!.id), ['S1']);
+ assert.deepEqual(groups[1]!.children!.map(n => n.finding!.id).sort(), ['H1', 'H1', 'H4', 'H4']);
  assert.deepEqual(groups[2]!.children!.map(n => n.finding!.id).sort(), ['H5', 'S2', 'S3']);
  // Headings stay plain: technical terms only in tooltips.
  for (const n of flatten(groups)) { assert.ok(!/inclusion: |trigger: |matcher|front matter/i.test(`${n.label} ${n.description ?? ''}`), n.label); }
@@ -109,9 +109,9 @@ test('items are sorted by size (largest first), then the more important notice, 
   { rel: '.kiro/hooks/synthetic.json', index: 2, name: 'synthetic-c', trigger: 'UserPromptSubmit' as const, action: 'agent' as const, matcher: 'none' as const, enabled: true as const, promptBytes: 10, commandBytes: 0 }] }];
  const r: ConfigReview = { ...evaluateConfigRules(roots), roots, status: 'complete', bytesRead: 0 };
  const [load, run] = top(r);
- assert.deepEqual(load!.children!.slice(1).map(n => n.finding!.size), [40000, 26000, 9000]);
+ assert.deepEqual(load!.children!.map(n => n.finding!.size), [40000, 26000, 9000]);
  // H4 (5000 bytes) first, then the notices without a size (H1 twice in review order), then the info finding H3.
- assert.deepEqual(run!.children!.slice(1).map(n => n.finding!.id + ':' + (n.finding!.hook ?? '')), ['H4:1', 'H1:0', 'H1:1', 'H3:2']);
+ assert.deepEqual(run!.children!.map(n => n.finding!.id + ':' + (n.finding!.hook ?? '')), ['H4:1', 'H1:0', 'H1:1', 'H3:2']);
 });
 test('annotations carry the short why and the alternatives; fixed text and a size only', () => {
  const s1 = configAnnotation('loadWhenNeeded', { id: 'S1', size: 32.5 * 1024 });
@@ -131,12 +131,34 @@ test('the whole view: status line, notes, then Exclude, Load, Run, Worth a look,
  const audit = auditTree(result, 'synthetic-folder', [hash('secret', 'synthetic-b.pem')], hash, new Set(), '2030-01-01T10:15:00');
  const r = review(); r.status = 'partial'; r.notChecked = { schema_unknown: 1 };
  const view = reviewTree(audit, configSummary(r, '2030-01-01T10:16:00', { paused: true }), top(r), { audit: 'onOpenAndChanges', config: 'onOpenAndChanges' }, new Date('2030-01-01T12:00:00'));
- assert.deepEqual(view.map(n => n.id.replace(/:0$/, '')), ['status', 'info:disabled', 'group:exclude', 'config:g:load', 'config:g:run', 'config:g:look', 'footer:dismissed', 'config:unchecked']);
+ assert.deepEqual(view.map(n => n.id.replace(/:0$/, '')), ['status', 'group:exclude', 'config:g:load', 'config:g:run', 'config:g:look', 'footer:dismissed', 'config:unchecked']);
  assert.equal(view[0]!.label, 'Checked 10:15 · 9 suggestions'); // 1 visible filename finding + 8 configuration findings
  assert.equal(view[0]!.description, 'Kiro may read about 100 B · checks again on open and on changes · partial check · automatic review paused (many changes)');
  assert.ok(view[0]!.tooltip!.includes(CONFIG_EXCLUSIONS));
- assert.equal(view[2]!.label, 'Exclude from Kiro (1)');
+ assert.equal(view[1]!.label, 'Exclude from Kiro (1)'); assert.equal(view[1]!.description, "won't take effect yet — add .kiroignore to Agent Ignore Files");
  // Only the configuration has run: the status line still appears; with nothing at all the view is empty (welcome text).
  assert.equal(reviewTree(undefined, configSummary(r, '2030-01-01T10:16:00'), top(r), OFF, new Date('2030-01-01T12:00:00'))[0]!.label, 'Checked 10:16 · 8 suggestions');
  assert.deepEqual(reviewTree(undefined, configSummary(), [], OFF), []);
+});
+
+test('group ids stay the same across redraws so the editor keeps what the user expanded; items and elements carry the generation', () => {
+ const first = configTree(review(), ['synthetic-root'], [], 1), second = configTree(review(), ['synthetic-root'], [], 2);
+ assert.deepEqual(first.map(g => g.id), second.map(g => g.id));
+ assert.ok(first.every(g => g.id.startsWith('config:g:') || g.id === 'config:unchecked'));
+ assert.ok(first.every(g => g.expanded === false));
+ assert.notEqual(first[0]!.children![0]!.id, second[0]!.children![0]!.id);
+ assert.ok(first.every(g => g.generation === 1) && second.every(g => g.generation === 2));
+});
+test('an item whose file has a prepared, unsaved edit says "prepared — save the file to apply" with another icon; the status line counts the files', () => {
+ const r = review(), plain = flatten(configTree(r, ['synthetic-root'])), index = r.findings.findIndex(f => f.id === 'S1');
+ const marked = flatten(configTree(r, ['synthetic-root'], [], 0, { prepared: new Set([index]) }));
+ const item = (nodes: ConfigNode[]) => nodes.find(n => n.finding?.id === 'S1')!;
+ assert.equal(item(marked).description, PREPARED_DESCRIPTION); assert.notEqual(item(plain).description, PREPARED_DESCRIPTION);
+ assert.equal(item(marked).icon, 'edit'); assert.notEqual(item(plain).icon, 'edit');
+ assert.ok(item(marked).tooltip!.includes('prepared but not saved'));
+ assert.equal(marked.filter(n => n.description === PREPARED_DESCRIPTION).length, 1);
+ const view = (count: number) => reviewTree(undefined, configSummary(r, '2030-01-01T10:16:00'), top(r), OFF, new Date('2030-01-01T12:00:00'), count);
+ assert.ok(!view(0)[0]!.description?.includes('unsaved'));
+ assert.ok(view(1)[0]!.description!.includes('1 file with unsaved prepared changes'));
+ assert.ok(view(2)[0]!.description!.includes('2 files with unsaved prepared changes'));
 });

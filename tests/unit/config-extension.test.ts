@@ -6,16 +6,17 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createConfigReviewer } from '../../src/audit/config-review.ts';
 import { registerConfigReview, startManualReview } from '../../src/extension/config-review.ts';
+import { createPreparedFiles } from '../../src/extension/config-apply.ts';
 import { evaluateConfigRules } from '../../src/audit/config-rules.ts';
 import type { ConfigReview, ConfigReviewRoot } from '../../src/audit/config-review.ts';
 
-function setup(operation?: (roots:readonly ConfigReviewRoot[],options?:{signal?:AbortSignal})=>Promise<ConfigReview>) {
- const commands=new Map<string,(...args: unknown[])=>unknown>(), subscriptions:{dispose():unknown}[]=[], opened:unknown[]=[], messages:string[]=[], reads:ConfigReviewRoot[][]=[];
+function setup(operation?: (roots:readonly ConfigReviewRoot[],options?:{signal?:AbortSignal})=>Promise<ConfigReview>, extra: Record<string, unknown> = {}) {
+ const executed:unknown[][]=[], commands=new Map<string,(...args: unknown[])=>unknown>(), subscriptions:{dispose():unknown}[]=[], opened:unknown[]=[], messages:string[]=[], reads:ConfigReviewRoot[][]=[];
  let checks=0, refreshes=0;
  const folder=(name:string,path:string,scheme='file')=>({name,index:0,uri:{scheme,fsPath:path}});
  const workspace={isTrusted:true,workspaceFolders:[folder('synthetic-root','/synthetic/root')],openTextDocument:async(value:unknown)=>{opened.push(value);return value;}};
  const window={showTextDocument:async(value:unknown)=>{opened.push(value);},showErrorMessage:async(text:string)=>{messages.push(text);}};
- const editor={workspace,window,commands:{registerCommand:(id:string,fn:(...args:unknown[])=>unknown)=>{commands.set(id,fn);return{dispose(){}};},executeCommand:async()=>{}}} as unknown as typeof vscode;
+ const editor={workspace,window,commands:{registerCommand:(id:string,fn:(...args:unknown[])=>unknown)=>{commands.set(id,fn);return{dispose(){}};},executeCommand:async(...args:unknown[])=>{executed.push(args);}}} as unknown as typeof vscode;
  const values={summary:{state:'checked',items:2,checkedAt:'2030-01-01T00:00:00Z'},valueSeen:false,clipboard:'synthetic-existing-lines',reminder:'2030-01-01'};
  const context={subscriptions,globalState:{get(){return values.valueSeen;},update(){throw Error('storage touched');}},workspaceState:{get(){return values.reminder;},update(){throw Error('audit storage touched');}}} as unknown as vscode.ExtensionContext;
  const check=(f:vscode.WorkspaceFolder)=>{checks++;return f.uri.fsPath.includes('refused')?{reason:'it overlaps Kiro data'}:{chosen:f.uri.fsPath,resolved:f.uri.fsPath.replace('alias','root')};};
@@ -24,8 +25,8 @@ function setup(operation?: (roots:readonly ConfigReviewRoot[],options?:{signal?:
   return{...evaluateConfigRules(roots),roots,status:'complete',bytesRead:0};
  };
  const reviewer={async review(roots:readonly ConfigReviewRoot[],options?:{signal?:AbortSignal}){reads.push([...roots]);return operation ? operation(roots,options) : result();}};
- const link=registerConfigReview(context,editor,check,()=>{refreshes++;},{reviewer});
- return{workspace,commands,subscriptions,opened,messages,reads,link,folder,values,get checks(){return checks;},get refreshes(){return refreshes;},run:()=>commands.get('cyclegauge.reviewKiroConfig')!()};
+ const link=registerConfigReview(context,editor,check,()=>{refreshes++;},{reviewer, ...extra});
+ return{workspace,executed,commands,subscriptions,opened,messages,reads,link,folder,values,get checks(){return checks;},get refreshes(){return refreshes;},run:()=>commands.get('cyclegauge.reviewKiroConfig')!()};
 }
 test('registration with automatic mode off does nothing by itself and has no audit dependencies',async()=>{
  const s=setup();assert.equal(s.reads.length,0);assert.equal(s.checks,0);assert.equal(s.refreshes,0);
@@ -39,7 +40,7 @@ test('registration with automatic mode off does nothing by itself and has no aud
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.match(main,/reviewTree\(parts, configReview\.summary\(\), configReview\.nodes\(\)/);
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
- assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError \}\)/);
+ assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError, prepared \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
  assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig').length,1);
  assert.equal(manifest.contributes.configuration.properties['cyclegauge.configReviewAutomatically'].default,'off');
@@ -148,4 +149,95 @@ test('the review tree has no Review entry or header node; its top level is the g
  const top=s.link.nodes();assert.deepEqual(top.map(n=>n.label),['Load only when needed (1)']);
  assert.equal(s.link.summary().reviewed,true);assert.equal(s.link.summary().findings,1);assert.equal(s.link.summary().automatic,false);
  assert.ok(!JSON.stringify(s.link.nodes()).includes('Review Kiro Steering and Hooks'));
+});
+
+// A fake editor with the three document events, so the tracker and the review can be driven without an editor.
+function events() {
+ const save:((d:unknown)=>void)[]=[], close:((d:unknown)=>void)[]=[], change:((e:unknown)=>void)[]=[];
+ const on=(list:((x:any)=>void)[])=>(fn:(x:any)=>void)=>{list.push(fn);return{dispose(){}};};
+ const workspace={onDidSaveTextDocument:on(save),onDidCloseTextDocument:on(close),onDidChangeTextDocument:on(change)};
+ const doc=(fsPath:string,dirty=true,scheme='file')=>({uri:{scheme,fsPath},isDirty:dirty});
+ return{editor:{workspace} as unknown as typeof vscode,doc,save:(d:unknown)=>save.forEach(f=>f(d)),close:(d:unknown)=>close.forEach(f=>f(d)),change:(d:unknown)=>change.forEach(f=>f({document:d}))};
+}
+const tick=()=>new Promise<void>(resolve=>setImmediate(resolve));
+const sleep=(ms:number)=>new Promise<void>(resolve=>setTimeout(resolve,ms));
+test('prepared files are marked while unsaved and cleared by a save, a close or a revert; nothing is stored',async()=>{
+ const e=events(), prepared=createPreparedFiles(e.editor,'linux',30), log:string[]=[];
+ prepared.subscribe((path,event)=>log.push(`${event}:${path}`));
+ const a=e.doc('/synthetic/root/.kiro/steering/a.md'), b=e.doc('/synthetic/root/.kiro/steering/b.md'), c=e.doc('/synthetic/root/.kiro/hooks/c.json'), u=e.doc('/synthetic/root/x.md',true,'untitled');
+ prepared.add([a.uri,b.uri,c.uri,u.uri] as never);
+ assert.equal(prepared.count(),3,'only file documents are tracked'); assert.ok(prepared.has('/synthetic/root/.kiro/steering/a.md')); assert.ok(!prepared.has('/synthetic/root/x.md'));
+ prepared.add([a.uri] as never); assert.equal(prepared.count(),3); assert.equal(log.filter(x=>x.startsWith('added')).length,3,'a second mark of the same file is not a new one');
+ e.save(a); assert.equal(prepared.count(),2); assert.ok(log.includes('saved:/synthetic/root/.kiro/steering/a.md'));
+ e.close(b); assert.equal(prepared.count(),1); assert.ok(log.includes('cleared:/synthetic/root/.kiro/steering/b.md'));
+ c.isDirty=true; e.change(c); await sleep(60); assert.equal(prepared.count(),1,'still unsaved: typing keeps the mark');
+ c.isDirty=false; e.change(c); await tick(); assert.equal(prepared.count(),1,'a clean document is not yet a revert: a save may follow'); await sleep(80); assert.equal(prepared.count(),0); assert.ok(log.includes('cleared:/synthetic/root/.kiro/hooks/c.json'),'a revert clears the mark');
+ // The editor reports the clean state and the save as separate messages: a save that follows the clean state later (even after a timer and an immediate) still counts as a save, and no revert is reported afterwards.
+ const d=e.doc('/synthetic/root/.kiro/steering/d.md'); prepared.add([d.uri] as never); d.isDirty=false; e.change(d); await tick(); await sleep(5); e.save(d); await sleep(80);
+ assert.equal(log.at(-1),'saved:/synthetic/root/.kiro/steering/d.md'); assert.equal(prepared.count(),0); assert.ok(!log.slice(-2).some(x=>x.startsWith('cleared:/synthetic/root/.kiro/steering/d.md')));
+ // Typing again after a clean state (undo then redo) keeps the mark.
+ const f=e.doc('/synthetic/root/.kiro/steering/f.md'); prepared.add([f.uri] as never); f.isDirty=false; e.change(f); f.isDirty=true; e.change(f); await sleep(80); assert.equal(prepared.count(),1); prepared.dispose(); assert.equal(prepared.count(),0);
+ // An unrelated document changes nothing.
+ e.save(e.doc('/synthetic/root/other.md',false)); e.close(e.doc('/synthetic/root/other.md',false)); assert.equal(log.filter(x=>x.startsWith('saved')).length,2);
+ prepared.add([a.uri] as never); prepared.dispose(); assert.equal(prepared.count(),0);
+ for(const name of ['config-apply']) { const code=await readFile(new URL(`../../src/extension/${name}.ts`,import.meta.url),'utf8'); const tracker=code.slice(code.indexOf('export function createPreparedFiles')); assert.doesNotMatch(tracker,/globalState|workspaceState|writeFile|\.update\(|showInformationMessage|console\./); }
+});
+test('saving a Steering or Hook file Cyclegauge prepared starts one manual review; other saves, unprepared files and a running review start none',async()=>{
+ const e=events(), prepared=createPreparedFiles(e.editor,'linux');
+ const s=setup(undefined,{prepared});
+ await s.run(); assert.equal(s.reads.length,1); const focused=s.executed.length;
+ const steering=e.doc('/synthetic/root/.kiro/steering/synthetic.md'), hook=e.doc('/synthetic/root/.kiro/hooks/synthetic.json'), other=e.doc('/synthetic/root/README.md'), elsewhere=e.doc('/synthetic/other/.kiro/steering/x.md'), kiroignore=e.doc('/synthetic/root/.kiroignore');
+ // A save of a file nothing prepared does nothing.
+ e.save(steering); await tick(); assert.equal(s.reads.length,1);
+ // Prepared but not yet saved: no review.
+ prepared.add([steering.uri,hook.uri,other.uri,elsewhere.uri,kiroignore.uri] as never); await tick(); assert.equal(s.reads.length,1);
+ for (const doc of [other,elsewhere,kiroignore]) { e.save(doc); await tick(); }
+ assert.equal(s.reads.length,1,'only a Steering or Hook file inside a checked folder starts a review');
+ e.save(steering); await tick(); assert.equal(s.reads.length,2); assert.deepEqual(s.reads[1],['/synthetic/root']);
+ assert.equal(s.executed.length,focused,'a re-check after a save takes no focus'); assert.equal(s.messages.length,0);
+ e.save(hook); await tick(); assert.equal(s.reads.length,3);
+ e.save(steering); await tick(); assert.equal(s.reads.length,3,'the mark is gone after the save');
+ // Single flight: a save while a review is running starts no second one.
+ let release:()=>void=()=>undefined, calls=0;
+ const roots=[{root:0,nestedNotChecked:0,steering:[{rel:'.kiro/steering/synthetic.md',mode:'always' as const,size:26000,matchAll:false as const,patternCount:0}],hooks:[]}];
+ const gate=new Promise<void>(r=>{release=r;});
+ const slow=setup(async()=>{calls++;if(calls>1)await gate;return{...evaluateConfigRules(roots),roots,status:'complete' as const,bytesRead:0};},{prepared});
+ await slow.run(); assert.equal(calls,1);
+ const running=slow.run(); await tick(); assert.equal(calls,2);
+ const again=e.doc('/synthetic/root/.kiro/steering/synthetic.md'); prepared.add([again.uri] as never); e.save(again); await tick();
+ assert.equal(calls,2,'a running review is never doubled'); release(); await running; await sleep(20); assert.equal(calls,3,'the save is answered by one follow-up review');
+});
+test('a save while a review runs is answered by exactly one more quiet review; no review without a drawn tree, in an untrusted workspace or after disposal',async()=>{
+ const e=events(), prepared=createPreparedFiles(e.editor,'linux'), doc=()=>e.doc('/synthetic/root/.kiro/steering/synthetic.md');
+ const roots=[{root:0,nestedNotChecked:0,steering:[{rel:'.kiro/steering/synthetic.md',mode:'always' as const,size:26000,matchAll:false as const,patternCount:0}],hooks:[]}];
+ const result=():ConfigReview=>({...evaluateConfigRules(roots),roots,status:'complete' as const,bytesRead:0});
+ // Nothing drawn yet: a prepared file saved before any review starts none.
+ const early=setup(undefined,{prepared}); const d0=doc(); prepared.add([d0.uri] as never); e.save(d0); await tick(); assert.equal(early.reads.length,0,'no drawn tree, no review');
+ // One more review after the running one, however many saves arrived meanwhile.
+ let release:()=>void=()=>undefined, calls=0; const gate=new Promise<void>(r=>{release=r;});
+ const e2=events(), prepared2=createPreparedFiles(e2.editor,'linux');
+ const s=setup(async()=>{calls++;if(calls===2)await gate;return result();},{prepared:prepared2});
+ await s.run(); assert.equal(calls,1);
+ const running=s.run(); await tick(); assert.equal(calls,2);
+ for(let i=0;i<3;i++){const d=e2.doc('/synthetic/root/.kiro/steering/synthetic.md'); prepared2.add([d.uri] as never); e2.save(d);} await tick();
+ assert.equal(calls,2); release(); await running; await sleep(20); assert.equal(calls,3,'exactly one follow-up review'); const focus=s.executed.length;
+ await sleep(20); assert.equal(calls,3); assert.equal(s.executed.length,focus);
+ // Untrusted: no review.
+ const e3=events(), prepared3=createPreparedFiles(e3.editor,'linux'), t=setup(undefined,{prepared:prepared3});
+ await t.run(); const d3=e3.doc('/synthetic/root/.kiro/steering/synthetic.md'); prepared3.add([d3.uri] as never); t.workspace.isTrusted=false; e3.save(d3); await tick(); assert.equal(t.reads.length,1,'untrusted workspace: no review');
+ // After disposal: no review.
+ const e4=events(), prepared4=createPreparedFiles(e4.editor,'linux'), u=setup(undefined,{prepared:prepared4});
+ await u.run(); const d4=e4.doc('/synthetic/root/.kiro/steering/synthetic.md'); prepared4.add([d4.uri] as never);
+ for(const sub of u.subscriptions) sub.dispose(); e4.save(d4); await tick(); assert.equal(u.reads.length,1,'after disposal: no review');
+});
+test('items of a drawn review are marked while their file is prepared and unsaved, and the marks follow saves',async()=>{
+ const e=events(), prepared=createPreparedFiles(e.editor,'linux'), s=setup(undefined,{prepared});
+ await s.run();
+ const item=()=>JSON.stringify(s.link.nodes());
+ assert.ok(!item().includes('prepared — save the file to apply'));
+ const doc=e.doc('/synthetic/root/.kiro/steering/synthetic.md'); const before=s.refreshes;
+ prepared.add([doc.uri] as never); assert.ok(item().includes('prepared — save the file to apply')); assert.ok(s.refreshes>before,'the view is refreshed');
+ e.close(doc); assert.ok(!item().includes('prepared — save the file to apply'));
+ prepared.add([doc.uri] as never); assert.ok(item().includes('prepared — save the file to apply'));
+ e.save(doc); await tick(); assert.ok(!item().includes('prepared — save the file to apply'));
 });

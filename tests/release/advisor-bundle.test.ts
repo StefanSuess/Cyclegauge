@@ -80,7 +80,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
 // Native-API stand-ins for the audit sidebar: an in-memory document store (nothing is read back from or written to disk by edits),
 // a recording tree-view registry and a Map-backed workspaceState.
 const auditApi=()=>{
- const state={discard:false,providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0,saveListeners:[] as any[]};
+ const state={discard:false,providers:new Map<string,any>(),executed:[] as any[][],edits:[] as any[],shown:[] as any[],saves:0,docs:new Map<string,any>(),contentDocs:[] as any[],store:new Map<string,unknown>(),fires:0,saveListeners:[] as any[],closeListeners:[] as any[]};
  class EventEmitter{listeners:any[]=[];event=(fn:any)=>{this.listeners.push(fn);return {dispose(){}};};fire(v:any){state.fires++;for(const l of this.listeners)l(v);}dispose(){}}
  class TreeItem{id?:string;description?:string;tooltip?:unknown;contextValue?:string;iconPath?:any;command?:any;resourceUri?:unknown;label:string;collapsibleState:number;constructor(label:string,collapsibleState:number){this.label=label;this.collapsibleState=collapsibleState;}}
  class ThemeIcon{id:string;constructor(id:string){this.id=id;}}
@@ -89,8 +89,8 @@ const auditApi=()=>{
  const key=(u:any)=>`${u.scheme}:${u.fsPath}`;
  return {state,Uri:{file:(p:string)=>uri(p)},EventEmitter,TreeItem,ThemeIcon,WorkspaceEdit,TreeItemCollapsibleState:{None:0,Collapsed:1,Expanded:2},
   workspaceState:{get:(k:string)=>state.store.get(k),async update(k:string,v:unknown){if(v===undefined)state.store.delete(k);else state.store.set(k,structuredClone(v));}},
-  workspace:{onDidSaveTextDocument(fn:any){state.saveListeners.push(fn);return {dispose(){state.saveListeners=state.saveListeners.filter(x=>x!==fn);}};},async openTextDocument(u:any){if(u.content!==undefined){const c={uri:{scheme:'untitled',fsPath:''},text:u.content,language:u.language,getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.contentDocs.push(c);return c;}let d=state.docs.get(key(u));if(!d){d={uri:u,text:u.scheme==='file'?readFileSync(u.fsPath,'utf8'):'',getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.docs.set(key(u),d);}return d;},
-   async applyEdit(e:any){if(state.discard){state.edits.push(e);return false;}for(const i of e.inserts){const d=state.docs.get(key(i.uri));d.text=d.text.slice(0,i.position.offset)+i.text+d.text.slice(i.position.offset);}state.edits.push(e);return true;}},
+  workspace:{onDidSaveTextDocument(fn:any){state.saveListeners.push(fn);return {dispose(){state.saveListeners=state.saveListeners.filter(x=>x!==fn);}};},onDidCloseTextDocument(fn:any){state.closeListeners.push(fn);return {dispose(){state.closeListeners=state.closeListeners.filter(x=>x!==fn);}};},async openTextDocument(u:any){if(u.content!==undefined){const c={uri:{scheme:'untitled',fsPath:''},text:u.content,language:u.language,getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.contentDocs.push(c);return c;}let d=state.docs.get(key(u));if(!d){d={uri:u,text:u.scheme==='file'?readFileSync(u.fsPath,'utf8'):'',getText(){return this.text;},positionAt:(offset:number)=>({offset}),save(){state.saves++;}};state.docs.set(key(u),d);}return d;},
+   async applyEdit(e:any){if(state.discard){state.edits.push(e);return false;}for(const i of e.inserts){const d=state.docs.get(key(i.uri));d.text=d.text.slice(0,i.position.offset)+i.text+d.text.slice(i.position.offset);d.isDirty=true;}state.edits.push(e);return true;}},
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
@@ -151,7 +151,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.match(roots()[0].tooltip,/^Folder: synthetic-workspace\n/);
   assert.deepEqual(infos,[{text:'2 items Kiro may read — see the Kiro Workspace Audit view.',extra:0}]);
   assert.ok(st.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
-  const excludeItem=provider.getTreeItem(roots()[1]);assert.equal(excludeItem.collapsibleState,2);assert.equal(excludeItem.contextValue,'group-exclude');assert.equal(excludeItem.description,'adds lines to .kiroignore');
+  const excludeItem=provider.getTreeItem(roots()[1]);assert.equal(excludeItem.collapsibleState,1,'every group starts collapsed');assert.equal(excludeItem.contextValue,'group-exclude');assert.equal(excludeItem.description,'adds lines to .kiroignore');
   const secretGroup=roots()[1].children.find((n:any)=>n.id==='secret'),groupItem=provider.getTreeItem(secretGroup);
   assert.equal(groupItem.collapsibleState,1);assert.equal(groupItem.iconPath.id,'key');
   const env=find('.env'),dist=find('dist/');assert.equal(env.description,'Kiro may read this');assert.ok(env.tooltip.includes('Size: 26 B'));assert.equal(dist.contextValue,'finding-suggestible');
@@ -169,14 +169,18 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.equal(insert.text,'# Suggested by Cyclegauge - review before saving\n/.env\n');
   assert.equal(st.shown.length,1);assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
   // The edit goes through the editor's change preview: an annotation that needs confirmation with a short why and the alternative; then a fixed notice with the counts.
-  const meta=insert.metadata;assert.deepEqual(meta,{label:'Exclude from Kiro',description:"Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem.",needsConfirmation:true});
+  const meta=insert.metadata;assert.deepEqual(meta,{label:'Exclude from Kiro',description:"Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem. Nothing changes until you save.",needsConfirmation:true});
   assert.ok(infoTexts().includes('Changes prepared in 1 file — review and save.'));infos.length=0;
-  assert.equal(find('.env').description,'Kiro may read this · rule prepared (unsaved)');assert.ok(!find('dist/').description.includes('rule prepared'));
+  assert.equal(find('.env').description,'prepared — save the file to apply');assert.equal(provider.getTreeItem(find('.env')).iconPath.id,'edit');assert.ok(!find('dist/').description.includes('prepared'));
+  assert.match(roots()[0].description,/1 file with unsaved prepared changes/);
   // Accept all: one combined edit; lines already in the document and the header are not repeated.
   await commands.get('cyclegauge.audit.acceptAll')!();
   assert.equal(st.edits.length,2);assert.equal(st.edits[1].inserts[0].text,'/dist/\n');assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
   assert.equal(st.edits[1].inserts[0].metadata.needsConfirmation,true);assert.equal(st.edits[1].inserts[0].metadata.label,'Exclude from Kiro');
-  assert.ok(find('dist/').description.includes('rule prepared (unsaved)'));
+  assert.equal(find('dist/').description,'prepared — save the file to apply');assert.match(roots()[0].description,/1 file with unsaved prepared changes/);
+  // Closing the document without saving clears the marks and the count (a save would too, and then re-check the audit).
+  for(const fn of st.closeListeners)fn(st.docs.get(`file:${kiroignore}`));
+  assert.ok(!find('dist/').description.includes('prepared')&&!find('.env').description.includes('prepared'));assert.ok(!(roots()[0].description??'').includes('unsaved prepared'));
   // Running again clears the accepted marks.
   await run();assert.ok(!find('.env').description.includes('rule prepared'));assert.ok(!find('dist/').description.includes('rule prepared'));
   // Discarding the change preview is not an error: nothing is marked as prepared, nothing is remembered for a save, and one fixed note is shown.
@@ -262,9 +266,17 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   rmSync(join(workspace,'small.log'),{force:true});rmSync(join(workspace,'big.log'),{force:true});
   // Ignore-mode notes and the setting action (the setting is only ever opened, never changed).
   ignoreFiles=['.other'];writeFileSync(kiroignore,'/ignored.log\n');await run();
-  const note=roots().find(n=>n.action==='openIgnoreSetting');assert.ok(note);
+  // While the findings are listed, the Exclude group itself says the rules won't take effect and offers the setting as its first row; there is no separate top-level row.
+  const note=flatTree(roots()).find(n=>n.action==='openIgnoreSetting');assert.ok(note);assert.ok(!roots().some(n=>n.action==='openIgnoreSetting'));
+  assert.equal(roots()[1].description,"won't take effect yet — add .kiroignore to Agent Ignore Files");assert.equal(provider.getTreeItem(roots()[1]).iconPath.id,'warning');assert.equal(roots()[1].children[0],note);assert.equal(note.label,'Add .kiroignore to Agent Ignore Files…');
   assert.deepEqual(provider.getTreeItem(note).command,{command:'workbench.action.openSettings',title:'Open Agent Ignore Files setting',arguments:['kiroAgent.agentIgnoreFiles']});
-  ignoreFiles=[];await run();assert.ok(roots().some(n=>n.label==='Workspace ignore files are turned off'));ignoreFiles=undefined;await run();assert.ok(roots().some(n=>n.label==="Couldn't read the Agent Ignore Files setting"));ignoreFiles=['.kiroignore'];
+  // After a successful Review changes… the notice says the file counts only when listed, with an Open setting button that opens the setting (never writes it).
+  st.docs.clear();infos.length=0;st.executed.length=0;infoChoice='Open setting';
+  await commands.get('cyclegauge.audit.accept')!(find('.env'));await new Promise(r=>setImmediate(r));infoChoice=undefined;
+  assert.deepEqual(infos,[{text:"Changes prepared in 1 file — review and save. Kiro uses .kiroignore only when it's listed in Agent Ignore Files.",extra:1}]);
+  assert.deepEqual(st.executed.at(-1),['workbench.action.openSettings','kiroAgent.agentIgnoreFiles']);
+  for(const fn of st.closeListeners)fn(st.docs.get(`file:${kiroignore}`));infos.length=0;
+  ignoreFiles=[];await run();assert.equal(roots()[1].description,"won't take effect yet — add .kiroignore to Agent Ignore Files");assert.ok(!roots().some(n=>n.label==='Workspace ignore files are turned off'));ignoreFiles=undefined;await run();assert.ok(roots().some(n=>n.label==="Couldn't read the Agent Ignore Files setting"));ignoreFiles=['.kiroignore'];
   // A second invocation while one is in progress is declined; the lock is released afterwards.
   let release:()=>void=()=>{};gate=new Promise<void>(r=>{release=r;});infos.length=0;
   const first=run();await new Promise(r=>setImmediate(r));

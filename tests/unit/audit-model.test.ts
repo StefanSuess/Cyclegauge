@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { auditTree, auditSizeTotal, checkedLabel, dismissHash, escapeText, excludeAnnotation, findingKey, formatBytes, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, sizePhrase, visibleFindings, KIROIGNORE_HEADER, NOTHING_CHANGES, WHY } from '../../src/extension/audit-model.ts';
+import { auditTree, auditSizeTotal, checkedLabel, dismissHash, escapeText, excludeAnnotation, findingKey, formatBytes, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, sizePhrase, visibleFindings, KIROIGNORE_HEADER, NOTHING_CHANGES, PREPARED_DESCRIPTION, IGNORE_OFF_DESCRIPTION, IGNORE_ACTION_LABEL, IGNORE_USE_NOTE, ignoreNotEffective, unsavedFilesText, WHY } from '../../src/extension/audit-model.ts';
 import { reviewTree, recheckText, type ViewNode } from '../../src/extension/config-model.ts';
 import type { AuditResult, Finding } from '../../src/audit/audit.ts';
 
@@ -28,9 +28,9 @@ test('one Exclude group holds the categories as sub-groups in category order, wi
  const nodes = tree(mixed());
  assert.deepEqual(nodes.map(n => n.kind), ['header', 'group']);
  const group = nodes[1]!;
- assert.equal(group.label, 'Exclude from Kiro (4)'); assert.equal(group.description, 'adds lines to .kiroignore'); assert.equal(group.contextValue, 'group-exclude'); assert.equal(group.expanded, true);
- assert.deepEqual(group.children!.map(n => n.kind), ['info', 'group', 'group', 'group', 'group']);
- assert.equal(group.children![0]!.label, NOTHING_CHANGES);
+ assert.equal(group.label, 'Exclude from Kiro (4)'); assert.equal(group.description, 'adds lines to .kiroignore'); assert.equal(group.contextValue, 'group-exclude'); assert.equal(group.expanded, false);
+ assert.deepEqual(group.children!.map(n => n.kind), ['group', 'group', 'group', 'group'], 'no note row');
+ assert.ok(!flat(nodes).some(n => n.label === NOTHING_CHANGES));
  const subs = categories(mixed());
  assert.deepEqual(subs.map(n => n.label), ['Secrets and credentials (1)', 'Databases and dumps (1)', 'Build output (1)', 'Dependencies (1)']);
  assert.deepEqual(subs.map(n => n.description), ['may contain passwords or keys', 'large, may contain real data', 'generated, rarely needed', 'third-party code, very large']);
@@ -167,9 +167,10 @@ test('relativeTime: just now, minutes, today, yesterday and days, by local calen
 test('info items: ignore-mode notes and the .kiroignore action; no global note item', () => {
  const infos = (r: AuditResult) => tree(r).filter(n => n.kind === 'info');
  assert.deepEqual(infos(result()).map(n => n.label), []);
- assert.deepEqual(infos(result({ ignore: 'disabled' })).map(n => n.label), ['Workspace ignore files are turned off']);
+ assert.deepEqual(infos(result({ ignore: 'disabled' })).map(n => n.label), [], 'merged into the Exclude group while it has findings');
+ assert.deepEqual(infos(result({ ignore: 'disabled', findings: [] })).map(n => n.label), ['Workspace ignore files are turned off']);
  assert.deepEqual(infos(result({ ignore: 'setting_unknown' })).map(n => n.label), ["Couldn't read the Agent Ignore Files setting"]);
- const note = infos(result({ kiroignoreNotListed: true })).find(n => n.action)!;
+ const note = infos(result({ kiroignoreNotListed: true, findings: [] })).find(n => n.action)!;
  assert.equal(note.label, ".kiroignore isn't active yet"); assert.equal(note.action, 'openIgnoreSetting'); assert.equal(note.description, 'open setting');
  assert.equal(note.tooltip, 'Kiro IDE only uses .kiroignore when it is listed in Agent Ignore Files. Click to open that setting.');
  assert.ok(!infos(result()).some(n => n.action));
@@ -346,8 +347,48 @@ test('dismissHash is a stable salted hex digest that never contains the path', (
 test('the annotation of the Exclude change carries a short why and the alternative; it holds no path', () => {
  const one = excludeAnnotation(1), many = excludeAnnotation(3);
  assert.equal(one.label, 'Exclude from Kiro'); assert.equal(many.label, 'Exclude from Kiro');
- assert.equal(one.description, "Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem.");
- assert.match(many.description, /^Adds 3 lines to \.kiroignore\. Kiro may read these files/); assert.ok(many.description.endsWith('Alternative: Not a problem.'));
+ assert.equal(one.description, "Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem. Nothing changes until you save.");
+ assert.match(many.description, /^Adds 3 lines to \.kiroignore\. Kiro may read these files/); assert.ok(many.description.endsWith('Alternative: Not a problem. Nothing changes until you save.'));
  const group = exclude(mixed())!;
- assert.ok(group.tooltip!.includes('Alternative: Not a problem') && group.tooltip!.includes('nothing changes until you save'));
+ assert.ok(group.tooltip!.includes('Alternative: Not a problem') && group.tooltip!.includes('Nothing changes until you save.'));
+});
+
+test('every group and sub-group starts collapsed and the status line stays visible', () => {
+ const nodes = tree(mixed());
+ assert.equal(nodes[0]!.kind, 'header');
+ for (const n of flat(nodes).filter(x => x.children)) assert.equal(n.expanded, false, n.id);
+});
+test('ignore not effective: the Exclude group says so with a warning icon and a first action row; the separate rows are merged, never duplicated', () => {
+ for (const over of [{ ignore: 'disabled' as const }, { kiroignoreNotListed: true as const }, { ignore: 'disabled' as const, kiroignoreNotListed: true as const }]) {
+  const nodes = tree(result(over));
+  const group = nodes.find(n => n.id === 'group:exclude')!;
+  assert.equal(group.description, IGNORE_OFF_DESCRIPTION); assert.equal(group.description, "won't take effect yet — add .kiroignore to Agent Ignore Files"); assert.equal(group.icon, 'warning');
+  assert.equal(group.expanded, false);
+  const row = group.children![0]!;
+  assert.deepEqual([row.id, row.kind, row.label, row.action, row.contextValue], ['action:ignore_setting', 'info', IGNORE_ACTION_LABEL, 'openIgnoreSetting', 'info-action']);
+  assert.equal(IGNORE_ACTION_LABEL, 'Add .kiroignore to Agent Ignore Files…');
+  assert.deepEqual(group.children!.slice(1).map(n => n.kind), ['group']);
+  assert.ok(group.tooltip!.includes(NOTHING_CHANGES));
+  assert.deepEqual(nodes.filter(n => n.kind === 'info').map(n => n.id), [], 'no top-level duplicate');
+  assert.equal(flat(nodes).filter(n => n.action === 'openIgnoreSetting').length, 1);
+ }
+ assert.ok(ignoreNotEffective(result({ ignore: 'disabled' })) && ignoreNotEffective(result({ kiroignoreNotListed: true })) && !ignoreNotEffective(result()) && !ignoreNotEffective(result({ ignore: 'setting_unknown' })));
+ // Effective ignore files: the normal description, icon and no action row.
+ const normal = tree(result()).find(n => n.id === 'group:exclude')!;
+ assert.equal(normal.description, 'adds lines to .kiroignore'); assert.equal(normal.icon, 'eye-closed'); assert.ok(!flat([normal]).some(n => n.action));
+ // setting_unknown keeps its own top-level row.
+ assert.deepEqual(tree(result({ ignore: 'setting_unknown' })).filter(n => n.kind === 'info').map(n => n.id), ['info:setting_unknown']);
+});
+test('a prepared, unsaved .kiroignore marks the accepted items "prepared — save the file to apply" with another icon; the status line counts the files', () => {
+ const r = mixed(), key = findingKey(r.findings[0]!);
+ const marked = (unsaved: boolean) => reviewTree(auditTree(r, 'synthetic-folder', [], hashFn, new Set([key]), undefined, unsaved), undefined, [], OFF, NOW, unsaved ? 1 : 0);
+ const pem = (nodes: ViewNode[]) => flat(nodes).find(n => n.label === 'synthetic.pem')!;
+ assert.equal(PREPARED_DESCRIPTION, 'prepared — save the file to apply');
+ assert.equal(pem(marked(true)).description, PREPARED_DESCRIPTION); assert.equal(pem(marked(true)).icon, 'edit');
+ assert.equal(flat(marked(true)).filter(n => n.description === PREPARED_DESCRIPTION).length, 1, 'only the accepted item');
+ assert.ok(marked(true)[0]!.description!.includes('1 file with unsaved prepared changes'));
+ assert.equal(pem(marked(false)).description, 'Kiro may read this · rule prepared (unsaved)'); assert.equal(pem(marked(false)).icon, 'key');
+ assert.ok(!marked(false)[0]!.description?.includes('unsaved prepared'));
+ assert.equal(unsavedFilesText(3), '3 files with unsaved prepared changes');
+ assert.ok(IGNORE_USE_NOTE.includes('listed in Agent Ignore Files'));
 });
