@@ -425,8 +425,9 @@ test('group commands trust nothing the argument carries: forged, stale, wrong-ki
  for (const forged of [undefined, null, 5, {}, { id: 'config:g:load:0' }, 'config:g:load:0', { id: { toString: () => 'x' } }]) { await load(forged); await run(forged); }
  await load(groupNode(s, 'config-group-run')); await run(groupNode(s, 'config-group-load')); await load(s.node('S1')); // the wrong group or an item
  assert.deepEqual([s.log.opened.length, s.log.edits.length, s.log.messages.length], [0, 0, 0]);
- const old = groupNode(s, 'config-group-load'); await s.run(); await load(old);
- assert.deepEqual([s.log.opened.length, s.log.edits.length], [0, 0], 'a group from before the last review is stale');
+ const old = groupNode(s, 'config-group-load'), oldRun = groupNode(s, 'config-group-run'); await s.run(); await load(old); await run(oldRun); await load({ ...old }); await run({ ...oldRun });
+ assert.deepEqual([s.log.opened.length, s.log.edits.length], [0, 0], 'a group from before the last review is stale, also as a copy of the element');
+ await load(groupNode(s, 'config-group-load')); assert.equal(s.log.edits.length, 1, 'the current group of the same id still works'); s.log.edits.length = 0; s.docs.clear(); s.log.opened.length = 0; s.log.messages.length = 0;
  s.state.trusted = false; await load(groupNode(s, 'config-group-load'));
  assert.deepEqual([s.log.opened.length, s.log.edits.length, s.log.messages.at(-1)], [0, 0, APPLY_TEXT.untrusted]);
  s.state.trusted = true; s.workspace.workspaceFolders = [{ ...s.folder, uri: { scheme: 'file', fsPath: join(root, 'elsewhere') } }];

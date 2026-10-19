@@ -157,13 +157,15 @@ export interface PreparedFiles {
  dispose(): void;
 }
 const MAX_PREPARED = 500;
-export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Platform = process.platform): PreparedFiles {
- const ci = platform === 'darwin' || platform === 'win32', paths = new Map<string, string>(), listeners: ((path: string, event: PreparedEvent) => void)[] = [];
+const REVERT_WAIT_MS = 500;
+export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Platform = process.platform, revertWaitMs = REVERT_WAIT_MS): PreparedFiles {
+ const ci = platform === 'darwin' || platform === 'win32', paths = new Map<string, string>(), listeners: ((path: string, event: PreparedEvent) => void)[] = [], waiting = new Map<string, ReturnType<typeof setTimeout>>();
  const keyOf = (path: string): string => ci ? path.toLowerCase() : path;
  const emit = (path: string, event: PreparedEvent): void => { for (const listener of listeners) { try { listener(path, event); } catch { /* a listener never affects the tracking */ } } };
  const forget = (document: vscode.TextDocument, event: PreparedEvent): void => {
   if (document.uri.scheme !== 'file') return;
-  const key = keyOf(document.uri.fsPath), path = paths.get(key);
+  const key = keyOf(document.uri.fsPath), path = paths.get(key), timer = waiting.get(key);
+  if (timer !== undefined) { clearTimeout(timer); waiting.delete(key); }
   if (path === undefined) return;
   paths.delete(key); emit(path, event);
  };
@@ -172,11 +174,16 @@ export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Plat
  try {
   if (ws.onDidSaveTextDocument) subscriptions.push(ws.onDidSaveTextDocument(document => forget(document, 'saved')));
   if (ws.onDidCloseTextDocument) subscriptions.push(ws.onDidCloseTextDocument(document => forget(document, 'cleared')));
-  // A revert (or undoing every change) leaves the document clean without a save. The editor reports the clean state just before a save, so the check waits one tick and the save wins.
+  // A revert (or undoing every change) leaves the document clean without a save. The editor reports the clean state and the save as separate messages, so a clean document is only treated as reverted
+  // when no save follows within a short wait (a save cancels it); typing again cancels it too.
   if (ws.onDidChangeTextDocument) subscriptions.push(ws.onDidChangeTextDocument(event => {
    const document = event.document;
-   if (document.uri.scheme !== 'file' || document.isDirty || !paths.has(keyOf(document.uri.fsPath))) return;
-   queueMicrotask(() => { if (!document.isDirty) forget(document, 'cleared'); });
+   if (document.uri.scheme !== 'file') return;
+   const key = keyOf(document.uri.fsPath), timer = waiting.get(key);
+   if (document.isDirty) { if (timer !== undefined) { clearTimeout(timer); waiting.delete(key); } return; }
+   if (!paths.has(key) || timer !== undefined) return;
+   const handle = setTimeout(() => { waiting.delete(key); if (!document.isDirty) forget(document, 'cleared'); }, revertWaitMs);
+   handle.unref?.(); waiting.set(key, handle);
   }));
  } catch { /* without the events nothing is marked as prepared */ }
  return {
@@ -191,6 +198,6 @@ export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Plat
   has: path => paths.has(keyOf(path)),
   count: () => paths.size,
   subscribe(listener) { listeners.push(listener); },
-  dispose() { for (const s of subscriptions) { try { s.dispose(); } catch { /* already gone */ } } subscriptions.length = 0; paths.clear(); listeners.length = 0; },
+  dispose() { for (const t of waiting.values()) clearTimeout(t); waiting.clear(); for (const s of subscriptions) { try { s.dispose(); } catch { /* already gone */ } } subscriptions.length = 0; paths.clear(); listeners.length = 0; },
  };
 }

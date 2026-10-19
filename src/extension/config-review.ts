@@ -35,7 +35,7 @@ const defaultTimers: Timers = { now: Date.now, set(fn, ms) { const t = setTimeou
 export function registerConfigReview(context: vscode.ExtensionContext, editor: typeof vscode, folderCheck: FolderCheck, refresh: () => void, options: Options = {}): ConfigReviewLink {
  const reviewer = options.reviewer ?? createConfigReviewer(), timers = options.timers ?? defaultTimers;
  const platform = options.platform ?? process.platform, ci = platform === 'darwin' || platform === 'win32';
- let nodes = configTree(), summary = configSummary(), disposed = false, running = false, abort: AbortController | undefined;
+ let nodes = configTree(), summary = configSummary(), disposed = false, running = false, followUp = false, abort: AbortController | undefined;
  let current: ConfigReview | undefined, generation = 0;
  // Automatic mode, in memory only: the in-flight automatic run, the watcher generation, dirty roots (by index) and notice state.
  let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false, resync = false;
@@ -164,7 +164,8 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
  };
  // `quiet` is the re-check after the user saved a file Cyclegauge prepared: the same run, without taking focus or making the one-time offer.
  const review = async (quiet: boolean): Promise<void> => {
-  if (disposed || running) return;
+  if (disposed) return;
+  if (running) { if (quiet) followUp = true; return; } // a save during a running review is answered by exactly one more quiet review
   running = true;
   let shown = false;
   // A manual run wins: an automatic run is aborted and awaited, pending triggers and dirty flags are cleared, and it never counts toward the cap.
@@ -179,7 +180,10 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   } catch {
    if (disposed || controller.signal.aborted) return;
    failed();
-  } finally { running = false; if (abort === controller) abort = undefined; }
+  } finally {
+   running = false; if (abort === controller) abort = undefined;
+   if (followUp && !disposed && editor.workspace.isTrusted) { followUp = false; void review(true).catch(() => undefined); }
+  }
   if (shown && !quiet) void offer();
  };
  const run = (): Promise<void> => review(false);
@@ -262,7 +266,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   if (ws.onDidChangeWorkspaceFolders) registrations.push(ws.onDidChangeWorkspaceFolders(() => sync()));
   if (ws.onDidGrantWorkspaceTrust) registrations.push(ws.onDidGrantWorkspaceTrust(() => sync()));
   context.subscriptions.push(...registrations,{dispose(){
-   disposed=true; abort?.abort(); auto?.controller.abort(); scheduler.dispose(); watchGeneration++;
+   disposed=true; followUp=false; abort?.abort(); auto?.controller.abort(); scheduler.dispose(); watchGeneration++;
    for (const w of watchers) { try { w.dispose(); } catch { /* already gone */ } }
    watchers=[]; dirty.clear(); current=undefined; drawn=undefined; nodes=configTree(); summary=configSummary();
   }});
