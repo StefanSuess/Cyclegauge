@@ -93,8 +93,8 @@ test('model hint: once per model per run, across sessions; Auto, unlisted and ro
 test('wording: fixed texts with the rounded percentage, local time, table name and date; never the raw identifier', () => {
  const asOf = Date.parse('2026-10-18T10:15:00Z'), hm = clock(asOf);
  assert.match(hm, /^\d\d:\d\d$/);
- assert.equal(contextText(70, 71.6, asOf), `Your most recent Kiro session in this workspace was about 72 % full as of ${hm}. Kiro may compact it soon; consider starting a new session for unrelated work.`);
- assert.equal(contextText(85, 100, asOf), `Your most recent Kiro session in this workspace was about 100 % full as of ${hm}, close to its limit.`);
+ assert.equal(contextText(70, 71.6, asOf), `Your most recent Kiro session in this workspace was about 72% full as of ${hm}. Kiro may compact it soon; consider starting a new session for unrelated work.`);
+ assert.equal(contextText(85, 100, asOf), `Your most recent Kiro session in this workspace was about 100% full as of ${hm}, close to its limit.`);
  const now = Date.parse('2026-10-20T00:00:00Z');
  assert.equal(hintText(modelHint('claude-sonnet-4.5', now)!, asOf), `Your most recent Kiro session in this workspace is set to Claude Sonnet 4.5 as of ${hm}. Kiro lists it at about 1.3x the credits of Auto (Kiro model table, as of 2026-10-18); actual credits per task vary.`);
  const luna = hintText(modelHint('gpt-5.6-sol', now)!, asOf); assert.match(luna, /Kiro lists it from about 4\.4x the credits of Auto \(Kiro model table, as of 2026-10-18\)/);

@@ -32,10 +32,10 @@ are not a guarantee about every installer. You can also omit `--open` to prepare
 
 | Check | Expected on macOS/Linux |
 | --- | --- |
-| Run **Cyclegauge: Show Account Credits**; click the budget status bar item | Both open **Your credit budget**, with a usage chart |
+| Run **Cyclegauge: Show Credit Budget**; click the budget status bar item | Both open **Your credit budget**, with a usage chart |
 | Compare with the numbers printed by setup | Limit **5000**, matching used/remaining credits, a fresh observation and next UTC-month reset |
 | Read the forecast | **Regular** estimate; invented consumption is **20 credits/day** |
-| Run **Cyclegauge: Cost Advisor**; select **Pro Max → Personal subscription (consumer) → No purchased add-on credits** | A conditional, modelled pre-tax USD comparison; expandable details, no guaranteed savings claim |
+| Run **Cyclegauge: Open Cost Advisor**; select **Pro Max → Personal subscription (consumer) → No purchased add-on credits** | A conditional, modelled pre-tax USD comparison; expandable details, no guaranteed savings claim |
 | Cancel an Advisor question, then **Clear my answers**, then **Developer: Reload Window** | Cancel preserves answers; clear/reload removes them; usage/history stays unchanged |
 
 **Windows:** the same checks apply. The demo's chosen storage folder is verified with an owner-only permission

@@ -112,16 +112,18 @@ export function decideBudgetNotice(i: BudgetInput): BudgetNotice | null {
   // Projected overage, only with a validated price: appended to the notices that say the limit is reached.
   const over = selected && f.tier === 'regular' && selected.projectedUsageAtReset ? overageOver(selected.projectedUsageAtReset, o.baseLimit, i.now) : null;
   const larger = i.insights?.larger ? ` ${largerPlanText(i.insights.larger, true)}` : '';
-  const cost = over?.money ? ` If you continue at this pace: about ${creditsText(over.credits)} credits over the limit ≈ ${moneyText(over)} by the reset, at $${over.pricePerCredit} per credit (price list reviewed ${dayText(over.reviewedOn!)}; modelled, not an invoice; whether overage applies depends on your plan and settings).${larger}` : '';
+  // Short on purpose: the price, price-list date and caveats stay on the dashboard, reached by the notice's Show details button.
+  const cost = over?.money ? ` (about ${moneyText(over)} over the limit, modelled)` : '', comparison = over?.money ? larger : '';
+  const limitCost = over?.money ? ` (at this pace about ${moneyText(over)} over the limit by the reset, modelled)` : '';
   let text: string;
   if (shown === 'rightsize') {
    text = rightSizeText(i.insights!.rightsize!);
   } else if (shown === 'forecast') {
-    text = `At this pace your Kiro credits run out on ${dayText(day!)}, ${daysBefore === 0 ? 'on the day of the reset' : `${plural(daysBefore!, 'day')} before the reset`}.${cost}`;
+    text = `At this pace your Kiro credits run out on ${date(day!)}, ${daysBefore === 0 ? 'on the day of the reset' : `${plural(daysBefore!, 'day')} before the reset`}${cost}.${comparison}`;
   } else if (shown === 'percent') {
     text = `You have used ${sharePercent(o.usage, o.baseLimit)}% of your reported Kiro credits (${used} of ${limit})${resetPart}.`;
   } else {
-    text = `You have reached the reported Kiro credit limit (${used} of ${limit})${resetPart}.${cost}`;
+    text = `You have reached the reported Kiro credit limit (${used} of ${limit})${resetPart}${limitCost}.${comparison}`;
   }
   return { kind: shown, text, state: next };
  } catch { return null; }

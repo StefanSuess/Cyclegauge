@@ -12,7 +12,7 @@ import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type Support
 import { configSummary, reviewTree, type ConfigNode, type ViewNode } from './config-model.ts';
 import { createPreparedFiles, preparedText } from './config-apply.ts';
 import { readConfigReviewMode } from './config-schedule.ts';
-import { IGNORE_USE_NOTE, MAX_DISMISSED, OPEN_SETTING, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, ignoreNotEffective, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
+import { IGNORE_USE_NOTE, MAX_DISMISSED, OPEN_SETTING, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, findingsToast, ignoreNotEffective, isHash, countFindings, kiroignoreAppend, revealTarget, sizePhrase, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, REPORT_PROBLEM_ACTION, REPORT_PROBLEM_URL, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
@@ -68,9 +68,10 @@ async function showAndCopyDiagnostics(): Promise<void> {
 }
 // Cyclegauge's own fixed-text error notification with a Report a problem button. Not awaited: the notification resolves only when dismissed.
 // The diagnostics failure messages deliberately offer no button, so a failing report can never loop back into itself.
+const REPORT_HINT = 'You can report it with the button below.';
 function showReportableError(text: string): void {
  try {
-  void Promise.resolve(vscode.window.showErrorMessage(text, REPORT_PROBLEM_ACTION))
+  void Promise.resolve(vscode.window.showErrorMessage(`${text} ${REPORT_HINT}`, REPORT_PROBLEM_ACTION))
    .then(choice => choice === REPORT_PROBLEM_ACTION ? vscode.commands.executeCommand(commandId('reportProblem')) : undefined)
    .catch(() => undefined);
  } catch { /* nothing more to report */ }
@@ -104,6 +105,7 @@ const LAST_KEY = 'cyclegauge.audit.last.v1';
 const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
 const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
 const REMINDER_DELAY_MS = 30_000;
+const MANAGE_TRUST = 'Manage Workspace Trust';
 const RECHECK_DELAY_MS = 1_000; // coalesces a burst of saves or setting changes into one re-check
 const WATCH_DELAY_MS = 5_000; // a build or checkout creating many matching files leads to one re-check after it settles
 const WATCH_MAX_WAIT_MS = 60_000;
@@ -168,7 +170,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  };
  // One counting rule for every message: items the user has not hidden, plus those beyond the listed maximum.
  const counts = (o: AuditResult) => countFindings(visible(), o.omitted);
- const findingsMessage = (o: AuditResult): string => { const { items, unclear } = counts(o); return viewReady ? `${countsText(items, unclear)} — see the Kiro Workspace Audit view.` : `${countsText(items, unclear)}.`; };
+ const findingsMessage = (o: AuditResult): string => { const { items, unclear } = counts(o); return findingsToast(items, unclear, sizePhrase(auditSizeTotal(visible(), o.omitted)), viewReady); };
  const summary = (): AuditSummary => {
   const last = stored(LAST_KEY), lastDate = typeof last === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(last) ? last : undefined;
   if (refused || result?.status === 'unavailable') return { state: 'unavailable', lastDate };
@@ -197,7 +199,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
  // `recheckOf` pins a silent re-check to the folder already checked and keeps its prepared, unsaved Exclude edit.
  const auditOnce = async (silent = false, signal?: AbortSignal, recheckOf?: string): Promise<AuditResult | undefined> => {
-  if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.'); return; }
+  if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) { if (await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.', MANAGE_TRUST) === MANAGE_TRUST) await vscode.commands.executeCommand('workbench.trust.manage'); } return; }
   const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
   if (folders.length === 0) { refused = true; summaryChanged(); if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
   let folder: vscode.WorkspaceFolder | undefined = recheckOf === undefined ? folders[0] : folders.find(f => f.uri.fsPath === recheckOf);
@@ -346,6 +348,8 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
     return;
    }
    let text = 'Cyclegauge can check this workspace for files that may end up in Kiro\'s context.', never = "Don't ask again";
+   // The walkthrough was just opened in this window and offers the same audit: the prompt waits for the next window (nothing is stored).
+   if (due === 'first' && walkthroughOpenedNow) return;
    if (due === 'first') await store(SNOOZE_KEY, addDays(today, days)); // shown at most once per reminder period
    else { const ago = daysBetween(last as string, today); text = `This workspace was last audited ${ago} ${ago === 1 ? 'day' : 'days'} ago.`; never = "Don't remind me"; }
    const choice = await vscode.window.showInformationMessage(text, 'Run audit', 'Later', never);
@@ -585,7 +589,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  register('support.reset', async () => {
   for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY, RECAP_KEY, CONFIG_OFFER_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
-  void Promise.resolve(vscode.window.showInformationMessage('Support prompts reset.')).catch(() => undefined);
+  void Promise.resolve(vscode.window.showInformationMessage('Reminders and saved summary reset.')).catch(() => undefined);
  });
  seen = stored(SUPPORT_VALUE_KEY) === true;
  const kiro = inKiro();
@@ -602,7 +606,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
     if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
     if (disposed) return;
     shown = true;
-    try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. Turn off reminders in Cyclegauge settings.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
+    try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. You can turn these off in Settings › Cyclegauge › Support Prompts.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
     finally { lastPromptAt = Date.now(); }
    } finally { promptOpen = false; }
    if (disposed) return;
@@ -653,7 +657,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
     if (testing || stored(NOT_KIRO_KEY) === true) return;
     void (async () => {
      if (!(await store(NOT_KIRO_KEY, true))) return;
-     if (await vscode.window.showInformationMessage(NOT_KIRO_TEXT, 'Learn about Kiro', 'Got it') === 'Learn about Kiro') open(LINKS.kiro);
+     if (await vscode.window.showInformationMessage(NOT_KIRO_TEXT, 'Run workspace audit', 'Got it') === 'Run workspace audit') await vscode.commands.executeCommand(commandId('auditWorkspace'));
     })().catch(() => undefined);
    } catch { /* fixed and silent */ }
   },
@@ -664,6 +668,8 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
 // synchronously, before the support prompts store their own first-use date. Every failure is swallowed (the editor may not support walkthroughs): nothing here may affect the gauge.
 const WALKTHROUGH_KEY = 'cyclegauge.walkthrough.shown.v1';
 const WALKTHROUGH_ID = 'StefanSuess.cyclegauge#cyclegauge.gettingStarted';
+// True once this window opened the walkthrough by itself; the first-time audit prompt then waits for a later window.
+let walkthroughOpenedNow = false;
 function registerWalkthrough(context: vscode.ExtensionContext): void {
  const open = async (): Promise<void> => { try { await vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID); } catch { /* the editor may not support walkthroughs */ } };
  context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'gettingStarted', open));
@@ -678,13 +684,14 @@ function registerWalkthrough(context: vscode.ExtensionContext): void {
  void (async () => {
   try {
    await context.globalState.update(WALKTHROUGH_KEY, true);
-   if (!existing) await open();
+   if (!existing) { walkthroughOpenedNow = true; await open(); }
   } catch { /* fixed and silent */ }
  })();
 }
 // Budget warning: at most one notice per window, in Kiro only and never in the extension tests. The cycle and the kinds already shown are the only
 // state (one global-state key); it is written before the notice is shown, and a failed write means no notice. Every failure is swallowed.
 const BUDGET_KEY = 'cyclegauge.budgetWarning.v1';
+const TURN_OFF_BUDGET = 'Turn off budget notices'; // turns off every kind of budget notice, the right-sizing tip included
 interface BudgetLink { evaluate(observation: ReturnType<typeof view>, eligible: boolean, now: string, insights: PlanInsights): void }
 function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void): BudgetLink {
  let disposed = false, busy = false;
@@ -707,16 +714,16 @@ function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void
      if (disposed) return;
      kept = true; // this window has shown its one notice
      try { beforeShow(); } catch { /* nothing else depends on it */ }
-     const choice = await vscode.window.showInformationMessage(due.text, 'Show details', 'Turn off');
+     const choice = await vscode.window.showInformationMessage(due.text, 'Show details', TURN_OFF_BUDGET);
      if (choice === 'Show details') await vscode.commands.executeCommand(commandId('showUsage'));
-     else if (choice === 'Turn off') await vscode.workspace.getConfiguration(ID_PREFIX).update('budgetWarnings', false, vscode.ConfigurationTarget.Global);
+     else if (choice === TURN_OFF_BUDGET) await vscode.workspace.getConfiguration(ID_PREFIX).update('budgetWarnings', false, vscode.ConfigurationTarget.Global);
     } catch { /* fixed and silent */ } finally { if (!kept) busy = false; }
    })();
   },
  };
 }
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
- gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined;
+ gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined; walkthroughOpenedNow = false;
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
 async function startGauge(context: vscode.ExtensionContext): Promise<void> {
@@ -824,7 +831,9 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   context.subscriptions.push({ dispose: controller.dispose });
  } catch {
   gaugeState.gauge = 'failed_to_start';
-  item.text = '$(warning) Kiro: unavailable';
+  item.text = '$(warning) Kiro: Unavailable';
+  item.tooltip = 'Cyclegauge could not start. Click to report a problem.';
+  item.command = commandId('reportProblem');
   context.subscriptions.push(...disposables);
  }
 }

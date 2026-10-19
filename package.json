@@ -44,16 +44,16 @@
     "commands": [
       {
         "command": "cyclegauge.showUsage",
-        "title": "Cyclegauge: Show Account Credits"
+        "title": "Cyclegauge: Show Credit Budget"
       },
       {
         "command": "cyclegauge.costAdvisor",
-        "title": "Cyclegauge: Cost Advisor",
+        "title": "Cyclegauge: Open Cost Advisor",
         "icon": "$(lightbulb)"
       },
       {
         "command": "cyclegauge.auditWorkspace",
-        "title": "Cyclegauge: Audit Kiro Workspace",
+        "title": "Cyclegauge: Run Workspace Audit",
         "icon": "$(refresh)"
       },
       {
@@ -63,13 +63,13 @@
       },
       {
         "command": "cyclegauge.config.loadWhenNeeded",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Load only when needed…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.config.loadWhenNeededAll",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Load only when needed…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.config.narrowPattern",
@@ -78,17 +78,17 @@
       },
       {
         "command": "cyclegauge.config.runManually",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Run only manually…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.config.runManuallyAll",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Run only manually…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.config.disable",
-        "title": "Disable",
+        "title": "Disable hook",
         "icon": "$(circle-slash)"
       },
       {
@@ -99,7 +99,7 @@
       {
         "command": "cyclegauge.config.preview",
         "title": "Show suggestion",
-        "icon": "$(lightbulb)"
+        "icon": "$(info)"
       },
       {
         "command": "cyclegauge.copyDiagnostics",
@@ -111,13 +111,13 @@
       },
       {
         "command": "cyclegauge.audit.accept",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Exclude from Kiro…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.audit.dismiss",
-        "title": "Not a problem",
-        "icon": "$(close)"
+        "title": "Hide this item",
+        "icon": "$(eye-closed)"
       },
       {
         "command": "cyclegauge.audit.reveal",
@@ -126,8 +126,8 @@
       },
       {
         "command": "cyclegauge.audit.acceptAll",
-        "title": "Review changes…",
-        "icon": "$(check)"
+        "title": "Exclude from Kiro…",
+        "icon": "$(diff)"
       },
       {
         "command": "cyclegauge.audit.copy",
@@ -142,19 +142,19 @@
       },
       {
         "command": "cyclegauge.audit.show",
-        "title": "Cyclegauge: Show Workspace Audit"
+        "title": "Cyclegauge: Show Workspace Audit Results"
       },
       {
         "command": "cyclegauge.audit.resetReminder",
-        "title": "Cyclegauge: Reset workspace audit reminder"
+        "title": "Cyclegauge: Reset Workspace Audit Reminder"
       },
       {
         "command": "cyclegauge.share",
-        "title": "Cyclegauge: Share Cyclegauge"
+        "title": "Cyclegauge: Copy Share Link"
       },
       {
         "command": "cyclegauge.support.reset",
-        "title": "Cyclegauge: Reset Support Prompts and Summary"
+        "title": "Cyclegauge: Reset Reminders and Saved Summary"
       },
       {
         "command": "cyclegauge.gettingStarted",
@@ -170,33 +170,37 @@
           {
             "id": "cyclegauge.gettingStarted.credits",
             "title": "See your Kiro credits",
-            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. Open the credit view for the details.\n[Show my credits](command:cyclegauge.showUsage)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. A forecast appears after a few days of usage; just keep working in Kiro.\n[Show credit budget](command:cyclegauge.showUsage)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge status bar item and credit budget" },
+            "completionEvents": ["onCommand:cyclegauge.showUsage"]
           },
           {
             "id": "cyclegauge.gettingStarted.audit",
             "title": "Find files Kiro doesn't need",
-            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Check this workspace](command:cyclegauge.auditWorkspace)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" },
+            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Workspace Audit view in the Explorer" },
             "completionEvents": ["onCommand:cyclegauge.auditWorkspace"]
+          },
+          {
+            "id": "cyclegauge.gettingStarted.savings",
+            "title": "Find ways to use fewer credits",
+            "description": "The Cost Advisor compares plans and models against your usage. The Steering and Hooks review shows context and automation that add credits on every request.\n[Open Cost Advisor](command:cyclegauge.costAdvisor)\n[Review Steering and Hooks](command:cyclegauge.reviewKiroConfig)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cost Advisor and Steering and Hooks review" },
+            "completionEvents": ["onCommand:cyclegauge.costAdvisor", "onCommand:cyclegauge.reviewKiroConfig"]
           },
           {
             "id": "cyclegauge.gettingStarted.budget",
             "title": "Get warned before credits run out",
-            "description": "Cyclegauge can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22cyclegauge.budget%22%5D)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
-          },
-          {
-            "id": "cyclegauge.gettingStarted.forecast",
-            "title": "When the forecast appears",
-            "description": "Cyclegauge learns from your usage over time. A provisional estimate needs about 2 days and 3 updates, a regular forecast 7 days and 8 updates. Nothing to do: keep working in Kiro.",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+            "description": "Cyclegauge can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22cyclegauge.budgetWarnings%22%5D)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Budget notice settings" },
+            "completionEvents": ["onStepSelected"]
           },
           {
             "id": "cyclegauge.gettingStarted.sessionHints",
-            "title": "Hints from your latest Kiro session",
-            "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), Cyclegauge tells you when your most recent Kiro session in this workspace is nearly full, or set to a model Kiro lists above Auto's credit rate. To find the newest session of your folder it parses up to 20 recently changed sessions' session.json files (including titles and workspace paths) in memory on your computer, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time; nothing is stored or sent. It is on by default; you can turn it off in the settings.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge icon" }
+            "title": "Nudges from your latest Kiro session",
+            "description": "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Verified on macOS; Windows and Linux are untested.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md)",
+            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Session hint settings" },
+            "completionEvents": ["onStepSelected"]
           }
         ]
       }
@@ -205,85 +209,35 @@
       "explorer": [
         {
           "id": "cyclegauge.auditView",
-          "name": "Kiro Workspace Audit"
+          "name": "Workspace Audit"
         }
       ]
     },
     "viewsWelcome": [
       {
         "view": "cyclegauge.auditView",
-        "contents": "Check which files in this workspace Kiro can read but probably doesn't need — like secrets, database dumps or build output — and which Steering and Hooks add avoidable context or credit use. Cyclegauge suggests changes; nothing changes until you save.\n[Check workspace](command:cyclegauge.auditWorkspace)"
+        "contents": "Find files in this workspace that Kiro can read but probably doesn't need, like secrets, database dumps or build output, and Steering and Hooks that add avoidable context or credit use. Cyclegauge suggests changes; nothing changes until you save.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
+        "when": "workspaceFolderCount > 0 && isWorkspaceTrusted"
+      },
+      {
+        "view": "cyclegauge.auditView",
+        "contents": "Open a folder to check which of its files Kiro can read.\n[Open Folder](command:workbench.action.files.openFolder)",
+        "when": "workspaceFolderCount == 0"
+      },
+      {
+        "view": "cyclegauge.auditView",
+        "contents": "Cyclegauge audits only trusted workspaces.\n[Manage Workspace Trust](command:workbench.trust.manage)",
+        "when": "workspaceFolderCount > 0 && !isWorkspaceTrusted"
       }
     ],
     "configuration": {
       "title": "Cyclegauge",
       "properties": {
-        "cyclegauge.sourceRoot": {
-          "type": "string",
-          "default": "",
-          "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
-          "scope": "machine"
-        },
-        "cyclegauge.storageRoot": {
-          "type": "string",
-          "default": "",
-          "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
-          "scope": "machine"
-        },
-        "cyclegauge.sourceTimezone": {
-          "type": "string",
-          "default": "",
-          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone.",
-          "scope": "machine"
-        },
-        "cyclegauge.auditReminderDays": {
-          "type": "number",
-          "default": 30,
-          "minimum": 0,
-          "maximum": 365,
-          "description": "Remind you to audit a workspace after this many days. 0 turns reminders off.",
-          "scope": "application"
-        },
-        "cyclegauge.auditAutomatically": {
-          "type": "string",
-          "default": "off",
-          "enum": ["off", "onOpen", "onOpenAndChanges"],
-          "enumDescriptions": [
-            "Only remind you; never run the audit by itself.",
-            "When a trusted workspace opens, re-run an audit that is more than one day old.",
-            "As onOpen, and re-check when a file matching the audit's own name patterns appears (notifies at most once a day, only for new secret files)."
-          ],
-          "description": "Run the workspace audit automatically in trusted workspaces (same limits; nothing is written or sent). The earlier value true means onOpen.",
-          "scope": "application"
-        },
-        "cyclegauge.supportPrompts": {
-          "type": "boolean",
-          "default": true,
-          "description": "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap. Also covers one-time feature offers, such as turning on the automatic Kiro Steering and Hooks review.",
-          "scope": "application"
-        },
-        "cyclegauge.configReviewAutomatically": {
-          "type": "string",
-          "default": "off",
-          "enum": ["off", "onOpen", "onOpenAndChanges"],
-          "enumDescriptions": [
-            "Only when you run Cyclegauge: Review Kiro Steering and Hooks.",
-            "Once per window, shortly after a trusted workspace opens.",
-            "As onOpen, and again after AGENTS.md, .kiro/steering/*.md or .kiro/hooks/*.json change (a notice only for a kind of finding not yet seen in this window)."
-          ],
-          "description": "Review Kiro Steering and Hooks automatically in trusted local workspaces. Uses the same bounded reads as the manual review and reads nothing else; nothing is written or sent. Only your user setting counts.",
-          "scope": "application"
-        },
         "cyclegauge.budgetWarnings": {
           "type": "boolean",
           "default": true,
-          "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, or when usage passes the percent below or reaches the limit (each at most once per billing cycle).",
-          "scope": "application"
-        },
-        "cyclegauge.sessionHints": {
-          "type": "boolean",
-          "default": true,
-          "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
+          "order": 1,
+          "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, when usage passes the percent below or reaches the limit, and, near the end of a cycle, when a smaller plan would likely fit (a right-sizing tip). Each kind is shown at most once per billing cycle. The Turn off budget notices button on a notice turns off all of these.",
           "scope": "application"
         },
         "cyclegauge.budgetWarningPercent": {
@@ -291,8 +245,81 @@
           "default": 80,
           "minimum": 0,
           "maximum": 100,
+          "order": 2,
           "description": "Show a budget notice once you have used this percent of your reported Kiro credits. 0 turns this notice off.",
           "scope": "application"
+        },
+        "cyclegauge.sessionHints": {
+          "type": "boolean",
+          "default": true,
+          "order": 3,
+          "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full or set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
+          "scope": "application"
+        },
+        "cyclegauge.auditReminderDays": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "maximum": 365,
+          "order": 4,
+          "description": "Remind you to run the workspace audit after this many days. 0 turns reminders off.",
+          "scope": "application"
+        },
+        "cyclegauge.auditAutomatically": {
+          "type": "string",
+          "default": "off",
+          "enum": ["off", "onOpen", "onOpenAndChanges"],
+          "enumItemLabels": ["Off", "On open", "On open and on changes"],
+          "enumDescriptions": [
+            "Only remind you; never run the audit by itself.",
+            "When a trusted workspace opens, run the audit again if the last one is more than a day old.",
+            "Also re-check when a new file matching the audit's own name patterns appears. Notifies at most once a day, and only for new secret files."
+          ],
+          "order": 5,
+          "description": "Run the workspace audit automatically in trusted workspaces (same limits; nothing is written or sent).",
+          "scope": "application"
+        },
+        "cyclegauge.configReviewAutomatically": {
+          "type": "string",
+          "default": "off",
+          "enum": ["off", "onOpen", "onOpenAndChanges"],
+          "enumItemLabels": ["Off", "On open", "On open and on changes"],
+          "enumDescriptions": [
+            "Only when you run Cyclegauge: Review Kiro Steering and Hooks.",
+            "Once per window, shortly after a trusted workspace opens.",
+            "Also again after AGENTS.md, .kiro/steering/*.md or .kiro/hooks/*.json change. Notifies only for a kind of finding not yet seen in this window."
+          ],
+          "order": 6,
+          "description": "Review Kiro Steering and Hooks automatically in trusted local workspaces. Uses the same bounded reads as the manual review and reads nothing else; nothing is written or sent. Only your user setting counts.",
+          "scope": "application"
+        },
+        "cyclegauge.supportPrompts": {
+          "type": "boolean",
+          "default": true,
+          "order": 7,
+          "description": "Controls Cyclegauge's occasional suggestions: the reminder to rate or support Cyclegauge, the one-time offer to turn on the automatic Steering and Hooks review, opening the getting-started walkthrough on first use, and the Open VSX link line on the shareable cycle recap. Turn it off to see none of these. It does not affect budget notices, session hints or audit reminders; they have their own settings.",
+          "scope": "application"
+        },
+        "cyclegauge.sourceRoot": {
+          "type": "string",
+          "default": "",
+          "order": 8,
+          "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
+          "scope": "machine"
+        },
+        "cyclegauge.storageRoot": {
+          "type": "string",
+          "default": "",
+          "order": 9,
+          "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
+          "scope": "machine"
+        },
+        "cyclegauge.sourceTimezone": {
+          "type": "string",
+          "default": "",
+          "order": 10,
+          "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone.",
+          "scope": "machine"
         }
       }
     },
@@ -495,6 +522,14 @@
         },
         {
           "command": "cyclegauge.config.preview",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.audit.copy",
+          "when": "false"
+        },
+        {
+          "command": "cyclegauge.audit.clearDismissed",
           "when": "false"
         }
       ]

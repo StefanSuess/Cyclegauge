@@ -9,7 +9,7 @@ export const CONFIG_EXCLUSIONS = 'Global Steering and Hooks in your home folder,
 const CLI_NOTE = 'Kiro CLI V1/V2 loads only always-included files automatically.';
 const PREVIEW_HEADER = '# Suggested by Cyclegauge - review before saving; nothing was changed';
 const MANUAL = '---\ninclusion: manual\n---\n\nThis is a preview, not a replacement for the existing file.\nFor fileMatch, choose a pattern for the files it applies to.\nFor auto, write a name and a description.\n' + CLI_NOTE;
-const EDIT_NOTE = 'Review changes… shows the edit in a preview you can accept or discard, then leaves it unsaved in the file for you to review and save. Cyclegauge writes nothing itself.';
+const EDIT_NOTE = 'The action shows the edit in a change preview you can accept or discard, then leaves it unsaved in the file for you to review and save. Cyclegauge writes nothing itself.';
 const OPEN_NOTE = 'The action opens the file or selects the value for you to edit. Cyclegauge writes nothing itself.';
 /** Apply actions (approved 2026-10-18). Each prepares an unsaved edit in the real file, or only opens it; Cyclegauge writes nothing itself. */
 export type ConfigApplyAction = 'loadWhenNeeded' | 'narrowPattern' | 'runManually' | 'disable' | 'open';
@@ -34,7 +34,7 @@ const NOT_CHECKED: Record<NotCheckedCode, string> = {
  fm_unrecognised: 'Steering front matter was not recognised.', json_invalid: 'Hook JSON could not be parsed.', schema_unknown: 'Hook files have an unknown schema version.', trigger_unknown: 'A hook trigger was not recognised.', field_unrecognised: 'A configuration field was not recognised.',
  limit_files: 'The file limit was reached.', limit_hooks: 'The hook limit was reached.', limit_roots: 'The root limit was reached; at most 8 local folders are checked.', limit_bytes: 'The read-byte limit was reached.', limit_time: 'The review time limit was reached.', cancelled: 'The review was cancelled.',
 };
-const TITLES: Record<FindingId, string> = { S1: 'Large always-included Steering', S2: 'Large AGENTS.md', S3: 'Combined always-included context', S4: 'Steering effectively always included', H1: 'Agent work on file changes', H2: 'Agent work on tool use', H3: 'Agent hook information', H4: 'Large agent prompt', H5: 'Hooks may overlap' };
+const TITLES: Record<FindingId, string> = { S1: 'Large Steering file is always included', S2: 'Large AGENTS.md is always included', S3: 'Always-included files add up', S4: 'Steering file matches every file', H1: 'Hook runs on every file change', H2: 'Hook runs on every tool use', H3: 'Hook runs on every prompt or stop', H4: 'Hook has a large prompt', H5: 'Hooks may overlap' };
 const WHY: Record<FindingId, string> = {
  S1: 'Kiro includes this Steering file with every interaction. A large file may add unnecessary context.',
  S2: 'Kiro always includes AGENTS.md and it has no inclusion modes. Detailed sections may fit better in focused Steering files.',
@@ -76,17 +76,17 @@ const ALT: Record<FindingId, string> = {
  S2: 'Alternative: move detailed sections into focused Steering files with manual or fileMatch inclusion.',
  S3: 'Alternative: review narrower inclusion for the listed files, or split large files.',
  S4: 'Narrow the pattern selects the value so you can type the files it should apply to. Alternative: load the file only when needed (inclusion: manual).',
- H1: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: narrow the matcher, use a shell command action (Kiro documents that command actions do not use credits), or Disable.',
- H2: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: narrow the matcher, use a shell command action (Kiro documents that command actions do not use credits), or Disable.',
- H3: 'Optional: Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: use a shell command action (Kiro documents that command actions do not use credits), or Disable.',
- H4: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: keep the prompt shorter, use a shell command action, or Disable.',
+ H1: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: narrow the matcher, use a shell command action (Kiro documents that command actions do not use credits), or disable the hook.',
+ H2: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: narrow the matcher, use a shell command action (Kiro documents that command actions do not use credits), or disable the hook.',
+ H3: 'Optional: Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: use a shell command action (Kiro documents that command actions do not use credits), or disable the hook.',
+ H4: 'Run only manually sets trigger: Manual, so the hook runs only when you start it. Alternatives: keep the prompt shorter, use a shell command action, or disable the hook.',
  H5: 'Alternative: keep the automation you need and narrow or disable the redundant hook.',
 };
 const RUN_WHEN: Partial<Record<FindingId, string>> = { H1: 'on every matching file change', H2: 'on every matching tool use', H3: 'whenever you submit a prompt or the agent stops', H4: 'with a large prompt' };
 /** The annotation of one change in the editor's change preview: the short why and the alternatives. Fixed text and a size only, never a name or a path. */
 export function configAnnotation(action: ConfigApplyAction, finding: Pick<ConfigFinding, 'id' | 'size'>): { label: string; description: string } {
  if (action === 'loadWhenNeeded') return { label: 'Load only when needed', description: `Always-included Steering is added to every request${finding.size === undefined ? '' : ` (${formatSize(finding.size)})`}. With inclusion: manual Kiro loads it only when you reference it with #. Alternatives: fileMatch for specific files, or split the file.` };
- if (action === 'runManually') return { label: 'Run only manually', description: `This hook starts agent work ${RUN_WHEN[finding.id] ?? 'automatically'}, and each run uses credits. With trigger: Manual it runs only when you start it. Alternatives: narrow the matcher, use a shell command action, or Disable.` };
+ if (action === 'runManually') return { label: 'Run only manually', description: `This hook starts agent work ${RUN_WHEN[finding.id] ?? 'automatically'}, and each run uses credits. With trigger: Manual it runs only when you start it. Alternatives: narrow the matcher, use a shell command action, or disable the hook.` };
  return { label: 'Disable hook', description: 'The hook stays in its file but is turned off (enabled: false). Alternative: Run only manually.' };
 }
 type GroupKey = 'load' | 'run' | 'look';
@@ -94,10 +94,10 @@ type GroupKey = 'load' | 'run' | 'look';
 const groupOf = (id: FindingId): GroupKey => id === 'S1' ? 'load' : id === 'H1' || id === 'H2' || id === 'H3' || id === 'H4' ? 'run' : 'look';
 const GROUPS: Record<GroupKey, { label: string; description: string; tooltip: string; icon: string; context: string }> = {
  load: { label: 'Load only when needed', description: 'Kiro loads the file only when you reference it', icon: 'cloud-download', context: 'config-group-load',
-  tooltip: 'Always-included Steering is added to every request. Review changes… makes a file load only when you reference it with # (inclusion: manual). Alternatives: fileMatch for specific files, or split the file. Nothing changes until you save.' },
+  tooltip: 'Always-included Steering is added to every request. Load only when needed… shows a change preview that makes a file load only when you reference it with # (inclusion: manual). Alternatives: fileMatch for specific files, or split the file. Nothing changes until you save.' },
  run: { label: 'Run only manually', description: 'the hook runs only when you start it', icon: 'play', context: 'config-group-run',
-  tooltip: 'These hooks start agent work automatically, and each run uses credits. Review changes… makes a hook run only when you start it (trigger: Manual). Alternatives: narrow the matcher, use a shell command action, or Disable. Nothing changes until you save.' },
- look: { label: 'Worth a look', description: 'no automatic change', icon: 'lightbulb', context: 'config-group', tooltip: 'Cyclegauge makes no automatic change for these. Open an item for the reason and what you could do.' },
+  tooltip: 'These hooks start agent work automatically, and each run uses credits. Run only manually… shows a change preview that makes a hook run only when you start it (trigger: Manual). Alternatives: narrow the matcher, use a shell command action, or disable the hook. Nothing changes until you save.' },
+ look: { label: 'Worth a look', description: 'no automatic change', icon: 'search', context: 'config-group', tooltip: 'Cyclegauge makes no automatic change for these. Open an item for the reason and what you could do.' },
 };
 /** Largest first (bytes), then the more important notice, then the order of the review. */
 const byImpact = (a: { f: ConfigFinding; i: number }, b: { f: ConfigFinding; i: number }): number => (b.f.size ?? -1) - (a.f.size ?? -1) || Number(b.f.severity === 'notice') - Number(a.f.severity === 'notice') || a.i - b.i;
@@ -113,7 +113,7 @@ function findingNode(review: ConfigReview, f: ConfigFinding, index: number, name
  return node(`config:f:${index}`, `${TITLES[f.id]} · ${ordinal}${suffix}`, {
   description: pending ? PREPARED_DESCRIPTION : [fresh ? 'new this session' : '', names[f.root] === undefined ? '' : escapeText(names[f.root]!), f.size === undefined ? '' : `${f.id === 'S3' ? 'at least' : 'about'} ${formatSize(f.size)}`, applies ? '' : NEXT[f.id]].filter(Boolean).join(' · '),
   tooltip: [TITLES[f.id], ordinal, ...(pending ? ['The change is prepared but not saved. Save the file to apply it.'] : []), WHY[f.id], ALT[f.id], basis, credit, 'Being listed does not mean the setting is wrong.', ...details, ...gaps, ...(applies ? [] : [NEXT[f.id]]), ...(actions.length ? [applies ? EDIT_NOTE : OPEN_NOTE] : []), ...(['S1','S3'].includes(f.id) ? [CLI_NOTE] : [])].join('\n'),
-  icon: pending ? 'edit' : f.severity === 'notice' ? 'lightbulb' : 'info', contextValue: CONTEXT[f.id], finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
+  icon: pending ? 'edit' : 'info', contextValue: CONTEXT[f.id], finding: f, ...(preview ? {action:'previewKiroConfig' as const} : {}),
  });
 }
 /** How a result was produced (automatic mode, section 4.1). `fresh` holds finding indices first seen after this window's first review. In memory only. */
