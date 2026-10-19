@@ -13,35 +13,35 @@ const series=(rate:number,limit='1000',count=8)=>Array.from({length:count},(_,i)
 const render=(rate:number,limit='1000',count=8,now=`2030-06-${String(count).padStart(2,'0')}T00:00:00Z`)=>present(view(series(rate,limit,count),now));
 
 test('status emphasizes daily budget and outlook without repeating balance',()=>{
- const r=render(10);assert.match(r.text,/Kiro: On track • 40\.4\/day/);
+ const r=render(10);assert.equal(r.text,'$(gauge) Kiro credits: On track • 40.4/day');
  assert.ok(!r.text.includes('930'));assert.match(r.tooltip,/Regular forecast/);
- assert.match(r.tooltip,/Daily credit budget until reset: 40\.434782/);
- assert.match(r.html,/Daily credit budget until reset/);assert.match(r.html,/Remaining reported capacity/);
+ assert.match(r.tooltip,/Daily credit budget until reset: 40\.434782 credits per day/);assert.match(r.tooltip,/Observed rate: 10 credits per day/);
+ assert.match(r.html,/Daily budget until reset: 40\.4 per day/);assert.match(r.html,/Credits left/);
  assert.match(r.html,/id="status-heading"/);assert.match(r.html,/Data quality \/ notes/);
  assert.ok(r.html.indexOf('class="stats"')<r.html.indexOf('Observed history'));
 });
 test('regular tight and over-budget states reflect the modeled budget and conditional exhaustion',()=>{
  assert.match(render(10,'321').text,/At risk • 10\.9\/day/);
  assert.match(render(10,'300').text,/At risk/); // Rate equals budget, no exhaustion before reset.
- const r=render(10,'100');assert.match(r.text,/Likely to exceed • empty 11 Jun/);
- assert.equal(r.warning,true);assert.match(r.html,/Estimated to run out on 11 Jun 2030/);
+ const r=render(10,'100');assert.match(r.text,/Likely to exceed • runs out 11 Jun/);
+ assert.equal(r.warning,true);assert.match(r.html,/your credits run out on 11 Jun 2030 \(UTC\), before the reset on 1 Jul/);
  assert.match(r.html,/UTC/);
  assert.match(render(10,'60').text,/Above reported limit/);assert.match(render(10,'70').text,/Reported limit reached/);
- assert.match(render(0).text,/On track/);assert.match(render(0).html,/No exhaustion date at the observed zero rate/);
+ assert.match(render(0).text,/On track/);assert.match(render(0).html,/no run-out date is projected/);
 });
 test('provisional tier remains visible even when the early rate predicts exhaustion',()=>{
  const r=render(10,'1000',3);assert.match(r.text,/Provisional • 35\/day/);
- assert.match(r.html,/Provisional estimate – limited history/);
+ assert.match(r.html,/<span class="tag">Based on limited history<\/span>/);assert.ok(!r.html.includes('Regular forecast</span>'));
  assert.match(r.html,/limited window may not represent future usage/);
- const risk=render(10,'25',3);assert.match(risk.text,/Provisional • empty 3 Jun/);
+ const risk=render(10,'25',3);assert.match(risk.text,/Provisional • runs out 3 Jun/);
  assert.match(risk.tooltip,/Likely to exceed/);assert.equal(risk.warning,true);
 });
 test('collecting, stale and unsafe data never display reassuring outlooks',()=>{
  const collecting=render(10,'1000',1);assert.match(collecting.text,/Collecting data/);
- assert.match(collecting.html,/Forecast not ready yet — more history needed/);
+ assert.match(collecting.html,/Keep using Kiro\. A first estimate appears after about 2 days and 3 account updates; a regular forecast after 7 days\./);
  assert.match(collecting.html,/at least 48 hours/);assert.match(collecting.html,/at least 7 days/);
  const stale=render(10,'1000',8,'2030-06-09T00:00:00.001Z');assert.match(stale.text,/Stale data/);
- assert.match(stale.html,/Forecast paused — stale data/);assert.ok(!stale.text.includes('/day'));
+ assert.match(stale.html,/Forecast paused — the last account update is too old\. Use Kiro for a few minutes to get a fresh one\./);assert.ok(!stale.text.includes('/day'));
  const accounts=series(10);accounts[2].partition='synthetic-other';
  assert.match(present(view(accounts,'2030-06-08T00:00:00Z')).text,/Unavailable/);
  const extras=series(10).map(p=>({...p,flags:['unsupported_extra_credits']}));
@@ -57,15 +57,14 @@ test('presentation preserves exact amounts and private keys stay absent',()=>{
 
 test('headline live region contains only the changing credit figure', () => {
  const html = render(10).html;
- assert.match(html, /<dd id="usage-live" aria-live="polite" aria-atomic="true">70 credits<\/dd>/);
+ assert.match(html, /<dd id="usage-live" aria-live="polite" aria-atomic="true">70<\/dd>/);
  assert.equal((html.match(/aria-live=/g) ?? []).length, 1);
 });
 
 test('static view gives UTC-day pace with observed endpoints and no short-window allocation claim', () => {
  const points = [snapshot('2030-06-08T00:40:00Z', '1.1'), snapshot('2030-06-08T02:50:00Z', '2.223456789')];
  const html = present(view(points, '2030-06-08T02:51:00Z'), [], '', '', undefined, '2030-06-08T02:51:00Z').html;
- assert.match(html, /UTC day so far.*since 00:40 UTC: 1\.123456789 credits over 2 h 10 min/);
- assert.match(html, /as of 2030-06-08T02:50:00\.000Z/);
+ assert.match(html, /<h3>Today \(UTC\)<\/h3><p>Since 00:40 UTC: 1\.123456789 credits over 2 h 10 min, as of 8 Jun 2030, 02:50 UTC\./);
  assert.ok(!html.includes('24-hour allocation as of the last update'));
 });
 
@@ -89,14 +88,15 @@ test('default view is concise and exactly one Advanced details section is collap
   assert.ok(!primary.includes(technical),`${technical} must not be in the primary view`);
   assert.ok(advanced.includes(technical),`${technical} must remain in Advanced details`);
  }
- for(const essential of ['Credits used','Remaining reported capacity','Daily credit budget until reset','status-heading','Usage trajectory','Next reset','Last account update']) assert.ok(primary.includes(essential),essential);
+ for(const essential of ['Credits used','Credits left','Daily budget until reset','status-heading','Usage trajectory','Next reset','Last account update']) assert.ok(primary.includes(essential),essential);
  assert.ok(primary.indexOf('class="stats"')<primary.indexOf('id="usage-chart"'));
  assert.ok(primary.indexOf('id="usage-chart"')<primary.indexOf('id="cost-optimizer"')||!primary.includes('id="cost-optimizer"'));
 });
 
 test('forecast-unavailable and collecting messages appear once in the default reading flow',()=>{
  const collecting=split(render(10,'1000',1).html).primary;
- assert.equal((visible(collecting).match(/Forecast not ready yet/g)??[]).length,1);
+ assert.equal((visible(collecting).match(/A first estimate appears after about 2 days/g)??[]).length,1);
+ assert.ok(!/Forecast not ready yet/.test(visible(collecting)));
  assert.ok(!/at least 48 hours/.test(collecting));assert.match(split(render(10,'1000',1).html).advanced,/at least 48 hours/);
  const unavailable=visible(split(present(view(series(10),'2030-07-01T00:00:00Z')).html).primary);
  assert.ok(!/Projection not shown/.test(unavailable));
@@ -104,13 +104,13 @@ test('forecast-unavailable and collecting messages appear once in the default re
 
 test('freshness, uncertainty and above-limit warnings stay in the default view',()=>{
  const stale=visible(split(render(10,'1000',8,'2030-06-09T00:00:00.001Z').html).primary);
- assert.match(stale,/Forecast paused — stale data/);assert.match(stale,/Stale — waiting for a fresh account update/);
+ assert.match(stale,/Forecast paused — the last account update is too old/);assert.match(stale,/Stale — waiting for a fresh account update/);
  const provisional=visible(split(render(10,'1000',3).html).primary);
- assert.match(provisional,/Provisional estimate – limited history/);assert.match(provisional,/may not represent future usage/);
+ assert.match(provisional,/Based on limited history/);assert.match(provisional,/may not represent future usage/);
  const above=visible(split(render(10,'60').html).primary);
- assert.match(above,/above the reported credit limit|Above reported limit/);assert.match(above,/not verified as base-only or total capacity/);
+ assert.match(above,/Above reported limit/);assert.match(above,/not verified as base-only or total capacity/);
  const fresh=visible(split(render(10).html).primary);assert.match(fresh,/Fresh/);
- assert.match(fresh,/Estimated to run out|not projected to be reached|On track/);
+ assert.match(fresh,/run out|not projected to run out|On track/);
 });
 
 test('chart default shows a compact legend and a shorter frame only when history is sparse',()=>{
@@ -125,16 +125,19 @@ test('chart default shows a compact legend and a shorter frame only when history
  assert.match(advanced,/id="chart-summary"/);assert.match(advanced,/<summary>Chart data table/);
  assert.match(primary,/<desc id="chart-desc">[^<]*Expected trajectory/);
  assert.ok(!/<script/i.test(full));assert.ok(!/\sstyle=/i.test(full));
- assert.match(full,/<svg[^>]*role="img"/);assert.match(full,/prefers-color-scheme|var\(--vscode-/);
+ assert.match(full,/<svg[^>]*role="group"/);assert.match(full,/prefers-color-scheme|var\(--vscode-/);
 });
 
 // Dashboard redesign: status first, one-click details, advanced only behind the collapsed section.
 const hero=(html:string)=>/<section class="hero[^"]*"[\s\S]*?<\/section>/.exec(html)![0];
 test('hero answers used, remaining and reset first and labels the forecast status in plain words',()=>{
  const h=visible(hero(render(10).html));
- for(const t of ['On track','Credits used','Remaining reported capacity','Next reset','Last account update','Regular forecast']) assert.match(h,new RegExp(t));
+ for(const t of ['On track','Credits used','Credits left','Next reset','Last account update','Based on 7\\+ days']) assert.match(h,new RegExp(t));
+ assert.ok(!/Regular forecast/.test(h));
  assert.match(h,/will use about \d+ of 1000 reported credits/);
- assert.match(hero(render(10).html),/role="img" aria-label="\d+% of the reported credit limit used"/);
+ // The bar is decorative: its text follows, so the SVG is hidden from assistive technology.
+ assert.match(hero(render(10).html),/<svg class="bar"[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/svg><p class="bar-label muted small">\d+% of the reported credit limit used<\/p>/);
+ assert.ok(!/<svg class="bar"[^>]*(role=|aria-label=)/.test(hero(render(10).html)));
  assert.match(visible(hero(render(10,'321').html)),/At risk/);assert.match(visible(hero(render(10,'321').html)),/within 10% of the daily budget/);
  assert.match(visible(hero(render(10,'100').html)),/Likely to exceed/);
  assert.ok(!/Tight budget|Over budget/.test(render(10,'321').html+render(10,'100').html));
@@ -142,7 +145,7 @@ test('hero answers used, remaining and reset first and labels the forecast statu
  assert.match(hero(render(10).html),/class="status-icon" aria-hidden="true"/);assert.match(render(10).html,/aria-labelledby="status-heading"/);
 });
 test('uncertain states are never styled as on track and keep their warning in the hero',()=>{
- for(const [r,label] of [[render(10,'1000',8,'2030-06-09T00:00:00.001Z'),'Stale data'],[render(10,'1000',1),'Collecting data'],[render(10,'1000',3),'Provisional estimate – limited history']] as const){
+ for(const [r,label] of [[render(10,'1000',8,'2030-06-09T00:00:00.001Z'),'Stale data'],[render(10,'1000',1),'Collecting data'],[render(10,'1000',3),'Based on limited history']] as const){
   const h=hero(r.html);assert.match(visible(h),new RegExp(label));assert.ok(!/class="hero ok"/.test(h));
  }
  assert.match(hero(render(10,'1000',8,'2030-06-09T00:00:00.001Z').html),/class="hero warn"/);
@@ -164,7 +167,7 @@ test('provisional on-track forecasts are neutral, passed resets are labelled, us
  assert.ok(!/class="status-icon"[^>]*>✓/.test(hero(render(10,'1000',1).html)));
  assert.match(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html),/class="hero warn"/);
  assert.ok(!/class="hero ok"/.test(hero(render(10,'1000',8,'2030-07-01T00:00:00Z').html)));
- assert.match(hero(render(10,'60').html),/aria-label="100% of the reported credit limit used"/);
+ assert.match(hero(render(10,'60').html),/<p class="bar-label muted small">100% of the reported credit limit used<\/p>/);
 });
 
 // Workspace-check card: counts and times only; its two links are the only links in the view and carry no arguments.
@@ -175,18 +178,18 @@ const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('comman
 const ADVISOR = 'command:cyclegauge.costAdvisor';
 const ALLOWED = ['command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show'];
 const cardHrefs = (html: string) => hrefs(html).filter(h => h !== ADVISOR);
-test('workspace-check card: never checked offers only Check now', () => {
+test('workspace audit card: never checked offers only Run audit', () => {
  const html = card({ state: 'never' });
- assert.match(html, /<h3 id="audit-heading">Workspace check<\/h3>/); assert.match(html, /Check which files Kiro can read but probably doesn&#39;t need\./);
- assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']); assert.match(html, />Check now<\/a>/); assert.ok(!html.includes('>Show</a>'));
+ assert.match(html, /<h2 id="audit-heading">Workspace audit<\/h2>/); assert.match(html, /Run the workspace audit to find files Kiro can read but probably doesn&#39;t need\./);
+ assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']); assert.match(html, />Run audit<\/a>/); assert.ok(!html.includes('>Show results</a>'));
  assert.ok(html.indexOf('class="stats"') < html.indexOf('class="audit-card"'));
  assert.match(card({ state: 'never', lastDate: '2030-03-01' }), /Last checked 2030-03-01 \(UTC\)\./);
  assert.ok(!card({ state: 'never', lastDate: '<b>synthetic</b>' }).includes('Last checked'));
 });
-test('workspace-check card: checked states show the count and a relative time, plus Show', () => {
+test('workspace audit card: checked states show the count and a relative time, plus Show', () => {
  const now = new Date(2030, 5, 15, 12, 0, 0), ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
  const some = card({ state: 'checked', items: 3, checkedAt: ago(5 * 60_000) }, now.toISOString());
- assert.match(some, /3 items Kiro may read · checked 5 min ago/); assert.deepEqual(cardHrefs(some), ALLOWED); assert.match(some, /<a class="button primary" href="command:cyclegauge\.auditWorkspace">Check now<\/a>/); assert.match(some, /<a class="button secondary" href="[^"]+">Show<\/a>/);
+ assert.match(some, /3 items Kiro may read · checked 5 min ago/); assert.deepEqual(cardHrefs(some), ALLOWED); assert.match(some, /<a class="button primary" href="command:cyclegauge\.auditWorkspace">Run audit<\/a>/); assert.match(some, /<a class="button secondary" href="[^"]+">Show results<\/a>/);
  assert.match(card({ state: 'checked', items: 1, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
  const none = card({ state: 'checked', items: 0, checkedAt: ago(26 * 3_600_000) }, now.toISOString());
  assert.match(none, /No risky files found · checked (yesterday|2 days ago|today)/); assert.deepEqual(cardHrefs(none), ALLOWED);
@@ -195,20 +198,20 @@ test('workspace-check card: checked states show the count and a relative time, p
  assert.match(card({ state: 'checked', items: 0, unclear: 4, checkedAt: ago(0) }, now.toISOString()), /4 items to review · checked just now/);
  assert.match(card({ state: 'checked', items: 2 }), /2 items Kiro may read<\/p>/); // no usable time: no relative part
 });
-test('workspace-check card: the size total sits after the count, escaped and only for checked states', () => {
+test('workspace audit card: the size total sits after the count, escaped and only for checked states', () => {
  const now = new Date(2030, 5, 15, 12, 0, 0), ago = (ms: number) => new Date(now.getTime() - ms).toISOString(), MB = 1024 * 1024;
  assert.match(card({ state: 'checked', items: 4, bytes: 240.3 * MB, lowerBound: false, checkedAt: ago(0) }, now.toISOString()), /4 items Kiro may read \(about 240\.3 MiB\) · checked just now/);
  assert.match(card({ state: 'checked', items: 2, unclear: 3, bytes: 1.2 * 1024 * MB, lowerBound: true, checkedAt: ago(0) }, now.toISOString()), /2 items Kiro may read \(at least 1\.2 GiB\) · 3 unclear · checked just now/);
  assert.match(card({ state: 'checked', items: 1, bytes: 512 * 1024, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read \(about 512 KiB\) · checked just now/);
  assert.match(card({ state: 'checked', items: 1, bytes: 0, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
  assert.match(card({ state: 'checked', items: 1, bytes: Number.NaN, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
- assert.match(card({ state: 'never', bytes: 5 }), /Check which files Kiro can read/);
+ assert.match(card({ state: 'never', bytes: 5 }), /Run the workspace audit to find files Kiro can read/);
  const hostile = card({ state: 'checked', items: 1, bytes: 1024, lowerBound: true, checkedAt: 'synthetic-not-a-time' });
  assert.match(hostile, /1 item Kiro may read \(at least 1 KiB\)<\/p>/);
 });
-test('workspace-check card: unavailable asks for a trusted local folder; no claims of savings', () => {
+test('workspace audit card: unavailable asks for a trusted local folder; no claims of savings', () => {
  const html = card({ state: 'unavailable' });
- assert.match(html, /This folder can&#39;t be checked\. Run Check now to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
+ assert.match(html, /This folder can&#39;t be checked\. Run the audit to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
  for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, bytes: 2048, lowerBound: true, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
 });
 test('the view has one Open Cost Advisor button, inside the Cost Advisor section and below the figures, in every state', () => {
@@ -222,7 +225,7 @@ test('the view has one Open Cost Advisor button, inside the Cost Advisor section
   assert.match(present(view(series(10), '2030-06-08T00:00:00Z'), [], '', section, s).html, /<p>synthetic<\/p><p class="advisor-actions">.*?<\/p><\/section>/);
  }
 });
-test('workspace-check card: only the three allowed command links, none with arguments, no other href, no path or folder name, script-free', () => {
+test('workspace audit card: only the three allowed command links, none with arguments, no other href, no path or folder name, script-free', () => {
  const states: AuditSummary[] = [{ state: 'never' }, { state: 'checked', items: 4, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'checked', items: 0 }, { state: 'unavailable' }];
  for (const s of states) {
   const html = card(s); for (const h of hrefs(html)) { assert.ok([ADVISOR, ...ALLOWED].includes(h!), h); assert.ok(!/[?#%&=({\[]/.test(h!.slice('command:'.length)), h); }
@@ -241,23 +244,23 @@ test('the controller reads the summary on every render, re-renders on request an
  const ui = { setStatus(_t: string, html: string) { htmls.push(html); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
  try {
   const extension = await startExtension(ui, { source: join(base, 'synthetic-missing'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-06-15T12:00:00.000Z', auditSummary: () => summary() });
-  assert.match(htmls.at(-1)!, /Workspace check/);
+  assert.match(htmls.at(-1)!, /Workspace audit/);
   summary = () => ({ state: 'checked', items: 7, checkedAt: '2030-06-15T11:58:00.000Z' }); const count = htmls.length; extension.rerender();
   assert.equal(htmls.length, count + 1); assert.match(htmls.at(-1)!, /7 items Kiro may read · checked 2 min ago/);
   summary = () => { throw new Error('synthetic-failure'); }; extension.rerender();
-  assert.ok(!htmls.at(-1)!.includes('Workspace check')); assert.match(htmls.at(-1)!, /id="status-heading"/); assert.deepEqual(hrefs(htmls.at(-1)!), [ADVISOR]);
+  assert.ok(!htmls.at(-1)!.includes('Workspace audit')); assert.match(htmls.at(-1)!, /id="status-heading"/); assert.deepEqual(hrefs(htmls.at(-1)!), [ADVISOR]);
   extension.dispose(); const after = htmls.length; extension.rerender(); assert.equal(htmls.length, after);
  } finally { await rm(base, { recursive: true, force: true }); }
 });
 
 // Community footer: three fixed https constants plus the Share and Report a problem commands, in every state; nothing else is linked, no arguments, no scripts.
-const FOOTER_LINKS = ['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.share', 'command:cyclegauge.reportProblem'];
+const FOOTER_LINKS = ['command:cyclegauge.reportProblem', 'command:cyclegauge.share', 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess'];
 test('the footer links exactly the three web constants plus the share and report-a-problem commands, below the main content', () => {
  for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 2, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
   const html = card(s);
   assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:cyclegauge.') || h === 'command:cyclegauge.share' || h === 'command:cyclegauge.reportProblem'), FOOTER_LINKS);
   for (const h of allHrefs(html)) assert.ok([ADVISOR, ...ALLOWED, ...FOOTER_LINKS].includes(h!), h);
-  assert.match(html, /<footer class="community muted small"><a href="https:\/\/open-vsx\.org[^"]*">★ Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*">☕ Support<\/a> · <a href="command:cyclegauge\.share">Share<\/a> · <a href="command:cyclegauge\.reportProblem">Report a problem<\/a><\/footer><\/main>/);
+  assert.match(html, /<footer class="community muted small"><a href="command:cyclegauge\.reportProblem">Report a problem<\/a> · <a href="command:cyclegauge\.share">Copy share link<\/a> · <a href="https:\/\/open-vsx\.org[^"]*"><span aria-hidden="true">★<\/span> Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*"><span aria-hidden="true">☕<\/span> Support<\/a><\/footer><\/main>/);
   assert.ok(html.indexOf('<footer') > html.indexOf('id="advanced-details"'));
   assert.equal((html.match(/<footer/g) ?? []).length, 1);
   assert.ok(!/<script|javascript:|\?utm_|[?&]ref=|\sonclick=/i.test(html)); assert.match(html, /default-src 'none'; style-src 'unsafe-inline'/);
@@ -270,17 +273,19 @@ const empty = (notKiro: boolean, codes: string[] = ['no_source_logs']) => presen
 test('not in Kiro and no source logs: "Kiro not detected" in the status bar and the detail view', () => {
  const r = empty(true);
  assert.equal(r.text, '$(info) Kiro not detected'); assert.equal(r.warning, false);
- assert.equal(r.tooltip, 'Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.');
- assert.match(r.html, /Cyclegauge is built for Kiro IDE\. This editor has no Kiro credit logs, so the credit view stays empty\. The workspace audit still works\./);
+ const text = "Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
+ assert.equal(r.tooltip, text);
+ assert.match(r.html, /What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn&#39;t need\./);
+ assert.ok(!r.html.includes('class="stats"') && !r.html.includes('About these numbers')); // nothing to qualify without an account update
  assert.match(r.html, /Kiro not detected<\/h2>/); assert.match(r.html, /class="hero neutral"/); assert.equal(r.forecast, false);
  assert.match(r.html, /<footer class="community/);
 });
 test('the notice does not apply inside Kiro, with other codes or when the flag is off', () => {
- assert.equal(empty(false).text, '$(warning) Kiro: Unavailable'); assert.ok(!empty(false).html.includes('Kiro not detected'));
+ assert.equal(empty(false).text, '$(warning) Kiro credits: Unavailable'); assert.ok(!empty(false).html.includes('Kiro not detected'));
  assert.equal(present(view([], '2030-06-08T00:00:00Z'), ['no_source_logs']).text, empty(false).text);
  assert.ok(!empty(true, ['source_unavailable']).text.includes('not detected'));
  assert.ok(!empty(true, []).text.includes('not detected'));
- assert.match(empty(true, ['no_source_logs', 'runtime_unsupported']).text, /update needed/);
+ assert.equal(empty(true, ['no_source_logs', 'runtime_unsupported']).text, '$(warning) Kiro: Needs a newer Kiro');
  // With data present the normal view is unchanged even if the flag is set.
  const withData = present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', undefined, '2030-06-08T00:00:00Z', true);
  assert.equal(withData.text, render(10).text); assert.equal(withData.forecast, true);
@@ -294,8 +299,8 @@ test('a throwing forecast hook never stops the gauge from rendering a forecast',
  const ui = { setStatus(t: string) { texts.push(t); }, showDetails() {}, onClick() {}, onChange() {}, everyMinute() {}, dispose() {} };
  try {
   const extension = await startExtension(ui, { source: join(base, 'source'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', onForecast: () => { calls++; throw new Error('synthetic-failure'); } });
-  assert.ok(calls >= 1); assert.match(texts.at(-1)!, /Kiro: (Provisional|On track|At risk)/);
-  extension.rerender(); assert.ok(calls >= 2); assert.match(texts.at(-1)!, /Kiro: /); extension.dispose();
+  assert.ok(calls >= 1); assert.match(texts.at(-1)!, /Kiro credits: (Provisional|On track|At risk)/);
+  extension.rerender(); assert.ok(calls >= 2); assert.match(texts.at(-1)!, /Kiro credits: /); extension.dispose();
  } finally { await rm(base, { recursive: true, force: true }); }
 });
 test('a throwing absent hook never stops the gauge from showing "Kiro not detected"', async () => {
@@ -325,46 +330,57 @@ test('the controller passes the not-Kiro flag through and does not report a fore
 const NOW = '2030-06-08T00:00:00Z';
 const at = (v: ReturnType<typeof view>, now = NOW) => present(v, [], '', '', undefined, now);
 const heroText = (html: string) => html.slice(html.indexOf('class="hero'), html.indexOf('<dl class="stats">'));
-const PROJECTED = 'If you continue at this pace: about 200 credits over the reported limit ≈ $8.00 at $0.04 per credit (price list 2026-10-18, reviewed 18 Oct 2026). This is a modelled scenario, not an invoice; whether overage applies depends on your plan and settings.';
+const PROJECTED = 'At this pace by the reset: about 200 credits over (≈ $8.00, modelled).';
 test('a forecast beyond the reported limit shows the modelled overage below the outlook, with the catalog price and review date', () => {
  const r = at(view(series(10, '100'), NOW));
  const hero = heroText(r.html);
  assert.ok(hero.includes(`<p class="small overage">${PROJECTED}</p>`), hero);
  assert.ok(hero.indexOf('class="lead"') < hero.indexOf('class="small overage"'));
- assert.ok(!r.html.includes('at the last update ≈')); // nothing is above the limit yet
+ assert.ok(!r.html.includes('over the limit so far')); // nothing is above the limit yet
+ assert.ok(!hero.includes('does not establish overage charges') && !/The counter alone/.test(r.html)); // the caveat is said once, in About these numbers
  assert.ok(!/\$\d/.test(r.text) && !/\$\d/.test(r.tooltip)); // the status bar stays short
 });
 test('already-observed overage gets its own modelled line; the projected line stays separate', () => {
  const hero = heroText(at(view(series(10, '60'), NOW)).html);
- assert.ok(hero.includes('<p class="small overage">10 credits above the reported limit at the last update ≈ $0.40 at $0.04 per credit (modelled; whether overage applies depends on your plan and settings).</p>'), hero);
- assert.match(hero, /If you continue at this pace: about 240 credits over the reported limit ≈ \$9\.60 /);
+ // One headline figure for what is over so far, then one line for the pace until the reset; the legalistic sentence is gone from the hero.
+ assert.ok(hero.includes('<p class="lead overage-now"><strong>10 credits</strong> over the limit so far (≈ $0.40, modelled).</p>'), hero);
+ assert.ok(hero.includes('<p class="small overage">At this pace by the reset: about 240 credits over (≈ $9.60, modelled).</p>'), hero);
+ assert.ok(hero.indexOf('overage-now') < hero.indexOf('At this pace by the reset'));
+ assert.ok(!/The counter alone|does not establish overage/.test(hero));
+ assert.match(at(view(series(10, '60'), NOW)).html, /<details class="about">[\s\S]*?do not by themselves establish overage charges[\s\S]*?<\/details>/);
  // Exactly at the limit is not above it.
- assert.ok(!heroText(at(view(series(10, '70'), NOW)).html).includes('above the reported limit at the last update'));
+ assert.ok(!heroText(at(view(series(10, '70'), NOW)).html).includes('over the limit so far'));
 });
 test('no overage line when the forecast stays below the limit, is unavailable or stale', () => {
- for (const html of [at(view(series(10, '1000'), NOW)).html, at(view(series(0, '1000'), NOW)).html, at(view(series(10, '1000', 1), '2030-06-01T00:00:00Z'), '2030-06-01T00:00:00Z').html, at(view(series(10, '100'), '2030-06-12T00:00:00Z')).html, at(view([], NOW)).html]) assert.ok(!html.includes('class="small overage"') && !html.includes('over the reported limit'), 'no line');
+ for (const html of [at(view(series(10, '1000'), NOW)).html, at(view(series(0, '1000'), NOW)).html, at(view(series(10, '1000', 1), '2030-06-01T00:00:00Z'), '2030-06-01T00:00:00Z').html, at(view(series(10, '100'), '2030-06-12T00:00:00Z')).html, at(view([], NOW)).html]) assert.ok(!html.includes('class="small overage"') && !html.includes('over the limit so far') && !html.includes('credits over'), 'no line');
 });
 test('without a validated price the credits are shown but never a money figure', () => {
  const hero = heroText(at(view(series(10, '100'), NOW), '2020-01-01T00:00:00Z').html); // before the catalog was verified
- assert.ok(hero.includes('If you continue at this pace: about 200 credits over the reported limit. This is a modelled scenario, not an invoice;'), hero);
+ assert.ok(hero.includes('At this pace by the reset: about 200 credits over.'), hero);
  assert.ok(!/\$\d/.test(hero));
- assert.ok(heroText(at(view(series(10, '60'), NOW), 'not-a-time').html).includes('10 credits above the reported limit at the last update.'));
+ assert.ok(heroText(at(view(series(10, '60'), NOW), 'not-a-time').html).includes('<strong>10 credits</strong> over the limit so far.'));
 });
-test('the status bar severity: error when the limit is reached or will be before the reset, warning when at risk, stale or unavailable', () => {
- const severity = (rate: number, limit: string, count = 8, now = `2030-06-${String(count).padStart(2, '0')}T00:00:00Z`) => { const r = present(view(series(rate, limit, count), now)); return [r.severity, r.warning]; };
- assert.deepEqual(severity(10, '100'), ['error', true]); // likely to exceed
- assert.deepEqual(severity(10, '70'), ['error', true]); // limit reached
- assert.deepEqual(severity(10, '60'), ['error', true]); // above the limit
- assert.deepEqual(severity(10, '25', 3), ['warning', true]); // provisional "Likely to exceed" stays a warning
- assert.deepEqual(severity(10, '20', 3), ['error', true]); // provisional, but the observed usage has reached the limit
- assert.deepEqual(severity(10, '321'), ['warning', true]); // at risk
- assert.deepEqual(severity(10, '1000'), ['none', false]);
- assert.deepEqual(severity(0, '1000'), ['none', false]);
- assert.deepEqual(severity(10, '1000', 1), ['none', false]); // collecting
- assert.deepEqual(severity(10, '1000', 8, '2030-06-09T00:00:00.001Z'), ['warning', true]); // stale
- assert.deepEqual(severity(10, '1000', 8, '2030-07-01T00:00:00Z'), ['warning', true]); // unavailable
+test('the status bar colour: red only at or above the reported limit, warning only for budget risk, icon only for stale or unavailable', () => {
+ const status = (rate: number, limit: string, count = 8, now = `2030-06-${String(count).padStart(2, '0')}T00:00:00Z`) => { const r = present(view(series(rate, limit, count), now)); return [r.severity, r.warning, r.text.startsWith('$(warning)')]; };
+ assert.deepEqual(status(10, '100'), ['warning', true, true]); // likely to exceed: a risk, not yet a reached limit
+ assert.deepEqual(status(10, '70'), ['error', true, true]); // limit reached
+ assert.deepEqual(status(10, '60'), ['error', true, true]); // above the limit
+ assert.deepEqual(status(10, '25', 3), ['warning', true, true]); // provisional "Likely to exceed" stays a warning
+ assert.deepEqual(status(10, '20', 3), ['error', true, true]); // provisional, but the observed usage has reached the limit
+ assert.deepEqual(status(10, '321'), ['warning', true, true]); // at risk
+ assert.deepEqual(status(10, '1000'), ['none', false, false]);
+ assert.deepEqual(status(0, '1000'), ['none', false, false]);
+ assert.deepEqual(status(10, '1000', 1), ['none', false, false]); // collecting
+ assert.deepEqual(status(10, '1000', 8, '2030-06-09T00:00:00.001Z'), ['none', false, true]); // stale: icon only, no colour
+ assert.deepEqual(status(10, '1000', 8, '2030-07-01T00:00:00Z'), ['none', false, true]); // unavailable: icon only, no colour
  assert.equal(present(view([], NOW), ['no_source_logs'], '', '', undefined, NOW, true).severity, 'none'); // Kiro not detected
- assert.equal(present(view([], NOW), ['runtime_unsupported']).severity, 'warning');
+ assert.equal(present(view([], NOW), ['runtime_unsupported']).severity, 'none');
+});
+test('the status bar text uses per-day units and a run-out date instead of "empty"', () => {
+ const texts = [present(view(series(10, '100'), NOW)).text, present(view(series(10, '321'), NOW)).text, present(view(series(10, '25', 3), '2030-06-03T00:00:00Z')).text, render(10).text];
+ assert.deepEqual(texts, ['$(warning) Kiro credits: Likely to exceed • runs out 11 Jun', '$(warning) Kiro credits: At risk • 10.9/day', '$(warning) Kiro credits: Provisional • runs out 3 Jun', '$(gauge) Kiro credits: On track • 40.4/day']);
+ for (const t of texts) assert.ok(!/empty|\/24h/.test(t), t);
+ assert.match(render(10).tooltip, /credits per day/); assert.ok(!/credits \/ 24h/.test(render(10).tooltip));
 });
 test('the controller hands the render to the budget hook with the eligibility and survives a throwing hook', async () => {
  const base = await realpath(await mkdtemp(join(tmpdir(), 'synthetic-budget-hook-')));
@@ -376,7 +392,7 @@ test('the controller hands the render to the budget hook with the eligibility an
  try {
   const extension = await startExtension(ui, { source: join(base, 'source'), storage: join(base, 'owned'), timezone: 'UTC', now: () => '2030-01-04T00:00:00.000Z', onBudget: (o, eligible, now) => { seen.push({ status: o.status, eligible, now }); throw new Error('synthetic-failure'); } });
   assert.ok(seen.length >= 1); assert.deepEqual(seen.at(-1), { status: 'observed', eligible: true, now: '2030-01-04T00:00:00.000Z' });
-  assert.match(texts.at(-1)!, /Kiro: /); assert.ok(['none', 'warning', 'error'].includes((metas.at(-1) as { severity: string }).severity));
+  assert.match(texts.at(-1)!, /Kiro credits: /); assert.ok(['none', 'warning', 'error'].includes((metas.at(-1) as { severity: string }).severity));
   const before = seen.length; extension.rerender(); assert.equal(seen.length, before + 1); extension.dispose();
  } finally { await rm(base, { recursive: true, force: true }); }
 });
@@ -393,8 +409,8 @@ test('no budget hook call for Kiro not detected', async () => {
 test('no observed-overage line for accounts with unsupported extra credits', () => {
  const flagged = series(10, '60').map(p => ({ ...p, flags: ['unsupported_extra_credits'] }));
  const html = at(view(flagged, NOW)).html;
- assert.ok(!html.includes('above the reported limit at the last update') && !html.includes('class="small overage"'));
- assert.ok(at(view(series(10, '60'), NOW)).html.includes('above the reported limit at the last update')); // control
+ assert.ok(!html.includes('over the limit so far') && !html.includes('class="small overage"'));
+ assert.ok(at(view(series(10, '60'), NOW)).html.includes('over the limit so far')); // control
 });
 
 // Plan hints (computed by the controller) shown in the credit view.
@@ -406,10 +422,10 @@ const withHints = (v: ReturnType<typeof view>, insights: Parameters<typeof prese
 test('the next-larger-plan comparison follows the projected overage line; observed overage comes after it', () => {
  const hero = heroText(withHints(view(series(10, '60'), NOW), { larger, rightsize: null }).html);
  const lines = [...hero.matchAll(/<p class="small overage">([^<]*)<\/p>/g)].map(m => m[1]!);
- assert.equal(lines.length, 3);
- assert.ok(lines[0]!.startsWith('If you continue at this pace: about 240 credits over the reported limit'), lines[0]);
+ assert.equal(lines.length, 2);
+ assert.ok(lines[0]!.startsWith('At this pace by the reset: about 240 credits over'), lines[0]);
  assert.equal(lines[1], LARGER_LINE);
- assert.ok(lines[2]!.startsWith('10 credits above the reported limit at the last update'));
+ assert.ok(hero.indexOf('over the limit so far') < hero.indexOf(LARGER_LINE.slice(0, 20)));
  // A confirmed plan has no prefix; no hints, or no projected overage line, means no comparison.
  assert.ok(heroText(withHints(view(series(10, '100'), NOW), { larger: { ...larger, hint: false }, rightsize: null }).html).includes('<p class="small overage">For comparison: Pro+ costs $20 a month more than Pro and includes 1000 more credits'));
  assert.ok(!heroText(at(view(series(10, '100'), NOW)).html).includes('For comparison'));
@@ -437,5 +453,70 @@ test('plan hint lines hold only constants and formatted decimals, go through the
  const odd = { ...larger, next: '<img src=x onerror=synthetic>' as never, feeDiff: '"><script>' };
  const html = withHints(view(series(10, '100'), NOW), { larger: odd, rightsize: null }).html;
  assert.ok(!html.includes('<img') && !html.includes('<script') && !html.includes('For comparison'));
- assert.ok(heroText(html).includes('about 200 credits over the reported limit')); // the rest of the view is intact
+ assert.ok(heroText(html).includes('about 200 credits over')); // the rest of the view is intact
+});
+
+// Calm dashboard: plain next steps, one caveat line, no repeated units, cards hidden when empty, one fixed section order.
+const leadOf = (html: string) => /<p class="lead">([^<]*)<\/p>/.exec(html)?.[1] ?? '';
+const PLAIN_STEP = 'Use Kiro for a few minutes so it can write a credit update. If this stays empty, use Report a problem below.';
+test('unavailable and collecting states say what to do next, in plain words', () => {
+ assert.equal(leadOf(present(view([], NOW)).html), PLAIN_STEP);
+ assert.equal(leadOf(render(10, '1000', 1).html), 'Keep using Kiro. A first estimate appears after about 2 days and 3 account updates; a regular forecast after 7 days.');
+ const unknownAccount = leadOf(at(view(series(10).map(p => ({ ...p, associated: false })), NOW)).html);
+ const conflicting = leadOf(at(view([snapshot(NOW, '5'), snapshot(NOW, '6')], NOW)).html);
+ const noReset = leadOf(at(view(series(10).map(p => ({ ...p, resetAt: null, resetText: null })), NOW)).html);
+ const noLimit = leadOf(at(view(series(10).map(p => ({ ...p, limit: null })), NOW)).html);
+ assert.ok(unknownAccount.endsWith(PLAIN_STEP) && noReset.endsWith(PLAIN_STEP) && noLimit.endsWith(PLAIN_STEP));
+ assert.match(conflicting, /Use Kiro for a few minutes; a newer update usually resolves this\./);
+ assert.match(leadOf(at(view(series(10), '2030-07-05T00:00:00Z'), '2030-07-05T00:00:00Z').html), /Use Kiro for a few minutes to get an account update from the new cycle\./);
+ // No account update means no figures: no row of "Not available" values and no caveat block to qualify them.
+ const none = present(view([], NOW)).html;
+ assert.ok(!none.includes('class="stats"') && !none.includes('About these numbers') && !none.includes('Last account update'));
+});
+test('the as-of time and freshness stay in the hero; the caveats are said once, behind About these numbers', () => {
+ const html = render(10).html, h = hero(html);
+ assert.match(visible(h), /Last account update: 8 Jun 2030, 00:00 UTC · Fresh/);
+ assert.equal((html.match(/About these numbers/g) ?? []).length, 1);
+ assert.match(h, /<details class="about"><summary><span aria-hidden="true">ⓘ<\/span> About these numbers<\/summary><p>[^<]*not verified as base-only or total capacity[^<]*<\/p><\/details>/);
+ assert.ok(!/<details[^>]*\bopen\b/.test(h));
+ // The hero lead itself carries no hedging.
+ assert.ok(!/if the observed rate continues|not verified|does not establish/i.test(leadOf(html)));
+ assert.match(visible(hero(render(10, '1000', 8, '2030-06-09T00:00:00.001Z').html)), /Stale — waiting for a fresh account update/);
+});
+test('stat values do not repeat the unit, and an over-limit hero shows one figure instead of Remaining 0 and Daily budget 0', () => {
+ const h = hero(render(10).html);
+ assert.match(h, /<dt>Credits used<\/dt><dd id="usage-live" aria-live="polite" aria-atomic="true">70<\/dd><dd class="muted small">of 1000 reported credits<\/dd>/);
+ assert.match(h, /<dt>Credits left<\/dt><dd>930<\/dd>/);
+ const over = hero(render(10, '60').html);
+ assert.ok(!over.includes('Credits left') && !over.includes('Daily budget') && !/0 per day/.test(over));
+ assert.match(over, /<strong>10 credits<\/strong> over the limit so far/);
+ const atLimit = hero(render(10, '70').html); // exactly at the limit: nothing left, but no per-day budget of 0
+ assert.match(atLimit, /<dt>Credits left<\/dt><dd>0<\/dd>/); assert.ok(!atLimit.includes('Daily budget'));
+});
+test('observed usage has plain headings, one sentence plus a next step when a part is empty, and no card when both are', () => {
+ assert.ok(!render(10).html.includes('id="usage-context"'), 'nothing to show: no card');
+ assert.ok(!present(view([], NOW)).html.includes('id="usage-context"'));
+ const points = [snapshot('2030-06-08T00:40:00Z', '1.1'), snapshot('2030-06-08T02:50:00Z', '2.223456789')];
+ const html = present(view(points, '2030-06-08T02:51:00Z'), [], '', '', undefined, '2030-06-08T02:51:00Z').html;
+ const ctx = /<section id="usage-context"[\s\S]*?<\/section>/.exec(html)![0];
+ assert.match(ctx, /<h2 id="usage-context-heading">Observed usage<\/h2><h3>This cycle vs last cycle<\/h3><p>Not enough history yet to compare with last cycle\. This fills in after your next reset\.<\/p><h3>Today \(UTC\)<\/h3><p>Since 00:40 UTC/);
+ assert.ok(!/quality barrier|not observed/.test(ctx));
+ // Today's part empty while the cycle part has something to show.
+ const stale = present(view(points, '2030-06-09T12:00:00Z'), [], '', '', undefined, '2030-06-09T12:00:00Z').html;
+ assert.ok(!stale.includes('id="usage-context"') || /Today's pace isn&#39;t available yet\./.test(stale));
+});
+test('the sections follow one order: hero, chart, observed usage, recap, Cost Advisor, Workspace audit, summary, Advanced details, footer', () => {
+ const points = [snapshot('2030-06-08T00:40:00Z', '1.1'), snapshot('2030-06-08T02:50:00Z', '2.223456789')];
+ const recap = { cycle: '2030-06-01T00:00:00.000Z', period: 'Period', lines: ['Line'] };
+ const results = { status: 'ok' as const, entries: [] };
+ const html = present(view(points, '2030-06-08T02:51:00Z'), [], '', '<section id="cost-advisor"></section>', { state: 'never' }, '2030-06-08T02:51:00Z', false, undefined, '', results, recap).html;
+ const marks = ['class="hero ', 'id="usage-chart"', 'id="usage-context"', 'id="recap-card"', 'id="cost-advisor"', 'class="audit-card"', 'id="results-summary"', 'id="advanced-details"', '<footer'].map(m => html.indexOf(m));
+ assert.ok(marks.every(i => i > 0), JSON.stringify(marks));
+ assert.deepEqual([...marks].sort((a, b) => a - b), marks);
+ assert.ok(html.indexOf('id="export-tools"') > html.indexOf('id="advanced-details"')); // folded into Advanced details
+});
+test('Advanced tables use plain units and no raw unit code', () => {
+ const { advanced } = split(render(10).html);
+ assert.match(advanced, /10 credits \/ 24h; regular/); assert.match(advanced, /<th scope="row">Reported credit limit<\/th>/);
+ assert.ok(!/CREDIT \/ 24h|\(CREDIT\)/.test(advanced)); // the chart's own data table is owned by chart.ts
 });

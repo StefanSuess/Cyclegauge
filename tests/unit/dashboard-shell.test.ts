@@ -16,7 +16,7 @@ test('observed update can add a chart point and history row to the DOM model', (
  points.push(snapshot('2030-06-09T00:00:00Z', '80', { limit: '1000' }));
  const after = buildDomModel(present(view(points, '2030-06-09T00:00:00Z')).html);
  assert.notDeepEqual(before, after);
- assert.ok(JSON.stringify(after).includes('80 CREDIT'));
+ assert.ok(JSON.stringify(after).includes('80 credits'));
 });
 
 test('dashboard model keeps new table rows and SVG points as typed DOM nodes', () => {

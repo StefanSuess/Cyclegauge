@@ -39,10 +39,11 @@ test('capacity labels never claim base-only or total capacity and billing is not
   const html = chart(snaps), plain = text(html);
   assert.match(plain, /Reported credit limit/);
   assert.match(plain, /not verified as (base-only|base-plan-only) or total/i);
-  assert.match(plain, /may include purchased (add-on )?credits/i);
-  assert.match(plain, /does not (establish|show|prove) (actual )?overage charges/i);
-  assert.match(plain, /purchased balance/);
-  assert.match(plain, /billing eligibility/);
+  // The fuller caveat is said once, in the credit view's "About these numbers", not repeated in the chart help.
+  assert.ok(!/does not establish actual overage charges/.test(plain));
+  const about = text(present(observe(snaps)).html);
+  assert.match(about, /may include purchased add-on credits/i);
+  assert.match(about, /do not by themselves establish overage charges or a purchased balance/i);
   assert.ok(!/base credit limit/i.test(plain));
   assert.ok(!/verified total available/i.test(plain.replace(/not verified[^.]*\./gi, '')));
  }
@@ -61,19 +62,20 @@ test('individual prepaid capacity 2100 / 2125 stays below the reported limit and
 
 test('both capacity cases render the same observed counter without claiming overage charges', () => {
  const a = text(chart(enterprise())), b = text(chart(individualPrepaid()));
- assert.match(a, /2100 CREDIT/);
- assert.match(b, /2100 CREDIT/);
+ assert.match(a, /2100 credits/);
+ assert.match(b, /2100 credits/);
  assert.ok(!/overage (charge|bill|cost) (of|is|will)/i.test(a + b));
 });
 
 test('presentation terminology no longer calls the reported limit base-only', () => {
  const p = present(observe(enterprise()));
- assert.match(p.html, /Remaining reported capacity/);
+ assert.match(p.html, /reported credits/); // above the limit there is no remaining figure to show
+ assert.ok(!/Credits left/.test(p.html));
  assert.match(p.html, /Reported credit limit/);
  assert.match(p.text, /Above reported limit/);
  assert.ok(!/Base credits exhausted/.test(p.text + p.html));
  const q = present(observe(individualPrepaid()));
- assert.match(q.html, /Remaining reported capacity/);
+ assert.match(q.html, /Credits left/);
 });
 
 test('clipped higher scenario is flagged on the chart and its full endpoint is in the accessible summary and table', () => {
@@ -116,7 +118,7 @@ test('accessible data parity: every displayed value appears in the text alternat
  const m = chartModel(o);
  const html = presentChart(o);
  const t = table(html);
- for (const p of m.points) { assert.ok(t.includes(p.at), p.at); assert.ok(t.includes(`>${p.usage}<`) || t.includes(`${p.usage} CREDIT`), p.usage); }
+ for (const p of m.points) { assert.ok(t.includes(p.at), p.at); assert.ok(t.includes(`>${p.usage}<`) || t.includes(`${p.usage} credits`), p.usage); }
  const markers = plot(html).match(/<(circle|polygon) class="pt/g) ?? [];
  // Markers are reduced to the ends, isolated and above-limit updates; every update stays in the data table.
  assert.ok(markers.length >= 2 && markers.length <= m.points.length);
@@ -241,7 +243,8 @@ test('chart output is script-free, escaped and carries no private identifiers', 
  assert.ok(!/src="/i.test(p.html));
  assert.match(p.html, /Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"/);
  for (const marker of ['synthetic-private', 'partition', 'sourceTimezone']) assert.ok(!p.html.includes(marker));
- assert.match(p.html, /<svg[^>]*role="img"/);
+ assert.match(p.html, /<svg[^>]*role="group"/); // the chart; the usage bar is decorative and aria-hidden
+ assert.match(p.html, /<svg class="bar"[^>]*aria-hidden="true"/);
  assert.match(p.html, /id="usage-chart"/);
 });
 
@@ -272,7 +275,7 @@ test('plotted points report the change from the preceding observed update and ba
 
 test('unavailable history renders an honest empty state', () => {
  const html = presentChart(view([], day(0)));
- assert.match(text(html), /No usable observed account updates/);
+ assert.match(text(html), /There are no account updates to chart yet\./);
  assert.ok(!html.includes('<svg'));
 });
 

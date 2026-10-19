@@ -56,7 +56,7 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
   assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));assert.ok(allLinks().includes('command:cyclegauge.reportProblem'));
   assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
-  assert.match(panel.webview.html,/Workspace check/);assert.match(panel.webview.html,/<script nonce=/);
+  assert.match(panel.webview.html,/Workspace audit/);assert.match(panel.webview.html,/<script nonce=/);
   assert.match(panel.webview.html,/cost-advisor/);
   assert.doesNotThrow(()=>buildDomModel(panel.webview.html),[...new Set([...panel.webview.html.slice(panel.webview.html.indexOf('<main>'),panel.webview.html.lastIndexOf('</main>')+7).matchAll(/<([A-Za-z][\w-]*)\b/g)].map(m=>m[1]))].sort().join(','));
   const load=Number(/data-cg-load="(\d+)"/.exec(panel.webview.html)![1]);receive({type:'ready',load});const initial=sent.at(-1);receive({type:'ack',version:initial.version});
@@ -563,13 +563,13 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly five commands.
   let s=await start();await s.commands.get('cyclegauge.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
-  assert.match(html(),/Workspace check/);assert.match(html(),/Check which files Kiro can read but probably doesn&#39;t need\./);
-  assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.costAdvisor']);
+  assert.match(html(),/Workspace audit/);assert.match(html(),/Run the workspace audit to find files Kiro can read but probably doesn&#39;t need\./);
+  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace']);
   // "Show" with no result runs the audit (and then focuses the list); the open panel now shows the count and the new button.
   env.executed.length=0;await s.commands.get('cyclegauge.audit.show')!();
   assert.equal(env.progress,1);assert.ok(env.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
   assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
-  assert.deepEqual(hrefs(),['command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show','command:cyclegauge.costAdvisor']);
+  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show']);
   for(const h of hrefs())assert.ok(ALLOWED.includes(h.slice('command:'.length)),h);
   assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work));
   // With a result, "Show" only focuses the list. The card follows what the user hides.
@@ -583,9 +583,9 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   env.store.delete('cyclegauge.audit.dismissed.v1');await s.commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // Later renders (the minute timer's refresh) keep the card; an unavailable run says so and drops the Show button.
   env.trusted=false;s.advance();await s.commands.get('cyclegauge.auditWorkspace')!();
-  assert.match(html(),/This folder can&#39;t be checked\. Run Check now to see why\./);assert.ok(!hrefs().includes('command:cyclegauge.audit.show'));env.trusted=true;s.dispose();
+  assert.match(html(),/This folder can&#39;t be checked\. Run the audit to see why\./);assert.ok(!hrefs().includes('command:cyclegauge.audit.show'));env.trusted=true;s.dispose();
   // A broken workspaceState never takes the card or the gauge down.
-  env.throwState=true;s=await start();await s.commands.get('cyclegauge.showUsage')!();assert.match(html(),/id="status-heading"/);assert.match(html(),/Workspace check/);env.throwState=false;s.dispose();
+  env.throwState=true;s=await start();await s.commands.get('cyclegauge.showUsage')!();assert.match(html(),/id="status-heading"/);assert.match(html(),/Workspace audit/);env.throwState=false;s.dispose();
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 test('packaged audit reminder: a failing workspaceState never breaks activation, the gauge or the audit command',async()=>{
@@ -624,9 +624,9 @@ test('packaged bundle has no top-level node:sqlite require and still starts with
   runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>{if(id==='vscode')return vscode;if(/^(node:)?sqlite$/.test(id))throw new Error('synthetic-no-sqlite');return require(id);},module,module.exports);
   extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});
   assert.ok(commands.has('cyclegauge.showUsage'));assert.ok(commands.has('cyclegauge.auditWorkspace'));
-  assert.equal(items[0].text,'$(warning) Kiro: update needed');
+  assert.equal(items[0].text,'$(warning) Kiro: Needs a newer Kiro');
   await commands.get('cyclegauge.showUsage')!();
-  assert.match(panels[0].webview.html,/does not provide the SQLite support/);
+  assert.match(panels[0].webview.html,/too old for Cyclegauge&#39;s credit view/);
   assert.equal(existsSync(storage),false);
  }finally{process.getBuiltinModule=original;extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -730,7 +730,7 @@ const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v
 const WALKTHROUGH_KEY='cyclegauge.walkthrough.shown.v1';
 const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1',WALKTHROUGH_KEY];
 const SUPPORT_TEXT='Finding Cyclegauge useful? Rate it or support development. You can turn these off in Settings › Cyclegauge › Support Prompts.';
-const NOT_KIRO='Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
+const NOT_KIRO="Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
 const SUPPORT_BUTTONS=['Rate','Support','Later'];
 const communityEnv=(work:string,withLogs:boolean)=>{
  const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
@@ -798,7 +798,7 @@ test('packaged footer, Share and Report a problem: five command links, three fix
   assert.deepEqual(hrefsOf(html).filter(h=>!h.startsWith('command:')),COMMUNITY_LINKS);
   for(const h of hrefsOf(html).filter(h=>h.startsWith('command:')))assert.ok(env.panelOptions.enableCommandUris.includes(h.slice('command:'.length)),h);
   assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.ok(hrefsOf(html).includes('command:cyclegauge.reportProblem'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
-  assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Share<\/a>/);assert.match(html,/>Report a problem<\/a>/);
+  assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Copy share link<\/a>/);assert.match(html,/>Report a problem<\/a>/);
   // Share copies a fixed text with no user data and confirms in one friendly line.
   env.infos.length=0;await s.commands.get('cyclegauge.share')!();await s.later();
   assert.deepEqual(env.clipboard,["Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge"]);
@@ -928,7 +928,7 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   assert.equal(s.support().length,0);assert.deepEqual([...env.store.keys()],['cyclegauge.notKiro.shown.v1']);
   assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');
   await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;
-  assert.ok(html.includes(NOT_KIRO));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
+  assert.ok(html.includes(NOT_KIRO.replace("'",'&#39;')));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
   // Never again once shown; Got it opens nothing.
   env.infos.length=0;env.opened.length=0;s=await start();assert.deepEqual(notices(),[]);assert.deepEqual(env.opened,[]);s.dispose();
   reset();env.choice='Got it';s=await start();assert.equal(notices().length,1);assert.deepEqual(env.opened,[]);s.dispose();
@@ -940,7 +940,7 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
    if(why!=='test mode')assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),why);s.dispose();
   }
   // With a chosen source the status stays "Kiro: ..." in a non-Kiro editor too (demos and tests).
-  outside();env.sourceRoot=env.source;reset();s=await start();assert.ok(env.statusTexts.at(-1)!.startsWith('$(warning) Kiro:'),env.statusTexts.at(-1));assert.ok(!env.statusTexts.includes('$(info) Kiro not detected'));s.dispose();
+  outside();env.sourceRoot=env.source;reset();s=await start();assert.ok(env.statusTexts.at(-1)!.startsWith('$(warning) Kiro credits:'),env.statusTexts.at(-1));assert.ok(!env.statusTexts.includes('$(info) Kiro not detected'));s.dispose();
   // Kiro installed beside this editor: its default folder has logs, so nothing is "not detected" and no note is shown (the note needs a refresh that really found no logs).
   outside();reset();env.placeDefaultLogs();s=await start();
   assert.deepEqual(notices(),[]);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false);assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),env.statusTexts.join('|'));
@@ -1381,14 +1381,14 @@ test('packaged next-larger-plan comparison: beside the projected overage and on 
   assert.match(pro.notice,/^At this pace your Kiro credits run out on /);assert.match(pro.notice,COST);
   assert.ok(pro.notice.endsWith(' For comparison, if you are on Pro: Pro+ costs $20 a month more and includes 1000 more credits.'),pro.notice);
   const lines=[...pro.html.matchAll(/<p class="small overage">([^<]*)<\/p>/g)].map(m=>m[1]!);
-  assert.equal(lines.length,2);assert.match(lines[0]!,/^If you continue at this pace: about \d+ credits over the reported limit/);
+  assert.equal(lines.length,2);assert.match(lines[0]!,/^At this pace by the reset: about \d+ credits over/);
   assert.equal(lines[1],'For comparison, if you are on Pro: Pro+ costs $20 a month more than Pro and includes 1000 more credits (list prices, price list reviewed 18 Oct 2026).');
   assert.ok(!/save|cheaper|recommend|switch/i.test(lines[1]!+pro.notice.slice(pro.notice.indexOf('For comparison'))));
   // The largest plan has nothing larger; an account whose limit matches no plan has no known plan.
   for(const [limit,perDay] of [[10000,500],[100,10]] as const){
    const other=await run(limit,perDay);
    assert.match(other.notice,/^At this pace your Kiro credits run out on /);assert.ok(!other.notice.includes('For comparison')&&!other.html.includes('For comparison'),String(limit));
-   assert.match(other.html,/If you continue at this pace: about \d+ credits over the reported limit/);
+   assert.match(other.html,/At this pace by the reset: about \d+ credits over/);
   }
   // Without a projected overage there is no line (and no notice).
   const calm=await run(1000,5,false);assert.equal(calm.notice,'');assert.ok(!calm.html.includes('For comparison'));

@@ -187,7 +187,7 @@ test('answers cannot cross accounts, ambiguity or stale editor tickets',()=>{
 test('presentation is script-free, escaped, traceable to the catalog and never offers a purchase instruction',()=>{
  const hint=planHint('1000',catalog);
  const html=presentAdvisor({hint,context:ctx({planSource:'hint',plan:'pro',billingConfirmed:false,addOns:'assumed_none',assumptions:['plan_is_hint','billing_assumed_consumer','add_ons_assumed_none']}),horizons:[],advice:[],singleAccount:true,limit:'<img src=x onerror=synthetic-sentinel>'});
- for(const marker of ['Cost Advisor','Unconfirmed','only a hint',catalog.version,catalog.verifiedOn.slice(0,10),'Offline only','qualified forecast is needed'])assert.ok(html.includes(marker),marker);
+ for(const marker of ['Cost Advisor','Unconfirmed','only a hint',catalog.version,catalog.verifiedOn.slice(0,10),'qualified forecast is needed'])assert.ok(html.includes(marker),marker);
  assert.ok(!html.includes('<img'));assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script'));assert.ok(!html.includes('command:'));
  assert.ok(!/buy now|purchase now|click to buy/i.test(html));
 });
@@ -213,9 +213,9 @@ test('detail view shows the advisor first, answers are applied through the nativ
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(!html.includes('Cost Optimizer'));assert.ok(!html.includes('cost-optimizer'));
-  // Recommendation at a glance: directly after the current status and before the chart and advanced details.
+  // The Cost Advisor follows the status, chart and observed usage, and comes before the workspace check and advanced details.
   assert.ok(html.indexOf('class="hero ')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
-  if(html.includes('id="usage-chart"'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="usage-chart"'));
+  if(html.includes('id="usage-chart"'))assert.ok(html.indexOf('id="usage-chart"')<html.indexOf('id="cost-advisor"'));
   assert.ok(commands.has('advisor'));assert.ok(!html.includes('Confirmed by you'));
    assert.ok(html.includes('Unconfirmed'));
    const budget=status;
@@ -224,7 +224,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
    // The engine marks every priced comparison conditional, so any figure is a labelled model, never a supported claim.
    assert.ok(!/Potential saving|No cheaper option|Supported estimate/.test(html));
    assert.ok(html.includes('Modelled estimate'));assert.match(html,/No cheaper plan found/);assert.ok(!/class="figure"><strong>USD/.test(html));
-   assert.match(html,/Not a guarantee and not an invoice/);
+   assert.match(html,/not a guarantee and not an invoice/);assert.match(html,/<span class="badge">Based on assumptions<\/span>/);
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
    assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   controller.dispose();

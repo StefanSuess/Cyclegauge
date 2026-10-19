@@ -298,7 +298,7 @@ test('timed-out submit followed by a busy retry keeps later edits when the first
  const page=(epoch:number,credits:string)=>present(observed,[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm({...answers,addOnCredits:credits},epoch)).html;
  const app=await start(page(1,'12'));const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
  const credits=find(form,n=>n.getAttribute('name')==='addOnCredits')!;
- const error=find(form,n=>n.getAttribute('id')==='advisor-error')!;
+ const error=find(form,n=>n.getAttribute('id')==='advisor-credits-error')!;
  credits.value='15';app.emit('input',{target:credits,isTrusted:true});
  app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});app.tick();
  credits.value='20';app.emit('input',{target:credits,isTrusted:true});
@@ -309,6 +309,21 @@ test('timed-out submit followed by a busy retry keeps later edits when the first
  app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
  app.send(buildDomModel(page(2,'15')));
  assert.equal(credits.value,'20','late success for A cannot erase unsent B edit');
+});
+
+test('an invalid answer gets its own error line tied to the field, and other fields stay unmarked', async () => {
+ const page=present(view([],'2030-01-01T00:00:00Z'),[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,inlineAdvisorForm({plan:'pro',billing:'consumer_prepaid',addOns:'some',addOnCredits:'12'},1)).html;
+ const app=await start(page);const form=find(app.main,n=>n.getAttribute('id')==='advisor-form')!;
+ const credits=find(form,n=>n.getAttribute('name')==='addOnCredits')!,plan=find(form,n=>n.getAttribute('name')==='plan')!;
+ const error=(id:string)=>find(form,n=>n.getAttribute('id')===id)!;
+ credits.value='-1';app.emit('input',{target:credits,isTrusted:true});
+ app.emit('submit',{target:form,isTrusted:true,preventDefault(){}});
+ app.emit('message',{data:{type:'advisorResult',status:'invalid',fields:['addOnCredits']}});
+ assert.equal(credits.getAttribute('aria-invalid'),'true');assert.equal(credits.getAttribute('aria-describedby'),'advisor-credits-error');
+ assert.match(error('advisor-credits-error').textContent,/Enter a number of credits, for example 250\./);
+ assert.equal(plan.getAttribute('aria-invalid'),null);assert.equal(plan.getAttribute('aria-describedby'),null);assert.equal(error('advisor-plan-error').textContent,'');
+ app.emit('message',{data:{type:'advisorResult',status:'ok',epoch:2}});
+ assert.equal(credits.getAttribute('aria-invalid'),null);assert.equal(credits.getAttribute('aria-describedby'),null);assert.equal(error('advisor-credits-error').textContent,'');
 });
 
 // Recap card, image and CSV: the script reveals the buttons, draws the card and sends only fixed messages from trusted clicks.
@@ -384,7 +399,9 @@ test('only trusted clicks send the fixed messages, once at a time, and the answe
  app.emit('click', { target: node('recap-dismiss'), isTrusted: true }); await settle();
  assert.deepEqual(messages().at(-1), { type: 'dismissRecap' });
  app.emit('message', { data: { type: 'actionResult', action: 'dismissRecap', code: 'dismissed' } });
- assert.equal(node('export-status').textContent, ACTION_TEXT.dismissed); assert.equal(node('export-csv').focusCount, 1, 'focus moves to a control that remains');
+ assert.equal(node('export-status').textContent, ACTION_TEXT.dismissed); assert.equal(node('export-csv').focusCount, 0, 'the export button sits in the collapsed Advanced details, so it is not the target');
+ const advancedSummary = find(find(app.main, n => n.getAttribute('id') === 'advanced-details')!, n => n.localName === 'summary')!;
+ assert.equal(advancedSummary.focusCount, 1, 'focus moves to a visible control that remains');
 });
 
 test('Save image sends a PNG of the drawn card that the extension validator accepts, and a lost answer re-enables the button', async () => {

@@ -6,6 +6,14 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 Beta, macOS. Adds **session hints**: a context-fill reminder and a model hint taken from the newest IDE session of the open workspace. **It is on by default** and is a new, narrow read of Kiro's local session files (see Privacy below); turn it off with the user setting `cyclegauge.sessionHints`. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
 
+### Changed (calmer credit view and status bar, maintainer goal 2026-10-20)
+
+- **Status bar**: reads "Kiro credits: On track • 12/day" and "runs out Oct 28" (per-day units everywhere). "Update needed" now names the cause ("Kiro: Needs a newer Kiro" or "Kiro: Update Cyclegauge"). The warning background is only for budget risk, red only once the reported limit is reached or exceeded; stale or unavailable data shows just the warning icon.
+- **Credit view**: the caveats (as-of time, observed pace, limit not verified as base-only or total, modelled dollar amounts) are said once under **About these numbers**; the as-of time and freshness stay in the status. Over the limit, the status shows one headline figure (credits over so far, with the modelled dollar value) and one line for the pace until the reset. Stat values drop repeated units, and "Credits left" is left out when you are over the limit.
+- **Order and empty states**: status, chart, **Observed usage** (cards with nothing to show are hidden), recap, Cost Advisor, Workspace audit, summary, Advanced details (the CSV export moved there), footer ("Report a problem · Copy share link · Rate · Star · Support"). Unavailable, collecting and unclear-account states say what to do next.
+- **Cost Advisor form**: "Your plan details", "Update estimate", "Reload my answers", "Account type", a credits hint on the add-on field and an error line next to each answer that needs attention; one plain badge ("Based on your confirmed details", "Based on assumptions", "Costs only") and "$" instead of "USD" in the view.
+- **Accessibility**: the Workspace audit card heading is level 2, the decorative usage bar is hidden from screen readers (its text follows), footer glyphs are hidden from screen readers.
+
 ### Changed (Audit view follow-up, maintainer decision 2026-10-20)
 
 - **Collapsed by default**: every group and sub-group of the **Kiro Workspace Audit** view starts collapsed (the status line and warnings stay visible); group ids are stable across refreshes so the editor keeps what you opened. The per-group "Nothing changes until you save." rows are gone: the sentence is in each apply group's tooltip, the Exclude annotation and the notices.

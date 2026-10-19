@@ -2,7 +2,7 @@ import { compare, scaleRatio, subtract } from '../decimal.ts';
 import { DAY_MS, type AccountHistory } from '../history.ts';
 import type { Finding } from '../audit/audit.ts';
 import { auditSizeTotal, formatBytes } from './audit-model.ts';
-import { date } from './labels.ts';
+import { date, updated } from './labels.ts';
 
 // "Your Cyclegauge summary": exclusions the user saved, counted per observed billing cycle, and the observed use trend. Pure and free of
 // editor APIs. The only persisted value is `cyclegauge.results.v1`: at most two entries of bounded numbers keyed by a billing reset time.
@@ -150,22 +150,21 @@ export function resultsText(results: StoredResults, h: AccountHistory, now: stri
  const label = (e: ResultsEntry) => `${e.cycle === current ? 'This cycle' : 'Other cycle'}, resetting ${date(e.cycle, true)} (UTC)`;
  const exclusions = results.entries.map(e => `${label(e)}: ${describeExclusions(e)}.`);
  const notes: string[] = [];
- if (results.status === 'ok') notes.push('These are exclusions you saved, not what Kiro can read today. Saving an exclusion again can count it twice.');
- if (results.entries.some(e => e.bytesLowerBound)) notes.push('A folder Cyclegauge did not walk has no known size, so a total marked "at least" or "size unknown" is only a minimum, never zero.');
+ if (results.status === 'ok' && results.entries.length) notes.push('Counts what you saved, not what Kiro can read today; saving the same exclusion again counts it twice. "At least" and "size unknown" mean part of the size was not measured, not that it is zero.');
  if (current === null) notes.push('No billing cycle is observed right now, so exclusions saved now are not counted.');
- const rate = (v: string) => `${v} credits per observed day`;
+ const rate = (v: string) => `${v} credits per day`;
  let text: string;
  if (trend.status === 'observed') {
   const d = compare(trend.difference!, '0'), delta = trend.difference!.replace(/^-/, '');
-  text = `Observed use: ${rate(trend.recent!)} over the 28 days to ${trend.asOf}, against ${rate(trend.earlier!)} in the 28 days before, ${d === 0 ? 'unchanged' : `${d > 0 ? 'higher' : 'lower'} by ${delta}`}. This is an observation only; the cause is open.`;
- } else if (trend.status === 'not_comparable') text = 'Observed use trend: not comparable because the retained account updates contain a quality barrier such as an adjustment, a conflict or a limit change.';
- else text = `Observed use trend: not observed. Each 28-day window needs at least ${COVERAGE_PERCENT}% of its time covered by comparable account updates.`;
+  text = `${rate(trend.recent!)} over the 28 days to ${updated(trend.asOf!)}, against ${rate(trend.earlier!)} in the 28 days before — ${d === 0 ? 'unchanged' : `${d > 0 ? 'higher' : 'lower'} by ${delta}`}. The cause is open.`;
+ } else if (trend.status === 'not_comparable') text = 'Not comparable: a gap, an adjustment or a limit change in the history sits inside the 28-day windows.';
+ else text = `Not enough history yet for a 28-day comparison. Each window needs about ${COVERAGE_PERCENT}% of its time covered by comparable account updates, so this fills in as you keep using Kiro.`;
  return {
   heading: RESULTS_HEADING,
-  scope: 'This covers at most the two most recent billing cycles in which you saved exclusions. It shows observations; it does not say Cyclegauge caused any change.',
+  scope: 'The last two billing cycles with saved exclusions. These are observations, not proof that Cyclegauge caused a change.',
   exclusionsHeading: 'Exclusions you saved',
-  exclusions: results.status === 'unknown' ? ['The saved exclusion summary could not be read, so none are shown. Run "Cyclegauge: Reset Support Prompts and Summary" to clear it.']
-   : exclusions.length ? exclusions : ['No exclusions saved yet. They are counted when you save an Exclude edit while a billing cycle is observed.'],
+  exclusions: results.status === 'unknown' ? ['The saved exclusion summary could not be read, so none are shown. Run "Cyclegauge: Reset Reminders and Saved Summary" to clear it.']
+   : exclusions.length ? exclusions : ['No exclusions saved yet. When you save a .kiroignore change from the Workspace audit, it is counted here.'],
   notes,
   trendHeading: 'Observed use trend', trend: text,
  };

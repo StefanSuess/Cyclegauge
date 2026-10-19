@@ -4,7 +4,7 @@ import { history } from '../../src/history.ts';
 import { view } from '../../src/view.ts';
 import { RECAP_KEY, RECAP_LINK_TEXT, RECAP_TITLE, computeRecap, nextRecapState, readRecap, recapText, recapVisibility, type Recap, type StoredRecap } from '../../src/extension/recap.ts';
 import { present } from '../../src/extension/presentation.ts';
-import { recapSection, EXPORT_SECTION } from '../../src/extension/recap-presentation.ts';
+import { recapSection } from '../../src/extension/recap-presentation.ts';
 import { buildDomModel } from '../../src/extension/dashboard-shell.ts';
 import type { StoredResults } from '../../src/extension/results-summary.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
@@ -142,9 +142,7 @@ test('the static card is script-free text with the buttons hidden, escapes every
  assert.match(html, /<figure id="recap-preview" hidden><canvas id="recap-canvas" width="1200" height="630" role="img" aria-labelledby="recap-title" aria-describedby="recap-lines"><\/canvas>/);
  assert.match(html, /<p id="recap-status" role="status"><\/p>/);
  assert.match(html, /Save image…/); assert.match(html, /Copy text/); assert.match(html, /Dismiss/);
- buildDomModel(`<!doctype html><html lang="en"><body><main>${html}${EXPORT_SECTION}</main></body></html>`);
- assert.match(EXPORT_SECTION, /<button type="button" id="export-csv" hidden>Export CSV…<\/button>/);
- assert.ok(!/<script|\sstyle=|href=/.test(EXPORT_SECTION));
+ buildDomModel(`<!doctype html><html lang="en"><body><main>${html}</main></body></html>`);
 });
 
 test('present() renders the card and the export section only when given, and stays script-free and style-free', () => {
@@ -153,6 +151,7 @@ test('present() renders the card and the export section only when given, and sta
  const without = present(observed).html, withCard = present(observed, [], '', '', undefined, '2030-01-01T00:00:00Z', false, undefined, '', undefined, r).html;
  assert.ok(!without.includes('id="recap-card"'));
  assert.ok(withCard.includes('id="recap-card"'));
- for (const html of [without, withCard]) { assert.ok(html.includes('id="export-tools"')); assert.ok(!/<script|\sstyle=/.test(html)); buildDomModel(html); }
+ // The export lives inside the collapsed Advanced details, without its own section or a privacy sentence.
+ for (const html of [without, withCard]) { assert.ok(html.indexOf('id="advanced-details"') < html.indexOf('id="export-tools"')); assert.ok(html.indexOf('id="export-tools"') < html.indexOf('<footer')); assert.ok(!html.includes('id="export-heading"')); assert.ok(!/never writes to your workspace/.test(html)); assert.ok(!/<script|\sstyle=/.test(html)); buildDomModel(html); }
  assert.ok(withCard.indexOf('id="recap-card"') < withCard.indexOf('id="advanced-details"'));
 });

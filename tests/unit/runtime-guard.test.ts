@@ -17,8 +17,10 @@ async function setup() {
  return { base, root, storage: join(base, 'gauge'), db: join(base, 'gauge', 'usage.sqlite') };
 }
 const exists = (path: string) => access(path).then(() => true, () => false);
-const UPDATE_NEEDED = '$(warning) Kiro: update needed';
-const RUNTIME_TEXT = 'This Kiro version does not provide the SQLite support Cyclegauge needs. Update Kiro to use the credit gauge; the workspace audit still works.';
+const RUNTIME_STATUS = '$(warning) Kiro: Needs a newer Kiro', NEWER_STATUS = '$(warning) Kiro: Update Cyclegauge';
+const UNAVAILABLE_TEXT = 'Use Kiro for a few minutes so it can write a credit update. If this stays empty, use Report a problem below.';
+const RUNTIME_TEXT = "This version of Kiro is too old for Cyclegauge's credit view. Update Kiro to see your credits. The workspace audit still works.";
+const RUNTIME_HTML = RUNTIME_TEXT.replace("'", '&#39;'); // the view escapes the apostrophe
 const NEWER_TEXT = 'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.';
 
 test('a runtime without usable node:sqlite is refused as RUNTIME_UNSUPPORTED before anything is created', async () => {
@@ -72,8 +74,8 @@ test('the controller shows update needed and the matching explanation on an unsu
  try {
   process.getBuiltinModule = (() => undefined) as typeof process.getBuiltinModule;
   const r = await run(f);
-  assert.equal(r.text, UPDATE_NEEDED); assert.equal(r.tooltip, RUNTIME_TEXT); assert.ok(r.html.includes(RUNTIME_TEXT)); assert.ok(!r.html.includes(NEWER_TEXT));
-  assert.ok(!r.html.includes('Waiting for usable local account updates.'));
+  assert.equal(r.text, RUNTIME_STATUS); assert.equal(r.tooltip, RUNTIME_TEXT); assert.ok(r.html.includes(RUNTIME_HTML)); assert.ok(!r.html.includes(NEWER_TEXT));
+  assert.ok(!r.html.includes(UNAVAILABLE_TEXT));
  } finally { process.getBuiltinModule = original; await rm(f.base, { recursive: true }); }
 });
 
@@ -82,7 +84,7 @@ test('the controller shows update needed and the matching explanation for a newe
  const db = new DatabaseSync(f.db); db.exec(`UPDATE meta SET version=${STORE_VERSION + 1}`); db.close();
  try {
   const r = await run(f);
-  assert.equal(r.text, UPDATE_NEEDED); assert.equal(r.tooltip, NEWER_TEXT); assert.ok(r.html.includes(NEWER_TEXT)); assert.ok(!r.html.includes(RUNTIME_TEXT));
+  assert.equal(r.text, NEWER_STATUS); assert.equal(r.tooltip, NEWER_TEXT); assert.ok(r.html.includes(NEWER_TEXT)); assert.ok(!r.html.includes(RUNTIME_HTML));
   const check = new DatabaseSync(f.db); assert.equal((check.prepare('SELECT version FROM meta').get() as { version: number }).version, STORE_VERSION + 1); check.close();
  } finally { await rm(f.base, { recursive: true }); }
 });
@@ -92,19 +94,20 @@ test('a generic failure keeps the old text', async () => {
  try {
   await mkdir(f.storage, { recursive: true }); await writeFile(join(f.storage, 'device.key'), 'x', { mode: 0o600 });
   const r = await run(f);
-  assert.notEqual(r.text, UPDATE_NEEDED); assert.ok(r.html.includes('Waiting for usable local account updates.'));
-  assert.ok(!r.html.includes(RUNTIME_TEXT) && !r.html.includes(NEWER_TEXT));
+  assert.ok(r.text !== RUNTIME_STATUS && r.text !== NEWER_STATUS); assert.ok(r.html.includes(UNAVAILABLE_TEXT));
+  assert.ok(!r.html.includes(RUNTIME_HTML) && !r.html.includes(NEWER_TEXT));
  } finally { await rm(f.base, { recursive: true }); }
 });
 
 test('presentation maps only the two fixed codes and ignores other diagnostics', () => {
  const o = view([], '2026-10-10T09:00:00.000Z');
- for (const [code, text] of [['runtime_unsupported', RUNTIME_TEXT], ['storage_newer', NEWER_TEXT]]) {
+ for (const [code, status, text] of [['runtime_unsupported', RUNTIME_STATUS, RUNTIME_TEXT], ['storage_newer', NEWER_STATUS, NEWER_TEXT]]) {
   const p = present(o, [code]);
-  assert.equal(p.text, UPDATE_NEEDED); assert.equal(p.tooltip, text); assert.equal(p.warning, true); assert.ok(p.html.includes(text));
+  // The cause is named in the status bar; the warning icon is the only emphasis, with no background colour.
+  assert.equal(p.text, status); assert.equal(p.tooltip, text); assert.equal(p.warning, false); assert.equal(p.severity, 'none'); assert.ok(p.html.includes(text.replace("'", '&#39;')));
  }
  const generic = present(o, ['unavailable']);
- assert.notEqual(generic.text, UPDATE_NEEDED); assert.ok(generic.html.includes('Waiting for usable local account updates.'));
+ assert.ok(generic.text !== RUNTIME_STATUS && generic.text !== NEWER_STATUS); assert.ok(generic.html.includes(UNAVAILABLE_TEXT));
 });
 
 test('CLI prints only the fixed RUNTIME_UNSUPPORTED code on an unsupported runtime', async () => {

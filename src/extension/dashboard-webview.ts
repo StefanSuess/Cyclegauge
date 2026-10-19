@@ -180,18 +180,24 @@ function applyAdvisor(form:HTMLFormElement, draft:AdvisorDraft):void {
   if(field)field.value=value;
  }
 }
+// Each answer has its own error line (aria-describedby), so the message sits next to the field that needs attention.
+const FIELD_ERRORS: Record<string, [string, string]> = {
+ plan: ['advisor-plan-error', 'Choose a plan, or Not sure.'], billing: ['advisor-billing-error', 'Choose an account type, or Not sure.'],
+ addOns: ['advisor-add-ons-error', 'Choose an option, or Not sure.'], addOnCredits: ['advisor-credits-error', 'Enter a number of credits, for example 250.'],
+};
 function advisorStatus(text:string,fields:string[]=[]):void {
  const form=advisorForm();if(!form)return;
  // The status line sits outside the disclosure so it stays visible; a message about the answers also keeps the disclosure open.
- const status=document.querySelector('#advisor-status'),error=form.querySelector('#advisor-error');
+ const status=document.querySelector('#advisor-status');
  if(status)status.textContent=text;
  if(text)document.querySelector('#advisor-change')?.setAttribute('open','');
- if(error)error.textContent=fields.length?'Check the marked Cost Advisor answer.':'';
- for(const name of ['plan','billing','addOns','addOnCredits']) {
-  const field=form.elements.namedItem(name) as Element|null;
+ for(const [name,[errorId,message]] of Object.entries(FIELD_ERRORS)) {
+  const field=form.elements.namedItem(name) as Element|null,error=form.querySelector(`#${errorId}`);
+  const invalid=fields.includes(name);
+  if(error)error.textContent=invalid?message:'';
   if(!field)continue;
-  if(fields.includes(name)){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','advisor-error');}
-  else {field.removeAttribute('aria-invalid');if(name!=='addOnCredits')field.removeAttribute('aria-describedby');}
+  if(invalid){field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby',errorId);}
+  else {field.removeAttribute('aria-invalid');field.removeAttribute('aria-describedby');}
  }
 }
 function syncAdvisor():void {
@@ -293,12 +299,20 @@ window.addEventListener('click', event => {
  else if (id === 'export-csv') request('exportCsv', 'Choose where to save the CSV file…', () => ({ type: 'exportCsv' }));
  else if (id === 'recap-save') request('saveRecapImage', 'Choose where to save the image…', cardMessage);
 });
+// The dismissed card is gone, so focus moves to the next visible control in reading order: the Cost Advisor form's summary, else the Advanced details summary.
+const firstSummary = (details: Node | null | undefined): HTMLElement | null => {
+ const first = details?.childNodes[0];
+ return first?.nodeType === Node.ELEMENT_NODE && (first as Element).localName === 'summary' ? first as HTMLElement : null;
+};
+function focusAfterRecap(): void {
+ (firstSummary(el('advisor-change')) ?? firstSummary(el('advanced-details')?.childNodes[0]))?.focus?.();
+}
 function actionResult(message: { action?: unknown; code?: unknown }): void {
  const name = ACTION_NAMES.find(n => n === message.action), code = ACTION_CODES.find((c): c is ActionCode => c === message.code);
  if (!name || !code || !inFlight.has(name)) return;
  finish(name);
  say(STATUS_OF[name], ACTION_TEXT[code]);
- if (name === 'dismissRecap' && code === 'dismissed') (el('export-csv') as HTMLElement | null)?.focus?.();
+ if (name === 'dismissRecap' && code === 'dismissed') focusAfterRecap();
 }
 
 window.addEventListener('message', event => {

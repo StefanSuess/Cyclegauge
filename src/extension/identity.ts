@@ -19,7 +19,7 @@ export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclega
 export const REPORT_PROBLEM_URL = 'https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml';
 export const REPORT_PROBLEM_ACTION = 'Report a problem';
 export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
-export const NOT_KIRO_TEXT = 'Cyclegauge is built for Kiro IDE. This editor has no Kiro credit logs, so the credit view stays empty. The workspace audit still works.';
+export const NOT_KIRO_TEXT = "Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
 export const REMINDER_DAYS_DEFAULT = 30;
 export const REMINDER_DAYS_MAX = 365;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;

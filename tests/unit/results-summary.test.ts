@@ -179,15 +179,15 @@ test('the summary section is headed, scoped, escaped and static', () => {
  const s = section(html);
  assert.match(s, /<h2 id="results-summary-heading">Your Cyclegauge summary<\/h2>/);
  assert.match(s, /aria-labelledby="results-summary-heading"/);
- assert.match(s, /covers at most the two most recent billing cycles/);
+ assert.match(s, /The last two billing cycles with saved exclusions\. These are observations, not proof that Cyclegauge caused a change\./);
  assert.match(s, /<h3>Exclusions you saved<\/h3>/);
  assert.match(s, /3 items \(1 possible secret\), at least 3\.0 MiB\./);
  assert.match(s, /2 items \(0 possible secrets\), size unknown\./);
  assert.match(s, /resetting 1 Aug 2030 \(UTC\)/);
  assert.match(s, /not what Kiro can read today/);
- assert.match(s, /&quot;at least&quot; or &quot;size unknown&quot; is only a minimum, never zero/);
+ assert.match(s, /&quot;At least&quot; and &quot;size unknown&quot; mean part of the size was not measured, not that it is zero/);
  assert.match(s, /Other cycle, resetting 1 Aug 2030 \(UTC\)/); assert.ok(!/No billing cycle is observed right now/.test(s));
- assert.match(s, /<h3>Observed use trend<\/h3><p>Observed use: 5 credits per observed day over the 28 days to 2030-07-30T00:00:00\.000Z, against 2 credits per observed day in the 28 days before, higher by 3\. This is an observation only; the cause is open\.<\/p>/);
+ assert.match(s, /<h3>Observed use trend<\/h3><p>5 credits per day over the 28 days to 30 Jul 2030, 00:00 UTC, against 2 credits per day in the 28 days before — higher by 3\. The cause is open\.<\/p>/);
  assert.ok(!/<script|style=|\son\w+=/i.test(html));
  assert.ok(!/saved credits|you saved \d|plan change|changed your plan|reduced your/i.test(text(s)));
  assert.ok(html.indexOf('id="usage-context"') < html.indexOf('id="results-summary"'));
@@ -198,13 +198,14 @@ test('the summary labels the current cycle, the not observed trend and an empty 
  assert.match(section(current), /This cycle, resetting 1 Jan 2031 \(UTC\): 3 items \(1 possible secret\), about 2 KiB\./);
  assert.ok(!/No billing cycle is observed right now/.test(section(current)));
  const empty = section(render({ status: 'ok', entries: [] }, series(days60.slice(0, 10))));
- assert.match(empty, /No exclusions saved yet\./); assert.match(empty, /Observed use trend: not observed\. Each 28-day window needs at least 70% of its time covered/);
+ assert.match(empty, /No exclusions saved yet\. When you save a \.kiroignore change from the Workspace audit, it is counted here\./); assert.match(empty, /Not enough history yet for a 28-day comparison\. Each window needs about 70% of its time covered/);
+ assert.ok(!/not what Kiro can read today/.test(empty), 'no counting caveat while nothing is counted');
  const none = section(render({ status: 'ok', entries: [entry(C1)] }, []));
  assert.match(none, /Other cycle, resetting 1 Aug 2030 \(UTC\)/); assert.match(none, /No billing cycle is observed right now, so exclusions saved now are not counted\./);
  const bad = section(render({ status: 'unknown', entries: [] }));
  assert.match(bad, /could not be read, so none are shown/); assert.ok(!/not what Kiro can read today/.test(bad));
  const barrier = series(days60); barrier[45] = { ...barrier[45]!, usage: '1' };
- assert.match(section(render({ status: 'ok', entries: [] }, barrier)), /Observed use trend: not comparable because/);
+ assert.match(section(render({ status: 'ok', entries: [] }, barrier)), /Not comparable: a gap, an adjustment or a limit change in the history sits inside the 28-day windows\./);
 });
 
 test('no section without a results parameter, and hostile entries are escaped or omitted', () => {
