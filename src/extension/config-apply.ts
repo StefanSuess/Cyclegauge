@@ -99,7 +99,7 @@ async function prepare(editor: typeof vscode, request: ApplyRequest, quiet: bool
  * editor shows its change preview (a diff with a checkbox per change, Apply and Discard) before anything changes. The edit is never saved here. In a group an item whose
  * guard fails is skipped and counted; one request keeps the messages and the opened tab of the single-item flow.
  */
-export async function applyConfigChanges(editor: typeof vscode, requests: readonly ApplyRequest[]): Promise<ApplyOutcome> {
+export async function applyConfigChanges(editor: typeof vscode, requests: readonly ApplyRequest[], marks?: PreparedFiles): Promise<ApplyOutcome> {
  if (requests.length === 0) return 'refused';
  const say = (text: string): void => tell(editor, text);
  if (!editor.workspace.isTrusted) { say(APPLY_TEXT.untrusted); return 'refused'; }
@@ -137,8 +137,60 @@ export async function applyConfigChanges(editor: typeof vscode, requests: readon
  const changedDocuments = new Set(ready.filter(r => applied && r.document.isDirty).map(r => r.document));
  const changes = ready.filter(r => changedDocuments.has(r.document)).length;
  if (changes === 0) { say([APPLY_TEXT.discarded, ...skipped].join(' ')); return 'discarded'; }
+ marks?.add([...changedDocuments].map(document => document.uri));
  if (!quiet) await editor.window.showTextDocument(ready[0]!.document);
  say([preparedText(changedDocuments.size), ...skipped].join(' ')); return 'prepared';
 }
 /** One request: the same flow with the single-item messages. */
-export const applyConfigAction = (editor: typeof vscode, request: ApplyRequest): Promise<ApplyOutcome> => applyConfigChanges(editor, [request]);
+export const applyConfigAction = (editor: typeof vscode, request: ApplyRequest, marks?: PreparedFiles): Promise<ApplyOutcome> => applyConfigChanges(editor, [request], marks);
+/** What happened to a prepared file: it was prepared (`added`), saved by the user, or closed or reverted without saving (`cleared`). */
+export type PreparedEvent = 'added' | 'saved' | 'cleared';
+/**
+ * The files in which Cyclegauge prepared an edit that is still unsaved (approved 2026-10-20). In memory only, keyed by the file's path, never persisted and never shown as a path.
+ * A mark is removed when the document is saved, closed or reverted. Cyclegauge saves nothing itself; a save here is always the user's.
+ */
+export interface PreparedFiles {
+ add(uris: readonly vscode.Uri[]): void;
+ has(path: string): boolean;
+ count(): number;
+ subscribe(listener: (path: string, event: PreparedEvent) => void): void;
+ dispose(): void;
+}
+const MAX_PREPARED = 500;
+export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Platform = process.platform): PreparedFiles {
+ const ci = platform === 'darwin' || platform === 'win32', paths = new Map<string, string>(), listeners: ((path: string, event: PreparedEvent) => void)[] = [];
+ const keyOf = (path: string): string => ci ? path.toLowerCase() : path;
+ const emit = (path: string, event: PreparedEvent): void => { for (const listener of listeners) { try { listener(path, event); } catch { /* a listener never affects the tracking */ } } };
+ const forget = (document: vscode.TextDocument, event: PreparedEvent): void => {
+  if (document.uri.scheme !== 'file') return;
+  const key = keyOf(document.uri.fsPath), path = paths.get(key);
+  if (path === undefined) return;
+  paths.delete(key); emit(path, event);
+ };
+ const subscriptions: vscode.Disposable[] = [];
+ const ws = editor.workspace;
+ try {
+  if (ws.onDidSaveTextDocument) subscriptions.push(ws.onDidSaveTextDocument(document => forget(document, 'saved')));
+  if (ws.onDidCloseTextDocument) subscriptions.push(ws.onDidCloseTextDocument(document => forget(document, 'cleared')));
+  // A revert (or undoing every change) leaves the document clean without a save. The editor reports the clean state just before a save, so the check waits one tick and the save wins.
+  if (ws.onDidChangeTextDocument) subscriptions.push(ws.onDidChangeTextDocument(event => {
+   const document = event.document;
+   if (document.uri.scheme !== 'file' || document.isDirty || !paths.has(keyOf(document.uri.fsPath))) return;
+   queueMicrotask(() => { if (!document.isDirty) forget(document, 'cleared'); });
+  }));
+ } catch { /* without the events nothing is marked as prepared */ }
+ return {
+  add(uris) {
+   for (const uri of uris) {
+    if (uri.scheme !== 'file' || (paths.size >= MAX_PREPARED && !paths.has(keyOf(uri.fsPath)))) continue;
+    const key = keyOf(uri.fsPath), known = paths.has(key);
+    paths.set(key, uri.fsPath);
+    if (!known) emit(uri.fsPath, 'added');
+   }
+  },
+  has: path => paths.has(keyOf(path)),
+  count: () => paths.size,
+  subscribe(listener) { listeners.push(listener); },
+  dispose() { for (const s of subscriptions) { try { s.dispose(); } catch { /* already gone */ } } subscriptions.length = 0; paths.clear(); listeners.length = 0; },
+ };
+}

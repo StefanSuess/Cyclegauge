@@ -72,13 +72,24 @@ export interface AuditNode {
  id: string; kind: NodeKind; label: string; description?: string; tooltip?: string; icon: string; contextValue: string;
  children?: AuditNode[]; finding?: Finding; action?: NodeAction; expanded?: boolean;
 }
-/** The line under every apply group: the edit is only prepared, never saved by Cyclegauge. */
+/** The sentence every apply group's tooltip and every annotation or notice carries: the edit is only prepared, never saved by Cyclegauge. */
 export const NOTHING_CHANGES = 'Nothing changes until you save.';
-const EXCLUDE_NOTE = "Kiro may read these files into the agent's context; excluding them keeps requests smaller. Review changes… shows exactly what would be added to .kiroignore, and nothing changes until you save. Alternative: Not a problem hides an item.";
+/** Description of an item whose file holds a prepared edit that is still unsaved in the editor (approved 2026-10-20). */
+export const PREPARED_DESCRIPTION = 'prepared — save the file to apply';
+/** The status-line phrase for the number of files with prepared, unsaved changes. */
+export const unsavedFilesText = (files: number): string => `${files} ${files === 1 ? 'file' : 'files'} with unsaved prepared changes`;
+/** Kiro reads .kiroignore only when Agent Ignore Files lists it: what the Exclude group says when that is not so (approved 2026-10-20). */
+export const IGNORE_OFF_DESCRIPTION = "won't take effect yet — add .kiroignore to Agent Ignore Files";
+export const IGNORE_ACTION_LABEL = 'Add .kiroignore to Agent Ignore Files…';
+export const IGNORE_USE_NOTE = "Kiro uses .kiroignore only when it's listed in Agent Ignore Files.";
+export const OPEN_SETTING = 'Open setting';
+/** True when a .kiroignore saved now would have no effect: Agent Ignore Files is empty or does not list an existing .kiroignore. */
+export const ignoreNotEffective = (result: Pick<AuditResult, 'ignore' | 'kiroignoreNotListed'>): boolean => result.ignore === 'disabled' || result.kiroignoreNotListed === true;
+const EXCLUDE_NOTE = `Kiro may read these files into the agent's context; excluding them keeps requests smaller. Review changes… shows exactly what would be added to .kiroignore. ${NOTHING_CHANGES} Alternative: Not a problem hides an item.`;
 /** The annotation of the one .kiroignore change shown in the editor's change preview: the short why and the alternative. `rules` is the number of lines added. */
 export const excludeAnnotation = (rules: number): { label: string; description: string } => ({
  label: 'Exclude from Kiro',
- description: `Adds ${rules} ${rules === 1 ? 'line' : 'lines'} to .kiroignore. Kiro may read ${rules === 1 ? 'this file' : 'these files'} into the agent's context; excluding ${rules === 1 ? 'it' : 'them'} keeps requests smaller. Alternative: Not a problem.`,
+ description: `Adds ${rules} ${rules === 1 ? 'line' : 'lines'} to .kiroignore. Kiro may read ${rules === 1 ? 'this file' : 'these files'} into the agent's context; excluding ${rules === 1 ? 'it' : 'them'} keeps requests smaller. Alternative: Not a problem. ${NOTHING_CHANGES}`,
 });
 /** Local time of the check as HH:MM when it was today, otherwise the relative wording (yesterday, N days ago); '' when unknown. */
 export function checkedLabel(checkedAt: string | undefined, now: Date): string {
@@ -157,15 +168,15 @@ function unclearReason(result: AuditResult): string {
  return 'the ignore rules could not be fully checked';
 }
 
-function findingNode(f: Finding, index: number, accepted: ReadonlySet<string>, reason: string): AuditNode {
- const key = findingKey(f), done = accepted.has(key);
+function findingNode(f: Finding, index: number, accepted: ReadonlySet<string>, reason: string, saved: boolean): AuditNode {
+ const key = findingKey(f), done = accepted.has(key), pending = done && saved;
  const label = escapeText(f.path) + (f.isDir ? '/' : '');
- const description = STATUS_TEXT[f.coverage] + (done ? ' · rule prepared (unsaved)' : '');
+ const description = pending ? PREPARED_DESCRIPTION : STATUS_TEXT[f.coverage] + (done ? ' · rule prepared (unsaved)' : '');
  const tooltip = [label, `${LABELS[f.category]}: ${EXPLANATIONS[f.category]}`,
   f.coverage === 'unknown' ? `Cyclegauge could not tell whether it is excluded: ${reason}.` : STATUS_MEANING[f.coverage],
   ...(f.size === undefined ? [] : [`Size: ${formatSize(f.size)}`]),
   f.suggestion === '' ? 'No safe rule could be suggested.' : `Suggested rule: ${escapeText(f.suggestion)}`, ...(done ? ['The rule is prepared but not saved.'] : [])].join('\n');
- return { id: `finding:${f.category}:${index}`, kind: 'finding', label, description, tooltip, icon: ICONS[f.category], contextValue: f.suggestion === '' ? 'finding' : 'finding-suggestible', finding: f };
+ return { id: `finding:${f.category}:${index}`, kind: 'finding', label, description, tooltip, icon: pending ? 'edit' : ICONS[f.category], contextValue: f.suggestion === '' ? 'finding' : 'finding-suggestible', finding: f };
 }
 
 /** Largest first; a finding without a size (a pruned folder) comes after the sized ones; equal sizes keep their order in the result. */
@@ -173,10 +184,10 @@ const bySize = (a: { f: Finding; i: number }, b: { f: Finding; i: number }): num
 
 /**
  * Builds the audit part of the sidebar. `dismissedHashes` are the stored hashes, `hashFn` maps a finding to the same kind of hash and
- * `accepted` holds findingKey values of findings whose change is prepared but unsaved. `checkedAt` is the in-memory time of the run.
+ * `accepted` holds findingKey values of findings whose change is prepared but unsaved; `preparedUnsaved` says the .kiroignore document holding that edit is still unsaved in the editor. `checkedAt` is the in-memory time of the run.
  * The findings sit in one **Exclude from Kiro** group (the verb of its Review changes… button) with the categories as sub-groups, largest first.
  */
-export function auditTree(result: AuditResult, folderName: string, dismissedHashes: Iterable<string>, hashFn: (category: string, path: string) => string, accepted: ReadonlySet<string> = new Set(), checkedAt?: string): AuditParts {
+export function auditTree(result: AuditResult, folderName: string, dismissedHashes: Iterable<string>, hashFn: (category: string, path: string) => string, accepted: ReadonlySet<string> = new Set(), checkedAt?: string, preparedUnsaved = false): AuditParts {
  const dismissed = new Set(dismissedHashes);
  const name = escapeText(folderName);
  if (result.status === 'unavailable') {
@@ -201,20 +212,23 @@ export function auditTree(result: AuditResult, folderName: string, dismissedHash
    ...(partial ? ['The check is partial, so results may be incomplete:', ...(reasons.length ? reasons.map(r => `- ${escapeText(r)}`) : ['- Some results may be missing.'])] : []), summary],
  };
  const parts: AuditParts = { stats, info: [], footers: [] };
- if (result.ignore === 'disabled') parts.info.push({ id: 'info:disabled', kind: 'info', label: 'Workspace ignore files are turned off', tooltip: 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.', icon: 'info', contextValue: 'info' });
+ const notEffective = ignoreNotEffective(result), merged = notEffective && indexed.length > 0; // the Exclude group says it itself, so no separate row
+ if (result.ignore === 'disabled' && !merged) parts.info.push({ id: 'info:disabled', kind: 'info', label: 'Workspace ignore files are turned off', tooltip: 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.', icon: 'info', contextValue: 'info' });
  if (result.ignore === 'setting_unknown') parts.info.push({ id: 'info:setting_unknown', kind: 'info', label: "Couldn't read the Agent Ignore Files setting", description: 'Coverage unknown', tooltip: 'The kiroAgent.agentIgnoreFiles value could not be interpreted, so every coverage is unknown.', icon: 'info', contextValue: 'info' });
- if (result.kiroignoreNotListed) parts.info.push({ id: 'info:not_listed', kind: 'info', label: ".kiroignore isn't active yet", description: 'open setting', tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' });
+ if (result.kiroignoreNotListed && !merged) parts.info.push({ id: 'info:not_listed', kind: 'info', label: ".kiroignore isn't active yet", description: 'open setting', tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' });
  const reason = unclearReason(result);
  const categories: AuditNode[] = [];
  for (const category of CATEGORY_ORDER) {
   const rows = indexed.filter(x => x.f.category === category).sort(bySize);
   if (rows.length === 0) continue;
-  categories.push({ id: category, kind: 'group', label: `${LABELS[category]} (${rows.length})`, description: WHY[category], tooltip: EXPLANATIONS[category], icon: ICONS[category], contextValue: 'group', expanded: false, children: rows.map(x => findingNode(x.f, x.i, accepted, reason)) });
+  categories.push({ id: category, kind: 'group', label: `${LABELS[category]} (${rows.length})`, description: WHY[category], tooltip: EXPLANATIONS[category], icon: ICONS[category], contextValue: 'group', expanded: false, children: rows.map(x => findingNode(x.f, x.i, accepted, reason, preparedUnsaved)) });
  }
  if (indexed.length > 0) {
   const ready = visible.some(f => f.suggestion !== '');
-  parts.exclude = { id: 'group:exclude', kind: 'group', label: `Exclude from Kiro (${indexed.length})`, description: 'adds lines to .kiroignore', tooltip: EXCLUDE_NOTE, icon: 'eye-closed', contextValue: ready ? 'group-exclude' : 'group-exclude-none', expanded: true,
-   children: [{ id: 'info:exclude', kind: 'info', label: NOTHING_CHANGES, icon: 'info', contextValue: 'info' }, ...categories] };
+  parts.exclude = { id: 'group:exclude', kind: 'group', label: `Exclude from Kiro (${indexed.length})`, description: merged ? IGNORE_OFF_DESCRIPTION : 'adds lines to .kiroignore',
+   tooltip: merged ? `${EXCLUDE_NOTE}\n${result.ignore === 'disabled' ? 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.' : NOT_LISTED}` : EXCLUDE_NOTE,
+   icon: merged ? 'warning' : 'eye-closed', contextValue: ready ? 'group-exclude' : 'group-exclude-none', expanded: false,
+   children: [...(merged ? [{ id: 'action:ignore_setting', kind: 'info' as const, label: IGNORE_ACTION_LABEL, tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' as const }] : []), ...categories] };
  }
  if (hidden > 0) parts.footers.push({ id: 'footer:dismissed', kind: 'footer', label: `${hidden} hidden by you`, description: 'Show again', tooltip: 'These items are hidden for this workspace. Select to show them again.', icon: 'eye-closed', contextValue: 'footer-action', action: 'clearDismissed' });
  if (result.omitted > 0) parts.footers.push({ id: 'footer:omitted', kind: 'footer', label: `${result.omitted} more not shown`, tooltip: 'Only the first 200 items are listed; the rest are counted.', icon: 'ellipsis', contextValue: 'footer' });

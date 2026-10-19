@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { createConfigReviewer } from '../../src/audit/config-review.ts';
 import { stampKey } from '../../src/audit/config-read.ts';
 import { registerConfigReview } from '../../src/extension/config-review.ts';
-import { APPLY_TEXT, preparedText, skippedText, autoSaveSkippedText } from '../../src/extension/config-apply.ts';
+import { APPLY_TEXT, createPreparedFiles, preparedText, skippedText, autoSaveSkippedText } from '../../src/extension/config-apply.ts';
 import type { ConfigNode } from '../../src/extension/config-model.ts';
 
 // Synthetic workspaces on disk, a minimal editor double that keeps documents in memory, and the real reviewer.
@@ -67,11 +67,12 @@ function setup(root: string, options: { autoSave?: string } = {}) {
  const editor = { workspace: workspaceApi, window, Range, Selection, WorkspaceEdit, EndOfLine: { LF: 1, CRLF: 2 }, Uri: { file: (fsPath: string) => ({ scheme: 'file', fsPath }) },
   commands: { registerCommand: (id: string, fn: (...a: unknown[]) => unknown) => { commands.set(id, fn); return { dispose() {} }; }, executeCommand: async () => undefined } } as unknown as typeof vscode;
  const context = { subscriptions, globalState: { get: () => true, update: async () => { throw new Error('storage touched'); } }, workspaceState: { get: () => undefined, update: async () => { throw new Error('storage touched'); } } } as unknown as vscode.ExtensionContext;
- const link = registerConfigReview(context, editor, f => ({ chosen: f.uri.fsPath, resolved: f.uri.fsPath }), () => undefined, { reviewer: createConfigReviewer(), reportError: text => { log.errors.push(text); } });
+ const prepared = createPreparedFiles(editor, 'linux');
+ const link = registerConfigReview(context, editor, f => ({ chosen: f.uri.fsPath, resolved: f.uri.fsPath }), () => undefined, { reviewer: createConfigReviewer(), reportError: text => { log.errors.push(text); }, prepared });
  const node = (id: string, rel?: string, hook?: number) => flatten(link.nodes()).find(n => n.finding?.id === id && (rel === undefined || n.finding.rel === rel) && (hook === undefined || n.finding.hook === hook))!;
  const act = (action: string, arg: unknown) => commands.get(`cyclegauge.config.${action}`)!(arg);
  const doc = (rel: string) => docs.get(join(root, rel))!;
- return { commands, link, log, state, workspace: workspaceApi, folder, node, act, doc, run: () => commands.get('cyclegauge.reviewKiroConfig')!(), subscriptions, docs };
+ return { commands, link, log, state, prepared, workspace: workspaceApi, folder, node, act, doc, run: () => commands.get('cyclegauge.reviewKiroConfig')!(), subscriptions, docs };
 }
 const FIXED = 1_900_000_000; // seconds: exact in every file system, so a restored time is bit-identical
 const pad = (n = 9000) => 'x'.repeat(n);
@@ -95,7 +96,8 @@ test('Steering without front matter: Load only when needed prepares the exact fr
  assert.equal(await disk(root, '.kiro/steering/synthetic-a.md'), body, 'Cyclegauge wrote nothing');
  assert.equal((await stat(join(root, '.kiro/steering/synthetic-a.md'))).mtimeMs, before.mtimeMs);
  // The file is now an unsaved edit: a second click refuses instead of stacking edits.
- await s.act('loadWhenNeeded', node); assert.equal(s.log.edits.length, 1); assert.equal(s.log.messages.at(-1), APPLY_TEXT.unsaved);
+ await s.act('loadWhenNeeded', node); assert.equal(s.log.edits.length, 1, 'the element from before the redraw is stale');
+ await s.act('loadWhenNeeded', s.node('S1')); assert.equal(s.log.edits.length, 1); assert.equal(s.log.messages.at(-1), APPLY_TEXT.unsaved);
 });
 
 test('Steering with inclusion: always or other keys, and a CRLF document', async t => {
@@ -358,7 +360,7 @@ test('a whole group: ONE edit with an annotated change per item across files, on
  });
  const s = setup(root); await s.run();
  const load = groupNode(s, 'config-group-load');
- const sizes = load.children!.slice(1).map(n => n.finding!.size!);
+ const sizes = load.children!.map(n => n.finding!.size!);
  assert.deepEqual(sizes, [...sizes].sort((a, b) => b - a), 'sorted by size, largest first'); assert.equal(sizes.length, 3);
  await s.commands.get('cyclegauge.config.loadWhenNeededAll')!({ ...load }); // the menu passes the tree element
  assert.equal(s.log.edits.length, 1, 'one WorkspaceEdit');
@@ -435,7 +437,7 @@ test('one hook with two findings (a broad trigger and a large prompt) is changed
  const root = await workspace(t, { '.kiro/hooks/synthetic.json': hooks(agent('synthetic-one', { action: { type: 'agent', prompt: SENTINEL + pad(2100) } }), agent('synthetic-two')) });
  const s = setup(root); await s.run();
  const run = groupNode(s, 'config-group-run');
- assert.deepEqual(run.children!.slice(1).map(n => `${n.finding!.id}:${n.finding!.hook}`).sort(), ['H1:0', 'H1:1', 'H4:0']);
+ assert.deepEqual(run.children!.map(n => `${n.finding!.id}:${n.finding!.hook}`).sort(), ['H1:0', 'H1:1', 'H4:0']);
  await s.commands.get('cyclegauge.config.runManuallyAll')!(run);
  assert.equal(s.log.edits.length, 1); assert.equal(s.log.edits[0]!.replaces.length, 2, 'one replace per hook');
  assert.deepEqual(JSON.parse(s.doc('.kiro/hooks/synthetic.json').text).hooks.map((h: { trigger: string }) => h.trigger), ['Manual', 'Manual']);
@@ -461,4 +463,21 @@ test('static: every applyEdit call passes exactly the edit (no further argument 
   assert.ok(calls.length >= 1, name);
   for (const [, args] of calls) assert.equal(args, 'edit', `${name}: ${args}`);
  }
+});
+
+test('a successful apply marks exactly the changed files as prepared and unsaved; a discard, a refusal or a selection marks nothing', async t => {
+ const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/steering/synthetic-b.md': 'b\n' + pad(30000), '.kiro/steering/synthetic-m.md': '---\ninclusion: fileMatch\nfileMatchPattern: "*"\n---\n' + pad(100) });
+ const s = setup(root); await s.run();
+ const path = (rel: string) => join(root, rel), marked = () => JSON.stringify(s.link.nodes()).split('prepared — save the file to apply').length - 1;
+ s.state.applyResult = false; await s.act('loadWhenNeeded', s.node('S1', '.kiro/steering/synthetic-a.md'));
+ assert.equal(s.prepared.count(), 0, 'a discarded preview marks nothing');
+ s.state.applyResult = true; await s.act('narrowPattern', s.node('S4')); assert.equal(s.prepared.count(), 0, 'a selection prepares no edit');
+ await s.act('loadWhenNeeded', s.node('S1', '.kiro/steering/synthetic-a.md'));
+ assert.equal(s.prepared.count(), 1); assert.ok(s.prepared.has(path('.kiro/steering/synthetic-a.md'))); assert.ok(!s.prepared.has(path('.kiro/steering/synthetic-b.md')));
+ assert.equal(marked(), 1, 'the item of the prepared file says so');
+ await s.act('loadWhenNeeded', s.node('S1', '.kiro/steering/synthetic-a.md')); assert.equal(s.prepared.count(), 1, 'a refusal (unsaved) adds nothing');
+ const load = flatten(s.link.nodes()).find(n => n.contextValue === 'config-group-load')!;
+ await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
+ assert.equal(s.prepared.count(), 2); assert.ok(s.prepared.has(path('.kiro/steering/synthetic-b.md')));
+ assert.equal(marked(), 2); assert.equal(s.log.saves, 0);
 });
