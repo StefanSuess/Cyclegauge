@@ -362,7 +362,7 @@ test('the annotation of the Exclude change carries a short why and the alternati
  assert.equal(one.description, "Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Hide this item. Nothing changes until you save.");
  assert.match(many.description, /^Adds 3 lines to \.kiroignore\. Kiro may read these files/); assert.ok(many.description.endsWith('Alternative: Hide this item. Nothing changes until you save.'));
  const group = exclude(mixed())!;
- assert.ok(group.tooltip!.includes('Alternative: Hide this item') && group.tooltip!.includes('Nothing changes until you save.'));
+ assert.ok(group.tooltip!.includes('Alternative: hide the item with Hide this item.') && group.tooltip!.includes('Nothing changes until you save.'));
 });
 
 test('every group and sub-group starts collapsed and the status line stays visible', () => {

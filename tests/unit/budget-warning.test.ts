@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { view } from '../../src/view.ts';
-import { decideBudgetNotice, largerPlanText, readBudgetState, rightSizeText, type BudgetInput } from '../../src/extension/budget-warning.ts';
+import { decideBudgetNotice, largerPlanText, overPhrase, readBudgetState, rightSizeText, type BudgetInput } from '../../src/extension/budget-warning.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
 
 const RESET = '2030-07-01T00:00:00.000Z';
@@ -215,4 +215,11 @@ test('notices stay short: the price list, the unit price and the caveats are lef
   assert.ok(n.text.length < 170, n.text);
   assert.ok(/\$\d/.test(n.text) && !/≈|per credit|price list|invoice|depends on your plan|USD/i.test(n.text), n.text);
  }
+});
+
+test('a modelled overage under one cent reads "under $0.01", never "about under"', () => {
+ assert.equal(overPhrase({ money: '0.00' }), 'under $0.01');
+ assert.equal(overPhrase({ money: '4.80' }), 'about $4.80');
+ const n = decide(rate(10, '100'))!;
+ assert.ok(n.text.includes('(about $8.00 over the limit, modelled)'));
 });

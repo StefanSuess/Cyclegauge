@@ -671,7 +671,7 @@ const WALKTHROUGH_ID = 'StefanSuess.cyclegauge#cyclegauge.gettingStarted';
 // True once this window opened the walkthrough by itself; the first-time audit prompt then waits for a later window.
 let walkthroughOpenedNow = false;
 function registerWalkthrough(context: vscode.ExtensionContext): void {
- const open = async (): Promise<void> => { try { await vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID); } catch { /* the editor may not support walkthroughs */ } };
+ const open = async (): Promise<boolean> => { try { await vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID); return true; } catch { return false; /* the editor may not support walkthroughs */ } };
  context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'gettingStarted', open));
  let existing: boolean;
  try {
@@ -684,7 +684,7 @@ function registerWalkthrough(context: vscode.ExtensionContext): void {
  void (async () => {
   try {
    await context.globalState.update(WALKTHROUGH_KEY, true);
-   if (!existing) { walkthroughOpenedNow = true; await open(); }
+   if (!existing && await open()) walkthroughOpenedNow = true; // only an open that resolved replaces the first-time audit prompt
   } catch { /* fixed and silent */ }
  })();
 }

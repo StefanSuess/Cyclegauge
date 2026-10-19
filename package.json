@@ -184,7 +184,7 @@
           {
             "id": "cyclegauge.gettingStarted.savings",
             "title": "Find ways to use fewer credits",
-            "description": "The Cost Advisor compares plans and models against your usage. The Steering and Hooks review shows context and automation that add credits on every request.\n[Open Cost Advisor](command:cyclegauge.costAdvisor)\n[Review Steering and Hooks](command:cyclegauge.reviewKiroConfig)",
+            "description": "The Cost Advisor compares Kiro plans against your usage. The Steering and Hooks review points out large always-included Steering files and hooks that start agent work automatically, which can add credits.\n[Open Cost Advisor](command:cyclegauge.costAdvisor)\n[Review Steering and Hooks](command:cyclegauge.reviewKiroConfig)",
             "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cost Advisor and Steering and Hooks review" },
             "completionEvents": ["onCommand:cyclegauge.costAdvisor", "onCommand:cyclegauge.reviewKiroConfig"]
           },
@@ -198,7 +198,7 @@
           {
             "id": "cyclegauge.gettingStarted.sessionHints",
             "title": "Nudges from your latest Kiro session",
-            "description": "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Verified on macOS; Windows and Linux are untested.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md)",
+            "description": "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md)",
             "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Session hint settings" },
             "completionEvents": ["onStepSelected"]
           }

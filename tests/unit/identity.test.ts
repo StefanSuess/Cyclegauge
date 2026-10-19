@@ -31,7 +31,7 @@ test('the getting-started walkthrough has actionable steps, completion events an
  assert.match(steps[2].description, /\(command:cyclegauge\.costAdvisor\).*\(command:cyclegauge\.reviewKiroConfig\)/s); assert.deepEqual(steps[2].completionEvents, ['onCommand:cyclegauge.costAdvisor', 'onCommand:cyclegauge.reviewKiroConfig']);
  assert.match(steps[3].description, /\(command:workbench\.action\.openSettings\?/);
  assert.ok(!steps.some(s => /When the forecast appears/.test(s.title)), 'the forecast note is part of the first step');
- assert.equal(steps[4].description.split('\n')[0], "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Verified on macOS; Windows and Linux are untested.");
+ assert.equal(steps[4].description.split('\n')[0], "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.");
  assert.match(steps[4].description, /\(command:workbench\.action\.openSettings\?%5B%22cyclegauge\.sessionHints%22%5D\)/);
  // Only Cyclegauge commands, the editor's settings opener and the one fixed privacy document are linked.
  for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^(command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.(budgetWarnings|sessionHints)%22%5D)|https:\/\/github\.com\/StefanSuess\/Cyclegauge\/blob\/HEAD\/docs\/privacy-and-storage\.md)$/);

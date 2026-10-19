@@ -85,7 +85,7 @@ export const IGNORE_USE_NOTE = "Kiro uses .kiroignore only when it's listed in A
 export const OPEN_SETTING = 'Open setting';
 /** True when a .kiroignore saved now would have no effect: Agent Ignore Files is empty or does not list an existing .kiroignore. */
 export const ignoreNotEffective = (result: Pick<AuditResult, 'ignore' | 'kiroignoreNotListed'>): boolean => result.ignore === 'disabled' || result.kiroignoreNotListed === true;
-const EXCLUDE_NOTE = `Kiro may read these files into the agent's context; excluding them keeps requests smaller. Exclude from Kiro… shows exactly what would be added to .kiroignore. ${NOTHING_CHANGES} Alternative: Hide this item hides an item.`;
+const EXCLUDE_NOTE = `Kiro may read these files into the agent's context; excluding them keeps requests smaller. Exclude from Kiro… shows exactly what would be added to .kiroignore. ${NOTHING_CHANGES} Alternative: hide the item with Hide this item.`;
 /** The annotation of the one .kiroignore change shown in the editor's change preview: the short why and the alternative. `rules` is the number of lines added. */
 export const excludeAnnotation = (rules: number): { label: string; description: string } => ({
  label: 'Exclude from Kiro',

@@ -35,6 +35,8 @@ function creditsText(credits: string): string {
  try { return formatRational(decimalToRational(credits), compare(credits, '10') >= 0 ? 0 : 1, 'half_up').replace(/^0$/, 'under 0.1'); } catch { return credits; }
 }
 const moneyText = (o: Overage): string => o.money === '0.00' ? 'under $0.01' : `$${o.money}`;
+/** "about $4.80", or "under $0.01" for less than a cent (never "about under"). */
+export const overPhrase = (o: Pick<Overage, 'money'>): string => o.money === '0.00' ? 'under $0.01' : `about $${o.money}`;
 const dayText = (iso: string): string => date(iso, true);
 
 /** Detail-view sentence for the projected overage at the observed pace. */
@@ -113,8 +115,8 @@ export function decideBudgetNotice(i: BudgetInput): BudgetNotice | null {
   const over = selected && f.tier === 'regular' && selected.projectedUsageAtReset ? overageOver(selected.projectedUsageAtReset, o.baseLimit, i.now) : null;
   const larger = i.insights?.larger ? ` ${largerPlanText(i.insights.larger, true)}` : '';
   // Short on purpose: the price, price-list date and caveats stay on the dashboard, reached by the notice's Show details button.
-  const cost = over?.money ? ` (about ${moneyText(over)} over the limit, modelled)` : '', comparison = over?.money ? larger : '';
-  const limitCost = over?.money ? ` (at this pace about ${moneyText(over)} over the limit by the reset, modelled)` : '';
+  const cost = over?.money ? ` (${overPhrase(over)} over the limit, modelled)` : '', comparison = over?.money ? larger : '';
+  const limitCost = over?.money ? ` (at this pace ${overPhrase(over)} over the limit by the reset, modelled)` : '';
   let text: string;
   if (shown === 'rightsize') {
    text = rightSizeText(i.insights!.rightsize!);
