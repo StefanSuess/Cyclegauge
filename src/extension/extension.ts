@@ -10,9 +10,9 @@ import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
 import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type SupportGate } from './config-review.ts';
 import { configSummary, reviewTree, type ConfigNode, type ViewNode } from './config-model.ts';
-import { preparedText } from './config-apply.ts';
+import { createPreparedFiles, preparedText } from './config-apply.ts';
 import { readConfigReviewMode } from './config-schedule.ts';
-import { MAX_DISMISSED, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
+import { IGNORE_USE_NOTE, MAX_DISMISSED, OPEN_SETTING, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, ignoreNotEffective, isHash, countFindings, countsText, kiroignoreAppend, revealTarget, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, type DiagnosticsInput } from '../diagnostics.ts';
 import { ID_PREFIX, LINKS, NOT_KIRO_TEXT, PANEL_VIEW_TYPE, REPORT_PROBLEM_ACTION, REPORT_PROBLEM_URL, SHARE_TEXT, commandId, isKiroEditor, readAuditAutomatically, readBudgetWarningPercent, readBudgetWarnings, readReminderDays, readSetting, readSupportPrompts, registerCommand } from './identity.ts';
@@ -119,6 +119,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  let userCancelled = false; // the user dismissed the folder picker or cancelled the progress notification of the current manual audit: no review then
  let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], summary: () => configSummary(), run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
+ // Files in which Cyclegauge prepared an edit that is still unsaved (memory only): marks the items, counts in the status line and starts a re-check after a save.
+ const prepared = createPreparedFiles(vscode);
+ context.subscriptions.push({ dispose: () => prepared.dispose() });
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
  let pendingSave: { path: string; text?: string; lines?: string[]; accepted: ExclusionAggregate } | undefined;
  if (vscode.workspace.onDidSaveTextDocument) context.subscriptions.push(vscode.workspace.onDidSaveTextDocument(document => {
@@ -141,13 +144,21 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   return undefined;
  };
  const hasher = (d: Dismissed | undefined) => (category: string, path: string) => dismissHash(d?.salt ?? '', category, path);
- const render = (): void => {
+ const rebuild = (): void => {
   const d = readDismissed();
-  parts = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted, checkedAt) : undefined;
+  parts = result ? auditTree(result, folderName, d?.hashes ?? [], hasher(d), accepted, checkedAt, root !== '' && prepared.has(join(root, '.kiroignore'))) : undefined;
   changed?.fire(undefined);
+ };
+ const render = (): void => {
+  rebuild();
   summaryChanged();
   try { if (visible().length > 0) onFinding(); } catch { /* the support prompt never affects the audit */ }
  };
+ // The prepared .kiroignore edit was saved, closed or reverted: its rules are no longer "prepared" (a save is re-checked by the ignore-file save handler below).
+ const sameFile = (a: string, b: string): boolean => process.platform === 'darwin' || process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+ prepared.subscribe((path, event) => {
+  try { if (event !== 'added' && root !== '' && sameFile(path, join(root, '.kiroignore'))) accepted.clear(); rebuild(); } catch { /* the marks are only a hint */ }
+ });
  const visible = (): Finding[] => { const d = readDismissed(); return result ? visibleFindings(result, d?.hashes ?? [], hasher(d)) : []; };
  // Reminder state lives in workspaceState; every access is fail-silent so a broken store never affects the audit or the gauge.
  const stored = (key: string): unknown => { try { return context.workspaceState.get<unknown>(key); } catch { return undefined; } };
@@ -264,8 +275,13 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   if (!applied || after === current) { notify('No changes were made.'); return; }
   pendingSave = { path, text: after, accepted: aggregate };
   await vscode.window.showTextDocument(document);
-  notify(preparedText(1));
+  // A saved .kiroignore has no effect while Agent Ignore Files does not list it: say so, and offer the setting (Cyclegauge never writes it).
+  if (result && ignoreNotEffective(result)) {
+   void Promise.resolve(vscode.window.showInformationMessage(`${preparedText(1)} ${IGNORE_USE_NOTE}`, OPEN_SETTING))
+    .then(choice => choice === OPEN_SETTING ? vscode.commands.executeCommand('workbench.action.openSettings', 'kiroAgent.agentIgnoreFiles') : undefined).catch(() => undefined);
+  } else notify(preparedText(1));
   for (const f of findings) if (f.suggestion !== '') accepted.add(findingKey(f));
+  if (document.isDirty) prepared.add([document.uri]);
   render();
  };
  const dismiss = async (arg?: unknown): Promise<void> => {
@@ -453,7 +469,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   try { return { audit: readAuditAutomatically((prefix, key) => vscode.workspace.getConfiguration(prefix).get<unknown>(key)), config: readConfigReviewMode(vscode.workspace.getConfiguration(ID_PREFIX).inspect<unknown>('configReviewAutomatically')) }; }
   catch { return { audit: 'off' as const, config: 'off' as const }; }
  };
- try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate, reportError: showReportableError }); }
+ try { configReview = registerConfigReview(context, vscode, folderCheck, () => changed?.fire(undefined), { support: configGate, reportError: showReportableError, prepared }); }
  catch { /* A failing configuration review registration must never remove the filename audit. */ }
  try {
   const emitter = new vscode.EventEmitter<ViewNode | undefined>();
@@ -461,9 +477,9 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   // The one tree: the status line and the groups by action. The automatic modes only decide the "checks again …" wording.
   const provider: vscode.TreeDataProvider<ViewNode> = {
    onDidChangeTreeData: emitter.event,
-   getChildren: node => node ? node.children ?? [] : reviewTree(parts, configReview.summary(), configReview.nodes(), automaticModes(), new Date()),
+   getChildren: node => node ? node.children ?? [] : reviewTree(parts, configReview.summary(), configReview.nodes(), automaticModes(), new Date(), prepared.count()),
    getTreeItem(node) {
-    const item = new vscode.TreeItem(node.label, node.children ? (node.expanded === false ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.Expanded) : vscode.TreeItemCollapsibleState.None);
+    const item = new vscode.TreeItem(node.label, node.children ? (node.expanded === true ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed) : vscode.TreeItemCollapsibleState.None);
     item.id = node.id; item.description = node.description; item.tooltip = node.tooltip; item.contextValue = node.contextValue;
     // An explicit icon and no resourceUri, so the editor adds no file decorations.
     item.iconPath = new vscode.ThemeIcon(node.icon);

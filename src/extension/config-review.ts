@@ -1,9 +1,9 @@
 import type * as vscode from 'vscode';
-import { isAbsolute, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, sep } from 'node:path';
 import { createConfigReviewer, CONFIG_MAX_ROOTS, type ConfigReview } from '../audit/config-review.ts';
-import { stampKey } from '../audit/config-read.ts';
+import { configPathAllowed, stampKey } from '../audit/config-read.ts';
 import { evaluateConfigRules, type ConfigFinding } from '../audit/config-rules.ts';
-import { APPLY_TEXT, applyConfigChanges, tell, type ApplyRequest } from './config-apply.ts';
+import { APPLY_TEXT, applyConfigChanges, tell, type ApplyRequest, type PreparedFiles } from './config-apply.ts';
 import { configActions, configAnnotation, configPreview, configSummary, configTree, type ConfigApplyAction, type ConfigNode, type ConfigSummary, type RefusedConfigRoot } from './config-model.ts';
 import { CONFIG_WATCH_GLOB, createConfigScheduler, createNoticeState, noticeDecision, offerDue, readConfigReviewMode, watchShape, type ReviewOrigin, type RunOutcome, type RunTrigger } from './config-schedule.ts';
 import { ID_PREFIX, commandId, readSupportPrompts } from './identity.ts';
@@ -13,7 +13,7 @@ type FolderCheck = (folder: vscode.WorkspaceFolder) => { chosen: string; resolve
 export interface SupportGate { promptOpen(): boolean; lastPromptAt(): number | undefined; offerOpen(open: boolean): void }
 interface Timers { now(): number; set(fn: () => void, ms: number): unknown; clear(handle: unknown): void }
 /** Cyclegauge's own fixed-text error notification with a Report a problem button, supplied by the extension. */
-interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform; reportError?: (text: string) => void }
+interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform; reportError?: (text: string) => void; prepared?: PreparedFiles }
 /** `nodes` are the top-level groups of the review (Load only when needed, Run only manually, Worth a look, Not checked); `summary` is what the combined status line may say. */
 export interface ConfigReviewLink { nodes(): ConfigNode[]; summary(): ConfigSummary; run(): Promise<void> }
 /**
@@ -35,7 +35,7 @@ const defaultTimers: Timers = { now: Date.now, set(fn, ms) { const t = setTimeou
 export function registerConfigReview(context: vscode.ExtensionContext, editor: typeof vscode, folderCheck: FolderCheck, refresh: () => void, options: Options = {}): ConfigReviewLink {
  const reviewer = options.reviewer ?? createConfigReviewer(), timers = options.timers ?? defaultTimers;
  const platform = options.platform ?? process.platform, ci = platform === 'darwin' || platform === 'win32';
- let nodes = configTree(), summary = configSummary(), disposed = false, running = false, abort: AbortController | undefined;
+ let nodes = configTree(), summary = configSummary(), disposed = false, running = false, followUp = false, abort: AbortController | undefined;
  let current: ConfigReview | undefined, generation = 0;
  // Automatic mode, in memory only: the in-flight automatic run, the watcher generation, dirty roots (by index) and notice state.
  let auto: { controller: AbortController; promise: Promise<RunOutcome> } | undefined, watchGeneration = 0, watchKey = '', openDone = false, offering = false, seeded = false, resync = false;
@@ -69,7 +69,10 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    if (fresh.has(key)) marked.add(i);
   });
   seeded = true;
-  const state = {automatic,paused:scheduler.paused,fresh:marked};
+  // Findings whose file holds a prepared edit that is still unsaved (in memory; the path is only compared, never shown).
+  const prepared = new Set<number>();
+  if (options.prepared?.count()) result.findings.forEach((f: ConfigFinding, i) => { const root = drawn!.paths[f.root]; if (root !== undefined && f.id !== 'S2' && options.prepared!.has(join(root, ...f.rel.split('/')))) prepared.add(i); });
+  const state = {automatic,paused:scheduler.paused,fresh:marked,prepared};
   nodes = configTree(result,names,refused,++generation,state); summary = configSummary(result,checkedAt,state); refresh();
  };
  const failed = (): void => { current = { ...evaluateConfigRules([]),roots:[],status:'unavailable',bytesRead:0,notChecked:{folder_unreadable:1} }; drawn = undefined; nodes = configTree(current); summary = configSummary(); refresh(); };
@@ -159,8 +162,10 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    } finally { options.support?.offerOpen(false); }
   } catch { /* fixed and silent */ } finally { offering = false; }
  };
- const run = async (): Promise<void> => {
-  if (disposed || running) return;
+ // `quiet` is the re-check after the user saved a file Cyclegauge prepared: the same run, without taking focus or making the one-time offer.
+ const review = async (quiet: boolean): Promise<void> => {
+  if (disposed) return;
+  if (running) { if (quiet) followUp = true; return; } // a save during a running review is answered by exactly one more quiet review
   running = true;
   let shown = false;
   // A manual run wins: an automatic run is aborted and awaited, pending triggers and dirty flags are cleared, and it never counts toward the cap.
@@ -171,18 +176,34 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    if (pending) await pending.promise;
    if (disposed) return;
    shown = await collect('manual', controller) === 'ran' && !controller.signal.aborted && !disposed;
-   if (shown) try { await editor.commands.executeCommand(commandId('auditView.focus')); } catch { /* the section remains available */ }
+   if (shown && !quiet) try { await editor.commands.executeCommand(commandId('auditView.focus')); } catch { /* the section remains available */ }
   } catch {
    if (disposed || controller.signal.aborted) return;
    failed();
-  } finally { running = false; if (abort === controller) abort = undefined; }
-  if (shown) void offer();
+  } finally {
+   running = false; if (abort === controller) abort = undefined;
+   if (followUp && !disposed && editor.workspace.isTrusted) { followUp = false; void review(true).catch(() => undefined); }
+  }
+  if (shown && !quiet) void offer();
+ };
+ const run = (): Promise<void> => review(false);
+ // Saving a Steering or Hook file Cyclegauge prepared starts one manual-equivalent review (single-flight, never counted toward the automatic cap). Nothing else triggers it.
+ const reviewAfterSave = (path: string): void => {
+  if (disposed || !drawn || !editor.workspace.isTrusted) return;
+  const hit = drawn.paths.some(root => {
+   const rel = relative(root, path);
+   if (rel === '' || isAbsolute(rel)) return false;
+   const parts = rel.split(sep);
+   return !parts.includes('..') && (configPathAllowed(parts.join('/'), 'steering') || configPathAllowed(parts.join('/'), 'hooks'));
+  });
+  if (hit) void review(true).catch(() => undefined);
  };
  // Item commands trust nothing the tree item carries: the node is looked up again by its opaque id in the current tree, so stale or forged arguments do nothing.
  // The menu passes the tree element and the fallback passes its id; only the id is read.
  const nodeOf = (arg: unknown): ConfigNode | undefined => {
   const id = typeof arg === 'string' ? arg : typeof arg === 'object' && arg !== null && typeof (arg as { id?: unknown }).id === 'string' ? (arg as { id: string }).id : undefined;
   if (id === undefined) return undefined;
+  if (typeof arg === 'object' && arg !== null && (arg as { generation?: unknown }).generation !== undefined && (arg as { generation?: unknown }).generation !== generation) return undefined; // an element from an older drawing
   const find = (list: ConfigNode[]): ConfigNode | undefined => {
    for (const node of list) { if (node.id === id) return node; const child = node.children && find(node.children); if (child) return child; }
    return undefined;
@@ -217,7 +238,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    const root = drawn.paths[f.root];
    if (root === undefined || outdated() || resolveRoots().roots[f.root] !== root) { tell(editor, APPLY_TEXT.outdated); return; }
    const request = requestOf(f, action, drawn.paths);
-   if (request) await applyConfigChanges(editor, [request]);
+   if (request) await applyConfigChanges(editor, [request], options.prepared);
   } catch { try { options.reportError?.(APPLY_TEXT.failed); } catch { /* nothing more to report */ } }
  };
  // The group's button does the verb of its heading for every item of the group as drawn now; an item whose guard fails is skipped and counted.
@@ -230,7 +251,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    const resolved = resolveRoots().roots;
    const findings = (group.children ?? []).flatMap(child => child.finding ? [child.finding] : []), paths = drawn.paths;
    if (outdated() || findings.some(f => paths[f.root] === undefined || resolved[f.root] !== paths[f.root])) { tell(editor, APPLY_TEXT.outdated); return; }
-   await applyConfigChanges(editor, findings.flatMap(f => { const r = requestOf(f, action, paths); return r ? [r] : []; }));
+   await applyConfigChanges(editor, findings.flatMap(f => { const r = requestOf(f, action, paths); return r ? [r] : []; }), options.prepared);
   } catch { try { options.reportError?.(APPLY_TEXT.failed); } catch { /* nothing more to report */ } }
  };
  const registrations: vscode.Disposable[] = [];
@@ -239,12 +260,13 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   registrations.push(editor.commands.registerCommand(commandId('config.preview'),preview));
   for (const action of ['loadWhenNeeded','narrowPattern','runManually','disable','open'] as const) registrations.push(editor.commands.registerCommand(commandId(`config.${action}`),apply(action)));
   registrations.push(editor.commands.registerCommand(commandId('config.loadWhenNeededAll'),applyGroup('loadWhenNeeded','config-group-load')),editor.commands.registerCommand(commandId('config.runManuallyAll'),applyGroup('runManually','config-group-run')));
+  options.prepared?.subscribe((path, event) => { try { draw(); if (event === 'saved') reviewAfterSave(path); } catch { /* the marks are only a hint; the manual command stays available */ } });
   const ws = editor.workspace;
   if (ws.onDidChangeConfiguration) registrations.push(ws.onDidChangeConfiguration(event => { try { if (event.affectsConfiguration(`${ID_PREFIX}.${SETTING}`)) sync(); } catch { /* the watchers stay as they were */ } }));
   if (ws.onDidChangeWorkspaceFolders) registrations.push(ws.onDidChangeWorkspaceFolders(() => sync()));
   if (ws.onDidGrantWorkspaceTrust) registrations.push(ws.onDidGrantWorkspaceTrust(() => sync()));
   context.subscriptions.push(...registrations,{dispose(){
-   disposed=true; abort?.abort(); auto?.controller.abort(); scheduler.dispose(); watchGeneration++;
+   disposed=true; followUp=false; abort?.abort(); auto?.controller.abort(); scheduler.dispose(); watchGeneration++;
    for (const w of watchers) { try { w.dispose(); } catch { /* already gone */ } }
    watchers=[]; dirty.clear(); current=undefined; drawn=undefined; nodes=configTree(); summary=configSummary();
   }});
