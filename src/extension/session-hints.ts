@@ -30,8 +30,8 @@ export function registerSessionHints(context: vscode.ExtensionContext, eligible:
     shown++;
     try { beforeShow(); } catch { /* nothing else depends on it */ }
     // Not awaited: the notification resolves only when dismissed.
-    void Promise.resolve(vscode.window.showInformationMessage(result.text, 'Turn off')).then(choice => {
-     if (choice === 'Turn off') return vscode.workspace.getConfiguration(ID_PREFIX).update('sessionHints', false, vscode.ConfigurationTarget.Global);
+    void Promise.resolve(vscode.window.showInformationMessage(result.text, 'Turn off session hints')).then(choice => {
+     if (choice === 'Turn off session hints') return vscode.workspace.getConfiguration(ID_PREFIX).update('sessionHints', false, vscode.ConfigurationTarget.Global);
      return undefined;
     }).catch(() => undefined);
    }

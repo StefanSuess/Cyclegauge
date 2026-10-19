@@ -15,21 +15,27 @@ test('manifest identity and commands use the Cyclegauge names', () => {
  for (const c of manifest.contributes.menus['editor/title']) { assert.ok(commands.includes(c.command)); assert.equal(c.when, `activeWebviewPanelId == ${PANEL_VIEW_TYPE}`); }
 });
 
-test('the getting-started walkthrough is declared with the packaged icon on every step', () => {
+test('the getting-started walkthrough has actionable steps, completion events and a distinct alt text per packaged image', () => {
  const titles = Object.fromEntries(manifest.contributes.commands.map((c: any) => [c.command, c.title]));
  assert.equal(titles[commandId('gettingStarted')], 'Cyclegauge: Get Started');
  const [walkthrough, ...rest] = manifest.contributes.walkthroughs;
  assert.equal(rest.length, 0); assert.equal(walkthrough.id, commandId('gettingStarted')); assert.equal(walkthrough.title, 'Get started with Cyclegauge');
  const steps: any[] = walkthrough.steps;
- assert.deepEqual(steps.map(s => s.title), ['See your Kiro credits', "Find files Kiro doesn't need", 'Get warned before credits run out', 'When the forecast appears', 'Hints from your latest Kiro session']);
+ assert.deepEqual(steps.map(s => s.title), ['See your Kiro credits', "Find files Kiro doesn't need", 'Find ways to use fewer credits', 'Get warned before credits run out', 'Nudges from your latest Kiro session']);
+ // The editor requires media on every step and only the icon is packaged; each step names what it is about instead of repeating "Cyclegauge icon".
  for (const step of steps) { assert.ok(step.id && step.description); assert.deepEqual(step.media, { image: manifest.icon, altText: step.media.altText }); assert.equal(step.media.image, 'assets/branding/cyclegauge-icon-256.png'); assert.ok(step.media.altText); }
- assert.match(steps[0].description, /\(command:cyclegauge\.showUsage\)/);
+ assert.equal(new Set(steps.map(s => s.media.altText)).size, steps.length); assert.ok(!steps.some(s => /Cyclegauge icon/i.test(s.media.altText)));
+ assert.match(steps[0].description, /\(command:cyclegauge\.showUsage\)/); assert.deepEqual(steps[0].completionEvents, ['onCommand:cyclegauge.showUsage']);
  assert.match(steps[1].description, /\(command:cyclegauge\.auditWorkspace\)/); assert.deepEqual(steps[1].completionEvents, ['onCommand:cyclegauge.auditWorkspace']);
- assert.match(steps[2].description, /\(command:workbench\.action\.openSettings\?/);
- assert.match(steps[3].description, /about 2 days and 3 updates.*7 days and 8 updates/);
- assert.match(steps[4].description, /On macOS.*nothing is stored or sent.*on by default.*\(command:workbench\.action\.openSettings\?%5B%22cyclegauge\.sessionHints%22%5D\)/s);
- // Only Cyclegauge commands and the editor's settings opener are linked; no web links.
- for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.(budget|sessionHints)%22%5D)$/);
+ assert.match(steps[1].description, /\[Run the workspace audit\]/);
+ assert.match(steps[2].description, /\(command:cyclegauge\.costAdvisor\).*\(command:cyclegauge\.reviewKiroConfig\)/s); assert.deepEqual(steps[2].completionEvents, ['onCommand:cyclegauge.costAdvisor', 'onCommand:cyclegauge.reviewKiroConfig']);
+ assert.match(steps[3].description, /\(command:workbench\.action\.openSettings\?/);
+ assert.ok(!steps.some(s => /When the forecast appears/.test(s.title)), 'the forecast note is part of the first step');
+ assert.equal(steps[4].description.split('\n')[0], "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.");
+ assert.match(steps[4].description, /\(command:workbench\.action\.openSettings\?%5B%22cyclegauge\.sessionHints%22%5D\)/);
+ // Only Cyclegauge commands, the editor's settings opener and the one fixed privacy document are linked.
+ for (const step of steps) for (const [, target] of step.description.matchAll(/\]\(([^)]*)\)/g)) assert.match(target, /^(command:(cyclegauge\.[A-Za-z.]+|workbench\.action\.openSettings\?%5B%22cyclegauge\.(budgetWarnings|sessionHints)%22%5D)|https:\/\/github\.com\/StefanSuess\/Cyclegauge\/blob\/HEAD\/docs\/privacy-and-storage\.md)$/);
+ for (const step of steps) for (const id of step.completionEvents ?? []) assert.ok(id === 'onStepSelected' || id.startsWith('onCommand:cyclegauge.'), id);
 });
 
 test('only current settings are declared under the Cyclegauge prefix', () => {
@@ -47,7 +53,19 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
  assert.deepEqual([days.type, days.default, days.minimum, days.maximum], ['number', 30, 0, 365]);
  assert.deepEqual([automatic.type, automatic.default, automatic.enum], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges']]);
  const prompts = props['cyclegauge.supportPrompts'];
- assert.deepEqual([prompts.type, prompts.default, prompts.scope, prompts.description], ['boolean', true, 'application', "Occasionally ask whether you'd rate, star or support Cyclegauge, and add the Open VSX link text to the shareable cycle recap. Also covers one-time feature offers, such as turning on the automatic Kiro Steering and Hooks review."]);
+ assert.deepEqual([prompts.type, prompts.default, prompts.scope], ['boolean', true, 'application']);
+ for (const part of ['rate or support', 'automatic Steering and Hooks review', 'walkthrough', 'shareable cycle recap', 'does not affect budget notices, session hints or audit reminders']) assert.ok(prompts.description.includes(part), part);
+ assert.ok(!/\bstar\b/i.test(prompts.description));
+ // User-facing settings come first; the testing and storage overrides come last. Raw values and the legacy true are not in the visible text.
+ const order = Object.entries(props).sort((a: any, b: any) => a[1].order - b[1].order).map(([k]) => k.replace('cyclegauge.', ''));
+ assert.deepEqual(order, ['budgetWarnings', 'budgetWarningPercent', 'sessionHints', 'auditReminderDays', 'auditAutomatically', 'configReviewAutomatically', 'supportPrompts', 'sourceRoot', 'storageRoot', 'sourceTimezone']);
+ assert.equal(new Set(Object.values(props).map((p: any) => p.order)).size, Object.keys(props).length);
+ for (const k of ['auditAutomatically', 'configReviewAutomatically']) {
+  assert.deepEqual(props[`cyclegauge.${k}`].enumItemLabels, ['Off', 'On open', 'On open and on changes'], k);
+  assert.equal(props[`cyclegauge.${k}`].enumDescriptions.length, 3, k);
+  assert.ok(!/onOpen|onOpenAndChanges|earlier value/.test(props[`cyclegauge.${k}`].enumDescriptions.join(' ') + props[`cyclegauge.${k}`].description), k);
+ }
+ assert.match(props['cyclegauge.budgetWarnings'].description, /right-sizing/);
  const review = props['cyclegauge.configReviewAutomatically'];
  assert.deepEqual([review.type, review.default, review.enum, review.scope], ['string', 'off', ['off', 'onOpen', 'onOpenAndChanges'], 'application']);
  const hints = props['cyclegauge.sessionHints'];
@@ -60,8 +78,8 @@ test('only current settings are declared under the Cyclegauge prefix', () => {
 
 test('the share and support commands are declared; the support reset is visible in the palette', () => {
  const titles = Object.fromEntries(manifest.contributes.commands.map((c: any) => [c.command, c.title]));
- assert.equal(titles[commandId('share')], 'Cyclegauge: Share Cyclegauge');
- assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset Support Prompts and Summary');
+ assert.equal(titles[commandId('share')], 'Cyclegauge: Copy Share Link');
+ assert.equal(titles[commandId('support.reset')], 'Cyclegauge: Reset Reminders and Saved Summary');
  const hidden = manifest.contributes.menus.commandPalette.filter((c: any) => c.when === 'false').map((c: any) => c.command);
  assert.ok(!hidden.includes(commandId('support.reset'))); assert.ok(!hidden.includes(commandId('share')));
 });
@@ -90,7 +108,7 @@ test('the report-a-problem address is one fixed https constant whose only query 
 
 test('the reset reminder command is declared with its palette title', () => {
  const reset = manifest.contributes.commands.find((c: any) => c.command === commandId('audit.resetReminder'));
- assert.equal(reset?.title, 'Cyclegauge: Reset workspace audit reminder');
+ assert.equal(reset?.title, 'Cyclegauge: Reset Workspace Audit Reminder');
 });
 
 test('audit reminder settings are read strictly: clamped numbers, known modes only', () => {

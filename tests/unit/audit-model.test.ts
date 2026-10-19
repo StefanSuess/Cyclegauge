@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { auditTree, auditSizeTotal, checkedLabel, dismissHash, escapeText, excludeAnnotation, findingKey, formatBytes, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, sizePhrase, visibleFindings, KIROIGNORE_HEADER, NOTHING_CHANGES, PREPARED_DESCRIPTION, IGNORE_OFF_DESCRIPTION, IGNORE_ACTION_LABEL, IGNORE_USE_NOTE, ignoreNotEffective, unsavedFilesText, WHY } from '../../src/extension/audit-model.ts';
+import { auditTree, auditSizeTotal, checkedLabel, dismissHash, escapeText, excludeAnnotation, findingKey, findingsToast, formatBytes, formatSize, countFindings, countsText, kiroignoreAppend, relativeTime, revealTarget, sizePhrase, visibleFindings, KIROIGNORE_HEADER, NOTHING_CHANGES, PREPARED_DESCRIPTION, IGNORE_OFF_DESCRIPTION, IGNORE_ACTION_LABEL, IGNORE_USE_NOTE, ignoreNotEffective, unsavedFilesText, WHY } from '../../src/extension/audit-model.ts';
 import { reviewTree, recheckText, type ViewNode } from '../../src/extension/config-model.ts';
 import type { AuditResult, Finding } from '../../src/audit/audit.ts';
 
@@ -193,20 +193,32 @@ test('hidden findings are filtered, counted and can be shown again; excluded one
  assert.ok(marked.find(n => n.label === 'synthetic.pem')!.tooltip!.includes('The rule is prepared but not saved.'));
  assert.equal(marked.find(n => n.label === 'dist/')!.description, 'Unclear');
 });
-test('manifest wording: one verb for the apply buttons, plain item actions, a Show command and the welcome text', () => {
+test('manifest wording: each apply button names its target verb, plain item actions, Run and Show commands and the gated welcome texts', () => {
  const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
  const title = (id: string) => manifest.contributes.commands.find((c: { command: string }) => c.command === id)?.title;
- for (const id of ['audit.accept', 'audit.acceptAll', 'config.loadWhenNeeded', 'config.loadWhenNeededAll', 'config.runManually', 'config.runManuallyAll']) assert.equal(title(`cyclegauge.${id}`), 'Review changes…', id);
- assert.equal(title('cyclegauge.audit.dismiss'), 'Not a problem'); assert.equal(title('cyclegauge.audit.reveal'), 'Show file'); assert.equal(title('cyclegauge.config.open'), 'Show file');
- assert.equal(title('cyclegauge.config.disable'), 'Disable');
+ const verbs: Record<string, string> = { 'audit.accept': 'Exclude from Kiro…', 'audit.acceptAll': 'Exclude from Kiro…', 'config.loadWhenNeeded': 'Load only when needed…', 'config.loadWhenNeededAll': 'Load only when needed…', 'config.runManually': 'Run only manually…', 'config.runManuallyAll': 'Run only manually…' };
+ for (const [id, verb] of Object.entries(verbs)) assert.equal(title(`cyclegauge.${id}`), verb, id);
+ assert.equal(title('cyclegauge.audit.dismiss'), 'Hide this item'); assert.equal(title('cyclegauge.audit.reveal'), 'Show file'); assert.equal(title('cyclegauge.config.open'), 'Show file');
+ assert.equal(title('cyclegauge.config.disable'), 'Disable hook'); assert.equal(title('cyclegauge.config.preview'), 'Show suggestion');
  assert.equal(title('cyclegauge.audit.copy'), 'Copy .kiroignore lines'); assert.equal(title('cyclegauge.audit.clearDismissed'), 'Show hidden items again');
- assert.equal(title('cyclegauge.audit.show'), 'Cyclegauge: Show Workspace Audit');
+ assert.equal(title('cyclegauge.audit.show'), 'Cyclegauge: Show Workspace Audit Results'); assert.equal(title('cyclegauge.auditWorkspace'), 'Cyclegauge: Run Workspace Audit');
+ assert.equal(manifest.contributes.views.explorer[0].name, 'Workspace Audit');
  const icon = (id: string) => manifest.contributes.commands.find((c: { command: string }) => c.command === id)?.icon;
- assert.equal(icon('cyclegauge.audit.accept'), '$(check)'); assert.equal(icon('cyclegauge.audit.acceptAll'), '$(check)'); assert.equal(icon('cyclegauge.audit.dismiss'), '$(close)');
+ for (const id of Object.keys(verbs)) assert.equal(icon(`cyclegauge.${id}`), '$(diff)', id);
+ assert.equal(icon('cyclegauge.audit.dismiss'), '$(eye-closed)'); assert.equal(icon('cyclegauge.config.preview'), '$(info)'); assert.equal(icon('cyclegauge.config.disable'), '$(circle-slash)');
+ // The lightbulb belongs to the Cost Advisor alone.
+ assert.deepEqual(manifest.contributes.commands.filter((c: { icon?: string }) => c.icon === '$(lightbulb)').map((c: { command: string }) => c.command), ['cyclegauge.costAdvisor']);
  for (const id of ['accept', 'dismiss', 'acceptAll', 'clearDismissed']) assert.ok(!/\b(ignore|ignored|accept)\b/i.test(title(`cyclegauge.audit.${id}`)), id);
- assert.equal(manifest.contributes.viewsWelcome[0].contents, "Check which files in this workspace Kiro can read but probably doesn't need — like secrets, database dumps or build output — and which Steering and Hooks add avoidable context or credit use. Cyclegauge suggests changes; nothing changes until you save.\n[Check workspace](command:cyclegauge.auditWorkspace)");
+ // The audit welcome needs a trusted folder; without a folder or in an untrusted one the view says what to do instead.
+ const welcome = manifest.contributes.viewsWelcome as { view: string; contents: string; when: string }[];
+ assert.ok(welcome.every(w => w.view === 'cyclegauge.auditView' && w.when));
+ const byWhen = (when: string) => welcome.filter(w => w.when === when);
+ assert.equal(byWhen('workspaceFolderCount > 0 && isWorkspaceTrusted').length, 1);
+ assert.match(byWhen('workspaceFolderCount > 0 && isWorkspaceTrusted')[0]!.contents, /nothing changes until you save\.\n\[Run the workspace audit\]\(command:cyclegauge\.auditWorkspace\)$/);
+ assert.match(byWhen('workspaceFolderCount == 0')[0]!.contents, /\[Open Folder\]\(command:workbench\.action\.files\.openFolder\)$/);
+ assert.match(byWhen('workspaceFolderCount > 0 && !isWorkspaceTrusted')[0]!.contents, /\[Manage Workspace Trust\]\(command:workbench\.trust\.manage\)$/);
 });
-test('menus: the Exclude group carries the group verb and the copy action; its items have exactly Review changes…, Not a problem and Show file', () => {
+test('menus: the Exclude group carries the group verb and the copy action; its items have exactly the target-verb button, Hide this item and Show file', () => {
  const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
  const items = manifest.contributes.menus['view/item/context'] as { command: string; when: string; group: string }[];
  // Evaluates the item's `viewItem` condition for a context value, as the editor does.
@@ -216,7 +228,7 @@ test('menus: the Exclude group carries the group verb and the copy action; its i
  assert.deepEqual(inline('group-exclude'), ['cyclegauge.audit.acceptAll']);
  assert.deepEqual(on('group-exclude').filter(i => !i.group.startsWith('inline')).map(i => i.command).sort(), ['cyclegauge.audit.acceptAll', 'cyclegauge.audit.copy']);
  assert.deepEqual(inline('finding-suggestible'), ['cyclegauge.audit.accept', 'cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal']);
- assert.deepEqual(inline('finding'), ['cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal'], 'a finding without a rule still has Not a problem and Show file');
+ assert.deepEqual(inline('finding'), ['cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal'], 'a finding without a rule still has Hide this item and Show file');
  // The title bar has only the one check button (it also runs the Steering and Hooks review) and the overflow entry for hidden items.
  const titleBar = manifest.contributes.menus['view/title'] as { command: string; group: string }[];
  assert.deepEqual(titleBar.map(m => m.command), ['cyclegauge.auditWorkspace', 'cyclegauge.audit.clearDismissed']);
@@ -347,10 +359,10 @@ test('dismissHash is a stable salted hex digest that never contains the path', (
 test('the annotation of the Exclude change carries a short why and the alternative; it holds no path', () => {
  const one = excludeAnnotation(1), many = excludeAnnotation(3);
  assert.equal(one.label, 'Exclude from Kiro'); assert.equal(many.label, 'Exclude from Kiro');
- assert.equal(one.description, "Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Not a problem. Nothing changes until you save.");
- assert.match(many.description, /^Adds 3 lines to \.kiroignore\. Kiro may read these files/); assert.ok(many.description.endsWith('Alternative: Not a problem. Nothing changes until you save.'));
+ assert.equal(one.description, "Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Hide this item. Nothing changes until you save.");
+ assert.match(many.description, /^Adds 3 lines to \.kiroignore\. Kiro may read these files/); assert.ok(many.description.endsWith('Alternative: Hide this item. Nothing changes until you save.'));
  const group = exclude(mixed())!;
- assert.ok(group.tooltip!.includes('Alternative: Not a problem') && group.tooltip!.includes('Nothing changes until you save.'));
+ assert.ok(group.tooltip!.includes('Alternative: hide the item with Hide this item.') && group.tooltip!.includes('Nothing changes until you save.'));
 });
 
 test('every group and sub-group starts collapsed and the status line stays visible', () => {
@@ -375,7 +387,7 @@ test('ignore not effective: the Exclude group says so with a warning icon and a 
  assert.ok(ignoreNotEffective(result({ ignore: 'disabled' })) && ignoreNotEffective(result({ kiroignoreNotListed: true })) && !ignoreNotEffective(result()) && !ignoreNotEffective(result({ ignore: 'setting_unknown' })));
  // Effective ignore files: the normal description, icon and no action row.
  const normal = tree(result()).find(n => n.id === 'group:exclude')!;
- assert.equal(normal.description, 'adds lines to .kiroignore'); assert.equal(normal.icon, 'eye-closed'); assert.ok(!flat([normal]).some(n => n.action));
+ assert.equal(normal.description, 'adds lines to .kiroignore'); assert.equal(normal.icon, 'exclude'); assert.ok(!flat([normal]).some(n => n.action));
  // setting_unknown keeps its own top-level row.
  assert.deepEqual(tree(result({ ignore: 'setting_unknown' })).filter(n => n.kind === 'info').map(n => n.id), ['info:setting_unknown']);
 });
@@ -391,4 +403,12 @@ test('a prepared, unsaved .kiroignore marks the accepted items "prepared — sav
  assert.ok(!marked(false)[0]!.description?.includes('unsaved prepared'));
  assert.equal(unsavedFilesText(3), '3 files with unsaved prepared changes');
  assert.ok(IGNORE_USE_NOTE.includes('listed in Agent Ignore Files'));
+});
+test('the audit notification says files, size and unclear in plain words and names the view only when it exists', () => {
+ assert.equal(findingsToast(3, 1, 'about 240 MiB', true), 'Found 3 files Kiro may read (about 240 MiB), 1 unclear. Open the Workspace Audit view.');
+ assert.equal(findingsToast(1, 0, '', true), 'Found 1 file Kiro may read. Open the Workspace Audit view.');
+ assert.equal(findingsToast(2, 0, 'at least 1.5 GiB', false), 'Found 2 files Kiro may read (at least 1.5 GiB).');
+ assert.equal(findingsToast(0, 2, '', true), 'Found 2 files to review. Open the Workspace Audit view.');
+ assert.equal(findingsToast(0, 0, '', false), 'No risky files found.');
+ assert.ok(!/ items?\b|Kiro Workspace Audit|·|—/.test(findingsToast(3, 1, 'about 1.0 MiB', true)));
 });

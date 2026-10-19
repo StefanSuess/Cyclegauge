@@ -16,7 +16,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** Local (device) time as HH:MM. */
 export const clock = (ms: number): string => { const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 export function contextText(threshold: number, percent: number, asOf: number): string {
- const head = `Your most recent Kiro session in this workspace was about ${Math.round(percent)} % full as of ${clock(asOf)}`;
+ const head = `Your most recent Kiro session in this workspace was about ${Math.round(percent)}% full as of ${clock(asOf)}`;
  return threshold >= 85 ? `${head}, close to its limit.` : `${head}. Kiro may compact it soon; consider starting a new session for unrelated work.`;
 }
 export function hintText(hint: ModelHint, asOf: number): string {
