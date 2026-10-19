@@ -1,6 +1,6 @@
 import type * as vscode from 'vscode';
 import { lstatSync, realpathSync } from 'node:fs';
-import { isAbsolute, join } from 'node:path';
+import { isAbsolute, join, normalize } from 'node:path';
 import { planHookEdit, planSteeringEdit, type ConfigEditPlan } from '../audit/config-edit.ts';
 import { configPathAllowed, readConfigForEdit, sameStamp, type FileStamp } from '../audit/config-read.ts';
 import type { ConfigApplyAction } from './config-model.ts';
@@ -160,7 +160,8 @@ const MAX_PREPARED = 500;
 const REVERT_WAIT_MS = 500;
 export function createPreparedFiles(editor: typeof vscode, platform: NodeJS.Platform = process.platform, revertWaitMs = REVERT_WAIT_MS): PreparedFiles {
  const ci = platform === 'darwin' || platform === 'win32', paths = new Map<string, string>(), listeners: ((path: string, event: PreparedEvent) => void)[] = [], waiting = new Map<string, ReturnType<typeof setTimeout>>();
- const keyOf = (path: string): string => ci ? path.toLowerCase() : path;
+ // Normalised so the same file compares equal however its separators were written (fsPath vs. join).
+ const keyOf = (path: string): string => { const p = normalize(path); return ci ? p.toLowerCase() : p; };
  const emit = (path: string, event: PreparedEvent): void => { for (const listener of listeners) { try { listener(path, event); } catch { /* a listener never affects the tracking */ } } };
  const forget = (document: vscode.TextDocument, event: PreparedEvent): void => {
   if (document.uri.scheme !== 'file') return;
