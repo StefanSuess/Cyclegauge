@@ -1,11 +1,11 @@
 # Dependabot npm patch auto-merge
 
-This automation does not auto-publish a new extension version. **The first live eligible patch PR passed end-to-end on 2026-10-12:** [Dependabot PR #45](https://github.com/StefanSuess/Cyclegauge/pull/45) passed the signed-patch verifier and the protected PAT merge step in [workflow run 38316270235](https://github.com/StefanSuess/Cyclegauge/actions/runs/38316270235); PR #45 was merged and the subsequent [main push CI](https://github.com/StefanSuess/Cyclegauge/actions/runs/38316288428) succeeded. This proves the configured path worked for that PR, not that future dependency updates are automatically safe. GitHub reports **Allow auto-merge is enabled**. The secret itself and its expiry/permissions remain inaccessible through the repository review API.
+This automation does not auto-publish a new extension version. **The first live eligible patch PR passed end-to-end on 2026-10-12:** [Dependabot PR #45](https://github.com/StefanSuess/Bobert/pull/45) passed the signed-patch verifier and the protected PAT merge step in [workflow run 38316270235](https://github.com/StefanSuess/Bobert/actions/runs/38316270235); PR #45 was merged and the subsequent [main push CI](https://github.com/StefanSuess/Bobert/actions/runs/38316288428) succeeded. This proves the configured path worked for that PR, not that future dependency updates are automatically safe. GitHub reports **Allow auto-merge is enabled**. The secret itself and its expiry/permissions remain inaccessible through the repository review API.
 
 ## One-time setup (repository administrator)
 
 1. In **Settings -> General -> Pull Requests**, enable **Allow auto-merge**. Preserve squash merging and automatic deletion of merged branches.
-2. Create a fine-grained personal access token (PAT) restricted to **StefanSuess/Cyclegauge** with repository permissions **Contents: Read and write** and **Pull requests: Read and write**. Set a limited expiration and rotate it before it expires.
+2. Create a fine-grained personal access token (PAT) restricted to **StefanSuess/Bobert** with repository permissions **Contents: Read and write** and **Pull requests: Read and write**. Set a limited expiration and rotate it before it expires.
 3. In **Settings -> Secrets and variables -> Actions** (not Dependabot secrets), create the repository secret **`DEPENDABOT_AUTOMERGE_TOKEN`** containing that PAT.
 4. Keep the default-branch ruleset active, including all four required CI checks. Prefer enabling **Require branches to be up to date before merging** as well.
 

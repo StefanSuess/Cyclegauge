@@ -71,7 +71,7 @@ test('tooltip explains category, status, size and the suggestion in plain text',
  const none = flat(tree(result({ findings: [finding({ suggestion: '', size: undefined })] }))).find(x => x.kind === 'finding')!;
  assert.ok(none.tooltip!.includes('No safe rule could be suggested')); assert.ok(!none.tooltip!.includes('Size:')); assert.equal(none.contextValue, 'finding');
  const unclear = (r: Partial<AuditResult>) => flat(tree(result({ findings: [finding({ coverage: 'unknown' })], ...r }))).find(x => x.kind === 'finding')!;
- assert.ok(unclear({}).tooltip!.includes('Cyclegauge could not tell whether it is excluded: the ignore rules could not be fully checked.'));
+ assert.ok(unclear({}).tooltip!.includes('Bobert could not tell whether it is excluded: the ignore rules could not be fully checked.'));
  assert.ok(unclear({ ignore: 'setting_unknown' }).tooltip!.includes('excluded: the Agent Ignore Files setting could not be read.'));
  assert.ok(unclear({ reasons: ['evaluation_time_limit'] }).tooltip!.includes('stopped at the time limit'));
  assert.ok(unclear({ reasons: ['ignore_rule_limit'] }).tooltip!.includes('could not be used'));
@@ -125,7 +125,7 @@ test('counts separate items Kiro may read from unclear ones; all-unclear results
  const allUnknown = result({ ignore: 'setting_unknown', findings: [finding({ coverage: 'unknown' }), finding({ path: 'b.sql', category: 'database', coverage: 'unknown', suggestion: '/b.sql' })] });
  const h = status(allUnknown);
  assert.equal(parts(allUnknown).stats!.suggestions, 2); assert.ok(!/Kiro may read/.test(h.label)); assert.equal(h.description, undefined);
- assert.ok(h.tooltip!.includes('Cyclegauge could not tell whether these are excluded by the ignore files.')); assert.ok(!h.tooltip!.includes('not excluded by its ignore files'));
+ assert.ok(h.tooltip!.includes('Bobert could not tell whether these are excluded by the ignore files.')); assert.ok(!h.tooltip!.includes('not excluded by its ignore files'));
  // Omitted findings have no known coverage, so they count as unclear suggestions.
  assert.equal(parts(result({ findings: [finding({ coverage: 'unknown' })], omitted: 3 })).stats!.suggestions, 4);
  assert.equal(parts(result({ omitted: 3 })).stats!.suggestions, 4);
@@ -197,24 +197,24 @@ test('manifest wording: each apply button names its target verb, plain item acti
  const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
  const title = (id: string) => manifest.contributes.commands.find((c: { command: string }) => c.command === id)?.title;
  const verbs: Record<string, string> = { 'audit.accept': 'Exclude from Kiro…', 'audit.acceptAll': 'Exclude from Kiro…', 'config.loadWhenNeeded': 'Load only when needed…', 'config.loadWhenNeededAll': 'Load only when needed…', 'config.runManually': 'Run only manually…', 'config.runManuallyAll': 'Run only manually…' };
- for (const [id, verb] of Object.entries(verbs)) assert.equal(title(`cyclegauge.${id}`), verb, id);
- assert.equal(title('cyclegauge.audit.dismiss'), 'Hide this item'); assert.equal(title('cyclegauge.audit.reveal'), 'Show file'); assert.equal(title('cyclegauge.config.open'), 'Show file');
- assert.equal(title('cyclegauge.config.disable'), 'Disable hook'); assert.equal(title('cyclegauge.config.preview'), 'Show suggestion');
- assert.equal(title('cyclegauge.audit.copy'), 'Copy .kiroignore lines'); assert.equal(title('cyclegauge.audit.clearDismissed'), 'Show hidden items again');
- assert.equal(title('cyclegauge.audit.show'), 'Cyclegauge: Show Workspace Audit Results'); assert.equal(title('cyclegauge.auditWorkspace'), 'Cyclegauge: Run Workspace Audit');
+ for (const [id, verb] of Object.entries(verbs)) assert.equal(title(`bobert.${id}`), verb, id);
+ assert.equal(title('bobert.audit.dismiss'), 'Hide this item'); assert.equal(title('bobert.audit.reveal'), 'Show file'); assert.equal(title('bobert.config.open'), 'Show file');
+ assert.equal(title('bobert.config.disable'), 'Disable hook'); assert.equal(title('bobert.config.preview'), 'Show suggestion');
+ assert.equal(title('bobert.audit.copy'), 'Copy .kiroignore lines'); assert.equal(title('bobert.audit.clearDismissed'), 'Show hidden items again');
+ assert.equal(title('bobert.audit.show'), 'Bobert: Show Workspace Audit Results'); assert.equal(title('bobert.auditWorkspace'), 'Bobert: Run Workspace Audit');
  assert.equal(manifest.contributes.views.explorer[0].name, 'Workspace Audit');
  const icon = (id: string) => manifest.contributes.commands.find((c: { command: string }) => c.command === id)?.icon;
- for (const id of Object.keys(verbs)) assert.equal(icon(`cyclegauge.${id}`), '$(diff)', id);
- assert.equal(icon('cyclegauge.audit.dismiss'), '$(eye-closed)'); assert.equal(icon('cyclegauge.config.preview'), '$(info)'); assert.equal(icon('cyclegauge.config.disable'), '$(circle-slash)');
+ for (const id of Object.keys(verbs)) assert.equal(icon(`bobert.${id}`), '$(diff)', id);
+ assert.equal(icon('bobert.audit.dismiss'), '$(eye-closed)'); assert.equal(icon('bobert.config.preview'), '$(info)'); assert.equal(icon('bobert.config.disable'), '$(circle-slash)');
  // The lightbulb belongs to the Cost Advisor alone.
- assert.deepEqual(manifest.contributes.commands.filter((c: { icon?: string }) => c.icon === '$(lightbulb)').map((c: { command: string }) => c.command), ['cyclegauge.costAdvisor']);
- for (const id of ['accept', 'dismiss', 'acceptAll', 'clearDismissed']) assert.ok(!/\b(ignore|ignored|accept)\b/i.test(title(`cyclegauge.audit.${id}`)), id);
+ assert.deepEqual(manifest.contributes.commands.filter((c: { icon?: string }) => c.icon === '$(lightbulb)').map((c: { command: string }) => c.command), ['bobert.costAdvisor']);
+ for (const id of ['accept', 'dismiss', 'acceptAll', 'clearDismissed']) assert.ok(!/\b(ignore|ignored|accept)\b/i.test(title(`bobert.audit.${id}`)), id);
  // The audit welcome needs a trusted folder; without a folder or in an untrusted one the view says what to do instead.
  const welcome = manifest.contributes.viewsWelcome as { view: string; contents: string; when: string }[];
- assert.ok(welcome.every(w => w.view === 'cyclegauge.auditView' && w.when));
+ assert.ok(welcome.every(w => w.view === 'bobert.auditView' && w.when));
  const byWhen = (when: string) => welcome.filter(w => w.when === when);
  assert.equal(byWhen('workspaceFolderCount > 0 && isWorkspaceTrusted').length, 1);
- assert.match(byWhen('workspaceFolderCount > 0 && isWorkspaceTrusted')[0]!.contents, /nothing changes until you save\.\n\[Run the workspace audit\]\(command:cyclegauge\.auditWorkspace\)$/);
+ assert.match(byWhen('workspaceFolderCount > 0 && isWorkspaceTrusted')[0]!.contents, /nothing changes until you save\.\n\[Run the workspace audit\]\(command:bobert\.auditWorkspace\)$/);
  assert.match(byWhen('workspaceFolderCount == 0')[0]!.contents, /\[Open Folder\]\(command:workbench\.action\.files\.openFolder\)$/);
  assert.match(byWhen('workspaceFolderCount > 0 && !isWorkspaceTrusted')[0]!.contents, /\[Manage Workspace Trust\]\(command:workbench\.trust\.manage\)$/);
 });
@@ -225,13 +225,13 @@ test('menus: the Exclude group carries the group verb and the copy action; its i
  const matches = (when: string, context: string): boolean => { const eq = /viewItem == (\S+)$/.exec(when), re = /viewItem =~ \/(.*)\/$/.exec(when); return eq ? eq[1] === context : re ? new RegExp(re[1]!).test(context) : false; };
  const on = (context: string) => items.filter(i => matches(i.when, context));
  const inline = (context: string) => on(context).filter(i => i.group.startsWith('inline')).sort((a, b) => a.group.localeCompare(b.group)).map(i => i.command);
- assert.deepEqual(inline('group-exclude'), ['cyclegauge.audit.acceptAll']);
- assert.deepEqual(on('group-exclude').filter(i => !i.group.startsWith('inline')).map(i => i.command).sort(), ['cyclegauge.audit.acceptAll', 'cyclegauge.audit.copy']);
- assert.deepEqual(inline('finding-suggestible'), ['cyclegauge.audit.accept', 'cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal']);
- assert.deepEqual(inline('finding'), ['cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal'], 'a finding without a rule still has Hide this item and Show file');
+ assert.deepEqual(inline('group-exclude'), ['bobert.audit.acceptAll']);
+ assert.deepEqual(on('group-exclude').filter(i => !i.group.startsWith('inline')).map(i => i.command).sort(), ['bobert.audit.acceptAll', 'bobert.audit.copy']);
+ assert.deepEqual(inline('finding-suggestible'), ['bobert.audit.accept', 'bobert.audit.dismiss', 'bobert.audit.reveal']);
+ assert.deepEqual(inline('finding'), ['bobert.audit.dismiss', 'bobert.audit.reveal'], 'a finding without a rule still has Hide this item and Show file');
  // The title bar has only the one check button (it also runs the Steering and Hooks review) and the overflow entry for hidden items.
  const titleBar = manifest.contributes.menus['view/title'] as { command: string; group: string }[];
- assert.deepEqual(titleBar.map(m => m.command), ['cyclegauge.auditWorkspace', 'cyclegauge.audit.clearDismissed']);
+ assert.deepEqual(titleBar.map(m => m.command), ['bobert.auditWorkspace', 'bobert.audit.clearDismissed']);
  assert.ok(!JSON.stringify(manifest.contributes.menus).includes('"navigation@2"'));
 });
 test('paths, folder names and tooltips make control, bidi, format and tag characters visible', () => {

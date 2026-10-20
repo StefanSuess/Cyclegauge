@@ -45,34 +45,34 @@ test('packaged Advisor native commands, conditional figure, cancellation and pan
   const module={exports:{} as any};
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,SyntheticDate);
   extension=module.exports;await extension.activate({subscriptions});
-  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,...CONFIG_COMMANDS,'cyclegauge.copyDiagnostics','cyclegauge.costAdvisor','cyclegauge.gettingStarted','cyclegauge.reportProblem','cyclegauge.showUsage','cyclegauge.share','cyclegauge.support.reset'].sort());
-  assert.ok(api.state.providers.has('cyclegauge.auditView'));
-  const advisor=items.find(i=>i.command==='cyclegauge.costAdvisor');assert.equal(advisor.visible,false);
-  await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
-  // Scripts stay off; the only command links are exactly five Cyclegauge commands, listed explicitly; the footer adds three fixed web links.
-  assert.deepEqual(options,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'],localResourceRoots:[]});
+  assert.deepEqual([...commands.keys()].sort(),[...AUDIT_COMMANDS,...CONFIG_COMMANDS,'bobert.copyDiagnostics','bobert.costAdvisor','bobert.gettingStarted','bobert.reportProblem','bobert.showUsage','bobert.share','bobert.support.reset'].sort());
+  assert.ok(api.state.providers.has('bobert.auditView'));
+  const advisor=items.find(i=>i.command==='bobert.costAdvisor');assert.equal(advisor.visible,false);
+  await commands.get('bobert.showUsage')!();assert.equal(advisor.visible,true);
+  // Scripts stay off; the only command links are exactly five Bobert commands, listed explicitly; the footer adds three fixed web links.
+  assert.deepEqual(options,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['bobert.costAdvisor','bobert.auditWorkspace','bobert.audit.show','bobert.share','bobert.reportProblem'],localResourceRoots:[]});
   const allLinks=()=>visibleHrefs(panel.webview.html);
-  const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:cyclegauge.share'&&h!=='command:cyclegauge.reportProblem');
-  for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:cyclegauge\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
-  assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:cyclegauge.share'));assert.ok(allLinks().includes('command:cyclegauge.reportProblem'));
-  assert.ok(linkIds().includes('command:cyclegauge.costAdvisor'));assert.ok(linkIds().includes('command:cyclegauge.auditWorkspace'));assert.ok(!linkIds().includes('command:cyclegauge.audit.show'));
+  const linkIds=()=>allLinks().filter((h:string)=>h.startsWith('command:')&&h!=='command:bobert.share'&&h!=='command:bobert.reportProblem');
+  for(const h of allLinks().filter((h:string)=>h.startsWith('command:'))){assert.match(h,/^command:bobert\.[A-Za-z.]+$/);assert.ok(options.enableCommandUris.includes(h.slice('command:'.length)),h);}
+  assert.deepEqual(allLinks().filter((h:string)=>!h.startsWith('command:')),COMMUNITY_LINKS);assert.ok(allLinks().includes('command:bobert.share'));assert.ok(allLinks().includes('command:bobert.reportProblem'));
+  assert.ok(linkIds().includes('command:bobert.costAdvisor'));assert.ok(linkIds().includes('command:bobert.auditWorkspace'));assert.ok(!linkIds().includes('command:bobert.audit.show'));
   assert.match(panel.webview.html,/Workspace audit/);assert.match(panel.webview.html,/<script nonce=/);
   assert.match(panel.webview.html,/cost-advisor/);
   assert.doesNotThrow(()=>buildDomModel(panel.webview.html),[...new Set([...panel.webview.html.slice(panel.webview.html.indexOf('<main>'),panel.webview.html.lastIndexOf('</main>')+7).matchAll(/<([A-Za-z][\w-]*)\b/g)].map(m=>m[1]))].sort().join(','));
   const load=Number(/data-cg-load="(\d+)"/.exec(panel.webview.html)![1]);receive({type:'ready',load});const initial=sent.at(-1);receive({type:'ack',version:initial.version});
   const day5=`2030-01-05 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:50,usageLimitWithPrecision:5000,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
   writeFileSync(join(logs,'q-client.log'),lines.join('')+day5);fixedNow=Date.parse('2030-01-05T00:00:00Z');
-  const sets=htmlSets;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();
+  const sets=htmlSets;answers.push(undefined);await commands.get('bobert.costAdvisor')!();
   assert.equal(htmlSets,sets,'a new observed snapshot updates in place');assert.ok(sent.at(-1).version>initial.version);assert.ok(JSON.stringify(sent.at(-1).model).includes('2030-01-05'));receive({type:'ack',version:sent.at(-1).version});
   fixedNow+=2100;
-   answers.push('plan:pro_max','consumer_prepaid','none');await commands.get(linkIds().find((h:string)=>h==='command:cyclegauge.costAdvisor')!.slice('command:'.length))!();
+   answers.push('plan:pro_max','consumer_prepaid','none');await commands.get(linkIds().find((h:string)=>h==='command:bobert.costAdvisor')!.slice('command:'.length))!();
    assert.match(panel.webview.html,/Confirmed by you/);assert.match(panel.webview.html,/Modelled estimate/);assert.match(panel.webview.html,/USD/);
    assert.ok(!/Supported estimate|Guaranteed savings/.test(panel.webview.html));
-   fixedNow+=2100;answers.push(undefined);await commands.get('cyclegauge.costAdvisor')!();assert.match(panel.webview.html,/Confirmed by you/);
-   fixedNow+=2100;answers.push('reset');await commands.get('cyclegauge.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
+   fixedNow+=2100;answers.push(undefined);await commands.get('bobert.costAdvisor')!();assert.match(panel.webview.html,/Confirmed by you/);
+   fixedNow+=2100;answers.push('reset');await commands.get('bobert.costAdvisor')!();assert.ok(!panel.webview.html.includes('Confirmed by you'));
   assert.ok(!panel.webview.html.includes('synthetic-bundle-account'));assert.ok(!panel.webview.html.includes(work));
   panel.visible=false;visibility({webviewPanel:panel});assert.equal(advisor.visible,false);
-  await commands.get('cyclegauge.showUsage')!();assert.equal(advisor.visible,true);
+  await commands.get('bobert.showUsage')!();assert.equal(advisor.visible,true);
   panel.dispose();assert.equal(advisor.visible,false);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -94,9 +94,9 @@ const auditApi=()=>{
   window:{registerTreeDataProvider(id:string,p:any){state.providers.set(id,p);return {dispose(){state.providers.delete(id);}};},async showTextDocument(d:any){state.shown.push(d);}},
   commands:{async executeCommand(...a:any[]){state.executed.push(a);}}};
 };
-const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews','https://github.com/StefanSuess/Cyclegauge','https://ko-fi.com/stefansuess'];
-const CONFIG_COMMANDS=['cyclegauge.config.preview','cyclegauge.config.loadWhenNeeded','cyclegauge.config.loadWhenNeededAll','cyclegauge.config.narrowPattern','cyclegauge.config.runManually','cyclegauge.config.runManuallyAll','cyclegauge.config.disable','cyclegauge.config.open','cyclegauge.reviewKiroConfig'];
-const AUDIT_COMMANDS=['cyclegauge.audit.accept','cyclegauge.audit.acceptAll','cyclegauge.audit.clearDismissed','cyclegauge.audit.copy','cyclegauge.audit.dismiss','cyclegauge.audit.resetReminder','cyclegauge.audit.reveal','cyclegauge.audit.show','cyclegauge.auditWorkspace'];
+const COMMUNITY_LINKS=['https://open-vsx.org/extension/StefanSuess/bobert/reviews','https://github.com/StefanSuess/Bobert','https://ko-fi.com/stefansuess'];
+const CONFIG_COMMANDS=['bobert.config.preview','bobert.config.loadWhenNeeded','bobert.config.loadWhenNeededAll','bobert.config.narrowPattern','bobert.config.runManually','bobert.config.runManuallyAll','bobert.config.disable','bobert.config.open','bobert.reviewKiroConfig'];
+const AUDIT_COMMANDS=['bobert.audit.accept','bobert.audit.acceptAll','bobert.audit.clearDismissed','bobert.audit.copy','bobert.audit.dismiss','bobert.audit.resetReminder','bobert.audit.reveal','bobert.audit.show','bobert.auditWorkspace'];
 const flatTree=(nodes:any[]):any[]=>nodes.flatMap(n=>[n,...flatTree(n.children??[])]);
 // Assertions about the filename audit deliberately exclude the independent configuration section.
 const auditRoots=(provider:any):any[]=>provider.getChildren().filter((n:any)=>n.kind!=='config');
@@ -117,7 +117,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
    EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
    // Every command except the audit ones fails to register, which makes startExtension throw and exercises the fallback path.
-   commands:{...api.commands,registerCommand(id:string,fn:(...a:any[])=>unknown){if(!id.startsWith('cyclegauge.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+   commands:{...api.commands,registerCommand(id:string,fn:(...a:any[])=>unknown){if(!id.startsWith('bobert.audit'))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
    env:{clipboard:{async writeText(t:string){clipboard.push(t);}}},
    workspace:{...api.workspace,get isTrusted(){return trusted;},get workspaceFolders(){return [{name:'synthetic-workspace',uri:{scheme:'file',fsPath:folderPath}}];},
     getConfiguration:(section:string,scope?:any)=>({get:(key:string)=>section==='files'?(key==='autoSave'?(typeof scope?.getText==='function'&&documentAutoSave!==undefined?documentAutoSave:autoSave):undefined):section==='kiroAgent'?(key==='agentIgnoreFiles'?ignoreFiles:undefined):({sourceRoot:source,storageRoot:join(work,'synthetic-owned'),sourceTimezone:'UTC'} as any)[key]??''}),
@@ -134,14 +134,14 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   runInThisContext(`(function(require,module,exports,Date){${bundle}\n})`)((id:string)=>id==='vscode'?vscode:require(id),module,module.exports,CommandDate);
   extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState:api.workspaceState});
   assert.deepEqual([...commands.keys()].sort(),AUDIT_COMMANDS);
-  const provider=st.providers.get('cyclegauge.auditView');assert.ok(provider);assert.ok(!provider.getChildren().some((n:any)=>n.kind==='config'),'failed configuration registration must leave the original audit provider available');
+  const provider=st.providers.get('bobert.auditView');assert.ok(provider);assert.ok(!provider.getChildren().some((n:any)=>n.kind==='config'),'failed configuration registration must leave the original audit provider available');
   const roots=()=>auditRoots(provider);const infoTexts=()=>infos.map(i=>i.text);
-  const run=()=>{commandNow+=2100;return commands.get('cyclegauge.auditWorkspace')!();};
+  const run=()=>{commandNow+=2100;return commands.get('bobert.auditWorkspace')!();};
   const find=(label:string)=>flatTree(roots()).find(n=>n.label===label);
-  const state=()=>st.store.get('cyclegauge.audit.dismissed.v1') as {salt:string;hashes:string[]}|undefined;
+  const state=()=>st.store.get('bobert.audit.dismissed.v1') as {salt:string;hashes:string[]}|undefined;
   // Untrusted: nothing is audited and the list stays empty (the view then shows its welcome text).
   await run();
-  assert.deepEqual(warnings,['Cyclegauge audits only trusted workspaces.']);assert.deepEqual(warnButtons,[['Manage Workspace Trust']]);assert.deepEqual(roots(),[]);assert.ok(!st.executed.some(a=>a[0]==='workbench.trust.manage'));
+  assert.deepEqual(warnings,['Bobert audits only trusted workspaces.']);assert.deepEqual(warnButtons,[['Manage Workspace Trust']]);assert.deepEqual(roots(),[]);assert.ok(!st.executed.some(a=>a[0]==='workbench.trust.manage'));
   // The button opens the editor's Workspace Trust page and nothing else.
   warnChoice='Manage Workspace Trust';await run();warnChoice=undefined;assert.deepEqual(st.executed.filter(a=>a[0]==='workbench.trust.manage'),[['workbench.trust.manage']]);
   warnings.length=0;warnButtons.length=0;st.executed.length=0;
@@ -153,7 +153,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.match(roots()[0].description,/^Kiro may read about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)$/);
   assert.match(roots()[0].tooltip,/^Folder: synthetic-workspace\n/);
   assert.deepEqual(infos,[{text:'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.',extra:0}]);
-  assert.ok(st.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
+  assert.ok(st.executed.some(a=>a[0]==='bobert.auditView.focus'));
   const excludeItem=provider.getTreeItem(roots()[1]);assert.equal(excludeItem.collapsibleState,1,'every group starts collapsed');assert.equal(excludeItem.contextValue,'group-exclude');assert.equal(excludeItem.description,'adds lines to .kiroignore');
   const secretGroup=roots()[1].children.find((n:any)=>n.id==='secret'),groupItem=provider.getTreeItem(secretGroup);
   assert.equal(groupItem.collapsibleState,1);assert.equal(groupItem.iconPath.id,'key');
@@ -161,15 +161,15 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   const envItem=provider.getTreeItem(env);assert.equal(envItem.resourceUri,undefined);assert.equal(envItem.iconPath.id,'key');assert.equal(typeof envItem.tooltip,'string');assert.equal(envItem.command,undefined);
   const shown=JSON.stringify(roots());assert.ok(!shown.includes(work));assert.ok(!shown.includes('SYNTHETIC_CONTENT_SENTINEL'));
   // Copy: clipboard only, the same snippet as before.
-  await commands.get('cyclegauge.audit.copy')!();
-  assert.equal(clipboard.length,1);assert.ok(clipboard[0]!.startsWith('# Suggested by Cyclegauge - review before adding\n'));assert.ok(clipboard[0]!.includes('/.env\n'));assert.ok(clipboard[0]!.endsWith('/dist/'));
+  await commands.get('bobert.audit.copy')!();
+  assert.equal(clipboard.length,1);assert.ok(clipboard[0]!.startsWith('# Suggested by Bobert - review before adding\n'));assert.ok(clipboard[0]!.includes('/.env\n'));assert.ok(clipboard[0]!.endsWith('/dist/'));
   assert.ok(!clipboard[0]!.includes(work)&&!clipboard[0]!.includes('SYNTHETIC_CONTENT_SENTINEL'));
   // Accept with an existing .kiroignore: an unsaved edit on the opened document; the file on disk is untouched.
   const before=readFileSync(kiroignore);
-  await commands.get('cyclegauge.audit.accept')!(env);
+  await commands.get('bobert.audit.accept')!(env);
   assert.equal(st.edits.length,1);assert.equal(st.edits[0].inserts.length,1);
   const insert=st.edits[0].inserts[0];assert.equal(insert.uri.fsPath,kiroignore);assert.equal(insert.uri.scheme,'file');assert.equal(insert.position.offset,'/ignored.log\n'.length);
-  assert.equal(insert.text,'# Suggested by Cyclegauge - review before saving\n/.env\n');
+  assert.equal(insert.text,'# Suggested by Bobert - review before saving\n/.env\n');
   assert.equal(st.shown.length,1);assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
   // The edit goes through the editor's change preview: an annotation that needs confirmation with a short why and the alternative; then a fixed notice with the counts.
   const meta=insert.metadata;assert.deepEqual(meta,{label:'Exclude from Kiro',description:"Adds 1 line to .kiroignore. Kiro may read this file into the agent's context; excluding it keeps requests smaller. Alternative: Hide this item. Nothing changes until you save.",needsConfirmation:true});
@@ -177,7 +177,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.equal(find('.env').description,'prepared — save the file to apply');assert.equal(provider.getTreeItem(find('.env')).iconPath.id,'edit');assert.ok(!find('dist/').description.includes('prepared'));
   assert.match(roots()[0].description,/1 file with unsaved prepared changes/);
   // Accept all: one combined edit; lines already in the document and the header are not repeated.
-  await commands.get('cyclegauge.audit.acceptAll')!();
+  await commands.get('bobert.audit.acceptAll')!();
   assert.equal(st.edits.length,2);assert.equal(st.edits[1].inserts[0].text,'/dist/\n');assert.equal(st.saves,0);assert.deepEqual(readFileSync(kiroignore),before);
   assert.equal(st.edits[1].inserts[0].metadata.needsConfirmation,true);assert.equal(st.edits[1].inserts[0].metadata.label,'Exclude from Kiro');
   assert.equal(find('dist/').description,'prepared — save the file to apply');assert.match(roots()[0].description,/1 file with unsaved prepared changes/);
@@ -188,71 +188,71 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   await run();assert.ok(!find('.env').description.includes('rule prepared'));assert.ok(!find('dist/').description.includes('rule prepared'));
   // Discarding the change preview is not an error: nothing is marked as prepared, nothing is remembered for a save, and one fixed note is shown.
   st.docs.clear();st.discard=true;infos.length=0;const discardEdits=st.edits.length;
-  await commands.get('cyclegauge.audit.accept')!(find('.env'));
+  await commands.get('bobert.audit.accept')!(find('.env'));
   st.discard=false;assert.equal(st.edits.length,discardEdits+1);assert.deepEqual(infoTexts(),['Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.','No changes were made. To prepare a change, tick it in the preview, then select Apply.']);assert.ok(!find('.env').description.includes('rule prepared'));assert.equal(st.saves,0);
   infos.length=0;st.docs.clear();
   // Accept without a .kiroignore: an unsaved untitled document at that path; nothing is created on disk.
   unlinkSync(kiroignore);st.docs.clear();
-  await commands.get('cyclegauge.audit.accept')!(find('.env'));
-  const created=st.edits.at(-1).inserts[0];assert.equal(created.uri.scheme,'untitled');assert.equal(created.uri.fsPath,kiroignore);assert.equal(created.text,'# Suggested by Cyclegauge - review before saving\n/.env\n');
+  await commands.get('bobert.audit.accept')!(find('.env'));
+  const created=st.edits.at(-1).inserts[0];assert.equal(created.uri.scheme,'untitled');assert.equal(created.uri.fsPath,kiroignore);assert.equal(created.text,'# Suggested by Bobert - review before saving\n/.env\n');
   assert.equal(existsSync(kiroignore),false);assert.equal(st.saves,0);
   // A .kiroignore that is not a regular file is not touched.
-  mkdirSync(kiroignore);const editsBefore=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsBefore);rmSync(kiroignore,{recursive:true});
+  mkdirSync(kiroignore);const editsBefore=st.edits.length;await commands.get('bobert.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsBefore);rmSync(kiroignore,{recursive:true});
   // A symlinked .kiroignore is refused too (skipped where links need privileges); the target is left alone.
   const target=join(work,'synthetic-link-target');writeFileSync(target,'synthetic-target\n');
-  try{symlinkSync(target,kiroignore);const linkEdits=st.edits.length,linkDocs=st.docs.size;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,linkEdits);assert.equal(st.docs.size,linkDocs);assert.equal(readFileSync(target,'utf8'),'synthetic-target\n');unlinkSync(kiroignore);}catch(e){if(!(e as NodeJS.ErrnoException).code?.match(/^(EPERM|EACCES|ENOSYS)$/))throw e;}
+  try{symlinkSync(target,kiroignore);const linkEdits=st.edits.length,linkDocs=st.docs.size;await commands.get('bobert.audit.accept')!(find('.env'));assert.equal(st.edits.length,linkEdits);assert.equal(st.docs.size,linkDocs);assert.equal(readFileSync(target,'utf8'),'synthetic-target\n');unlinkSync(kiroignore);}catch(e){if(!(e as NodeJS.ErrnoException).code?.match(/^(EPERM|EACCES|ENOSYS)$/))throw e;}
   writeFileSync(kiroignore,'/ignored.log\n');
   // Tree ids are opaque: they never contain a path.
   assert.ok(flatTree(roots()).every(n=>!/\.env|dist|synthetic-workspace/.test(n.id)));assert.ok(flatTree(roots()).some(n=>/^finding:secret:\d+$/.test(n.id)));
   // Item commands look the finding up again: a forged node cannot smuggle in a suggestion or a path.
   writeFileSync(kiroignore,'/ignored.log\n');st.docs.clear();const editsAtForge=st.edits.length;
   const forged=(over:any)=>({kind:'finding',id:'finding:secret:0',finding:{path:'.env',isDir:false,category:'secret',coverage:'not_covered',suggestion:'/synthetic-malicious\n!/*',...over}});
-  await commands.get('cyclegauge.audit.accept')!(forged({path:'synthetic-unknown.pem'}));assert.equal(st.edits.length,editsAtForge);assert.equal(st.docs.size,0);
-  await commands.get('cyclegauge.audit.accept')!(forged({}));
-  assert.equal(st.edits.length,editsAtForge+1);assert.equal(st.edits.at(-1).inserts[0].text,'# Suggested by Cyclegauge - review before saving\n/.env\n');assert.ok(!JSON.stringify(st.edits).includes('malicious'));
-  await commands.get('cyclegauge.audit.dismiss')!(forged({path:'synthetic-unknown.pem'}));assert.equal(state(),undefined);
+  await commands.get('bobert.audit.accept')!(forged({path:'synthetic-unknown.pem'}));assert.equal(st.edits.length,editsAtForge);assert.equal(st.docs.size,0);
+  await commands.get('bobert.audit.accept')!(forged({}));
+  assert.equal(st.edits.length,editsAtForge+1);assert.equal(st.edits.at(-1).inserts[0].text,'# Suggested by Bobert - review before saving\n/.env\n');assert.ok(!JSON.stringify(st.edits).includes('malicious'));
+  await commands.get('bobert.audit.dismiss')!(forged({path:'synthetic-unknown.pem'}));assert.equal(state(),undefined);
   // Auto save on: the real .kiroignore document is never edited; the lines open in a separate untitled tab instead.
   for(const mode of ['afterDelay','onFocusChange','onWindowChange']){
    autoSave=mode;st.docs.clear();st.contentDocs.length=0;infos.length=0;const editCount:number=st.edits.length,shownCount:number=st.shown.length;
-   await commands.get('cyclegauge.audit.accept')!(find('.env'));
+   await commands.get('bobert.audit.accept')!(find('.env'));
    assert.equal(st.edits.length,editCount,mode);assert.equal(st.docs.size,1,'the real document is opened (not shown or edited) so its own auto save scope can be read');assert.equal(st.shown.includes([...st.docs.values()][0]),false,mode);assert.equal(st.contentDocs.length,1,mode);
-   assert.equal(st.contentDocs[0].text,'# Suggested by Cyclegauge - review before saving\n/.env\n');assert.equal(st.contentDocs[0].language,'ignore');assert.equal(st.contentDocs[0].uri.scheme,'untitled');
+   assert.equal(st.contentDocs[0].text,'# Suggested by Bobert - review before saving\n/.env\n');assert.equal(st.contentDocs[0].language,'ignore');assert.equal(st.contentDocs[0].uri.scheme,'untitled');
    assert.equal(st.shown.length,shownCount+1);assert.equal(st.shown.at(-1),st.contentDocs[0]);assert.equal(st.saves,0);
    assert.deepEqual(infoTexts(),['Your editor saves files automatically, so the suggested lines are shown in a new tab. Copy them into .kiroignore and save.']);
    assert.equal(readFileSync(kiroignore,'utf8'),'/ignored.log\n');
   }
   // An unset value counts as off.
-  autoSave=undefined;st.docs.clear();st.contentDocs.length=0;const editsUnset=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsUnset);assert.equal(st.contentDocs.length,1);
+  autoSave=undefined;st.docs.clear();st.contentDocs.length=0;const editsUnset=st.edits.length;await commands.get('bobert.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsUnset);assert.equal(st.contentDocs.length,1);
   // A per-language override that is only visible with the opened document as scope (the global value stays off) also counts as auto save.
-  autoSave='off';documentAutoSave='afterDelay';st.docs.clear();st.contentDocs.length=0;const editsLanguage=st.edits.length;await commands.get('cyclegauge.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsLanguage);assert.equal(st.contentDocs.length,1);assert.equal(readFileSync(kiroignore,'utf8'),'/ignored.log\n');
+  autoSave='off';documentAutoSave='afterDelay';st.docs.clear();st.contentDocs.length=0;const editsLanguage=st.edits.length;await commands.get('bobert.audit.accept')!(find('.env'));assert.equal(st.edits.length,editsLanguage);assert.equal(st.contentDocs.length,1);assert.equal(readFileSync(kiroignore,'utf8'),'/ignored.log\n');
   documentAutoSave=undefined;
   autoSave='off';infos.length=0;
   // Ignore: only salted hex hashes reach workspaceState, and the finding disappears (also from Copy and after a re-run).
   clipboard.length=0;
-  await commands.get('cyclegauge.audit.dismiss')!(find('.env'));
+  await commands.get('bobert.audit.dismiss')!(find('.env'));
   const stored=state()!;assert.deepEqual(Object.keys(stored).sort(),['hashes','salt']);assert.match(stored.salt,/^[0-9a-f]{64}$/);assert.equal(stored.hashes.length,1);assert.match(stored.hashes[0]!,/^[0-9a-f]{64}$/);
   assert.ok(!JSON.stringify(stored).includes('.env')&&!JSON.stringify(stored).includes(work)&&!JSON.stringify([...st.store]).includes('synthetic-workspace'));
   assert.equal(roots().length,3);assert.match(roots()[0].label,/^Checked .+ · 1 suggestion$/);assert.deepEqual(roots().slice(1).map(n=>n.label),['Exclude from Kiro (1)','1 hidden by you']);
-  const footer=roots().at(-1);assert.equal(footer.action,'clearDismissed');assert.equal(provider.getTreeItem(footer).command.command,'cyclegauge.audit.clearDismissed');
-  await commands.get('cyclegauge.audit.copy')!();assert.ok(!clipboard[0]!.includes('/.env'));assert.ok(clipboard[0]!.includes('/dist/'));
-  await commands.get('cyclegauge.audit.dismiss')!(find('.env')??{kind:'info'});await commands.get('cyclegauge.audit.dismiss')!(undefined);assert.equal(state()!.hashes.length,1);
+  const footer=roots().at(-1);assert.equal(footer.action,'clearDismissed');assert.equal(provider.getTreeItem(footer).command.command,'bobert.audit.clearDismissed');
+  await commands.get('bobert.audit.copy')!();assert.ok(!clipboard[0]!.includes('/.env'));assert.ok(clipboard[0]!.includes('/dist/'));
+  await commands.get('bobert.audit.dismiss')!(find('.env')??{kind:'info'});await commands.get('bobert.audit.dismiss')!(undefined);assert.equal(state()!.hashes.length,1);
   await run();assert.ok(!find('.env'));assert.equal(roots().at(-1).label,'1 hidden by you');
-  await commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(state(),undefined);assert.ok(find('.env'));
+  await commands.get('bobert.audit.clearDismissed')!();assert.equal(state(),undefined);assert.ok(find('.env'));
   // At most 2,000 hashes are kept: the oldest are dropped.
   const hex=(i:number)=>i.toString(16).padStart(64,'0'),goodSalt='a'.repeat(64);
-  st.store.set('cyclegauge.audit.dismissed.v1',{salt:goodSalt,hashes:Array.from({length:2000},(_,i)=>hex(i))});
-  await commands.get('cyclegauge.audit.dismiss')!(find('.env'));
+  st.store.set('bobert.audit.dismissed.v1',{salt:goodSalt,hashes:Array.from({length:2000},(_,i)=>hex(i))});
+  await commands.get('bobert.audit.dismiss')!(find('.env'));
   assert.equal(state()!.hashes.length,2000);assert.equal(state()!.hashes[0],hex(1));assert.match(state()!.hashes.at(-1)!,/^[0-9a-f]{64}$/);assert.ok(!state()!.hashes.includes(hex(0)));assert.equal(state()!.salt,goodSalt);
   // An invalid stored salt is discarded together with its hashes and replaced by a fresh random one.
-  st.store.set('cyclegauge.audit.dismissed.v1',{salt:'synthetic-not-hex',hashes:[hex(5)]});
-  await commands.get('cyclegauge.audit.dismiss')!(find('dist/'));
+  st.store.set('bobert.audit.dismissed.v1',{salt:'synthetic-not-hex',hashes:[hex(5)]});
+  await commands.get('bobert.audit.dismiss')!(find('dist/'));
   assert.match(state()!.salt,/^[0-9a-f]{64}$/);assert.notEqual(state()!.salt,'synthetic-not-hex');assert.equal(state()!.hashes.length,1);assert.notEqual(state()!.hashes[0],hex(5));
-  await commands.get('cyclegauge.audit.clearDismissed')!();
+  await commands.get('bobert.audit.clearDismissed')!();
   // Show file: always revealed in the Explorer, never opened in an editor tab; unknown or forged nodes do nothing.
   writeFileSync(join(workspace,'small.log'),Buffer.alloc(200*1024));writeFileSync(join(workspace,'big.log'),Buffer.alloc(2*1024*1024));
   const outside=join(work,'synthetic-outside.log');writeFileSync(outside,'x');
   await run();st.executed.length=0;
-  const reveal=commands.get('cyclegauge.audit.reveal')!,last=()=>st.executed.at(-1)!;
+  const reveal=commands.get('bobert.audit.reveal')!,last=()=>st.executed.at(-1)!;
   await reveal(find('small.log'));assert.equal(last()[0],'revealInExplorer');assert.equal(last()[1].fsPath,join(workspace,'small.log'));
   await reveal(find('big.log'));assert.equal(last()[0],'revealInExplorer');
   await reveal(find('.env'));assert.equal(last()[0],'revealInExplorer');assert.equal(last()[1].fsPath,join(workspace,'.env'));
@@ -275,7 +275,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   assert.deepEqual(provider.getTreeItem(note).command,{command:'workbench.action.openSettings',title:'Open Agent Ignore Files setting',arguments:['kiroAgent.agentIgnoreFiles']});
   // After a successful Review changes… the notice says the file counts only when listed, with an Open setting button that opens the setting (never writes it).
   st.docs.clear();infos.length=0;st.executed.length=0;infoChoice='Open setting';
-  await commands.get('cyclegauge.audit.accept')!(find('.env'));await new Promise(r=>setImmediate(r));infoChoice=undefined;
+  await commands.get('bobert.audit.accept')!(find('.env'));await new Promise(r=>setImmediate(r));infoChoice=undefined;
   assert.deepEqual(infos,[{text:'Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.',extra:0},{text:"Changes prepared in 1 file — review and save. Kiro uses .kiroignore only when it's listed in Agent Ignore Files.",extra:1}]);
   assert.deepEqual(st.executed.at(-1),['workbench.action.openSettings','kiroAgent.agentIgnoreFiles']);
   for(const fn of st.closeListeners)fn(st.docs.get(`file:${kiroignore}`));infos.length=0;
@@ -290,7 +290,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   for(const path of [source,join(source,'logs'),join(work,'synthetic-owned','x'),join(work,'synthetic-missing')]){
    folderPath=path;await run();
   }
-  assert.deepEqual(warnings,["This folder can't be audited: it overlaps Kiro data.","This folder can't be audited: it overlaps Kiro data.","This folder can't be audited: it overlaps Cyclegauge storage.","This folder can't be audited: its real location could not be resolved."]);
+  assert.deepEqual(warnings,["This folder can't be audited: it overlaps Kiro data.","This folder can't be audited: it overlaps Kiro data.","This folder can't be audited: it overlaps Bobert storage.","This folder can't be audited: its real location could not be resolved."]);
   assert.deepEqual(infos,[]);assert.equal(JSON.stringify(roots()),kept);
   // Any failure becomes one fixed message, and the lock is released.
   folderPath=workspace;failProgress=true;await run();failProgress=false;
@@ -306,7 +306,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
    assert.deepEqual([...commands.keys()].sort(),AUDIT_COMMANDS);assert.equal(st.providers.size,0);st.executed.length=0;
    infoChoice='Copy suggestions';await run();
    assert.deepEqual(infos,[{text:'Found 2 files Kiro may read (about 27 B).',extra:1}]);assert.equal(clipboard.length,1);assert.ok(clipboard[0]!.includes('/.env\n')&&clipboard[0]!.endsWith('/dist/'));
-   assert.ok(!st.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));assert.equal(st.edits.length,edits2);
+   assert.ok(!st.executed.some(a=>a[0]==='bobert.auditView.focus'));assert.equal(st.edits.length,edits2);
    infos.length=0;clipboard.length=0;infoChoice=undefined;await run();assert.equal(infos.length,1);assert.equal(clipboard.length,0);
   }finally{module2.exports.deactivate();for(const d of subscriptions2)d.dispose();}
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
@@ -314,7 +314,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
 
 // Audit reminder: a once-per-window check 30 s after activation. The delay is intercepted so the check runs on demand; the clock is injected
 // through the Date the bundle sees. Only the four documented workspaceState keys may be written, and never a path.
-const REMINDER_KEYS=['cyclegauge.audit.last.v1','cyclegauge.audit.snoozeUntil.v1','cyclegauge.audit.neverRemind.v1','cyclegauge.audit.dismissed.v1'];
+const REMINDER_KEYS=['bobert.audit.last.v1','bobert.audit.snoozeUntil.v1','bobert.audit.neverRemind.v1','bobert.audit.dismissed.v1'];
 const reminderEnv=(work:string)=>{
  const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),empty=join(work,'synthetic-empty'),single=join(work,'synthetic-single');
  const logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
@@ -332,7 +332,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  const bundle=await builtBundle(work);
  const vscode={StatusBarAlignment:{Right:2},ViewColumn:{One:1},ProgressLocation:{Notification:15},ThemeColor:class{},Uri:api.Uri,RelativePattern:class{},extensions:{getExtension:()=>undefined},
   EventEmitter:api.EventEmitter,TreeItem:api.TreeItem,ThemeIcon:api.ThemeIcon,WorkspaceEdit:api.WorkspaceEdit,TreeItemCollapsibleState:api.TreeItemCollapsibleState,
-  commands:{async executeCommand(...a:any[]){env.executed.push(a);},registerCommand(id:string,fn:(...a:any[])=>unknown){if(env.failConfigPreview&&id==='cyclegauge.config.preview')throw new Error('synthetic-config-preview-register-failure');if(env.failStart&&!id.startsWith('cyclegauge.audit')&&!CONFIG_COMMANDS.includes(id))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
+  commands:{async executeCommand(...a:any[]){env.executed.push(a);},registerCommand(id:string,fn:(...a:any[])=>unknown){if(env.failConfigPreview&&id==='bobert.config.preview')throw new Error('synthetic-config-preview-register-failure');if(env.failStart&&!id.startsWith('bobert.audit')&&!CONFIG_COMMANDS.includes(id))throw new Error('synthetic-register-failure');commands.set(id,fn);return {dispose(){commands.delete(id);}};}},
   env:{clipboard:{async writeText(t:string){env.clipboard.push(t);}},...(env.kiro?{appName:'Kiro',uriScheme:'kiro'}:{})},
   workspace:{...api.workspace,get isTrusted(){return env.trusted;},get workspaceFolders(){return env.folders;},
    getConfiguration:(section:string,...more:unknown[])=>(env.configCalls.push({section,args:more.length}),{get:(key:string)=>section==='kiroAgent'?(key==='agentIgnoreFiles'?['.kiroignore']:undefined):section==='files'?'off':
@@ -360,7 +360,7 @@ const reminderSession=async(env:ReturnType<typeof reminderEnv>,work:string)=>{
  const globalState=env.kiro?{get:(k:string)=>env.globalStore.get(k),async update(k:string,v:unknown){if(v===undefined)env.globalStore.delete(k);else env.globalStore.set(k,v);}}:undefined;
  try{await module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')},workspaceState,...(globalState?{globalState}:{})});}finally{/* restored on disposal so delayed signal timers remain controllable */}
  let done=false;
- return {commands,timers,api,advance:()=>{fixedNow+=2100;},provider:()=>api.state.providers.get('cyclegauge.auditView'),
+ return {commands,timers,api,advance:()=>{fixedNow+=2100;},provider:()=>api.state.providers.get('bobert.auditView'),
   fire:async()=>{assert.equal(timers.length,1);assert.equal(timers[0]!.ms,30000);return timers[0]!.fn();},
   dispose(){if(done)return;done=true;module.exports.deactivate();for(const d of subscriptions)d.dispose();(globalThis as any).setTimeout=realSet;(globalThis as any).clearTimeout=realClear;}};
 };
@@ -380,7 +380,7 @@ test('packaged configuration registration is isolated, idle until invoked, and k
   // Explicit review reads only after invocation, updates its own section and leaves the filename audit/state unchanged.
   writeFileSync(join(env.workspace,'AGENTS.md'),Buffer.alloc(40000,'x'));
   const before=JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress});
-  await session.commands.get('cyclegauge.reviewKiroConfig')!();
+  await session.commands.get('bobert.reviewKiroConfig')!();
   assert.ok(env.configReads.some(p=>p.endsWith('AGENTS.md')));
   assert.equal(JSON.stringify({store:[...env.store],written:env.written,clipboard:env.clipboard,progress:env.progress}),before);
   assert.deepEqual(auditRoots(session.provider()).map((n:any)=>n.id),['status']);assert.match(auditRoots(session.provider())[0].label,/^Checked .+ · 2 suggestions$/);
@@ -390,9 +390,9 @@ test('packaged configuration registration is isolated, idle until invoked, and k
   // A failure after the first config command registers must roll it back and leave the original audit provider usable.
   env.failConfigPreview=true;env.configReads.length=0;
   session=await reminderSession(env,work);sessions.push(session);
-  assert.ok(session.provider());assert.equal(session.commands.has('cyclegauge.reviewKiroConfig'),false);assert.equal(session.commands.has('cyclegauge.config.preview'),false);
+  assert.ok(session.provider());assert.equal(session.commands.has('bobert.reviewKiroConfig'),false);assert.equal(session.commands.has('bobert.config.preview'),false);
   assert.ok(!session.provider().getChildren().some((n:any)=>n.kind==='config'));assert.deepEqual(env.configReads.slice(),[]);
-  await session.commands.get('cyclegauge.auditWorkspace')!();assert.ok(auditRoots(session.provider()).some(n=>n.kind==='header'));
+  await session.commands.get('bobert.auditWorkspace')!();assert.ok(auditRoots(session.provider()).some(n=>n.kind==='header'));
  }finally{for(const s of sessions)s.dispose();rmSync(work,{recursive:true,force:true});}
 });
 const TODAY='2030-03-31';
@@ -421,36 +421,36 @@ test('packaged audit reminder: guards, first prompt, buttons and stored state',a
   for(const days of [0,-5]){env.days=days;await quiet(`days ${days}`);}env.days=undefined;
   // Never audited: one prompt with three buttons; the snooze is recorded when it is shown (today + reminderDays), so it is not repeated.
   s=await start();await s.fire();
-  assert.deepEqual(env.infos,[{text:"Cyclegauge can check this workspace for files that may end up in Kiro's context.",buttons:['Run audit','Later',"Don't ask again"]}]);
-  assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);s.dispose();
+  assert.deepEqual(env.infos,[{text:"Bobert can check this workspace for files that may end up in Kiro's context.",buttons:['Run audit','Later',"Don't ask again"]}]);
+  assert.equal(env.store.has('bobert.audit.last.v1'),false);assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);s.dispose();
   // The snooze (today + reminderDays) is already recorded while the prompt is open, so a prompt left unanswered is not repeated either.
-  reset();let snoozeWhileOpen:unknown;env.onInfo=()=>{snoozeWhileOpen=env.store.get('cyclegauge.audit.snoozeUntil.v1');};
+  reset();let snoozeWhileOpen:unknown;env.onInfo=()=>{snoozeWhileOpen=env.store.get('bobert.audit.snoozeUntil.v1');};
   s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-30');
   env.infos.length=0;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   // The setting changes the period (also for Later): 10 days.
-  reset();env.days=10;env.onInfo=()=>{snoozeWhileOpen=env.store.get('cyclegauge.audit.snoozeUntil.v1');};s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-10');env.days=undefined;
+  reset();env.days=10;env.onInfo=()=>{snoozeWhileOpen=env.store.get('bobert.audit.snoozeUntil.v1');};s=await start();await s.fire();s.dispose();env.onInfo=undefined;assert.equal(snoozeWhileOpen,'2030-04-10');env.days=undefined;
   // Later and a dismissed first prompt both wait a whole reminder period (30 days), not the 7 days of a regular reminder.
-  for(const choice of ['Later',undefined]){reset();env.choice=choice;s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.snoozeUntil.v1'),'2030-04-30',String(choice));assert.equal(env.store.has('cyclegauge.audit.neverRemind.v1'),false);assert.equal(env.progress,0);}
+  for(const choice of ['Later',undefined]){reset();env.choice=choice;s=await start();await s.fire();s.dispose();assert.equal(env.store.get('bobert.audit.snoozeUntil.v1'),'2030-04-30',String(choice));assert.equal(env.store.has('bobert.audit.neverRemind.v1'),false);assert.equal(env.progress,0);}
   // After the snooze the prompt returns (unless it was dismissed for good).
   env.now='2030-04-29T00:00:00Z';env.infos.length=0;env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   env.now='2030-04-30T00:00:00Z';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);env.now='2030-03-31T12:00:00Z';
   // Don't ask again: never again, however much time passes.
   reset();env.choice="Don't ask again";s=await start();await s.fire();s.dispose();
-  assert.equal(env.store.get('cyclegauge.audit.neverRemind.v1'),true);
+  assert.equal(env.store.get('bobert.audit.neverRemind.v1'),true);
   env.infos.length=0;env.now='2031-03-31T00:00:00Z';env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);env.now='2030-03-31T12:00:00Z';
   // Run audit: the normal command, with its progress notification; it records the date and fills the list.
   reset();env.choice='Run audit';s=await start();await s.fire();
-  assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.equal(env.progress,1);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);
   assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);
-  assert.deepEqual(infoTexts(env),["Cyclegauge can check this workspace for files that may end up in Kiro's context.",'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.']);s.dispose();
+  assert.deepEqual(infoTexts(env),["Bobert can check this workspace for files that may end up in Kiro's context.",'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.']);s.dispose();
   // A command-driven run records the date too (and only a finished, not cancelled, run does).
-  reset();s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
-  reset();env.cancel=true;s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();env.cancel=false;
-  reset();env.folders=[folder(env.source)];s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();env.folders=[folder(env.workspace)];
+  reset();s=await start();await s.commands.get('bobert.auditWorkspace')!();assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);s.dispose();
+  reset();env.cancel=true;s=await start();await s.commands.get('bobert.auditWorkspace')!();assert.equal(env.store.has('bobert.audit.last.v1'),false);s.dispose();env.cancel=false;
+  reset();env.folders=[folder(env.source)];s=await start();await s.commands.get('bobert.auditWorkspace')!();assert.equal(env.store.has('bobert.audit.last.v1'),false);s.dispose();env.folders=[folder(env.workspace)];
   // Reset: clears the snooze and the never flag, keeps the date of the last audit.
-  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.store.set('cyclegauge.audit.snoozeUntil.v1','2031-01-01');env.store.set('cyclegauge.audit.neverRemind.v1',true);
-  s=await start();await s.commands.get('cyclegauge.audit.resetReminder')!();
-  assert.deepEqual([...env.store],[['cyclegauge.audit.last.v1','2030-03-01']]);assert.deepEqual(infoTexts(env),['Audit reminder reset for this workspace.']);
+  reset();env.store.set('bobert.audit.last.v1','2030-03-01');env.store.set('bobert.audit.snoozeUntil.v1','2031-01-01');env.store.set('bobert.audit.neverRemind.v1',true);
+  s=await start();await s.commands.get('bobert.audit.resetReminder')!();
+  assert.deepEqual([...env.store],[['bobert.audit.last.v1','2030-03-01']]);assert.deepEqual(infoTexts(env),['Audit reminder reset for this workspace.']);
   env.infos.length=0;await s.fire();assert.equal(firstInfo(env).text,'This workspace was last audited 30 days ago.');s.dispose();
   // Only the documented keys were written, with date-or-flag values and no path.
   assert.ok(env.written.every(k=>REMINDER_KEYS.includes(k)),env.written.join());
@@ -466,13 +466,13 @@ test('packaged audit reminder: the first-time prompt waits when this window just
   // New user in Kiro: the walkthrough opens, and its own audit step replaces the first-time prompt for this window (nothing is stored for it).
   let s=await reminderSession(env,work);open.push(s);await settle();
   assert.equal(opened(),1);await s.fire();
-  assert.deepEqual(env.infos,[]);assert.equal(env.store.has('cyclegauge.audit.snoozeUntil.v1'),false);s.dispose();
+  assert.deepEqual(env.infos,[]);assert.equal(env.store.has('bobert.audit.snoozeUntil.v1'),false);s.dispose();
   // The next window does not open the walkthrough again and asks as usual.
   env.executed.length=0;s=await reminderSession(env,work);open.push(s);await settle();
   assert.equal(opened(),0);env.choice='Later';await s.fire();
-  assert.equal(firstInfo(env).text,"Cyclegauge can check this workspace for files that may end up in Kiro's context.");assert.deepEqual(firstInfo(env).buttons,['Run audit','Later',"Don't ask again"]);s.dispose();
+  assert.equal(firstInfo(env).text,"Bobert can check this workspace for files that may end up in Kiro's context.");assert.deepEqual(firstInfo(env).buttons,['Run audit','Later',"Don't ask again"]);s.dispose();
   // A due reminder for a workspace audited before is not the first-time prompt and is never skipped.
-  env.infos.length=0;env.store.clear();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.globalStore.clear();env.executed.length=0;
+  env.infos.length=0;env.store.clear();env.store.set('bobert.audit.last.v1','2030-03-01');env.globalStore.clear();env.executed.length=0;
   s=await reminderSession(env,work);open.push(s);await settle();assert.equal(opened(),1);
   await s.fire();assert.equal(firstInfo(env).text,'This workspace was last audited 30 days ago.');s.dispose();
  }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
@@ -484,66 +484,66 @@ test('packaged audit reminder: due reminder, automatic run and its limits',async
   const env=reminderEnv(work);
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const reset=()=>{env.infos.length=0;env.warnings.length=0;env.errors.length=0;env.progress=0;env.executed.length=0;env.store.clear();env.written.length=0;env.choice=undefined;env.clipboard.length=0;};
-  const last=(v:string)=>env.store.set('cyclegauge.audit.last.v1',v);
+  const last=(v:string)=>env.store.set('bobert.audit.last.v1',v);
   // Due and not automatic: the reminder names the number of days, nothing runs, the list stays empty.
   reset();last('2030-03-01');let s=await start();await s.fire();
   assert.deepEqual(env.infos,[{text:'This workspace was last audited 30 days ago.',buttons:['Run audit','Later',"Don't remind me"]}]);
-  assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');s.dispose();
+  assert.equal(env.progress,0);assert.deepEqual(auditRoots(s.provider()),[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');s.dispose();
   // One day short of the period: nothing.
   reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   // Buttons: Later = +7 days, Don't remind me = never, Run audit = the command.
-  reset();last('2020-03-31');env.choice='Later';s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.snoozeUntil.v1'),'2030-04-07');
+  reset();last('2020-03-31');env.choice='Later';s=await start();await s.fire();s.dispose();assert.equal(env.store.get('bobert.audit.snoozeUntil.v1'),'2030-04-07');
   assert.equal(firstInfo(env).text,'This workspace was last audited 3652 days ago.');
-  reset();last('2030-03-01');env.choice="Don't remind me";s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.neverRemind.v1'),true);
-  reset();last('2030-03-01');env.choice='Run audit';s=await start();await s.fire();assert.equal(env.progress,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);s.dispose();
+  reset();last('2030-03-01');env.choice="Don't remind me";s=await start();await s.fire();s.dispose();assert.equal(env.store.get('bobert.audit.neverRemind.v1'),true);
+  reset();last('2030-03-01');env.choice='Run audit';s=await start();await s.fire();assert.equal(env.progress,1);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);s.dispose();
   // Automatic: the audit runs without a progress notification; the list is updated; findings give one message with a Show button.
   reset();last('2030-03-01');env.automatic=true;s=await start();await s.fire();
-  assert.equal(env.progress,0);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.equal(env.progress,0);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);
   assert.deepEqual(env.infos,[{text:'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.',buttons:['Show']}]);
   assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);assert.ok(s.api.state.fires>0);assert.deepEqual(env.executed,[]);
   assert.ok(!JSON.stringify(auditRoots(s.provider())).includes('SYNTHETIC_CONTENT_SENTINEL'));s.dispose();
-  reset();last('2030-03-01');env.choice='Show';s=await start();await s.fire();assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);s.dispose();
+  reset();last('2030-03-01');env.choice='Show';s=await start();await s.fire();assert.deepEqual(env.executed,[['bobert.auditView.focus']]);s.dispose();
   // No findings: silent. Not due: nothing runs. Never audited or snoozed: the first prompt or nothing, never a background run.
   reset();last('2030-03-01');env.folders=[{name:'synthetic-empty',uri:{scheme:'file',fsPath:env.empty}}];s=await start();await s.fire();
-  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · nothing to suggest$/);s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
+  assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · nothing to suggest$/);s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
   // Automatic modes re-run an audit that is at least one UTC day old (well inside the reminder period), but not one from today.
-  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  reset();last('2030-03-02');s=await start();await s.fire();s.dispose();assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);
   reset();last(TODAY);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.progress,0);
-  reset();s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons.length,3);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);
-  reset();last('2030-03-01');env.store.set('cyclegauge.audit.snoozeUntil.v1','2030-04-01');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
-  reset();last('2030-03-01');env.store.set('cyclegauge.audit.neverRemind.v1',true);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
-  reset();last('2030-03-01');env.days=0;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');env.days=undefined;
+  reset();s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons.length,3);assert.equal(env.store.has('bobert.audit.last.v1'),false);
+  reset();last('2030-03-01');env.store.set('bobert.audit.snoozeUntil.v1','2030-04-01');s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.store.set('bobert.audit.neverRemind.v1',true);s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.days=0;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');env.days=undefined;
   // Invalid stored values count as absent.
-  reset();last('synthetic-not-a-date');env.store.set('cyclegauge.audit.snoozeUntil.v1','2030-99-99');env.store.set('cyclegauge.audit.neverRemind.v1','yes');s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons[2],"Don't ask again");
+  reset();last('synthetic-not-a-date');env.store.set('bobert.audit.snoozeUntil.v1','2030-99-99');env.store.set('bobert.audit.neverRemind.v1','yes');s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).buttons[2],"Don't ask again");
   // Untrusted or a refused root never auto-run, even when due.
-  reset();last('2030-03-01');env.trusted=false;s=await start();await s.fire();s.dispose();env.trusted=true;assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
-  reset();last('2030-03-01');env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await s.fire();s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.trusted=false;s=await start();await s.fire();s.dispose();env.trusted=true;assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');
+  reset();last('2030-03-01');env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await s.fire();s.dispose();env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');
   // A run in flight is held at the listing of the workspace. Without a dispose it walks every entry (baseline); a command invoked meanwhile is declined.
   reset();env.lstats.length=0;env.readdirs.length=0;last('2030-03-01');let release:()=>void=()=>{};env.gate=new Promise<void>(r=>{release=r;});
   s=await start();let pending=s.fire();while(!env.readdirs.includes(env.workspace))await new Promise(r=>setImmediate(r));
-  await s.commands.get('cyclegauge.auditWorkspace')!();
+  await s.commands.get('bobert.auditWorkspace')!();
   assert.deepEqual(infoTexts(env),['An automatic workspace audit is running; try again shortly.']);assert.equal(env.progress,0);
   release();await pending;env.gate=undefined;s.dispose();
   const nested=join(env.workspace,'dist','synthetic.js');
-  assert.ok(env.lstats.includes(nested),'an unaborted walk enters dist');assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.ok(env.lstats.includes(nested),'an unaborted walk enters dist');assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);
   // Disposing the extension while the automatic run is in flight aborts its signal: the walk does not enter dist, and there is no list update, date or message.
   reset();env.lstats.length=0;env.readdirs.length=0;last('2030-03-01');env.gate=new Promise<void>(r=>{release=r;});
   s=await start();pending=s.fire();while(!env.readdirs.includes(env.workspace))await new Promise(r=>setImmediate(r));
   s.dispose();release();await pending;env.gate=undefined;
-  assert.ok(!env.lstats.includes(nested));assert.deepEqual(env.infos,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),'2030-03-01');assert.equal(env.errors.length,0);assert.deepEqual(s.provider()?auditRoots(s.provider()):[],[]);
+  assert.ok(!env.lstats.includes(nested));assert.deepEqual(env.infos,[]);assert.equal(env.store.get('bobert.audit.last.v1'),'2030-03-01');assert.equal(env.errors.length,0);assert.deepEqual(s.provider()?auditRoots(s.provider()):[],[]);
   // The reminder settings are application-scoped: they are read without a folder, so a workspace cannot set them.
-  assert.ok(env.configCalls.some(c=>c.section==='cyclegauge'));assert.ok(env.configCalls.filter(c=>c.section==='cyclegauge').every(c=>c.args===0));
+  assert.ok(env.configCalls.some(c=>c.section==='bobert'));assert.ok(env.configCalls.filter(c=>c.section==='bobert').every(c=>c.args===0));
   // One counting rule: findings the user has not ignored plus omitted ones; singular forms.
   const hash=(salt:string,category:string,path:string)=>createHash('sha256').update(`${salt}\0${category}\0${path}`).digest('hex');
   const salt='b'.repeat(64);
-  reset();last('2030-03-01');env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();
+  reset();last('2030-03-01');env.store.set('bobert.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();
   assert.deepEqual(env.infos,[{text:'Found 1 file Kiro may read (about 1 B). Open the Workspace Audit view.',buttons:['Show']}]);s.dispose();
-  reset();env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();
+  reset();env.store.set('bobert.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('bobert.auditWorkspace')!();
   assert.deepEqual(env.infos,[{text:'Found 1 file Kiro may read (about 1 B). Open the Workspace Audit view.',buttons:[]}]);s.dispose();
   env.folders=[{name:'synthetic-single',uri:{scheme:'file',fsPath:env.single}}];
   reset();last('2030-03-01');s=await start();await s.fire();assert.deepEqual(env.infos,[{text:'Found 1 file Kiro may read (about 26 B). Open the Workspace Audit view.',buttons:['Show']}]);s.dispose();
-  reset();last('2030-03-01');env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
-  reset();env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('cyclegauge.auditWorkspace')!();s.dispose();assert.deepEqual(env.infos,[{text:'No risky files found.',buttons:[]}]);
+  reset();last('2030-03-01');env.store.set('bobert.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  reset();env.store.set('bobert.audit.dismissed.v1',{salt,hashes:[hash(salt,'secret','.env')]});s=await start();await s.commands.get('bobert.auditWorkspace')!();s.dispose();assert.deepEqual(env.infos,[{text:'No risky files found.',buttons:[]}]);
   env.folders=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}}];
   reset();last('2030-03-30');env.days=1;env.automatic=false;env.choice=undefined;s=await start();await s.fire();s.dispose();assert.equal(firstInfo(env).text,'This workspace was last audited 1 day ago.');env.days=undefined;
   // Only the documented keys were written, and no stored value holds a path or file name.
@@ -558,34 +558,34 @@ test('packaged workspace-check card: Show focuses the list or runs the audit, an
   const env=reminderEnv(work);env.failStart=false;
   const start=async()=>{const s=await reminderSession(env,work);open.push(s);return s;};
   const html=()=>env.panels.at(-1).webview.html as string;
-  const hrefs=()=>visibleHrefs(html()).filter(h=>h.startsWith('command:')&&h!=='command:cyclegauge.share'&&h!=='command:cyclegauge.reportProblem');
-  const ALLOWED=['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'];
+  const hrefs=()=>visibleHrefs(html()).filter(h=>h.startsWith('command:')&&h!=='command:bobert.share'&&h!=='command:bobert.reportProblem');
+  const ALLOWED=['bobert.costAdvisor','bobert.auditWorkspace','bobert.audit.show','bobert.share','bobert.reportProblem'];
   // Nothing checked yet: the card invites a check; "Show" is not offered; the panel's command allowlist is exactly five commands.
-  let s=await start();await s.commands.get('cyclegauge.showUsage')!();
+  let s=await start();await s.commands.get('bobert.showUsage')!();
   assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:ALLOWED,localResourceRoots:[]});
   assert.match(html(),/Workspace audit/);assert.match(html(),/Run the workspace audit to find files Kiro can read but probably doesn&#39;t need\./);
-  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace']);
+  assert.deepEqual(hrefs(),['command:bobert.costAdvisor','command:bobert.auditWorkspace']);
   // "Show" with no result runs the audit (and then focuses the list); the open panel now shows the count and the new button.
-  env.executed.length=0;await s.commands.get('cyclegauge.audit.show')!();
-  assert.equal(env.progress,1);assert.ok(env.executed.some(a=>a[0]==='cyclegauge.auditView.focus'));
+  env.executed.length=0;await s.commands.get('bobert.audit.show')!();
+  assert.equal(env.progress,1);assert.ok(env.executed.some(a=>a[0]==='bobert.auditView.focus'));
   assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
-  assert.deepEqual(hrefs(),['command:cyclegauge.costAdvisor','command:cyclegauge.auditWorkspace','command:cyclegauge.audit.show']);
+  assert.deepEqual(hrefs(),['command:bobert.costAdvisor','command:bobert.auditWorkspace','command:bobert.audit.show']);
   for(const h of hrefs())assert.ok(ALLOWED.includes(h.slice('command:'.length)),h);
   assert.ok(!html().includes('synthetic-workspace')&&!html().includes(work));
   // With a result, "Show" only focuses the list. The card follows what the user hides.
-  env.progress=0;env.executed.length=0;s.advance();await s.commands.get('cyclegauge.audit.show')!();
-  assert.equal(env.progress,0);assert.deepEqual(env.executed,[['cyclegauge.auditView.focus']]);
+  env.progress=0;env.executed.length=0;s.advance();await s.commands.get('bobert.audit.show')!();
+  assert.equal(env.progress,0);assert.deepEqual(env.executed,[['bobert.auditView.focus']]);
   const salt='a'.repeat(64),hash=(c:string,p:string)=>createHash('sha256').update(`${salt}\0${c}\0${p}`).digest('hex');
-  env.store.set('cyclegauge.audit.dismissed.v1',{salt,hashes:[hash('secret','.env')]});await s.commands.get('cyclegauge.auditWorkspace')!();
+  env.store.set('bobert.audit.dismissed.v1',{salt,hashes:[hash('secret','.env')]});await s.commands.get('bobert.auditWorkspace')!();
   assert.match(html(),/1 item Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // The panel is re-rendered only when the summary changed: the same audit again (same counts and time) sets no HTML; hiding an item does.
-  const sets=env.htmlSets;s.advance();await s.commands.get('cyclegauge.auditWorkspace')!();assert.equal(env.htmlSets,sets);
-  env.store.delete('cyclegauge.audit.dismissed.v1');await s.commands.get('cyclegauge.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
+  const sets=env.htmlSets;s.advance();await s.commands.get('bobert.auditWorkspace')!();assert.equal(env.htmlSets,sets);
+  env.store.delete('bobert.audit.dismissed.v1');await s.commands.get('bobert.audit.clearDismissed')!();assert.equal(env.htmlSets,sets+1);assert.match(html(),/2 items Kiro may read \(about (?:\d+ B|\d+ KiB|\d+\.\d MiB|\d+\.\d GiB)\) · checked just now/);
   // Later renders (the minute timer's refresh) keep the card; an unavailable run says so and drops the Show button.
-  env.trusted=false;s.advance();await s.commands.get('cyclegauge.auditWorkspace')!();
-  assert.match(html(),/This folder can&#39;t be checked\. Run the audit to see why\./);assert.ok(!hrefs().includes('command:cyclegauge.audit.show'));env.trusted=true;s.dispose();
+  env.trusted=false;s.advance();await s.commands.get('bobert.auditWorkspace')!();
+  assert.match(html(),/This folder can&#39;t be checked\. Run the audit to see why\./);assert.ok(!hrefs().includes('command:bobert.audit.show'));env.trusted=true;s.dispose();
   // A broken workspaceState never takes the card or the gauge down.
-  env.throwState=true;s=await start();await s.commands.get('cyclegauge.showUsage')!();assert.match(html(),/id="status-heading"/);assert.match(html(),/Workspace audit/);env.throwState=false;s.dispose();
+  env.throwState=true;s=await start();await s.commands.get('bobert.showUsage')!();assert.match(html(),/id="status-heading"/);assert.match(html(),/Workspace audit/);env.throwState=false;s.dispose();
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 test('packaged audit reminder: a failing workspaceState never breaks activation, the gauge or the audit command',async()=>{
@@ -594,11 +594,11 @@ test('packaged audit reminder: a failing workspaceState never breaks activation,
  try{
   const env=reminderEnv(work);env.throwState=true;env.failStart=false;env.now='2030-03-31T12:00:00Z';
   const s=await reminderSession(env,work);open.push(s);
-  assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(s.commands.has('cyclegauge.auditWorkspace'));
-  assert.ok(env.statusTexts.length>0&&env.statusTexts.every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)),env.statusTexts.join('|'));
+  assert.ok(s.commands.has('bobert.showUsage'));assert.ok(s.commands.has('bobert.auditWorkspace'));
+  assert.ok(env.statusTexts.length>0&&env.statusTexts.every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Bobert/i.test(t)),env.statusTexts.join('|'));
   env.choice='Later';await s.fire();
   assert.equal(env.infos.length,1);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);
-  await s.commands.get('cyclegauge.auditWorkspace')!();
+  await s.commands.get('bobert.auditWorkspace')!();
   assert.equal(env.progress,1);assert.deepEqual(env.errors,[]);assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);
   env.automatic=true;env.infos.length=0;await s.fire();assert.deepEqual(env.errors,[]);
  }finally{for(const s of open)s.dispose();rmSync(work,{recursive:true,force:true});}
@@ -623,10 +623,10 @@ test('packaged bundle has no top-level node:sqlite require and still starts with
   (process as {getBuiltinModule?:unknown}).getBuiltinModule=()=>undefined;
   runInThisContext(`(function(require,module,exports){${bundle}\n})`)((id:string)=>{if(id==='vscode')return vscode;if(/^(node:)?sqlite$/.test(id))throw new Error('synthetic-no-sqlite');return require(id);},module,module.exports);
   extension=module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});
-  assert.ok(commands.has('cyclegauge.showUsage'));assert.ok(commands.has('cyclegauge.auditWorkspace'));
+  assert.ok(commands.has('bobert.showUsage'));assert.ok(commands.has('bobert.auditWorkspace'));
   assert.equal(items[0].text,'$(warning) Kiro: Needs a newer Kiro');
-  await commands.get('cyclegauge.showUsage')!();
-  assert.match(panels[0].webview.html,/too old for Cyclegauge&#39;s credit view/);
+  await commands.get('bobert.showUsage')!();
+  assert.match(panels[0].webview.html,/too old for Bobert&#39;s credit view/);
   assert.equal(existsSync(storage),false);
  }finally{process.getBuiltinModule=original;extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -655,14 +655,14 @@ test('packaged Copy Diagnostics opens an untitled document, copies the same text
   writeFileSync(join(logs,'q-client.log'),`2030-01-04 00:00:00.000 [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:'2030-02-01T00:00:00Z',usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:4.35,usageLimitWithPrecision:50,nextDateReset:'2030-02-01T00:00:00Z',bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n');
   const h=diagnosticsHarness(work,source,storage,()=>true,{appName:'Synthetic Editor',version:'1.99.0'});
   h.load(await builtBundle(work));extension=h.module.exports;await extension.activate({subscriptions});
-  assert.ok(h.commands.has('cyclegauge.copyDiagnostics'));
-  await h.commands.get('cyclegauge.copyDiagnostics')!();
+  assert.ok(h.commands.has('bobert.copyDiagnostics'));
+  await h.commands.get('bobert.copyDiagnostics')!();
   assert.equal(h.opened.length,1);assert.equal(h.opened[0].language,'plaintext');assert.deepEqual(Object.keys(h.opened[0]).sort(),['content','language']);
   assert.equal(h.shown.length,1);assert.equal(h.shown[0].untitled,true);assert.deepEqual(h.clipboard,[h.opened[0].content]);
   assert.deepEqual(h.infos,['Diagnostics copied. Review them before pasting.']);assert.deepEqual(h.errors,[]);
   const text:string=h.clipboard[0]!,f=diagnosticsFields(text);
-  assert.ok(text.startsWith('# Cyclegauge diagnostics — fixed codes and counts only. Review before sharing.\n'));
-  assert.equal(f.cyclegauge,JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version);
+  assert.ok(text.startsWith('# Bobert diagnostics — fixed codes and counts only. Review before sharing.\n'));
+  assert.equal(f.bobert,JSON.parse(readFileSync(new URL('../../package.json',import.meta.url),'utf8')).version);
   assert.equal(f.surface,'extension');assert.equal(f.editor,'Synthetic Editor');assert.equal(f.editor_version,'1.99.0');assert.equal(f.gauge,'running');assert.equal(f.store,'ok');
   assert.equal(f.storage,'chosen');assert.equal(f.source,'chosen');assert.equal(f.timezone,'chosen');assert.equal(f.snapshots,'1');assert.equal(f.accounts,'1');assert.equal(f.audit,'available');
   for(const marker of [work,'synthetic-','Europe/Berlin','4.35','45.65','/','\\'])assert.ok(!text.includes(marker),marker);
@@ -674,19 +674,19 @@ test('packaged Copy Diagnostics still works when the gauge failed to start and r
  const subscriptions:any[]=[];let extension:any;
  try{
   const source=join(work,'source');mkdirSync(join(source,'logs'),{recursive:true});
-  const h=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.copyDiagnostics',{appName:'/synthetic/private/Editor',version:'1.2 synthetic-token'});
+  const h=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='bobert.copyDiagnostics',{appName:'/synthetic/private/Editor',version:'1.2 synthetic-token'});
   h.load(await builtBundle(work));extension=h.module.exports;await extension.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});
-  assert.deepEqual([...h.commands.keys()],['cyclegauge.copyDiagnostics']);
-  await h.commands.get('cyclegauge.copyDiagnostics')!();
+  assert.deepEqual([...h.commands.keys()],['bobert.copyDiagnostics']);
+  await h.commands.get('bobert.copyDiagnostics')!();
   const text:string=h.clipboard[0]!,f=diagnosticsFields(text);
   assert.equal(h.opened[0].content,text);assert.equal(f.gauge,'failed_to_start');assert.equal(f.store,'not_opened');assert.equal(f.editor,'other');assert.equal(f.editor_version,'other');assert.equal(f.status,'unavailable');
   // The failed-start status item says so in plain words and a click reports the problem (the credit view is not available then).
-  assert.equal(h.items[0].text,'$(warning) Kiro: Unavailable');assert.equal(h.items[0].tooltip,'Cyclegauge could not start. Click to report a problem.');assert.equal(h.items[0].command,'cyclegauge.reportProblem');
+  assert.equal(h.items[0].text,'$(warning) Kiro: Unavailable');assert.equal(h.items[0].tooltip,'Bobert could not start. Click to report a problem.');assert.equal(h.items[0].command,'bobert.reportProblem');
   assert.ok(!text.includes('synthetic')&&!text.includes(work));
   // A failure while opening the document becomes one fixed message.
-  const failing=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.copyDiagnostics',{appName:'Synthetic Editor',version:'1.99.0'});
+  const failing=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='bobert.copyDiagnostics',{appName:'Synthetic Editor',version:'1.99.0'});
   (failing as any).opened.push=()=>{throw new Error('synthetic-open-failure /private/synthetic-path');};
-  failing.load(await builtBundle(work));await failing.module.exports.activate({subscriptions});await failing.commands.get('cyclegauge.copyDiagnostics')!();
+  failing.load(await builtBundle(work));await failing.module.exports.activate({subscriptions});await failing.commands.get('bobert.copyDiagnostics')!();
   assert.deepEqual(failing.errors,['Diagnostics could not be copied.']);assert.deepEqual(failing.clipboard,[]);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -699,10 +699,10 @@ test('packaged Report a Problem copies the Copy Diagnostics text and opens exact
   // Each scenario gets a fresh activation: the command shares the 2-second cooldown of the other footer commands.
   const fresh=async()=>{const x=diagnosticsHarness(work,source,join(work,'owned'),()=>true,{appName:'Synthetic Editor',version:'1.99.0'});x.load(bundle);await x.module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});extension=x.module.exports;return x;};
   const h=await fresh();
-  assert.ok(h.commands.has('cyclegauge.reportProblem'));
-  await h.commands.get('cyclegauge.copyDiagnostics')!();const copied=h.clipboard[0]!;
-  await h.commands.get('cyclegauge.reportProblem')!();
-  assert.deepEqual(h.externals,['https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml']);
+  assert.ok(h.commands.has('bobert.reportProblem'));
+  await h.commands.get('bobert.copyDiagnostics')!();const copied=h.clipboard[0]!;
+  await h.commands.get('bobert.reportProblem')!();
+  assert.deepEqual(h.externals,['https://github.com/StefanSuess/Bobert/issues/new?template=bug_report.yml']);
   assert.equal(h.clipboard.length,2);assert.equal(h.clipboard[1],copied);assert.equal(h.opened.length,2);assert.equal(h.opened[1].content,copied);assert.equal(h.opened[1].language,'plaintext');assert.equal(h.shown.length,2);assert.equal(h.shown[1].untitled,true);
   assert.deepEqual(h.errors,[]);
   // No diagnostics value, path or identifier is in the address.
@@ -710,27 +710,27 @@ test('packaged Report a Problem copies the Copy Diagnostics text and opens exact
   for(const line of copied.split('\n').slice(1).filter(Boolean)){const value=line.slice(line.indexOf(': ')+2);if(value.length>3)assert.ok(!h.externals[0]!.includes(value),value);}
   // Cooldown: concurrent and immediate repeat calls in one activation run the command once (one browser tab, one copy, one document).
   const burst=await fresh();
-  await Promise.all([burst.commands.get('cyclegauge.reportProblem')!(),burst.commands.get('cyclegauge.reportProblem')!()]);await burst.commands.get('cyclegauge.reportProblem')!();
+  await Promise.all([burst.commands.get('bobert.reportProblem')!(),burst.commands.get('bobert.reportProblem')!()]);await burst.commands.get('bobert.reportProblem')!();
   assert.equal(burst.externals.length,1);assert.equal(burst.clipboard.length,1);assert.equal(burst.opened.length,1);
   // A failing Copy Diagnostics registration cannot prevent Report a Problem.
-  const partial=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='cyclegauge.reportProblem',{appName:'Synthetic Editor',version:'1.99.0'});
+  const partial=diagnosticsHarness(work,source,join(work,'owned'),id=>id==='bobert.reportProblem',{appName:'Synthetic Editor',version:'1.99.0'});
   partial.load(bundle);await partial.module.exports.activate({subscriptions,globalStorageUri:{fsPath:join(work,'global')}});extension=partial.module.exports;
-  assert.deepEqual([...partial.commands.keys()],['cyclegauge.reportProblem']);
+  assert.deepEqual([...partial.commands.keys()],['bobert.reportProblem']);
   // Any failure becomes one fixed text without a button, never exception text.
-  const noBrowser=await fresh();noBrowser.failExternal.on=true;await noBrowser.commands.get('cyclegauge.reportProblem')!();
+  const noBrowser=await fresh();noBrowser.failExternal.on=true;await noBrowser.commands.get('bobert.reportProblem')!();
   assert.deepEqual(noBrowser.errors,['The problem report could not be opened.']);assert.deepEqual(noBrowser.errorButtons,[[]]);
-  const noDocument=await fresh();(noDocument as any).opened.push=()=>{throw new Error('synthetic-open-failure /private/synthetic-path');};await noDocument.commands.get('cyclegauge.reportProblem')!();
+  const noDocument=await fresh();(noDocument as any).opened.push=()=>{throw new Error('synthetic-open-failure /private/synthetic-path');};await noDocument.commands.get('bobert.reportProblem')!();
   assert.deepEqual(noDocument.errors,['The problem report could not be opened.']);assert.deepEqual(noDocument.externals,[]);assert.deepEqual(noDocument.clipboard,[]);
  }finally{extension?.deactivate();for(const d of subscriptions)d.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
 // Community prompts: footer, share command, the support prompt and the "not Kiro" notice. The bundle sees an injected clock (Date), the 3-minute
 // delay is intercepted so the check runs on demand, and HOME and friends point at an empty synthetic folder so no real Kiro folder is ever read.
-const SUPPORT_KEYS=['cyclegauge.support.firstSeen.v1','cyclegauge.support.next.v1','cyclegauge.support.never.v1','cyclegauge.support.valueSeen.v1','cyclegauge.support.detailDays.v1','cyclegauge.support.advisorUsed.v1'];
-const WALKTHROUGH_KEY='cyclegauge.walkthrough.shown.v1';
-const COMMUNITY_KEYS=[...SUPPORT_KEYS,'cyclegauge.notKiro.shown.v1',WALKTHROUGH_KEY];
-const SUPPORT_TEXT='Finding Cyclegauge useful? Rate it or support development. You can turn these off in Settings › Cyclegauge › Support Prompts.';
-const NOT_KIRO="Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
+const SUPPORT_KEYS=['bobert.support.firstSeen.v1','bobert.support.next.v1','bobert.support.never.v1','bobert.support.valueSeen.v1','bobert.support.detailDays.v1','bobert.support.advisorUsed.v1'];
+const WALKTHROUGH_KEY='bobert.walkthrough.shown.v1';
+const COMMUNITY_KEYS=[...SUPPORT_KEYS,'bobert.notKiro.shown.v1',WALKTHROUGH_KEY];
+const SUPPORT_TEXT='Finding Bobert useful? Rate it or support development. You can turn these off in Settings › Bobert › Support Prompts.';
+const NOT_KIRO="Bobert is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Bobert: Run Workspace Audit to find files Kiro may read but doesn't need.";
 const SUPPORT_BUTTONS=['Rate','Support','Later'];
 const communityEnv=(work:string,withLogs:boolean)=>{
  const source=join(work,'source'),workspace=join(work,'synthetic-workspace'),logs=join(source,'logs','synthetic-run','synthetic-window','exthost','kiro.kiroAgent');
@@ -761,7 +761,7 @@ const communitySession=async(env:ReturnType<typeof communityEnv>,work:string)=>{
    createWebviewPanel(_t:string,_title:string,_c:number,o:any){env.panelOptions=o;const panel={webview:{html:'',postMessage(m:any){env.posted.push(m);return Promise.resolve(true);},onDidReceiveMessage(fn:(m:unknown)=>void){env.receive=fn;return disposable;}},reveal(){},onDidDispose:()=>disposable,onDidChangeViewState:()=>disposable,dispose(){}};env.panels.push(panel);return panel;},
    async showSaveDialog(o:any){env.dialogs.push({defaultPath:o.defaultUri.fsPath,filters:o.filters});const to=typeof env.saveTo==='function'?env.saveTo():env.saveTo;return to===undefined?undefined:{scheme:'file',fsPath:to};},
    async showQuickPick(choices:any[]){const id=env.answers.shift();return choices.find(i=>i.id===id);},async showInputBox(){return undefined;},async showWarningMessage(){},async showErrorMessage(m:string,...b:string[]){env.errors.push(m);env.errorButtons.push(b);return env.errorChoice;},
-   async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('cyclegauge.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
+   async showInformationMessage(text:string,...buttons:string[]){env.atShow.push(structuredClone(env.store.get('bobert.budgetWarning.v1')));env.infos.push({text,buttons});return buttons.length?env.choice:undefined;},
    async withProgress(_o:any,task:(p:unknown,t:unknown)=>Promise<unknown>){return task({},{onCancellationRequested:()=>disposable});}}};
  const globalState={get(k:string){if(env.throwState)throw new Error('synthetic-state-failure /private/synthetic-path');return env.store.get(k);},
   async update(k:string,v:unknown){if(env.throwState||env.failWrites)throw new Error('synthetic-state-failure /private/synthetic-path');env.written.push(k);if(v===undefined)env.store.delete(k);else env.store.set(k,structuredClone(v));}};
@@ -791,23 +791,23 @@ test('packaged footer, Share and Report a problem: five command links, three fix
  try{
   const env=communityEnv(work,true);
   const s=await communitySession(env,work);open.push(s);
-  assert.ok(s.commands.has('cyclegauge.share'));assert.ok(s.commands.has('cyclegauge.reportProblem'));assert.ok(s.commands.has('cyclegauge.support.reset'));
-  await s.commands.get('cyclegauge.showUsage')!();
-  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['cyclegauge.costAdvisor','cyclegauge.auditWorkspace','cyclegauge.audit.show','cyclegauge.share','cyclegauge.reportProblem'],localResourceRoots:[]});
+  assert.ok(s.commands.has('bobert.share'));assert.ok(s.commands.has('bobert.reportProblem'));assert.ok(s.commands.has('bobert.support.reset'));
+  await s.commands.get('bobert.showUsage')!();
+  assert.deepEqual(env.panelOptions,{enableScripts:true,retainContextWhenHidden:false,enableCommandUris:['bobert.costAdvisor','bobert.auditWorkspace','bobert.audit.show','bobert.share','bobert.reportProblem'],localResourceRoots:[]});
   const html:string=env.panels.at(-1).webview.html;
   assert.deepEqual(hrefsOf(html).filter(h=>!h.startsWith('command:')),COMMUNITY_LINKS);
   for(const h of hrefsOf(html).filter(h=>h.startsWith('command:')))assert.ok(env.panelOptions.enableCommandUris.includes(h.slice('command:'.length)),h);
-  assert.ok(hrefsOf(html).includes('command:cyclegauge.share'));assert.ok(hrefsOf(html).includes('command:cyclegauge.reportProblem'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
+  assert.ok(hrefsOf(html).includes('command:bobert.share'));assert.ok(hrefsOf(html).includes('command:bobert.reportProblem'));assert.match(html,/<script nonce=/);assert.ok(!/utm_|[?&]ref=/.test(html));
   assert.match(html,/Rate on Open VSX/);assert.match(html,/Star on GitHub/);assert.match(html,/Support<\/a>/);assert.match(html,/>Copy share link<\/a>/);assert.match(html,/>Report a problem<\/a>/);
   // Share copies a fixed text with no user data and confirms in one friendly line.
-  env.infos.length=0;await s.commands.get('cyclegauge.share')!();await s.later();
-  assert.deepEqual(env.clipboard,["Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge"]);
+  env.infos.length=0;await s.commands.get('bobert.share')!();await s.later();
+  assert.deepEqual(env.clipboard,["Bobert shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/bobert"]);
   assert.deepEqual(env.infos,[{text:'Link copied — thanks for sharing!',buttons:[]}]);assert.ok(!env.clipboard[0]!.includes(work));assert.deepEqual(env.opened,[]);
   // A failing Share is one fixed error that offers Report a problem; dismissing it does nothing, and only the button runs the command.
-  env.clipboardFails=true;env.errors.length=0;env.executed.length=0;s.advance();await s.commands.get('cyclegauge.share')!();await s.later();
-  assert.deepEqual(env.errors,['The link could not be copied. You can report it with the button below.']);assert.deepEqual(env.errorButtons,[['Report a problem']]);assert.ok(!env.executed.includes('cyclegauge.reportProblem'));
-  env.errorChoice='Report a problem';s.advance();await s.commands.get('cyclegauge.share')!();await s.later();
-  assert.deepEqual(env.executed.filter(id=>id.startsWith('cyclegauge.')),['cyclegauge.reportProblem']);assert.deepEqual(env.opened,[]);
+  env.clipboardFails=true;env.errors.length=0;env.executed.length=0;s.advance();await s.commands.get('bobert.share')!();await s.later();
+  assert.deepEqual(env.errors,['The link could not be copied. You can report it with the button below.']);assert.deepEqual(env.errorButtons,[['Report a problem']]);assert.ok(!env.executed.includes('bobert.reportProblem'));
+  env.errorChoice='Report a problem';s.advance();await s.commands.get('bobert.share')!();await s.later();
+  assert.deepEqual(env.executed.filter(id=>id.startsWith('bobert.')),['bobert.reportProblem']);assert.deepEqual(env.opened,[]);
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
@@ -818,46 +818,46 @@ test('packaged support prompt: only when due, once per window, each button sets 
   const env=communityEnv(work,true);
   const start=async()=>{env.timers.length=0;const s=await communitySession(env,work);open.push(s);return s;};
   const reset=()=>{env.infos.length=0;env.errors.length=0;env.opened.length=0;env.store.clear();env.written.length=0;env.timers.length=0;env.choice=undefined;env.prompts=undefined;env.throwState=false;};
-  const seed=(first:string|undefined,extra:Record<string,unknown>={})=>{reset();if(first)env.store.set('cyclegauge.support.firstSeen.v1',first);for(const [k,v] of Object.entries(extra))env.store.set(k,v);};
+  const seed=(first:string|undefined,extra:Record<string,unknown>={})=>{reset();if(first)env.store.set('bobert.support.firstSeen.v1',first);for(const [k,v] of Object.entries(extra))env.store.set(k,v);};
   // First use is recorded on activation, and a forecast shown in the gauge counts as value seen; the 3-minute check is one disposed timer.
   seed(undefined);let s=await start();
-  assert.equal(env.store.get('cyclegauge.support.firstSeen.v1'),'2030-01-04');assert.equal(env.store.get('cyclegauge.support.valueSeen.v1'),true);
+  assert.equal(env.store.get('bobert.support.firstSeen.v1'),'2030-01-04');assert.equal(env.store.get('bobert.support.valueSeen.v1'),true);
   assert.equal(s.support().length,1);assert.equal(s.support()[0]!.ms,180000);assert.equal(s.support()[0]!.cleared,false);
   // Less than seven days after first use: nothing, and nothing is written.
   env.written.length=0;await s.fire();assert.deepEqual(env.infos,[]);assert.equal(env.written.length,0);
   s.dispose();assert.equal(s.support()[0]!.cleared,true);env.infos.length=0;await s.support()[0]!.fn();assert.deepEqual(env.infos,[]);
   // Seven days after first use it is due: one prompt with three buttons; the 60-day snooze is already stored while it is open, so a second check shows nothing.
   seed('2029-12-28');s=await start();env.written.length=0;await s.fire();
-  assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);assert.equal(env.store.get('cyclegauge.support.next.v1'),'2030-03-05');
+  assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);assert.equal(env.store.get('bobert.support.next.v1'),'2030-03-05');
   env.infos.length=0;await s.support()[0]!.fn();await s.later();assert.deepEqual(env.infos,[]);s.dispose();
   seed('2029-12-29');s=await start();await s.fire();assert.equal(env.infos.length,0);s.dispose(); // six days: not yet
   // Each button.
   for(const [choice,link,next] of [['Rate',COMMUNITY_LINKS[0],'2030-05-04'],['Support',COMMUNITY_LINKS[2],'2030-05-04'],['Later',undefined,'2030-03-05'],[undefined,undefined,'2030-03-05']] as const){
    seed('2029-12-01');env.choice=choice;s=await start();await s.fire();s.dispose();
-   assert.deepEqual(env.opened,link?[link]:[],String(choice));assert.equal(env.store.get('cyclegauge.support.next.v1'),next,String(choice));assert.equal(env.store.has('cyclegauge.support.never.v1'),false,String(choice));
+   assert.deepEqual(env.opened,link?[link]:[],String(choice));assert.equal(env.store.get('bobert.support.next.v1'),next,String(choice));assert.equal(env.store.has('bobert.support.never.v1'),false,String(choice));
   }
   // A legacy never flag still suppresses prompts, and reset remains its compatibility exit.
-  seed('2029-12-01',{'cyclegauge.support.never.v1':true});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
-  env.now='2030-01-04T00:00:00Z';s=await start();await s.commands.get('cyclegauge.support.reset')!();await s.later();s.dispose();assert.equal(env.store.has('cyclegauge.support.never.v1'),false);
+  seed('2029-12-01',{'bobert.support.never.v1':true});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  env.now='2030-01-04T00:00:00Z';s=await start();await s.commands.get('bobert.support.reset')!();await s.later();s.dispose();assert.equal(env.store.has('bobert.support.never.v1'),false);
   // A snooze holds until its date.
   env.infos.length=0;env.now='2035-01-04T00:00:00Z';env.choice=undefined;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);env.now='2030-01-04T00:00:00Z';
-  seed('2029-12-01',{'cyclegauge.support.next.v1':'2030-01-05'});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  seed('2029-12-01',{'bobert.support.next.v1':'2030-01-05'});s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   env.now='2030-01-05T00:00:00Z';env.infos.length=0;s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);env.now='2030-01-04T00:00:00Z';
   // The setting off: never prompted. Anything but an explicit false leaves it on.
-  seed('2029-12-01');env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.has('cyclegauge.support.next.v1'),false);
+  seed('2029-12-01');env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.equal(env.store.has('bobert.support.next.v1'),false);
   seed('2029-12-01');env.prompts='false';s=await start();await s.fire();s.dispose();assert.equal(env.infos.length,1);
   // Invalid stored values count as absent: a broken first-use date is replaced, never due on the same day.
-  seed('synthetic-not-a-date',{'cyclegauge.support.next.v1':'2030-99-99','cyclegauge.support.never.v1':'yes'});s=await start();assert.equal(env.store.get('cyclegauge.support.firstSeen.v1'),'2030-01-04');await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
+  seed('synthetic-not-a-date',{'bobert.support.next.v1':'2030-99-99','bobert.support.never.v1':'yes'});s=await start();assert.equal(env.store.get('bobert.support.firstSeen.v1'),'2030-01-04');await s.fire();s.dispose();assert.deepEqual(env.infos,[]);
   // Reset clears the support state.
-  seed('2029-12-01',{'cyclegauge.support.never.v1':true});s=await start();await s.commands.get('cyclegauge.support.reset')!();await s.later();
-  assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);s.dispose();
+  seed('2029-12-01',{'bobert.support.never.v1':true});s=await start();await s.commands.get('bobert.support.reset')!();await s.later();
+  assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('bobert.support.')),[]);s.dispose();
   // A broken global state never breaks activation, the gauge or the prompt check.
-  seed(undefined);env.throwState=true;const shown=env.statusTexts.length;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)),env.statusTexts.join('|'));
+  seed(undefined);env.throwState=true;const shown=env.statusTexts.length;s=await start();assert.ok(s.commands.has('bobert.showUsage'));assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Bobert/i.test(t)),env.statusTexts.join('|'));
   await s.fire();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);env.throwState=false;s.dispose();
   // The setting off: neither the first-use date nor the value flag is recorded.
   seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual([...env.store.keys()],[WALKTHROUGH_KEY]);assert.deepEqual(env.written,[WALKTHROUGH_KEY]);assert.deepEqual(env.infos,[]);
   // A global state that reads fine but cannot be written: the prompt is not shown (its snooze could not be saved), so it cannot repeat in every window.
-  seed('2029-12-01',{'cyclegauge.support.valueSeen.v1':true});env.failWrites=true;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);env.failWrites=false;
+  seed('2029-12-01',{'bobert.support.valueSeen.v1':true});env.failWrites=true;s=await start();await s.fire();s.dispose();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);env.failWrites=false;
   // Not Kiro (even with a chosen source): no timer, nothing recorded, no prompt and no notice.
   seed(undefined);env.appName='Visual Studio Code';env.uriScheme='vscode';s=await start();assert.equal(s.support().length,0);assert.equal(env.store.size,0);assert.deepEqual(env.infos,[]);s.dispose();
   // Kiro recognised by its URL scheme alone.
@@ -870,30 +870,30 @@ test('packaged support prompt: only when due, once per window, each button sets 
 
 test('packaged walkthrough: opens once for a new user with the key written first, never for existing users, outside Kiro or in Test mode; a failing open is silent',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-walkthrough-')));
- const OPEN=[['workbench.action.openWalkthrough','StefanSuess.cyclegauge#cyclegauge.gettingStarted']];
+ const OPEN=[['workbench.action.openWalkthrough','StefanSuess.bobert#bobert.gettingStarted']];
  try{
   const env=communityEnv(work,false);
   const run=async(setup:()=>void=()=>{})=>{env.store.clear();env.written.length=0;env.calls.length=0;env.keyAtOpen.length=0;env.errors.length=0;env.infos.length=0;env.timers.length=0;env.failWrites=false;env.throwOpen=false;env.appName='Kiro';env.uriScheme='kiro';env.mode=1;setup();const s=await communitySession(env,work);return s;};
   // A new user: opened once, with the key already stored at that moment; a second window with the same state does not open it again.
   let s=await run();assert.deepEqual(env.calls,OPEN);assert.deepEqual(env.keyAtOpen,[true]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);assert.deepEqual(env.executed,[]);
-  assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+  assert.ok(s.commands.has('bobert.showUsage'));s.dispose();
   env.calls.length=0;s=await communitySession(env,work);assert.deepEqual(env.calls,[]);
   // The command opens it on demand, any time and in any editor.
-  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
+  await s.commands.get('bobert.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
   // Existing users (first use already stored) only get the key.
-  s=await run(()=>env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01'));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
-  // Any other earlier Cyclegauge state also marks an existing user (e.g. someone who turned the support prompts off but got a budget warning).
-  s=await run(()=>env.store.set('cyclegauge.budgetWarning.v1',{cycle:'2030-02-01T00:00:00Z',done:['percent']}));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
+  s=await run(()=>env.store.set('bobert.support.firstSeen.v1','2029-12-01'));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
+  // Any other earlier Bobert state also marks an existing user (e.g. someone who turned the support prompts off but got a budget warning).
+  s=await run(()=>env.store.set('bobert.budgetWarning.v1',{cycle:'2030-02-01T00:00:00Z',done:['percent']}));assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();
   // A user who turned the support prompts off gets no unsolicited walkthrough either.
   s=await run(()=>{env.prompts=false;});assert.deepEqual(env.calls,[]);assert.equal(env.store.get(WALKTHROUGH_KEY),true);s.dispose();env.prompts=undefined;
   // Not Kiro, and the extension Test mode: nothing opens and nothing is written.
   s=await run(()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);
-  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
-  s=await run(()=>{env.mode=3;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.ok(s.commands.has('cyclegauge.gettingStarted'));s.dispose();
+  await s.commands.get('bobert.gettingStarted')!();assert.deepEqual(env.calls,OPEN);s.dispose();
+  s=await run(()=>{env.mode=3;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.ok(s.commands.has('bobert.gettingStarted'));s.dispose();
   // Fail closed: no write, no open. A throwing open is silent, leaves the key set and does not touch the gauge.
-  s=await run(()=>{env.failWrites=true;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+  s=await run(()=>{env.failWrites=true;});assert.deepEqual(env.calls,[]);assert.equal(env.store.has(WALKTHROUGH_KEY),false);assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('bobert.showUsage'));s.dispose();
   s=await run(()=>{env.throwOpen=true;});assert.equal(env.calls.length,1);assert.equal(env.store.get(WALKTHROUGH_KEY),true);assert.deepEqual(env.errors,[]);assert.deepEqual(env.infos,[]);
-  await s.commands.get('cyclegauge.gettingStarted')!();assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('cyclegauge.showUsage'));s.dispose();
+  await s.commands.get('bobert.gettingStarted')!();assert.deepEqual(env.errors,[]);assert.ok(s.commands.has('bobert.showUsage'));s.dispose();
  }finally{rmSync(work,{recursive:true,force:true});}
 });
 
@@ -901,12 +901,12 @@ test('packaged support prompt: value is also seen through an audit finding, neve
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-value-')));
  const open:{dispose():void}[]=[];
  try{
-  const env=communityEnv(work,false);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');
+  const env=communityEnv(work,false);env.store.set('bobert.support.firstSeen.v1','2029-12-01');
   const s=await communitySession(env,work);open.push(s);
-  assert.equal(env.store.has('cyclegauge.support.valueSeen.v1'),false);
+  assert.equal(env.store.has('bobert.support.valueSeen.v1'),false);
   await s.fire();assert.deepEqual(env.infos,[]);
-  await s.commands.get('cyclegauge.auditWorkspace')!();await s.later();
-  assert.equal(env.store.get('cyclegauge.support.valueSeen.v1'),true);
+  await s.commands.get('bobert.auditWorkspace')!();await s.later();
+  assert.equal(env.store.get('bobert.support.valueSeen.v1'),true);
   env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[{text:SUPPORT_TEXT,buttons:SUPPORT_BUTTONS}]);
   assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
   const everything=JSON.stringify([...env.store]);assert.ok(!everything.includes(work)&&!everything.includes('.env')&&!everything.includes('synthetic-workspace'));
@@ -924,10 +924,10 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   const outside=()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot='';env.mode=1;};
   // Outside Kiro, no source chosen: one notice, remembered; Run workspace audit runs the audit command on click only.
   outside();reset();env.choice='Run workspace audit';env.executed.length=0;let s=await start();
-  assert.deepEqual(notices(),[{text:NOT_KIRO,buttons:['Run workspace audit','Got it']}]);assert.deepEqual(env.opened,[]);assert.deepEqual(env.executed.filter((id:string)=>id.startsWith('cyclegauge.')),['cyclegauge.auditWorkspace']);assert.equal(env.store.get('cyclegauge.notKiro.shown.v1'),true);
-  assert.equal(s.support().length,0);assert.deepEqual([...env.store.keys()],['cyclegauge.notKiro.shown.v1']);
+  assert.deepEqual(notices(),[{text:NOT_KIRO,buttons:['Run workspace audit','Got it']}]);assert.deepEqual(env.opened,[]);assert.deepEqual(env.executed.filter((id:string)=>id.startsWith('bobert.')),['bobert.auditWorkspace']);assert.equal(env.store.get('bobert.notKiro.shown.v1'),true);
+  assert.equal(s.support().length,0);assert.deepEqual([...env.store.keys()],['bobert.notKiro.shown.v1']);
   assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');
-  await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;
+  await s.commands.get('bobert.showUsage')!();const html:string=env.panels.at(-1).webview.html;
   assert.ok(html.includes(NOT_KIRO.replaceAll("'",'&#39;')));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
   // Never again once shown; Got it opens nothing.
   env.infos.length=0;env.opened.length=0;s=await start();assert.deepEqual(notices(),[]);assert.deepEqual(env.opened,[]);s.dispose();
@@ -936,20 +936,20 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   reset();env.choice=undefined;s=await start();assert.equal(notices().length,1);s.dispose();env.infos.length=0;s=await start();assert.deepEqual(notices(),[]);s.dispose();
   // Not shown inside Kiro (by name or by scheme), with a chosen source, or in the extension tests; the status is the normal one there.
   for(const [why,edit] of [['name',()=>{env.appName='Kiro';env.uriScheme='vscode';}],['scheme',()=>{env.appName='Visual Studio Code';env.uriScheme='kiro';}],['source',()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.sourceRoot=env.source;}],['test mode',()=>{env.appName='Visual Studio Code';env.uriScheme='vscode';env.mode=3;}]] as const){
-   outside();edit();reset();s=await start();assert.deepEqual(notices(),[],why);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false,why);
+   outside();edit();reset();s=await start();assert.deepEqual(notices(),[],why);assert.equal(env.store.has('bobert.notKiro.shown.v1'),false,why);
    if(why!=='test mode')assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),why);s.dispose();
   }
   // With a chosen source the status stays "Kiro: ..." in a non-Kiro editor too (demos and tests).
   outside();env.sourceRoot=env.source;reset();s=await start();assert.ok(env.statusTexts.at(-1)!.startsWith('$(warning) Kiro credits:'),env.statusTexts.at(-1));assert.ok(!env.statusTexts.includes('$(info) Kiro not detected'));s.dispose();
   // Kiro installed beside this editor: its default folder has logs, so nothing is "not detected" and no note is shown (the note needs a refresh that really found no logs).
   outside();reset();env.placeDefaultLogs();s=await start();
-  assert.deepEqual(notices(),[]);assert.equal(env.store.has('cyclegauge.notKiro.shown.v1'),false);assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),env.statusTexts.join('|'));
-  await s.commands.get('cyclegauge.showUsage')!();assert.ok(!env.panels.at(-1).webview.html.includes(NOT_KIRO));s.dispose();
+  assert.deepEqual(notices(),[]);assert.equal(env.store.has('bobert.notKiro.shown.v1'),false);assert.ok(env.statusTexts.every(t=>!/not detected/.test(t)),env.statusTexts.join('|'));
+  await s.commands.get('bobert.showUsage')!();assert.ok(!env.panels.at(-1).webview.html.includes(NOT_KIRO));s.dispose();
   rmSync(join(work,'synthetic-home'),{recursive:true,force:true});mkdirSync(join(work,'synthetic-home'));
   // A global state that cannot be written: the note is not shown (it could not be remembered), so it cannot repeat in every window.
   outside();reset();env.failWrites=true;s=await start();assert.deepEqual(notices(),[]);assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');s.dispose();env.failWrites=false;
   // A broken global state is silent.
-  outside();reset();env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.deepEqual(env.errors,[]);s.dispose();env.throwState=false;
+  outside();reset();env.throwState=true;s=await start();assert.ok(s.commands.has('bobert.showUsage'));assert.deepEqual(env.errors,[]);s.dispose();env.throwState=false;
   // Only the documented keys were written.
   assert.ok(env.written.every(k=>COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
@@ -968,10 +968,10 @@ test('packaged re-check after ignore changes: checked workspaces only, ignore fi
   const target=join(env.workspace,'.kiroignore');
   const save=(path:string)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>''});};
   const setting=(key:string)=>{for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k===key});};
-  const envFound=()=>flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).some((n:any)=>n.finding?.path==='.env');
+  const envFound=()=>flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).some((n:any)=>n.finding?.path==='.env');
   // Never checked: nothing starts.
   save(target);setting('kiroAgent.agentIgnoreFiles');assert.equal(pending().length,0);
-  await s.commands.get('cyclegauge.auditWorkspace')!();await s.later();assert.ok(envFound());
+  await s.commands.get('bobert.auditWorkspace')!();await s.later();assert.ok(envFound());
   const infos=env.infos.length;
   // Other files, files outside the folder and other settings start nothing.
   save(join(env.workspace,'synthetic-other'));save(join(work,'.kiroignore'));setting('files.autoSave');assert.equal(pending().length,0);
@@ -997,32 +997,32 @@ test('packaged manual audit starts exactly one Steering and Hooks review; silent
   const reset=()=>{env.infos.length=0;env.warnings.length=0;env.errors.length=0;env.progress=0;env.executed.length=0;env.store.clear();env.written.length=0;env.choice=undefined;env.configOpens.length=0;env.configReads.length=0;env.pickCalls=0;env.pick=undefined;env.cancel=false;env.failConfigOpen=false;env.automatic=undefined;env.trusted=true;};
   const settle=()=>new Promise(r=>setTimeout(r,150));
   const config=(s:any)=>s.provider().getChildren().filter((n:any)=>n.kind==='config');
-  const manual=(s:any,id='cyclegauge.auditWorkspace')=>{s.advance();return s.commands.get(id)!();}; // the dashboard commands are rate-limited per second
+  const manual=(s:any,id='bobert.auditWorkspace')=>{s.advance();return s.commands.get(id)!();}; // the dashboard commands are rate-limited per second
   // The manual command: the audit result and exactly one review run.
   reset();let s=await start();await manual(s);await until(()=>env.configOpens.length>0);await settle();
-  assert.equal(env.configOpens.length,1);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,1);
+  assert.equal(env.configOpens.length,1);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);assert.equal(env.progress,1);
   assert.deepEqual(env.infos,[{text:'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.',buttons:[]}]);
   assert.ok(flatTree(config(s)).some((n:any)=>String(n.label).startsWith('Large Steering file is always included')));s.dispose();
   // The credit view's Show with no result runs the audit, so it runs the review too; a second run runs one more review.
-  reset();s=await start();await manual(s,'cyclegauge.audit.show');await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);
+  reset();s=await start();await manual(s,'bobert.audit.show');await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);
   await manual(s);await until(()=>env.configOpens.length>1);await settle();assert.equal(env.configOpens.length,2);s.dispose();
   // The reminder's Run audit button is a manual audit; the reminder-driven automatic run is silent and starts none.
-  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.choice='Run audit';s=await start();await s.fire();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();
-  reset();env.store.set('cyclegauge.audit.last.v1','2030-03-01');env.automatic=true;s=await start();await s.fire();await settle();
-  assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);assert.equal(env.progress,0);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,0,'a silent re-run starts no review, so there is no Steering and Hooks group');s.dispose();
+  reset();env.store.set('bobert.audit.last.v1','2030-03-01');env.choice='Run audit';s=await start();await s.fire();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();
+  reset();env.store.set('bobert.audit.last.v1','2030-03-01');env.automatic=true;s=await start();await s.fire();await settle();
+  assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);assert.equal(env.progress,0);assert.deepEqual(env.configOpens,[]);assert.equal(config(s).length,0,'a silent re-run starts no review, so there is no Steering and Hooks group');s.dispose();
   // A dismissed folder picker (multi-root) and a cancelled audit start no review; choosing a folder does.
   const second=join(work,'synthetic-second');mkdirSync(second,{recursive:true});
   const both=[{name:'synthetic-workspace',uri:{scheme:'file',fsPath:env.workspace}},{name:'synthetic-second',uri:{scheme:'file',fsPath:second}}];
-  reset();env.folders=both;s=await start();await manual(s);await settle();assert.equal(env.pickCalls,1);assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);
+  reset();env.folders=both;s=await start();await manual(s);await settle();assert.equal(env.pickCalls,1);assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('bobert.audit.last.v1'),false);
   env.pick='first';await manual(s);await settle();await until(()=>env.configOpens.length>0);await settle();assert.equal(env.configOpens.length,1);s.dispose();env.folders=[both[0]];
-  reset();env.cancel=true;s=await start();await manual(s);await settle();assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('cyclegauge.audit.last.v1'),false);s.dispose();
+  reset();env.cancel=true;s=await start();await manual(s);await settle();assert.deepEqual(env.configOpens,[]);assert.equal(env.store.has('bobert.audit.last.v1'),false);s.dispose();
   // An untrusted workspace: the review is told so in its own section, reads nothing and shows no enable offer; the audit's own warning stays.
   reset();env.trusted=false;s=await start();await manual(s);await settle();
-  assert.deepEqual(env.warnings,['Cyclegauge audits only trusted workspaces.']);assert.deepEqual(env.configOpens,[]);assert.deepEqual(env.configReads.filter(p=>p.includes('steering')),[]);
+  assert.deepEqual(env.warnings,['Bobert audits only trusted workspaces.']);assert.deepEqual(env.configOpens,[]);assert.deepEqual(env.configReads.filter(p=>p.includes('steering')),[]);
   assert.match(JSON.stringify(config(s)),/not trusted/);assert.ok(!infoTexts(env).some(t=>t.includes('Steering and Hooks automatically')));s.dispose();
   // A failing review run leaves the audit's result and notification intact and raises no error.
   reset();env.failConfigOpen=true;s=await start();await manual(s);await until(()=>env.configOpens.length>0);await settle();
-  assert.deepEqual(env.infos,[{text:'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.',buttons:[]}]);assert.deepEqual(env.errors,[]);assert.equal(env.store.get('cyclegauge.audit.last.v1'),TODAY);
+  assert.deepEqual(env.infos,[{text:'Found 2 files Kiro may read (about 27 B). Open the Workspace Audit view.',buttons:[]}]);assert.deepEqual(env.errors,[]);assert.equal(env.store.get('bobert.audit.last.v1'),TODAY);
   assert.match(auditRoots(s.provider())[0].label,/^Checked .+ · 2 suggestions$/);s.dispose();
   // A refused folder is still an audit attempt: the audit says why and the review starts, refuses the same folder and reads nothing.
   reset();env.folders=[{name:'synthetic-source',uri:{scheme:'file',fsPath:env.source}}];s=await start();await manual(s);await settle();
@@ -1037,7 +1037,7 @@ test('packaged ignore-file re-check after a manual audit starts no further revie
   mkdirSync(join(env.workspace,'.kiro','steering'),{recursive:true});writeFileSync(join(env.workspace,'.kiro','steering','synthetic.md'),Buffer.alloc(30000,'x'));
   s=await communitySession(env,work);
   const target=join(env.workspace,'.kiroignore');
-  await s.commands.get('cyclegauge.auditWorkspace')!();await until(()=>env.configOpens.length>0);await s.later();assert.equal(env.configOpens.length,1);
+  await s.commands.get('bobert.auditWorkspace')!();await until(()=>env.configOpens.length>0);await s.later();assert.equal(env.configOpens.length,1);
   writeFileSync(target,'/.env\n');for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:target},getText:()=>''});
   const [t]=env.timers.filter(x=>x.ms===1000&&!x.cleared);assert.ok(t);t!.cleared=true;await t!.fn();await s.later();await new Promise(r=>setTimeout(r,150));
   assert.equal(env.configOpens.length,1,'the silent re-check never starts the review');
@@ -1059,7 +1059,7 @@ test('packaged watch mode: narrow watcher, debounced re-check and one daily noti
   for(const mode of [undefined,'off','onOpen',true,'OnOpenAndChanges']){env.automatic=mode;s=await communitySession(env,work);assert.equal(auditWatchers().length,0,String(mode));s.dispose();}
   env.automatic='onOpenAndChanges';s=await communitySession(env,work);
   const [w]=auditWatchers();assert.equal(auditWatchers().length,1);assert.deepEqual(w.flags,[false,true,true]);
-  const store=s.api.state.store,LAST='cyclegauge.audit.last.v1',SNOOZE='cyclegauge.audit.snoozeUntil.v1';
+  const store=s.api.state.store,LAST='bobert.audit.last.v1',SNOOZE='bobert.audit.snoozeUntil.v1';
   // Same consent as automatic runs: never audited, or snoozed, means a new file starts nothing.
   create('synthetic-0.pem');assert.equal(pending().length,0);
   store.set(LAST,'2030-01-03');store.set(SNOOZE,'2030-01-05');create('synthetic-0.pem');assert.equal(pending().length,0);store.delete(SNOOZE);
@@ -1071,17 +1071,17 @@ test('packaged watch mode: narrow watcher, debounced re-check and one daily noti
   await fire();await until(()=>notices().length>0);
   assert.deepEqual(notices(),[{text:'A new file that may contain secrets appeared in this workspace. Kiro may read it.',buttons:['Show']}]);
   // The same UTC day: re-checked, but no second notice.
-  create('synthetic-c.ppk');await fire();await until(()=>flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).some((n:any)=>n.finding?.path==='synthetic-c.ppk'));
+  create('synthetic-c.ppk');await fire();await until(()=>flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).some((n:any)=>n.finding?.path==='synthetic-c.ppk'));
   assert.equal(notices().length,1);
   // Turning the mode off removes the watcher and cancels the re-check it had scheduled.
   create('synthetic-f.pem');const scheduled=pending()[0]!;
-  env.automatic='onOpen';for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='cyclegauge.auditAutomatically'});
+  env.automatic='onOpen';for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='bobert.auditAutomatically'});
   assert.equal(w.disposed,true);assert.equal(scheduled.cleared,true);s.dispose();
   // A new non-secret file never notifies; disposal cancels a pending re-check and the watcher.
-  env.infos.length=0;env.automatic='onOpenAndChanges';s=await communitySession(env,work);s.api.state.store.set('cyclegauge.audit.last.v1','2030-01-03');
+  env.infos.length=0;env.automatic='onOpenAndChanges';s=await communitySession(env,work);s.api.state.store.set('bobert.audit.last.v1','2030-01-03');
   create('synthetic-d.log');await fire();await until(()=>false,300);assert.equal(notices().length,0);
   // A secret that was already in the previous result and is recreated (save by rename) is not new, even on a fresh day budget.
-  await s.commands.get('cyclegauge.auditWorkspace')!();env.infos.length=0;
+  await s.commands.get('bobert.auditWorkspace')!();env.infos.length=0;
   create('.env');await fire();await until(()=>false,300);assert.equal(notices().length,0);
   create('synthetic-e.pem');const t=pending()[0]!;const [w2]=auditWatchers().filter(x=>!x.disposed);s.dispose();assert.equal(t.cleared,true);assert.equal(w2.disposed,true);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
@@ -1092,10 +1092,10 @@ test('packaged re-check keeps a prepared Exclude edit',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-audit-recheck-keep-')));
  let s:any;
  try{
-  const env=communityEnv(work,true);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');
-  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
-  const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
-  await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
+  const env=communityEnv(work,true);env.store.set('bobert.support.firstSeen.v1','2029-12-01');
+  s=await communitySession(env,work);await s.commands.get('bobert.auditWorkspace')!();
+  const node=flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).find((n:any)=>n.finding?.suggestion);
+  await s.commands.get('bobert.audit.accept')!(node);await s.later();
   const last=s.api.state.fires;
   for(const fn of env.configListeners)fn({affectsConfiguration:(k:string)=>k==='kiroAgent.agentIgnoreFiles'});
   const t=env.timers.find(x=>x.ms===1000&&!x.cleared)!;t.cleared=true;await t.fn();
@@ -1112,20 +1112,20 @@ test('packaged earlier support signals: distinct detail days and saved accepted 
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-earlier-')));
  let s:any;
  try {
-  const env=communityEnv(work,false);env.store.set('cyclegauge.support.firstSeen.v1','2030-01-01');
+  const env=communityEnv(work,false);env.store.set('bobert.support.firstSeen.v1','2030-01-01');
   for(const day of ['02','02','03','04']) {
    env.now=`2030-01-${day}T00:00:00Z`;s=await communitySession(env,work);
-   await s.commands.get('cyclegauge.showUsage')!();await s.later();
+   await s.commands.get('bobert.showUsage')!();await s.later();
    if(day!=='04')assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
    s.dispose();
   }
   assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
-  assert.deepEqual(env.store.get('cyclegauge.support.detailDays.v1'),['2030-01-02','2030-01-03','2030-01-04']);
-  env.store.clear();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.infos.length=0;env.timers.length=0;
-  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
-  const provider=s.api.state.providers.get('cyclegauge.auditView');
+  assert.deepEqual(env.store.get('bobert.support.detailDays.v1'),['2030-01-02','2030-01-03','2030-01-04']);
+  env.store.clear();env.store.set('bobert.support.firstSeen.v1','2029-12-01');env.infos.length=0;env.timers.length=0;
+  s=await communitySession(env,work);await s.commands.get('bobert.auditWorkspace')!();
+  const provider=s.api.state.providers.get('bobert.auditView');
   const node=flatTree(auditRoots(provider)).find((n:any)=>n.finding?.suggestion);
-  await s.commands.get('cyclegauge.audit.accept')!(node);await s.later();
+  await s.commands.get('bobert.audit.accept')!(node);await s.later();
   assert.equal(env.timers.filter(t=>t.ms===60000).length,0);
   const doc=s.api.state.shown.at(-1);const target=join(env.workspace,'.kiroignore');
   const saved={uri:{scheme:'file',fsPath:target},getText:()=>doc.getText()};
@@ -1143,38 +1143,38 @@ test('packaged earlier support signals: distinct detail days and saved accepted 
 test('packaged medium signals ignore future days, cancelled Advisor and reset',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-medium-')));let s:any;
  try {
-  const env=communityEnv(work,true);env.store.set('cyclegauge.support.firstSeen.v1','2030-01-03');
-  env.store.set('cyclegauge.support.detailDays.v1',['2030-01-05','2030-01-06','2030-01-07']);
-  s=await communitySession(env,work);await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  const env=communityEnv(work,true);env.store.set('bobert.support.firstSeen.v1','2030-01-03');
+  env.store.set('bobert.support.detailDays.v1',['2030-01-05','2030-01-06','2030-01-07']);
+  s=await communitySession(env,work);await s.commands.get('bobert.showUsage')!();await s.later();
   assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
-  await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
-  s.advance();env.answers.push('reset');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.store.has('cyclegauge.support.advisorUsed.v1'),false);
-  s.advance();env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();
-  assert.equal(env.store.get('cyclegauge.support.advisorUsed.v1'),true);assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
-  await s.commands.get('cyclegauge.support.reset')!();assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);
-  s.advance();env.infos.length=0;env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('cyclegauge.costAdvisor')!();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
+  await s.commands.get('bobert.costAdvisor')!();await s.later();assert.equal(env.store.has('bobert.support.advisorUsed.v1'),false);
+  s.advance();env.answers.push('reset');await s.commands.get('bobert.costAdvisor')!();await s.later();assert.equal(env.store.has('bobert.support.advisorUsed.v1'),false);
+  s.advance();env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('bobert.costAdvisor')!();await s.later();
+  assert.equal(env.store.get('bobert.support.advisorUsed.v1'),true);assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,1);
+  await s.commands.get('bobert.support.reset')!();assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('bobert.support.')),[]);
+  s.advance();env.infos.length=0;env.answers.push('plan:pro_max','consumer_prepaid','none');await s.commands.get('bobert.costAdvisor')!();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,0);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 test('packaged saved exclusion with auto-save preserves existing ignore text',async()=>{
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-community-save-')));let s:any;
  try {
-  const env=communityEnv(work,false);env.autoSave='afterDelay';env.store.set('cyclegauge.support.firstSeen.v1','2030-01-03');
+  const env=communityEnv(work,false);env.autoSave='afterDelay';env.store.set('bobert.support.firstSeen.v1','2030-01-03');
   const path=join(env.workspace,'.kiroignore');writeFileSync(path,'# synthetic-existing\n');
-  s=await communitySession(env,work);await s.commands.get('cyclegauge.auditWorkspace')!();
-  const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
-  await s.commands.get('cyclegauge.audit.accept')!(node);const proposal=s.api.state.contentDocs.at(-1).getText();
+  s=await communitySession(env,work);await s.commands.get('bobert.auditWorkspace')!();
+  const node=flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).find((n:any)=>n.finding?.suggestion);
+  await s.commands.get('bobert.audit.accept')!(node);const proposal=s.api.state.contentDocs.at(-1).getText();
   const text='# synthetic-existing\n'+proposal;writeFileSync(path,text);
   for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>text});await s.later();
   assert.equal(env.timers.filter(t=>t.ms===60000).length,1);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
-// "Your Cyclegauge summary": a saved Exclude edit is counted once under the observed billing cycle, in one global-state key that only the explicit reset clears.
-const RESULTS_KEY='cyclegauge.results.v1';
+// "Your Bobert summary": a saved Exclude edit is counted once under the observed billing cycle, in one global-state key that only the explicit reset clears.
+const RESULTS_KEY='bobert.results.v1';
 const saveExclude=async(s:any,env:ReturnType<typeof communityEnv>,path:string)=>{
- await s.commands.get('cyclegauge.auditWorkspace')!();
- const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
- await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.contentDocs.at(-1);
+ await s.commands.get('bobert.auditWorkspace')!();
+ const node=flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).find((n:any)=>n.finding?.suggestion);
+ await s.commands.get('bobert.audit.accept')!(node);const doc=s.api.state.contentDocs.at(-1);
  const text='# synthetic-existing\n'+doc.getText();writeFileSync(path,text);
  return {text,save:(file=path)=>{for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:file},getText:()=>text});}};
 };
@@ -1195,10 +1195,10 @@ test('packaged results summary counts a matching save once, ignores other saves,
   assert.equal(env.written.filter(k=>k===RESULTS_KEY).length,1);
   const serialized=JSON.stringify(env.store.get(RESULTS_KEY));
   for(const marker of [work,'.env','synthetic-bundle-account','partition','synthetic-workspace'])assert.ok(!serialized.includes(marker));
-  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  await s.commands.get('bobert.showUsage')!();await s.later();
   const html=env.panels[0].webview.html as string;
-  assert.match(html,/Your Cyclegauge summary/);assert.match(html,/This cycle, resetting 1 Feb 2030 \(UTC\): 1 item \(1 possible secret\), about 26 B\./);assert.ok(!/style=/.test(html));
-  await s.commands.get('cyclegauge.support.reset')!();await s.later();
+  assert.match(html,/Your Bobert summary/);assert.match(html,/This cycle, resetting 1 Feb 2030 \(UTC\): 1 item \(1 possible secret\), about 26 B\./);assert.ok(!/style=/.test(html));
+  await s.commands.get('bobert.support.reset')!();await s.later();
   assert.equal(env.store.has(RESULTS_KEY),false,'the explicit reset clears the summary');
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -1210,9 +1210,9 @@ test('packaged results summary never overwrites an unreadable value and counts n
   s=await communitySession(env,work);
   (await saveExclude(s,env,path)).save();await s.later();
   assert.deepEqual(env.store.get(RESULTS_KEY),{v:2,cycles:[]},'a value of an unknown shape is left as it is');
-  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  await s.commands.get('bobert.showUsage')!();await s.later();
   assert.match(env.panels[0].webview.html,/could not be read, so none are shown/);
-  await s.commands.get('cyclegauge.support.reset')!();assert.equal(env.store.has(RESULTS_KEY),false);
+  await s.commands.get('bobert.support.reset')!();assert.equal(env.store.has(RESULTS_KEY),false);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
  const other=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-results-nocycle-')));
  try {
@@ -1225,25 +1225,25 @@ test('packaged results summary never overwrites an unreadable value and counts n
 });
 
 test('packaged test override requires the isolated synthetic demo profile and explicit opt-in',async()=>{
- const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-cyclegauge-demo-')));let s:any;
- const oldFlag=process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST,oldSource=process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;
+ const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-bobert-demo-')));let s:any;
+ const oldFlag=process.env.BOBERT_SYNTHETIC_SUPPORT_TEST,oldSource=process.env.BOBERT_SYNTHETIC_SOURCE;
  try {
-  const env=communityEnv(work,false);process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST='1';process.env.CYCLEGAUGE_SYNTHETIC_SOURCE=env.source;
+  const env=communityEnv(work,false);process.env.BOBERT_SYNTHETIC_SUPPORT_TEST='1';process.env.BOBERT_SYNTHETIC_SOURCE=env.source;
   for(const isolated of [false,true]) {
    env.store.clear();env.infos.length=0;env.timers.length=0;if(isolated)env.globalStorage=join(work,'user-data','global');
-   s=await communitySession(env,work);await s.commands.get('cyclegauge.support.reset')!();await s.commands.get('cyclegauge.auditWorkspace')!();
-   const node=flatTree(auditRoots(s.api.state.providers.get('cyclegauge.auditView'))).find((n:any)=>n.finding?.suggestion);
-   await s.commands.get('cyclegauge.audit.accept')!(node);const doc=s.api.state.shown.at(-1),path=join(env.workspace,'.kiroignore');writeFileSync(path,doc.getText());
+   s=await communitySession(env,work);await s.commands.get('bobert.support.reset')!();await s.commands.get('bobert.auditWorkspace')!();
+   const node=flatTree(auditRoots(s.api.state.providers.get('bobert.auditView'))).find((n:any)=>n.finding?.suggestion);
+   await s.commands.get('bobert.audit.accept')!(node);const doc=s.api.state.shown.at(-1),path=join(env.workspace,'.kiroignore');writeFileSync(path,doc.getText());
    for(const fn of s.api.state.saveListeners)fn({uri:{scheme:'file',fsPath:path},getText:()=>doc.getText()});await s.later();
    env.infos.length=0;await env.timers.find(t=>t.ms===60000)!.fn();await s.later();assert.equal(env.infos.filter(i=>i.text===SUPPORT_TEXT).length,isolated?1:0);
    s.dispose();rmSync(path);
   }
- }finally{s?.dispose();if(oldFlag===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST;else process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST=oldFlag;if(oldSource===undefined)delete process.env.CYCLEGAUGE_SYNTHETIC_SOURCE;else process.env.CYCLEGAUGE_SYNTHETIC_SOURCE=oldSource;rmSync(work,{recursive:true,force:true});}
+ }finally{s?.dispose();if(oldFlag===undefined)delete process.env.BOBERT_SYNTHETIC_SUPPORT_TEST;else process.env.BOBERT_SYNTHETIC_SUPPORT_TEST=oldFlag;if(oldSource===undefined)delete process.env.BOBERT_SYNTHETIC_SOURCE;else process.env.BOBERT_SYNTHETIC_SOURCE=oldSource;rmSync(work,{recursive:true,force:true});}
 });
 
 // Budget warning: the packaged bundle shows at most one notice per window, once per billing cycle and kind, only in Kiro, never in the extension tests,
 // and writes its single state key before showing it. The invented account has a limit of 100 credits and resets on 2030-02-01.
-const BUDGET_KEY='cyclegauge.budgetWarning.v1';
+const BUDGET_KEY='bobert.budgetWarning.v1';
 const BUDGET_BUTTONS=['Show details','Turn off budget notices'];
 const BUDGET_NOW='2030-01-08T00:30:00Z';
 const FORECAST_TEXT='At this pace your Kiro credits run out on 10 Jan, 22 days before the reset (about $8.60 over the limit, modelled).';
@@ -1277,7 +1277,7 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   // A new window in the same cycle: the forecast was handled, the more severe limit notice is shown now and "Show details" opens the credit view.
   clear();env.choice='Show details';s=await start();await until(()=>env.infos.length>0);await s.later();
   assert.equal(budgetInfos(env).length,1);assert.match(budgetInfos(env)[0]!.text,/^You have reached the reported Kiro credit limit \(100 of 100\); the reset is in 24 days[ .(]/);
-  assert.deepEqual((env.store.get(BUDGET_KEY) as any).done,['limit','forecast','percent']);assert.deepEqual(env.executed,['cyclegauge.showUsage']);assert.deepEqual(env.updates,[]);
+  assert.deepEqual((env.store.get(BUDGET_KEY) as any).done,['limit','forecast','percent']);assert.deepEqual(env.executed,['bobert.showUsage']);assert.deepEqual(env.updates,[]);
   s.dispose();
   // Handled kinds are not repeated in later windows of the cycle, and nothing is written.
   clear();env.choice=undefined;s=await start();await s.later();assert.deepEqual(budgetInfos(env),[]);assert.deepEqual(env.written.filter(k=>k===BUDGET_KEY),[]);s.dispose();
@@ -1286,7 +1286,7 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   assert.equal(budgetInfos(env).length,1);assert.equal((env.store.get(BUDGET_KEY) as any).cycle.slice(0,10),'2030-02-01');s.dispose();
   // Turn off sets the user setting off globally.
   wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.choice='Turn off budget notices';s=await start();await until(()=>env.updates.length>0);
-  assert.deepEqual(env.updates,[{section:'cyclegauge',key:'budgetWarnings',value:false,target:1}]);assert.deepEqual(env.executed,[]);s.dispose();
+  assert.deepEqual(env.updates,[{section:'bobert',key:'budgetWarnings',value:false,target:1}]);assert.deepEqual(env.executed,[]);s.dispose();
   // The setting off: no notice and no state.
   wipe();env.budget=false;s=await start();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();
   // Anything but an explicit false leaves it on.
@@ -1299,7 +1299,7 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   wipe();env.budgetPercent=85;s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);s.dispose();
   // A state that cannot be written, or neither read nor written, shows nothing (fail closed).
   wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.failWrites=true;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);s.dispose();
-  wipe();env.throwState=true;const shown=env.statusTexts.length;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)));s.dispose();
+  wipe();env.throwState=true;const shown=env.statusTexts.length;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Bobert/i.test(t)));s.dispose();
   // Stale data (the last update is more than a day old) gives no notice.
   wipe();env.now='2030-01-10T00:00:00Z';s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();env.now=BUDGET_NOW;
   // A provisional forecast (five updates) is too early for a forecast notice, even though it would be exhausted before the reset.
@@ -1313,9 +1313,9 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.appName='Synthetic Editor';env.uriScheme='kiro';s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);assert.ok(!JSON.stringify(env.store.get(BUDGET_KEY)).includes(work)&&!JSON.stringify(env.store.get(BUDGET_KEY)).includes('synthetic'));s.dispose(); // Kiro by URL scheme alone; the state holds no path or identifier
   const texts=():string[]=>env.infos.map((i:{text:string})=>i.text);
   // No pile-up: after a budget notice, the support prompt (otherwise due) does not appear in this window; without a budget notice it does.
-  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.choice='Show details';s=await start();await until(()=>env.infos.length>0);await s.later();
-  assert.equal(budgetInfos(env).length,1);assert.deepEqual(env.executed,['cyclegauge.showUsage']);env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[]);s.dispose();
-  wipe();env.store.set('cyclegauge.support.firstSeen.v1','2029-12-01');env.budget=false;s=await start();await s.fire();assert.deepEqual(texts(),[SUPPORT_TEXT]);s.dispose();
+  wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.store.set('bobert.support.firstSeen.v1','2029-12-01');env.choice='Show details';s=await start();await until(()=>env.infos.length>0);await s.later();
+  assert.equal(budgetInfos(env).length,1);assert.deepEqual(env.executed,['bobert.showUsage']);env.infos.length=0;await s.fire();assert.deepEqual(env.infos,[]);s.dispose();
+  wipe();env.store.set('bobert.support.firstSeen.v1','2029-12-01');env.budget=false;s=await start();await s.fire();assert.deepEqual(texts(),[SUPPORT_TEXT]);s.dispose();
   // Only the one documented budget key was written, holding no path, identifier or amount.
   assert.ok(env.written.every(k=>k===BUDGET_KEY||k===RECAP_KEY||COMMUNITY_KEYS.includes(k)),env.written.join());
  }finally{for(const o of open)o.dispose();rmSync(work,{recursive:true,force:true});}
@@ -1342,7 +1342,7 @@ test('packaged right-sizing hint: shown in the credit view whenever it holds, as
   const env=communityEnv(work,false);
   const start=async()=>{const s=await communitySession(env,work);open.push(s);return s;};
   const wipe=()=>{env.infos.length=0;env.atShow.length=0;env.executed.length=0;env.updates.length=0;env.written.length=0;env.timers.length=0;env.panels.length=0;rmSync(env.globalStorage,{recursive:true,force:true});env.store.clear();env.choice=undefined;env.budget=undefined;env.budgetPercent=undefined;};
-  const detail=async(s:Awaited<ReturnType<typeof start>>)=>{await s.commands.get('cyclegauge.showUsage')!();return env.panels.at(-1).webview.html as string;};
+  const detail=async(s:Awaited<ReturnType<typeof start>>)=>{await s.commands.get('bobert.showUsage')!();return env.panels.at(-1).webview.html as string;};
   const lineIn=(html:string)=>html.match(/<p class="small overage">(If you are on Pro\+: You will likely[^<]*)<\/p>/)?.[1];
   // 6 days before the reset: the notice and the line.
   wipe();hintData(env);env.now='2030-02-23T06:30:00Z';let s=await start();await until(()=>env.infos.length>0);await s.later();
@@ -1372,7 +1372,7 @@ test('packaged next-larger-plan comparison: beside the projected overage and on 
   const run=async(limit:number,perDay:number,notice=true)=>{
    wipe();writeFileSync(budgetLogPath(env),[0,1,2,3,4,5,6,7].map(i=>budgetLine(`2030-01-0${i+1} 00:00:00.000`,i*perDay,limit)).join(''));
    const s=await communitySession(env,work);open.push(s);if(notice)await until(()=>env.infos.length>0);await s.later();await s.later();
-   await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;s.dispose();
+   await s.commands.get('bobert.showUsage')!();const html:string=env.panels.at(-1).webview.html;s.dispose();
    return {notice:budgetInfos(env)[0]?.text??'',html};
   };
   const COST=/ \(about \$[\d.]+ over the limit, modelled\)\./;
@@ -1396,7 +1396,7 @@ test('packaged next-larger-plan comparison: beside the projected overage and on 
 });
 
 // "Your Kiro cycle": the recap card, its state key, and the image / CSV / clipboard actions of the packaged bundle with an invented source.
-const RECAP_KEY='cyclegauge.recap.v1';
+const RECAP_KEY='bobert.recap.v1';
 const recapLine=(when:string,usage:number,reset:string)=>`${when} [info] synthetic-envelope `+JSON.stringify({commandName:'GetUsageLimitsCommand',input:{},output:{userInfo:{userId:'synthetic-bundle-account'},nextDateReset:reset,usageBreakdownList:[{resourceType:'CREDIT',unit:'INVOCATIONS',currentUsageWithPrecision:usage,usageLimitWithPrecision:1000,nextDateReset:reset,bonuses:[],overageCredits:[]}]},metadata:{httpStatusCode:200}})+'\n';
 const recapEnv=(work:string)=>{
  const env=communityEnv(work,false);env.now='2030-07-02T00:00:00Z';
@@ -1407,7 +1407,7 @@ const recapEnv=(work:string)=>{
 };
 const waitFor=async(check:()=>boolean,s:{later():Promise<void>})=>{for(let i=0;i<300&&!check();i++)await new Promise(r=>setTimeout(r,10));await s.later();};
 const readyPanel=async(s:any,env:ReturnType<typeof communityEnv>)=>{
- await s.commands.get('cyclegauge.showUsage')!();await s.later();
+ await s.commands.get('bobert.showUsage')!();await s.later();
  const load=Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1]);env.receive({type:'ready',load});await s.later();
 };
 const results=(env:ReturnType<typeof communityEnv>)=>env.posted.filter((m:any)=>m.type==='actionResult').map((m:any)=>`${m.action}:${m.code}`);
@@ -1416,7 +1416,7 @@ test('packaged recap card appears once, is marked shown, copies its own text and
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-card-')));let s:any;
  try{
   const env=recapEnv(work);s=await communitySession(env,work);
-  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  await s.commands.get('bobert.showUsage')!();await s.later();
   const html:string=env.panels.at(-1).webview.html;
   assert.match(html,/<h2 id="recap-title">Your Kiro cycle<\/h2>/);assert.match(html,/Credits used: 900 of 1000 reported credits/);assert.match(html,/Busiest observed day \(partial observation\)/);
   assert.deepEqual(env.store.get(RECAP_KEY),{cycle:'2030-08-01T00:00:00.000Z',state:'shown'});
@@ -1426,16 +1426,16 @@ test('packaged recap card appears once, is marked shown, copies its own text and
   const load=Number(/data-cg-load="(\d+)"/.exec(html)![1]);env.receive({type:'ready',load});await s.later();
   // Copy text: built by the extension from the card, never from the page.
   env.receive({type:'copyRecapText'});await waitFor(()=>env.clipboard.length>0,s);
-  assert.equal(env.clipboard.length,1);assert.match(env.clipboard[0]!,/^Your Kiro cycle\nCycle that ended 1 Jul 2030 \(UTC\)\./);assert.match(env.clipboard[0]!,/Cyclegauge for Kiro IDE: https:\/\/open-vsx\.org\/extension\/StefanSuess\/cyclegauge$/);
+  assert.equal(env.clipboard.length,1);assert.match(env.clipboard[0]!,/^Your Kiro cycle\nCycle that ended 1 Jul 2030 \(UTC\)\./);assert.match(env.clipboard[0]!,/Bobert: https:\/\/open-vsx\.org\/extension\/StefanSuess\/bobert$/);
   assert.ok(!env.clipboard[0]!.includes(work));assert.deepEqual(results(env),['copyRecapText:copied']);
   // Dismiss writes only the validated shape, and the card is gone from the next page.
   s.advance();env.receive({type:'dismissRecap'});await waitFor(()=>(env.store.get(RECAP_KEY) as any)?.state==='dismissed',s);
   assert.deepEqual(env.store.get(RECAP_KEY),{cycle:'2030-08-01T00:00:00.000Z',state:'dismissed'});assert.ok(results(env).includes('dismissRecap:dismissed'));
-  await s.commands.get('cyclegauge.showUsage')!();await s.later();assert.ok(!env.panels.at(-1).webview.html.includes('id="recap-card"'));
+  await s.commands.get('bobert.showUsage')!();await s.later();assert.ok(!env.panels.at(-1).webview.html.includes('id="recap-card"'));
   env.receive({type:'ready',load:Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1])});await s.later();
   s.advance();env.receive({type:'copyRecapText'});await waitFor(()=>results(env).includes('copyRecapText:unavailable'),s);assert.ok(results(env).includes('copyRecapText:unavailable'));
   // The explicit reset clears the key; the card returns the next time it is evaluated.
-  await s.commands.get('cyclegauge.support.reset')!();assert.equal(env.store.has(RECAP_KEY),false);
+  await s.commands.get('bobert.support.reset')!();assert.equal(env.store.has(RECAP_KEY),false);
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
 
@@ -1443,7 +1443,7 @@ test('packaged recap leaves an unreadable stored value untouched and shows no ca
  const work=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-unknown-')));let s:any;
  try{
   const env=recapEnv(work);env.store.set(RECAP_KEY,{v:2,cycle:'x'});s=await communitySession(env,work);
-  await s.commands.get('cyclegauge.showUsage')!();await s.later();
+  await s.commands.get('bobert.showUsage')!();await s.later();
   assert.ok(!env.panels.at(-1).webview.html.includes('id="recap-card"'));assert.deepEqual(env.store.get(RECAP_KEY),{v:2,cycle:'x'});assert.equal(env.written.includes(RECAP_KEY),false);
   const load=Number(/data-cg-load="(\d+)"/.exec(env.panels.at(-1).webview.html)![1]);env.receive({type:'ready',load});await s.later();
   env.receive({type:'dismissRecap'});await s.later();assert.deepEqual(env.store.get(RECAP_KEY),{v:2,cycle:'x'},'dismissing never overwrites it');
@@ -1451,8 +1451,8 @@ test('packaged recap leaves an unreadable stored value untouched and shows no ca
   const root2=realpathSync.native(mkdtempSync(join(tmpdir(),'synthetic-recap-link-')));
   try{
    const env2=recapEnv(root2);env2.prompts=false;s=await communitySession(env2,root2);
-   await s.commands.get('cyclegauge.showUsage')!();await s.later();
-   assert.match(env2.panels.at(-1).webview.html,/id="recap-card"/);assert.ok(!env2.panels.at(-1).webview.html.includes('Cyclegauge for Kiro IDE: https://'));
+   await s.commands.get('bobert.showUsage')!();await s.later();
+   assert.match(env2.panels.at(-1).webview.html,/id="recap-card"/);assert.ok(!env2.panels.at(-1).webview.html.includes('Bobert: https://'));
   }finally{s?.dispose();rmSync(root2,{recursive:true,force:true});}
  }finally{s?.dispose();rmSync(work,{recursive:true,force:true});}
 });
@@ -1466,7 +1466,7 @@ test('packaged CSV export and image save write only after a dialog, refuse guard
   const act=async(message:object)=>{s.advance();const before=results(env).length;env.receive(message);await waitFor(()=>results(env).length>before,s);return results(env).at(-1);};
   // Dialog opens at a fixed name in Downloads; cancelling writes nothing.
   env.saveTo=undefined;assert.equal(await act({type:'exportCsv'}),'exportCsv:cancelled');
-  assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'cyclegauge-credit-history.csv'));assert.deepEqual(env.dialogs.at(-1)!.filters,{'CSV file':['csv']});
+  assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'bobert-credit-history.csv'));assert.deepEqual(env.dialogs.at(-1)!.filters,{'CSV file':['csv']});
   assert.deepEqual(readdirSync(downloads),[]);
   // A normal target receives the exact CSV: header, one row per snapshot, no identifier.
   env.saveTo=join(out,'history.csv');assert.equal(await act({type:'exportCsv'}),'exportCsv:saved');
@@ -1474,7 +1474,7 @@ test('packaged CSV export and image save write only after a dialog, refuse guard
   assert.equal(csv[0],'observed_at_source,observed_at_utc,credits_used,credit_limit,reset_at_utc,flags,conflict');assert.equal(csv.length,7);
   assert.match(csv[1]!,/^2030-05-20 00:00:00\.000,2030-05-20T00:00:00\.000Z,100,1000,2030-06-01T00:00:00\.000Z,assumed_source_timezone,no$/);
   assert.ok(!readFileSync(env.saveTo,'utf8').includes('synthetic-bundle-account'));
-  // Guarded targets: Cyclegauge storage, the configured Kiro source, a .kiro folder, a link and a directory are refused and nothing is written there.
+  // Guarded targets: Bobert storage, the configured Kiro source, a .kiro folder, a link and a directory are refused and nothing is written there.
   mkdirSync(env.globalStorage,{recursive:true});mkdirSync(join(work,'synthetic-home','.kiro'),{recursive:true});writeFileSync(join(out,'victim.txt'),'synthetic-victim');
   mkdirSync(join(work,'editor','logs','synthetic-session'),{recursive:true});mkdirSync(join(work,'synthetic-home','.ssh'),{recursive:true});
   const refused:string[]=[join(env.globalStorage,'x.csv'),join(work,'editor','User','x.csv'),join(work,'editor','logs','synthetic-session','x.csv'),join(env.source,'x.csv'),join(work,'synthetic-home','.kiro','x.csv'),join(work,'synthetic-home','.ssh','x.csv'),out];
@@ -1487,7 +1487,7 @@ test('packaged CSV export and image save write only after a dialog, refuse guard
   assert.equal(await act({type:'saveRecapImage',png:'AAAA'}),'saveRecapImage:invalid_image');assert.equal(env.dialogs.length,dialogs,'an invalid image never opens the dialog');
   const bad=Buffer.from(png);bad[40]=bad[40]!^1;assert.equal(await act({type:'saveRecapImage',png:bad.toString('base64')}),'saveRecapImage:invalid_image');
   env.saveTo=join(out,'card.png');assert.equal(await act({type:'saveRecapImage',png:png.toString('base64')}),'saveRecapImage:saved');
-  assert.deepEqual(readFileSync(env.saveTo),png);assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'cyclegauge-cycle-recap.png'));
+  assert.deepEqual(readFileSync(env.saveTo),png);assert.equal(env.dialogs.at(-1)!.defaultPath,join(downloads,'bobert-cycle-recap.png'));
   env.saveTo=join(env.source,'card.png');assert.equal(await act({type:'saveRecapImage',png:png.toString('base64')}),'saveRecapImage:refused_target');
   // The failure of the clipboard is a fixed code, not a message.
   env.clipboardFails=true;assert.equal(await act({type:'copyRecapText'}),'copyRecapText:failed');assert.ok(!JSON.stringify(env.posted).includes('synthetic-path'));

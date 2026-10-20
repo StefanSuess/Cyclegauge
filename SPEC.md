@@ -1,4 +1,4 @@
-# Cyclegauge specification
+# Bobert specification
 
 Status: version 0.7.0 beta for macOS, Windows and Ubuntu is the last published release (an Open VSX pre-release); 1.0.0 stable is prepared as the next release, directly and published quietly (0.9.0, 0.11.0 and 0.13.0 are skipped; decision of 2026-10-18), and includes the user-triggered workspace audit; see [path to 1.0](docs/path-to-1.0.md). Milestones 1–3, 4A–4C, 5 and 6 are implemented: log collector, IDE extension, account history and qualified forecasts, independent cost engine behind the session-only Cost Advisor, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
 
@@ -18,7 +18,7 @@ Provide local credit tracking and qualified forecasts that distinguish account-w
 - Select the `CREDIT` resource and prefer `*WithPrecision` fields. Preserve decimal values without rounding until presentation. Do not confuse `INVOCATIONS`, token counts, or context percentages with billing units.
 - Attribute accepted local turn summaries to their completion day in the configured IANA timezone; default to the device timezone, initially Europe/Berlin. Label this as completion-time attribution, not exact within-turn consumption timing.
 - Keep billing boundaries in UTC. Prefer explicit reset timestamps over a computed calendar assumption.
-- Persist observations in Cyclegauge-owned storage so future coverage can improve. Track observation time separately from ingestion time; re-reading an old cache must not make it fresh.
+- Persist observations in Bobert-owned storage so future coverage can improve. Track observation time separately from ingestion time; re-reading an old cache must not make it fresh.
 - Treat positive same-cycle snapshot differences as observed **net counter changes** over an interval. Daily consumption within an interval spanning days remains unknown. Do not interpolate by default or fill uncovered days with zero.
 - Treat advancing reset dates as cycle-change evidence. A counter decrease alone is an anomaly, not proof of reset. Preserve adjustments, plan/account changes, and reset ambiguity.
 - Keep plans, base credits, overages, bonuses, and add-on credits distinct. Unknown bonus schemas must not be folded into a fabricated remaining-credit balance.

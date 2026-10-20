@@ -19,7 +19,7 @@ The full rules are in [AGENTS.md](AGENTS.md), [SPEC.md](SPEC.md) and [ARCHITECTU
 ## Reporting a bug
 
 Use the issue form. Include version, OS and Kiro version, what you expected and what happened. Versions
-that have the **Cyclegauge: Copy Diagnostics** command (or the CLI's `--diagnostics`) print only
+that have the **Bobert: Copy Diagnostics** command (or the CLI's `--diagnostics`) print only
 fixed codes, counts and version/platform metadata, which is safe to paste. Older versions have no
 diagnostics output: describe the problem in words and do not paste logs. Security problems go to
 [SECURITY.md](SECURITY.md), not to a public issue.

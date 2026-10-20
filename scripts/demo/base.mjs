@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 // macOS limits Unix socket paths to 103 bytes; keep a margin below that for Kiro's IPC socket names.
 export const SOCKET_PATH_BUDGET = 100;
-const MKDTEMP_TEMPLATE = 'synthetic-cyclegauge-demo-XXXXXX';
+const MKDTEMP_TEMPLATE = 'synthetic-bobert-demo-XXXXXX';
 
 export function demoParentDir({
  platform = process.platform,

@@ -70,9 +70,9 @@ function setup(root: string, options: { autoSave?: string } = {}) {
  const prepared = createPreparedFiles(editor, 'linux');
  const link = registerConfigReview(context, editor, f => ({ chosen: f.uri.fsPath, resolved: f.uri.fsPath }), () => undefined, { reviewer: createConfigReviewer(), reportError: text => { log.errors.push(text); }, prepared });
  const node = (id: string, rel?: string, hook?: number) => flatten(link.nodes()).find(n => n.finding?.id === id && (rel === undefined || n.finding.rel === rel) && (hook === undefined || n.finding.hook === hook))!;
- const act = (action: string, arg: unknown) => commands.get(`cyclegauge.config.${action}`)!(arg);
+ const act = (action: string, arg: unknown) => commands.get(`bobert.config.${action}`)!(arg);
  const doc = (rel: string) => docs.get(join(root, rel))!;
- return { commands, link, log, state, prepared, workspace: workspaceApi, folder, node, act, doc, run: () => commands.get('cyclegauge.reviewKiroConfig')!(), subscriptions, docs };
+ return { commands, link, log, state, prepared, workspace: workspaceApi, folder, node, act, doc, run: () => commands.get('bobert.reviewKiroConfig')!(), subscriptions, docs };
 }
 const FIXED = 1_900_000_000; // seconds: exact in every file system, so a restored time is bit-identical
 const pad = (n = 9000) => 'x'.repeat(n);
@@ -93,7 +93,7 @@ test('Steering without front matter: Load only when needed prepares the exact fr
  assert.equal(s.log.edits.length, 1); assert.deepEqual(s.log.messages.slice(-1), [preparedText(1)]);
  assert.equal(s.doc('.kiro/steering/synthetic-a.md').text, '---\ninclusion: manual\n---\n' + body);
  assert.equal(s.doc('.kiro/steering/synthetic-a.md').isDirty, true); assert.equal(s.log.shown.length, 1);
- assert.equal(await disk(root, '.kiro/steering/synthetic-a.md'), body, 'Cyclegauge wrote nothing');
+ assert.equal(await disk(root, '.kiro/steering/synthetic-a.md'), body, 'Bobert wrote nothing');
  assert.equal((await stat(join(root, '.kiro/steering/synthetic-a.md'))).mtimeMs, before.mtimeMs);
  // The file is now an unsaved edit: a second click refuses instead of stacking edits.
  await s.act('loadWhenNeeded', node); assert.equal(s.log.edits.length, 1, 'the element from before the redraw is stale');
@@ -144,7 +144,7 @@ test('hooks: Run only manually and Disable edit only the addressed entry, with a
  await s.act('disable', h(2));
  const result = JSON.parse(manual.text).hooks; assert.deepEqual(result.map((x: Record<string, unknown>) => x.enabled), [undefined, true, false]);
  assert.deepEqual({ ...result[2], enabled: undefined }, { ...agent('synthetic-three', { matcher: '**' }), enabled: undefined });
- assert.equal(await disk(root, '.kiro/hooks/synthetic.json'), text, 'Cyclegauge wrote nothing');
+ assert.equal(await disk(root, '.kiro/hooks/synthetic.json'), text, 'Bobert wrote nothing');
  assert.equal(s.log.edits.length, 3);
 });
 
@@ -293,18 +293,18 @@ test('manifest: the apply commands are contributed, hidden from the palette and 
  const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
  const commands = new Map<string, { title: string; icon: string }>(manifest.contributes.commands.map((c: { command: string; title: string; icon: string }) => [c.command, c]));
  const expected: Record<string, string> = { loadWhenNeeded: 'Load only when needed…', loadWhenNeededAll: 'Load only when needed…', narrowPattern: 'Narrow the pattern', runManually: 'Run only manually…', runManuallyAll: 'Run only manually…', disable: 'Disable hook', open: 'Show file', preview: 'Show suggestion' };
- for (const [id, title] of Object.entries(expected)) { const c = commands.get(`cyclegauge.config.${id}`)!; assert.equal(c.title, title); assert.match(c.icon, /^\$\([a-z-]+\)$/); }
- for (const id of ['loadWhenNeeded', 'loadWhenNeededAll', 'runManually', 'runManuallyAll']) assert.equal(commands.get(`cyclegauge.config.${id}`)!.icon, '$(diff)');
+ for (const [id, title] of Object.entries(expected)) { const c = commands.get(`bobert.config.${id}`)!; assert.equal(c.title, title); assert.match(c.icon, /^\$\([a-z-]+\)$/); }
+ for (const id of ['loadWhenNeeded', 'loadWhenNeededAll', 'runManually', 'runManuallyAll']) assert.equal(commands.get(`bobert.config.${id}`)!.icon, '$(diff)');
  const hidden = manifest.contributes.menus.commandPalette.filter((c: { when: string }) => c.when === 'false').map((c: { command: string }) => c.command);
- for (const id of Object.keys(expected)) assert.ok(hidden.includes(`cyclegauge.config.${id}`), id);
+ for (const id of Object.keys(expected)) assert.ok(hidden.includes(`bobert.config.${id}`), id);
  const items = manifest.contributes.menus['view/item/context'] as { command: string; when: string; group: string }[];
- const on = (id: string) => items.filter(i => i.command === `cyclegauge.config.${id}`);
+ const on = (id: string) => items.filter(i => i.command === `bobert.config.${id}`);
  const values = (id: string) => new Set(on(id).map(i => /viewItem (?:==|=~) (\S+)/.exec(i.when)![1]));
  assert.deepEqual([...values('loadWhenNeeded')], ['config-steering-always']); assert.deepEqual([...values('loadWhenNeededAll')], ['config-group-load']);
  assert.deepEqual([...values('narrowPattern')], ['config-steering-match']); assert.deepEqual([...values('runManually')], ['config-hook']); assert.deepEqual([...values('runManuallyAll')], ['config-group-run']);
  assert.deepEqual([...values('disable')], ['config-hook']); assert.deepEqual([...values('preview')], ['config-finding']);
  assert.deepEqual([...values('open')].sort(), ['config-agents', 'config-hook', 'config-steering-always', 'config-steering-match']);
- for (const i of items.filter(x => x.command.startsWith('cyclegauge.config.'))) assert.match(i.when, /^view == cyclegauge\.auditView && viewItem /);
+ for (const i of items.filter(x => x.command.startsWith('bobert.config.'))) assert.match(i.when, /^view == bobert\.auditView && viewItem /);
  assert.ok(items.filter(i => i.group.startsWith('inline')).every(i => /^inline@\d$/.test(i.group)));
  // Group and item buttons do the group's verb; Disable is only the alternative in the item's context menu.
  for (const id of ['loadWhenNeeded', 'loadWhenNeededAll', 'narrowPattern', 'runManually', 'runManuallyAll']) assert.ok(on(id).some(i => i.group.startsWith('inline')), `${id} has an inline button`);
@@ -312,7 +312,7 @@ test('manifest: the apply commands are contributed, hidden from the palette and 
  assert.ok(on('open').some(i => i.group.startsWith('inline') && i.when.endsWith('viewItem == config-agents')));
  assert.ok(on('loadWhenNeededAll').some(i => !i.group.startsWith('inline')) && on('runManuallyAll').some(i => !i.group.startsWith('inline')), 'the group verb is in the context menu too');
  // The audit menu entries: the Exclude group (button, context menu, copy) and the three item buttons.
- assert.deepEqual(items.filter(i => i.command.startsWith('cyclegauge.audit.')).map(i => i.command), ['cyclegauge.audit.acceptAll', 'cyclegauge.audit.acceptAll', 'cyclegauge.audit.copy', 'cyclegauge.audit.accept', 'cyclegauge.audit.dismiss', 'cyclegauge.audit.reveal']);
+ assert.deepEqual(items.filter(i => i.command.startsWith('bobert.audit.')).map(i => i.command), ['bobert.audit.acceptAll', 'bobert.audit.acceptAll', 'bobert.audit.copy', 'bobert.audit.accept', 'bobert.audit.dismiss', 'bobert.audit.reveal']);
 });
 
 test('static: the apply modules only read the file system and never write, log or build dynamic expressions', async () => {
@@ -362,7 +362,7 @@ test('a whole group: ONE edit with an annotated change per item across files, on
  const load = groupNode(s, 'config-group-load');
  const sizes = load.children!.map(n => n.finding!.size!);
  assert.deepEqual(sizes, [...sizes].sort((a, b) => b - a), 'sorted by size, largest first'); assert.equal(sizes.length, 3);
- await s.commands.get('cyclegauge.config.loadWhenNeededAll')!({ ...load }); // the menu passes the tree element
+ await s.commands.get('bobert.config.loadWhenNeededAll')!({ ...load }); // the menu passes the tree element
  assert.equal(s.log.edits.length, 1, 'one WorkspaceEdit');
  const metadata = metadataOf(s.log.edits[0]!);
  assert.equal(metadata.length, 3); assert.ok(metadata.every(m => m.needsConfirmation === true && m.label === 'Load only when needed' && m.description.length > 40));
@@ -371,12 +371,12 @@ test('a whole group: ONE edit with an annotated change per item across files, on
  for (const rel of ['a', 'b']) assert.ok(s.doc(`.kiro/steering/synthetic-${rel}.md`).text.startsWith('---\ninclusion: manual\n---\n'));
  // Two hooks of one file: two changes in one file.
  const run = groupNode(s, 'config-group-run');
- await s.commands.get('cyclegauge.config.runManuallyAll')!(run.id);
+ await s.commands.get('bobert.config.runManuallyAll')!(run.id);
  assert.equal(s.log.edits.length, 2); assert.equal(metadataOf(s.log.edits[1]!).length, 2);
  assert.deepEqual(metadataOf(s.log.edits[1]!).map(m => m.label), ['Run only manually', 'Run only manually']);
  assert.equal(s.log.messages.at(-1), preparedText(1));
  assert.deepEqual(JSON.parse(s.doc('.kiro/hooks/synthetic.json').text).hooks.map((h: { trigger: string }) => h.trigger), ['Manual', 'Manual']);
- assert.equal(await disk(root, '.kiro/hooks/synthetic.json'), hooks(agent('synthetic-one'), agent('synthetic-two', { trigger: 'PreToolUse', matcher: '*' })), 'Cyclegauge wrote nothing');
+ assert.equal(await disk(root, '.kiro/hooks/synthetic.json'), hooks(agent('synthetic-one'), agent('synthetic-two', { trigger: 'PreToolUse', matcher: '*' })), 'Bobert wrote nothing');
 });
 
 test('a group skips and counts the items whose guard fails and applies the rest; skipped files are not opened', async t => {
@@ -384,36 +384,36 @@ test('a group skips and counts the items whose guard fails and applies the rest;
  const root = await workspace(t, files);
  const s = setup(root); await s.run(); const load = groupNode(s, 'config-group-load');
  await writeFile(join(root, '.kiro/steering/synthetic-b.md'), 'changed\n' + pad(30000)); // changed since the review
- await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
+ await s.commands.get('bobert.config.loadWhenNeededAll')!(load);
  assert.equal(s.log.edits.length, 1); assert.equal(metadataOf(s.log.edits[0]!).length, 2);
  assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, `${preparedText(2)} ${skippedText(1)}`]); assert.equal(s.log.shown.length, 0); assert.equal(s.log.saves, 0);
  assert.equal(s.doc('.kiro/steering/synthetic-b.md'), undefined, 'the changed file is never opened by the group');
  // A document with unsaved changes is skipped too.
  const again = setup(root, {}); await again.run(); const group = groupNode(again, 'config-group-load'); again.state.dirtyNext = true;
- await again.commands.get('cyclegauge.config.loadWhenNeededAll')!(group);
+ await again.commands.get('bobert.config.loadWhenNeededAll')!(group);
  assert.equal(again.log.messages.at(-1), `${preparedText(2)} ${skippedText(1)}`); assert.ok(allowed(again.log.messages.at(-1)!)); assert.equal(again.log.saves, 0);
  // When nothing can be prepared, only the fixed skipped text is shown.
  const none = setup(root); await none.run(); const all = groupNode(none, 'config-group-load');
  for (const rel of Object.keys(files)) await writeFile(join(root, rel), 'changed again\n' + pad(9000));
- await none.commands.get('cyclegauge.config.loadWhenNeededAll')!(all);
+ await none.commands.get('bobert.config.loadWhenNeededAll')!(all);
  assert.equal(none.log.edits.length, 0); assert.deepEqual(none.log.messages, [skippedText(3)]); assert.equal(none.log.shown.length, 0);
 });
 
 test('a group with auto save on prepares nothing, opens nothing and says why with a count', async t => {
  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/steering/synthetic-b.md': 'b\n' + pad(30000) });
  const s = setup(root, { autoSave: 'afterDelay' }); await s.run();
- await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(groupNode(s, 'config-group-load'));
+ await s.commands.get('bobert.config.loadWhenNeededAll')!(groupNode(s, 'config-group-load'));
  assert.equal(s.log.edits.length, 0); assert.equal(s.log.shown.length, 0); assert.deepEqual(s.log.messages, [autoSaveSkippedText(2)]);
  // Auto save is checked per document: with a per-language override the files are skipped as well.
  const lang = setup(root); await lang.run(); lang.state.languageAutoSave = 'afterDelay';
- await lang.commands.get('cyclegauge.config.loadWhenNeededAll')!(groupNode(lang, 'config-group-load'));
+ await lang.commands.get('bobert.config.loadWhenNeededAll')!(groupNode(lang, 'config-group-load'));
  assert.equal(lang.log.edits.length, 0);
 });
 
 test('a group edit that the user discards (or unchecks entirely) leaves every file untouched and says nothing alarming', async t => {
  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/steering/synthetic-b.md': 'b\n' + pad(30000) });
  const s = setup(root); await s.run(); s.state.applyResult = false;
- await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(groupNode(s, 'config-group-load'));
+ await s.commands.get('bobert.config.loadWhenNeededAll')!(groupNode(s, 'config-group-load'));
  assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, APPLY_TEXT.discarded]); assert.deepEqual(s.log.errors, []);
  for (const rel of ['a', 'b']) assert.equal(s.doc(`.kiro/steering/synthetic-${rel}.md`).isDirty, false);
 });
@@ -421,7 +421,7 @@ test('a group edit that the user discards (or unchecks entirely) leaves every fi
 test('group commands trust nothing the argument carries: forged, stale, wrong-kind or untrusted calls change nothing', async t => {
  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/hooks/synthetic.json': hooks(agent('synthetic-one')) });
  const s = setup(root); await s.run();
- const load = s.commands.get('cyclegauge.config.loadWhenNeededAll')!, run = s.commands.get('cyclegauge.config.runManuallyAll')!;
+ const load = s.commands.get('bobert.config.loadWhenNeededAll')!, run = s.commands.get('bobert.config.runManuallyAll')!;
  for (const forged of [undefined, null, 5, {}, { id: 'config:g:load:0' }, 'config:g:load:0', { id: { toString: () => 'x' } }]) { await load(forged); await run(forged); }
  await load(groupNode(s, 'config-group-run')); await run(groupNode(s, 'config-group-load')); await load(s.node('S1')); // the wrong group or an item
  assert.deepEqual([s.log.opened.length, s.log.edits.length, s.log.messages.length], [0, 0, 0]);
@@ -439,7 +439,7 @@ test('one hook with two findings (a broad trigger and a large prompt) is changed
  const s = setup(root); await s.run();
  const run = groupNode(s, 'config-group-run');
  assert.deepEqual(run.children!.map(n => `${n.finding!.id}:${n.finding!.hook}`).sort(), ['H1:0', 'H1:1', 'H4:0']);
- await s.commands.get('cyclegauge.config.runManuallyAll')!(run);
+ await s.commands.get('bobert.config.runManuallyAll')!(run);
  assert.equal(s.log.edits.length, 1); assert.equal(s.log.edits[0]!.replaces.length, 2, 'one replace per hook');
  assert.deepEqual(JSON.parse(s.doc('.kiro/hooks/synthetic.json').text).hooks.map((h: { trigger: string }) => h.trigger), ['Manual', 'Manual']);
  assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, preparedText(1)]); assert.equal(s.log.saves, 0);
@@ -451,7 +451,7 @@ test('a file that became unsaved or changed while later items were prepared is s
   const s = setup(root); await s.run(); const load = groupNode(s, 'config-group-load');
   const open = s.workspace.openTextDocument.bind(s.workspace); let n = 0;
   s.workspace.openTextDocument = async (u: { fsPath: string }) => { const d = await open(u); if (++n === 2) { const first = [...s.docs.values()][0]!; if (change === 'dirty') first.isDirty = true; else first.version++; } return d; };
-  await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
+  await s.commands.get('bobert.config.loadWhenNeededAll')!(load);
   assert.equal(s.log.edits.length, 1, change); assert.equal(s.log.edits[0]!.inserts.length + s.log.edits[0]!.replaces.length, 1, change);
   assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, `${preparedText(1)} ${skippedText(1)}`], change);
  }
@@ -478,7 +478,7 @@ test('a successful apply marks exactly the changed files as prepared and unsaved
  assert.equal(marked(), 1, 'the item of the prepared file says so');
  await s.act('loadWhenNeeded', s.node('S1', '.kiro/steering/synthetic-a.md')); assert.equal(s.prepared.count(), 1, 'a refusal (unsaved) adds nothing');
  const load = flatten(s.link.nodes()).find(n => n.contextValue === 'config-group-load')!;
- await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
+ await s.commands.get('bobert.config.loadWhenNeededAll')!(load);
  assert.equal(s.prepared.count(), 2); assert.ok(s.prepared.has(path('.kiro/steering/synthetic-b.md')));
  assert.equal(marked(), 2); assert.equal(s.log.saves, 0);
 });

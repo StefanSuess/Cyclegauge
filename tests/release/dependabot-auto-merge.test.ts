@@ -8,7 +8,7 @@ const workflow = readFileSync(new URL('../../.github/workflows/dependabot-auto-m
 const match = workflow.match(/          node <<'NODE'\r?\n([\s\S]*?)\r?\n          NODE/);
 assert.ok(match, 'The verification script must remain present');
 const script = match[1].split('\n').map(line => line.replace(/^          /, '')).join('\n');
-const repository = 'StefanSuess/Cyclegauge';
+const repository = 'StefanSuess/Bobert';
 const sha = 'a'.repeat(40);
 
 function verify(options: {

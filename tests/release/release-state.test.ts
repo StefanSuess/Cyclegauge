@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { GitHubOpenVsxAdapter } from '../../scripts/release/release-state.ts';
 
 const adapter = () => new GitHubOpenVsxAdapter({
-  repository: 'StefanSuess/Cyclegauge',
+  repository: 'StefanSuess/Bobert',
   token: 'synthetic-token',
   publisherToolsDir: '/tmp/synthetic-publisher-tools',
   draftVisibility: 'full',
@@ -29,10 +29,10 @@ test('reads release assets from GitHub\'s paginated array response and hashes th
   const expectedHash = createHash('sha256').update(vsix).digest('hex');
   await withFetch(async url => {
     if (url.pathname.endsWith('/releases')) {
-      return json([{ id: 44, tag_name: 'v0.7.0', name: 'Cyclegauge v0.7.0', body: 'notes', draft: true, prerelease: true }]);
+      return json([{ id: 44, tag_name: 'v0.7.0', name: 'Bobert v0.7.0', body: 'notes', draft: true, prerelease: true }]);
     }
     if (url.pathname.endsWith('/releases/44/assets')) {
-      return json([{ id: 100, name: 'cyclegauge-v0.7.0.vsix', size: vsix.byteLength, state: 'uploaded' }]);
+      return json([{ id: 100, name: 'bobert-v0.7.0.vsix', size: vsix.byteLength, state: 'uploaded' }]);
     }
     if (url.pathname.endsWith('/releases/assets/100')) {
       return new Response(vsix, { status: 200, headers: { 'content-length': String(vsix.byteLength) } });
@@ -44,11 +44,11 @@ test('reads release assets from GitHub\'s paginated array response and hashes th
       kind: 'present',
       id: 44,
       tagName: 'v0.7.0',
-      name: 'Cyclegauge v0.7.0',
+      name: 'Bobert v0.7.0',
       body: 'notes',
       draft: true,
       prerelease: true,
-      assets: [{ name: 'cyclegauge-v0.7.0.vsix', sha256: expectedHash }],
+      assets: [{ name: 'bobert-v0.7.0.vsix', sha256: expectedHash }],
     });
   });
 });
@@ -69,16 +69,16 @@ test('creates a draft and discovers the same draft by exact tag', async () => {
   }, async () => {
     const client = adapter();
     assert.deepEqual(await client.readRelease('v0.7.0'), { kind: 'absent' });
-    assert.equal(await client.createDraftRelease({ version: '0.7.0', tagName: 'v0.7.0', targetSha: 'a'.repeat(40), name: 'Cyclegauge v0.7.0', body: 'notes', preRelease: true }), 44);
+    assert.equal(await client.createDraftRelease({ version: '0.7.0', tagName: 'v0.7.0', targetSha: 'a'.repeat(40), name: 'Bobert v0.7.0', body: 'notes', preRelease: true }), 44);
     assert.deepEqual(await client.readRelease('v0.7.0'), {
-      kind: 'present', id: 44, tagName: 'v0.7.0', name: 'Cyclegauge v0.7.0', body: 'notes', draft: true, prerelease: true, assets: [],
+      kind: 'present', id: 44, tagName: 'v0.7.0', name: 'Bobert v0.7.0', body: 'notes', draft: true, prerelease: true, assets: [],
     });
     assert.equal(creates, 1);
   });
 });
 
 test('read-only preflight marks absent releases as draft visibility limited', async () => {
-  const draft = { id: 44, tag_name: 'v0.7.0', name: 'Cyclegauge v0.7.0', body: 'notes', draft: true, prerelease: true };
+  const draft = { id: 44, tag_name: 'v0.7.0', name: 'Bobert v0.7.0', body: 'notes', draft: true, prerelease: true };
   await withFetch(async (url, init) => {
     if (url.pathname.endsWith('/releases')) {
       return json(new Headers(init?.headers).get('authorization') === 'Bearer synthetic-read-token' ? [] : [draft]);
@@ -86,16 +86,16 @@ test('read-only preflight marks absent releases as draft visibility limited', as
     if (url.pathname.endsWith('/releases/44/assets')) return json([]);
     return json({}, 404);
   }, async () => {
-    const client = new GitHubOpenVsxAdapter({ repository: 'StefanSuess/Cyclegauge', token: 'synthetic-read-token', publisherToolsDir: '/tmp/synthetic-publisher-tools', draftVisibility: 'limited' });
+    const client = new GitHubOpenVsxAdapter({ repository: 'StefanSuess/Bobert', token: 'synthetic-read-token', publisherToolsDir: '/tmp/synthetic-publisher-tools', draftVisibility: 'limited' });
     assert.deepEqual(await client.readRelease('v0.7.0'), { kind: 'drafts-unverified' });
     assert.deepEqual(await adapter().readRelease('v0.7.0'), {
-      kind: 'present', id: 44, tagName: 'v0.7.0', name: 'Cyclegauge v0.7.0', body: 'notes', draft: true, prerelease: true, assets: [],
+      kind: 'present', id: 44, tagName: 'v0.7.0', name: 'Bobert v0.7.0', body: 'notes', draft: true, prerelease: true, assets: [],
     });
   });
 });
 
 test('duplicate matching tags or malformed release listings fail closed', async () => {
-  const row = { id: 44, tag_name: 'v0.7.0', name: 'Cyclegauge v0.7.0', body: 'notes', draft: true, prerelease: true };
+  const row = { id: 44, tag_name: 'v0.7.0', name: 'Bobert v0.7.0', body: 'notes', draft: true, prerelease: true };
   await withFetch(async url => url.pathname.endsWith('/releases') ? json([row, { ...row, id: 45 }]) : json({}, 404), async () => {
     assert.deepEqual(await adapter().readRelease('v0.7.0'), { kind: 'unavailable' });
   });
@@ -109,14 +109,14 @@ test('uploads assets only to the release-specific GitHub upload URL', async () =
   await withFetch(async (url, init) => {
     seen.push(url.toString());
     if (url.pathname.endsWith('/releases/44')) {
-      return json({ upload_url: 'https://uploads.github.com/repos/StefanSuess/Cyclegauge/releases/44/assets{?name,label}' });
+      return json({ upload_url: 'https://uploads.github.com/repos/StefanSuess/Bobert/releases/44/assets{?name,label}' });
     }
     if (url.hostname === 'uploads.github.com' && init?.method === 'POST') return json({}, 201);
     return json({ message: 'not found' }, 404);
   }, async () => {
     await adapter().uploadAsset(44, 'SHA256SUMS.txt', Uint8Array.from([1, 2]));
     assert.equal(seen.length, 2);
-    assert.match(seen[1], /^https:\/\/uploads\.github\.com\/repos\/StefanSuess\/Cyclegauge\/releases\/44\/assets\?name=SHA256SUMS\.txt$/);
+    assert.match(seen[1], /^https:\/\/uploads\.github\.com\/repos\/StefanSuess\/Bobert\/releases\/44\/assets\?name=SHA256SUMS\.txt$/);
   });
 });
 
@@ -125,7 +125,7 @@ test('rejects an unexpected release upload host before sending the GitHub token'
   await withFetch(async url => {
     seen.push(url.toString());
     if (url.pathname.endsWith('/releases/44')) {
-      return json({ upload_url: 'https://attacker.example/repos/StefanSuess/Cyclegauge/releases/44/assets{?name,label}' });
+      return json({ upload_url: 'https://attacker.example/repos/StefanSuess/Bobert/releases/44/assets{?name,label}' });
     }
     return json({ message: 'not found' }, 404);
   }, async () => {
@@ -180,7 +180,7 @@ test('PAT mode exposes only the Open VSX credential and strips GitHub and OIDC c
   process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN = 'synthetic-oidc-token';
   try {
     await new GitHubOpenVsxAdapter({
-      repository: 'StefanSuess/Cyclegauge', token: 'synthetic-token', publisherToolsDir: tempDir, draftVisibility: 'full',
+      repository: 'StefanSuess/Bobert', token: 'synthetic-token', publisherToolsDir: tempDir, draftVisibility: 'full',
     }).publishOpenVsx(Uint8Array.from([1]), 'pat', true);
     assert.deepEqual(JSON.parse(readFileSync(resultFile, 'utf8')), {
       hasOvsxPat: true,
@@ -211,7 +211,7 @@ test('trusted publishing strips every PAT alias while retaining OIDC environment
   process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN = 'synthetic-oidc-token';
   try {
     await new GitHubOpenVsxAdapter({
-      repository: 'StefanSuess/Cyclegauge', token: 'synthetic-token', publisherToolsDir: tempDir, draftVisibility: 'full',
+      repository: 'StefanSuess/Bobert', token: 'synthetic-token', publisherToolsDir: tempDir, draftVisibility: 'full',
     }).publishOpenVsx(Uint8Array.from([1]), 'trusted-publishing', true);
     assert.deepEqual(JSON.parse(readFileSync(resultFile, 'utf8')), {
       hasOvsxPat: false,
@@ -236,7 +236,7 @@ test('creates and publishes the GitHub release with the prerelease value of the 
       if (init?.method === 'POST' || init?.method === 'PATCH') bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
       return json({ id: 44 }, 201);
     }, async () => {
-      await adapter().createDraftRelease({ version: '1.0.0', tagName: 'v1.0.0', targetSha: 'a'.repeat(40), name: 'Cyclegauge v1.0.0', body: 'notes', preRelease });
+      await adapter().createDraftRelease({ version: '1.0.0', tagName: 'v1.0.0', targetSha: 'a'.repeat(40), name: 'Bobert v1.0.0', body: 'notes', preRelease });
       await adapter().publishRelease(44, preRelease);
     });
     assert.equal(bodies.length, 2);
@@ -252,7 +252,7 @@ test('ovsx publish gets --pre-release only for pre-release versions', async () =
     const record = join(temp, 'args.json');
     mkdirSync(join(tools, 'node_modules/ovsx/bin'), { recursive: true });
     writeFileSync(join(tools, 'node_modules/ovsx/bin/ovsx'), `require('node:fs').writeFileSync(process.env.SYNTHETIC_ARGS_FILE, JSON.stringify(process.argv.slice(2)));\n`);
-    const client = new GitHubOpenVsxAdapter({ repository: 'StefanSuess/Cyclegauge', token: 'synthetic-token', publisherToolsDir: tools, draftVisibility: 'full' });
+    const client = new GitHubOpenVsxAdapter({ repository: 'StefanSuess/Bobert', token: 'synthetic-token', publisherToolsDir: tools, draftVisibility: 'full' });
     process.env.SYNTHETIC_ARGS_FILE = record;
     for (const preRelease of [true, false]) {
       await client.publishOpenVsx(Uint8Array.from([1]), 'trusted-publishing', preRelease);

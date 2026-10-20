@@ -16,7 +16,7 @@ import { buildExtension } from '../build-extension.ts';
 import { isPreReleaseVersion } from './channel.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const STAGED = ['package.json', 'README.md', 'LICENSE', 'CHANGELOG.md', '.vscodeignore', 'assets/branding/cyclegauge-icon-256.png'];
+const STAGED = ['package.json', 'README.md', 'LICENSE', 'CHANGELOG.md', '.vscodeignore', 'assets/branding/bobert-icon-256.png'];
 
 /**
  * Classify VSCE failures without leaking arbitrary child-process output.

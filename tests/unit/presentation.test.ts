@@ -174,14 +174,14 @@ test('provisional on-track forecasts are neutral, passed resets are labelled, us
 const card = (audit: AuditSummary | undefined, now = '2030-06-15T12:00:00.000Z') => present(view(series(10), '2030-06-08T00:00:00Z'), [], '', '', audit, now).html;
 const allHrefs = (html: string) => [...html.matchAll(/href="([^"]*)"/g)].map(m => m[1]);
 // The footer is covered by its own test; the card tests look at the command links only.
-const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('command:') && h !== 'command:cyclegauge.share' && h !== 'command:cyclegauge.reportProblem');
-const ADVISOR = 'command:cyclegauge.costAdvisor';
-const ALLOWED = ['command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show'];
+const hrefs = (html: string) => allHrefs(html).filter(h => h!.startsWith('command:') && h !== 'command:bobert.share' && h !== 'command:bobert.reportProblem');
+const ADVISOR = 'command:bobert.costAdvisor';
+const ALLOWED = ['command:bobert.auditWorkspace', 'command:bobert.audit.show'];
 const cardHrefs = (html: string) => hrefs(html).filter(h => h !== ADVISOR);
 test('workspace audit card: never checked offers only Run audit', () => {
  const html = card({ state: 'never' });
  assert.match(html, /<h2 id="audit-heading">Workspace audit<\/h2>/); assert.match(html, /Run the workspace audit to find files Kiro can read but probably doesn&#39;t need\./);
- assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']); assert.match(html, />Run audit<\/a>/); assert.ok(!html.includes('>Show results</a>'));
+ assert.deepEqual(cardHrefs(html), ['command:bobert.auditWorkspace']); assert.match(html, />Run audit<\/a>/); assert.ok(!html.includes('>Show results</a>'));
  assert.ok(html.indexOf('class="stats"') < html.indexOf('class="audit-card"'));
  assert.match(card({ state: 'never', lastDate: '2030-03-01' }), /Last checked 2030-03-01 \(UTC\)\./);
  assert.ok(!card({ state: 'never', lastDate: '<b>synthetic</b>' }).includes('Last checked'));
@@ -189,7 +189,7 @@ test('workspace audit card: never checked offers only Run audit', () => {
 test('workspace audit card: checked states show the count and a relative time, plus Show', () => {
  const now = new Date(2030, 5, 15, 12, 0, 0), ago = (ms: number) => new Date(now.getTime() - ms).toISOString();
  const some = card({ state: 'checked', items: 3, checkedAt: ago(5 * 60_000) }, now.toISOString());
- assert.match(some, /3 items Kiro may read · checked 5 min ago/); assert.deepEqual(cardHrefs(some), ALLOWED); assert.match(some, /<a class="button primary" href="command:cyclegauge\.auditWorkspace">Run audit<\/a>/); assert.match(some, /<a class="button secondary" href="[^"]+">Show results<\/a>/);
+ assert.match(some, /3 items Kiro may read · checked 5 min ago/); assert.deepEqual(cardHrefs(some), ALLOWED); assert.match(some, /<a class="button primary" href="command:bobert\.auditWorkspace">Run audit<\/a>/); assert.match(some, /<a class="button secondary" href="[^"]+">Show results<\/a>/);
  assert.match(card({ state: 'checked', items: 1, checkedAt: ago(0) }, now.toISOString()), /1 item Kiro may read · checked just now/);
  const none = card({ state: 'checked', items: 0, checkedAt: ago(26 * 3_600_000) }, now.toISOString());
  assert.match(none, /No risky files found · checked (yesterday|2 days ago|today)/); assert.deepEqual(cardHrefs(none), ALLOWED);
@@ -211,7 +211,7 @@ test('workspace audit card: the size total sits after the count, escaped and onl
 });
 test('workspace audit card: unavailable asks for a trusted local folder; no claims of savings', () => {
  const html = card({ state: 'unavailable' });
- assert.match(html, /This folder can&#39;t be checked\. Run the audit to see why\./); assert.deepEqual(cardHrefs(html), ['command:cyclegauge.auditWorkspace']);
+ assert.match(html, /This folder can&#39;t be checked\. Run the audit to see why\./); assert.deepEqual(cardHrefs(html), ['command:bobert.auditWorkspace']);
  for (const state of ['never', 'checked', 'unavailable'] as const) assert.ok(!/sav(e|ing)|reduc|cheaper|measured/i.test(card({ state, items: 2, bytes: 2048, lowerBound: true, checkedAt: '2030-06-15T11:00:00Z' }).match(/<section class="audit-card".*?<\/section>/s)![0]), state);
 });
 test('the view has one Open Cost Advisor button, inside the Cost Advisor section and below the figures, in every state', () => {
@@ -219,7 +219,7 @@ test('the view has one Open Cost Advisor button, inside the Cost Advisor section
  for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 1 }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
   for (const html of [card(s), present(view(series(10), '2030-06-08T00:00:00Z'), [], '', section, s, '2030-06-15T12:00:00.000Z').html]) {
    assert.equal(hrefs(html).filter(h => h === ADVISOR).length, 1);
-   assert.match(html, /<p class="advisor-actions"><a class="button primary" href="command:cyclegauge\.costAdvisor">Open Cost Advisor<\/a><\/p>/);
+   assert.match(html, /<p class="advisor-actions"><a class="button primary" href="command:bobert\.costAdvisor">Open Cost Advisor<\/a><\/p>/);
    assert.ok(html.indexOf('class="hero') < html.indexOf('advisor-actions"')); assert.ok(!html.includes('top-actions'));
   }
   assert.match(present(view(series(10), '2030-06-08T00:00:00Z'), [], '', section, s).html, /<p>synthetic<\/p><p class="advisor-actions">.*?<\/p><\/section>/);
@@ -254,13 +254,13 @@ test('the controller reads the summary on every render, re-renders on request an
 });
 
 // Community footer: three fixed https constants plus the Share and Report a problem commands, in every state; nothing else is linked, no arguments, no scripts.
-const FOOTER_LINKS = ['command:cyclegauge.reportProblem', 'command:cyclegauge.share', 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess'];
+const FOOTER_LINKS = ['command:bobert.reportProblem', 'command:bobert.share', 'https://open-vsx.org/extension/StefanSuess/bobert/reviews', 'https://github.com/StefanSuess/Bobert', 'https://ko-fi.com/stefansuess'];
 test('the footer links exactly the three web constants plus the share and report-a-problem commands, below the main content', () => {
  for (const s of [undefined, { state: 'never' }, { state: 'checked', items: 2, checkedAt: '2030-06-15T11:59:00Z' }, { state: 'unavailable' }] as (AuditSummary | undefined)[]) {
   const html = card(s);
-  assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:cyclegauge.') || h === 'command:cyclegauge.share' || h === 'command:cyclegauge.reportProblem'), FOOTER_LINKS);
+  assert.deepEqual(allHrefs(html).filter(h => !h!.startsWith('command:bobert.') || h === 'command:bobert.share' || h === 'command:bobert.reportProblem'), FOOTER_LINKS);
   for (const h of allHrefs(html)) assert.ok([ADVISOR, ...ALLOWED, ...FOOTER_LINKS].includes(h!), h);
-  assert.match(html, /<footer class="community muted small"><a href="command:cyclegauge\.reportProblem">Report a problem<\/a> · <a href="command:cyclegauge\.share">Copy share link<\/a> · <a href="https:\/\/open-vsx\.org[^"]*"><span aria-hidden="true">★<\/span> Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*"><span aria-hidden="true">☕<\/span> Support<\/a><\/footer><\/main>/);
+  assert.match(html, /<footer class="community muted small"><a href="command:bobert\.reportProblem">Report a problem<\/a> · <a href="command:bobert\.share">Copy share link<\/a> · <a href="https:\/\/open-vsx\.org[^"]*"><span aria-hidden="true">★<\/span> Rate on Open VSX<\/a> · <a href="https:\/\/github\.com[^"]*">Star on GitHub<\/a> · <a href="https:\/\/ko-fi\.com[^"]*"><span aria-hidden="true">☕<\/span> Support<\/a><\/footer><\/main>/);
   assert.ok(html.indexOf('<footer') > html.indexOf('id="advanced-details"'));
   assert.equal((html.match(/<footer/g) ?? []).length, 1);
   assert.ok(!/<script|javascript:|\?utm_|[?&]ref=|\sonclick=/i.test(html)); assert.match(html, /default-src 'none'; style-src 'unsafe-inline'/);
@@ -273,9 +273,9 @@ const empty = (notKiro: boolean, codes: string[] = ['no_source_logs']) => presen
 test('not in Kiro and no source logs: "Kiro not detected" in the status bar and the detail view', () => {
  const r = empty(true);
  assert.equal(r.text, '$(info) Kiro not detected'); assert.equal(r.warning, false);
- const text = "Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
+ const text = "Bobert is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Bobert: Run Workspace Audit to find files Kiro may read but doesn't need.";
  assert.equal(r.tooltip, text);
- assert.match(r.html, /What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn&#39;t need\./);
+ assert.match(r.html, /What helps here is the workspace audit: run Bobert: Run Workspace Audit to find files Kiro may read but doesn&#39;t need\./);
  assert.ok(!r.html.includes('class="stats"') && !r.html.includes('About these numbers')); // nothing to qualify without an account update
  assert.match(r.html, /Kiro not detected<\/h2>/); assert.match(r.html, /class="hero neutral"/); assert.equal(r.forecast, false);
  assert.match(r.html, /<footer class="community/);

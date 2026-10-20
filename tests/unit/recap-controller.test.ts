@@ -43,9 +43,9 @@ test('the card is hidden when dismissed, unknown or not wired, and the link foll
   try { assert.ok(!h.html().includes('id="recap-card"')); assert.equal(h.controller.recapText(), null); assert.deepEqual(h.shown, []); } finally { await h.done(); }
  }
  const shownCard = await harness(() => ({ status: 'ok', value: { cycle: '2030-08-01T00:00:00.000Z', state: 'shown' } }), { recapLink: () => false });
- try { assert.match(shownCard.html(), /id="recap-card"/); assert.ok(!shownCard.html().includes('Cyclegauge for Kiro IDE: https://')); assert.deepEqual(shownCard.shown, []); } finally { await shownCard.done(); }
+ try { assert.match(shownCard.html(), /id="recap-card"/); assert.ok(!shownCard.html().includes('Bobert: https://')); assert.deepEqual(shownCard.shown, []); } finally { await shownCard.done(); }
  const withLink = await harness(() => ({ status: 'ok', value: null }), { recapLink: () => true });
- try { assert.match(withLink.controller.recapText()!, /Cyclegauge for Kiro IDE: https:\/\/open-vsx\.org\/extension\/StefanSuess\/cyclegauge$/); } finally { await withLink.done(); }
+ try { assert.match(withLink.controller.recapText()!, /Bobert: https:\/\/open-vsx\.org\/extension\/StefanSuess\/bobert$/); } finally { await withLink.done(); }
 });
 
 test('dismissal goes through the validated writer and removes the card; a failed write keeps it', async () => {

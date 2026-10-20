@@ -51,13 +51,13 @@ const fromModel = (node: DomNode): FakeNode => {
 const find = (node: FakeNode, predicate: (n: FakeNode) => boolean): FakeNode | undefined => predicate(node) ? node : node.childNodes.map(n => find(n, predicate)).find(Boolean);
 const all = (node: FakeNode, predicate: (n: FakeNode) => boolean): FakeNode[] => [node, ...node.childNodes.flatMap(child => all(child, predicate))].filter(predicate);
 const anchors = (node: FakeNode): FakeNode[] => [node, ...node.childNodes.flatMap(anchors)].filter(n => n.localName === 'a');
-const html = (rows: string) => `<!doctype html><html><body><main><details><summary>History</summary><table>${rows}</table><a href="command:cyclegauge.share">Share</a></details></main></body></html>`;
+const html = (rows: string) => `<!doctype html><html><body><main><details><summary>History</summary><table>${rows}</table><a href="command:bobert.share">Share</a></details></main></body></html>`;
 const script = async () => (await build({ entryPoints: ['src/extension/dashboard-webview.ts'], bundle: true, platform: 'browser', format: 'iife', write: false, logLevel: 'silent' })).outputFiles[0]!.text;
 
 async function start(initial: string) {
  const main = fromModel(buildDomModel(initial));
  const reserve = e('div');
- for (const href of ['https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', 'https://github.com/StefanSuess/Cyclegauge', 'https://ko-fi.com/stefansuess', 'command:cyclegauge.costAdvisor', 'command:cyclegauge.auditWorkspace', 'command:cyclegauge.audit.show', 'command:cyclegauge.share', 'command:cyclegauge.reportProblem']) {
+ for (const href of ['https://open-vsx.org/extension/StefanSuess/bobert/reviews', 'https://github.com/StefanSuess/Bobert', 'https://ko-fi.com/stefansuess', 'command:bobert.costAdvisor', 'command:bobert.auditWorkspace', 'command:bobert.audit.show', 'command:bobert.share', 'command:bobert.reportProblem']) {
   const link = e('a');link.setAttribute('href', href);reserve.appendChild(link);
  }
  const root = e('html');root.setAttribute('data-cg-load', '7');
@@ -161,13 +161,13 @@ test('real audit never-to-checked render moves the reserved Show link and preser
  const before = present(observed, [], '', '', { state: 'never' }, '2030-06-08T00:00:00Z').html;
  const after = present(observed, [], '', '', { state: 'checked', items: 2, checkedAt: '2030-06-08T00:00:00Z' }, '2030-06-08T00:00:00Z').html;
  const app = await start(before);
- const show = anchors(app.reserve).find(a => a.getAttribute('href') === 'command:cyclegauge.audit.show')!;
- const check = anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.auditWorkspace')!;
+ const show = anchors(app.reserve).find(a => a.getAttribute('href') === 'command:bobert.audit.show')!;
+ const check = anchors(app.main).find(a => a.getAttribute('href') === 'command:bobert.auditWorkspace')!;
  const advanced = find(app.main, n => n.localName === 'details' && n.parentNode?.getAttribute('id') === 'advanced-details')!;
  advanced.setAttribute('open', '');app.document.activeElement = check;
  app.send(buildDomModel(after));
  assert.deepEqual(JSON.parse(JSON.stringify(app.sent.at(-1))), { type: 'ack', version: 1 });
- assert.equal(anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.audit.show'), show);
+ assert.equal(anchors(app.main).find(a => a.getAttribute('href') === 'command:bobert.audit.show'), show);
  assert.equal(advanced.getAttribute('open'), '');assert.equal(app.document.activeElement, check);assert.equal(check.focusCount, 1);
  assert.deepEqual(app.scroll(), [4, 80]);
  assert.match(app.main.textContent, /2 items Kiro may read/);
@@ -182,12 +182,12 @@ test('real Advisor unconfirmed-to-confirmed render keeps the command anchor thro
  const after = present(observed, [], '', advisor(true), { state: 'never' }, '2030-06-08T00:00:00Z').html;
  assert.notEqual(before, after);
  const app = await start(before);
- const advisorLink = anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.costAdvisor')!;
+ const advisorLink = anchors(app.main).find(a => a.getAttribute('href') === 'command:bobert.costAdvisor')!;
  const advanced = find(app.main, n => n.localName === 'details' && n.parentNode?.getAttribute('id') === 'advanced-details')!;
  advanced.setAttribute('open', '');app.document.activeElement = advanced.childNodes[0]!;
  app.send(buildDomModel(after));
  assert.deepEqual(JSON.parse(JSON.stringify(app.sent.at(-1))), { type: 'ack', version: 1 });
- assert.equal(anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.costAdvisor'), advisorLink);
+ assert.equal(anchors(app.main).find(a => a.getAttribute('href') === 'command:bobert.costAdvisor'), advisorLink);
  assert.equal(advanced.getAttribute('open'), '');assert.equal(app.document.activeElement, advanced.childNodes[0]);
  assert.deepEqual(app.scroll(), [4, 80]);
  assert.match(app.main.textContent, /confirmed/i);
@@ -230,7 +230,7 @@ test('the Advisor disclosure keeps its open state and the saved status stays vis
 test('focus on the fallback command link moves to the disclosure summary when the page goes live', async () => {
  const page = present(view([], '2030-01-01T00:00:00Z'), [], '', '<section id="cost-advisor"></section>', undefined, '2030-01-01T00:00:00Z', false, undefined, inlineAdvisorForm({ plan: null, billing: null, addOns: null, addOnCredits: '' }, 1)).html;
  const app = await start(page);
- const link = anchors(app.main).find(a => a.getAttribute('href') === 'command:cyclegauge.costAdvisor')!;
+ const link = anchors(app.main).find(a => a.getAttribute('href') === 'command:bobert.costAdvisor')!;
  app.document.activeElement = link;
  app.send(buildDomModel(page));
  const summary = find(app.main, n => n.localName === 'summary' && n.parentNode?.getAttribute('id') === 'advisor-change')!;
@@ -241,7 +241,7 @@ test('shell includes inert copies of every reviewed fixed link', () => {
  const staticHtml = present(view([], '2030-01-01T00:00:00Z')).html;
  const shell = renderDashboardShell(staticHtml, 'syntheticNonce123', 7, 'console.log(1)');
  assert.match(shell, /<div id="cg-link-reserve" hidden aria-hidden="true">/);
- assert.match(shell, /<a href="command:cyclegauge\.audit\.show"><\/a>/);
+ assert.match(shell, /<a href="command:bobert\.audit\.show"><\/a>/);
 });
 
 test('Advisor keeps an edit made during host refresh when success precedes the committed model', async () => {

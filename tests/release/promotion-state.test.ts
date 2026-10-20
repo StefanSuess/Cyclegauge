@@ -7,22 +7,22 @@ import { promoteCandidate, type PromotionAdapter, type PromotionCandidate } from
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const commit = 'a'.repeat(40);
 const bytes = Buffer.from('synthetic-candidate-vsix');
-const sums = (version: string) => Buffer.from(`${digest(bytes)}  cyclegauge-v${version}.vsix\n`);
+const sums = (version: string) => Buffer.from(`${digest(bytes)}  bobert-v${version}.vsix\n`);
 const candidate = (version = '0.7.0'): PromotionCandidate => ({
   version,
   commit,
   sha256: digest(bytes),
   vsixBytes: bytes,
   checksumBytes: sums(version),
-  vsixAssetName: `cyclegauge-v${version}.vsix`,
+  vsixAssetName: `bobert-v${version}.vsix`,
   checksumAssetName: 'SHA256SUMS.txt',
-  releaseName: `Cyclegauge v${version}`,
+  releaseName: `Bobert v${version}`,
   releaseNotes: `Synthetic notes for ${version}.`,
 });
 const release = (version = '0.7.0', overrides: Record<string, unknown> = {}) => ({
   id: 77,
   tagName: `v${version}`,
-  name: `Cyclegauge v${version}`,
+  name: `Bobert v${version}`,
   body: `Synthetic notes for ${version}.`,
   draft: true,
   prerelease: true,
@@ -32,7 +32,7 @@ const release = (version = '0.7.0', overrides: Record<string, unknown> = {}) => 
 const exactPublishedRelease = (version = '0.7.0') => release(version, {
   draft: false,
   assets: [
-    { name: `cyclegauge-v${version}.vsix`, sha256: digest(bytes) },
+    { name: `bobert-v${version}.vsix`, sha256: digest(bytes) },
     { name: 'SHA256SUMS.txt', sha256: digest(sums(version)) },
   ],
 });
@@ -83,7 +83,7 @@ function fakeAdapter(initial?: {
   return { adapter, state, writes, flags };
 }
 
-const expectedWrites = ['open-vsx', 'tag', 'draft', 'asset:cyclegauge-v0.7.0.vsix', 'asset:SHA256SUMS.txt', 'publish-release'];
+const expectedWrites = ['open-vsx', 'tag', 'draft', 'asset:bobert-v0.7.0.vsix', 'asset:SHA256SUMS.txt', 'publish-release'];
 
 test('delayed Open VSX and draft visibility retries reads without repeating writes', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
@@ -329,7 +329,7 @@ test('v0.5.2 is a read-only exact no-op and never receives repair writes', async
 });
 
 test('rejects a candidate whose version metadata and asset names disagree', async () => {
-  const bad = { ...candidate(), releaseName: 'Cyclegauge v0.8.0' };
+  const bad = { ...candidate(), releaseName: 'Bobert v0.8.0' };
   const fake = fakeAdapter();
   await assert.rejects(promoteCandidate(fake.adapter, bad, { dryRun: false, authMode: 'pat' }));
   assert.deepEqual(fake.writes, []);

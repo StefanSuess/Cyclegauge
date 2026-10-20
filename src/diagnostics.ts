@@ -4,7 +4,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { STORE_VERSION } from './store.ts';
 import { HINT_CODES } from './session/codes.ts';
 
-export const DIAGNOSTICS_HEADER = '# Cyclegauge diagnostics — fixed codes and counts only. Review before sharing.';
+export const DIAGNOSTICS_HEADER = '# Bobert diagnostics — fixed codes and counts only. Review before sharing.';
 // Mirrors the statuses produced by view() in view.ts. A test checks that every status view() produces for its test inputs is allowlisted;
 // a status that is not listed shows as `other`.
 export const STATUSES = ['unavailable', 'multiple_accounts', 'unknown_account', 'conflicting_snapshots', 'future_observation', 'stale', 'observed', 'reset_elapsed'] as const;
@@ -70,7 +70,7 @@ function codes(value: unknown): string {
 export function buildDiagnostics(input: DiagnosticsInput = {}): Diagnostics {
  const cli = input.surface === 'cli';
  return [
-  ['cyclegauge', text(input.version ?? pkg.version, VERSION)],
+  ['bobert', text(input.version ?? pkg.version, VERSION)],
   ['surface', cli ? 'cli' : 'extension'],
   ['editor', cli ? 'none' : text(input.editor, EDITOR)],
   ['editor_version', cli ? 'none' : text(input.editorVersion, VERSION)],

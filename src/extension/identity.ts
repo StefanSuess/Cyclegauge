@@ -1,5 +1,5 @@
 // Technical identity of the extension. No vscode import: unit-testable and shared by the manifest test.
-export const ID_PREFIX = 'cyclegauge';
+export const ID_PREFIX = 'bobert';
 export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
 // Non-string settings (application scope: user settings only): the audit reminder and its opt-in automatic re-run.
@@ -14,12 +14,12 @@ export const BUDGET_PERCENT_DEFAULT = 80;
 // The session hints' user setting (application scope, boolean, default on): the context reminder and the model hint read from the newest IDE session.
 export const SESSION_HINT_SETTING_KEYS = ['sessionHints'] as const;
 // Fixed constants: the only external addresses the extension ever opens, and only when the user clicks. No data, no query strings.
-export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev', tips: 'https://github.com/StefanSuess/Cyclegauge/blob/main/docs/credit-tips.md' } as const;
+export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/bobert/reviews', star: 'https://github.com/StefanSuess/Bobert', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev', tips: 'https://github.com/StefanSuess/Bobert/blob/main/docs/credit-tips.md' } as const;
 // The fixed bug-report form opened by Report a Problem. Nothing, not even a diagnostics value, is ever added to it.
-export const REPORT_PROBLEM_URL = 'https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml';
+export const REPORT_PROBLEM_URL = 'https://github.com/StefanSuess/Bobert/issues/new?template=bug_report.yml';
 export const REPORT_PROBLEM_ACTION = 'Report a problem';
-export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
-export const NOT_KIRO_TEXT = "Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
+export const SHARE_TEXT = "Bobert shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/bobert";
+export const NOT_KIRO_TEXT = "Bobert is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Bobert: Run Workspace Audit to find files Kiro may read but doesn't need.";
 export const REMINDER_DAYS_DEFAULT = 30;
 export const REMINDER_DAYS_MAX = 365;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;

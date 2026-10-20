@@ -21,7 +21,7 @@ const recapOf = (snaps: ReturnType<typeof snapshot>[], results = NO_RESULTS, lin
 test('the full recap names each figure with its basis and carries the Open VSX text', () => {
  const r = recapOf([...cycleBefore(), ...previousCycle(), ...current()])!;
  assert.equal(r.cycle, R2);
- assert.equal(r.period, 'Cycle that ended 1 Jul 2030 (UTC). Figures come from the account updates Cyclegauge observed; it is not a bill.');
+ assert.equal(r.period, 'Cycle that ended 1 Jul 2030 (UTC). Figures come from the account updates Bobert observed; it is not a bill.');
  assert.deepEqual(r.lines, [
   'Credits used: 900 of 1000 reported credits, as of 30 Jun 2030, 20:00 UTC.',
   'Lasted until the reset: yes. Usage below the reported limit was observed within 6 hours before the reset.',
@@ -98,7 +98,7 @@ test('no recap without a previous cycle with an evidence-backed start, an unbrok
 });
 
 test('the stored state validator accepts only the exact shape and treats everything else as unknown', () => {
- assert.equal(RECAP_KEY, 'cyclegauge.recap.v1');
+ assert.equal(RECAP_KEY, 'bobert.recap.v1');
  assert.deepEqual(readRecap(undefined), { status: 'ok', value: null });
  assert.deepEqual(readRecap({ cycle: R2, state: 'shown' }), { status: 'ok', value: { cycle: R2, state: 'shown' } });
  assert.deepEqual(readRecap({ cycle: R2, state: 'dismissed' }), { status: 'ok', value: { cycle: R2, state: 'dismissed' } });

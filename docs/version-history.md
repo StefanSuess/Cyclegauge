@@ -4,10 +4,11 @@ Condensed notes that used to sit in the README. Detailed evidence lives in the p
 
 ## Release summary
 
-- **1.0.0** First stable release (macOS, Windows, Ubuntu; 0.9.0, 0.11.0 and 0.13.0 were never published, the last earlier release is 0.7.0): budget warnings, modelled overage cost with next-plan comparison and right-sizing hint, interactive dashboard with cycle comparison, results summary, cycle recap and CSV export, workspace audit with native view and size total, Steering and Hooks review (opt-in automatic mode), macOS session hints, first-minute walkthrough, Report a Problem and diagnostics, "update needed" message and storage migration path; storage location and store version unchanged from 0.7.0, see the upgrade note. See [CHANGELOG.md](../CHANGELOG.md).
-- **0.7.0** Cross-platform beta: Windows storage, new default storage location (no migration), three-OS CI with extension-host tests, synthetic demo. See [CHANGELOG.md](../CHANGELOG.md).
-- **0.5.3** Documentation, optional Ko-fi support metadata and release-pipeline update; no behavior change. See [CHANGELOG.md](../CHANGELOG.md).
-- **0.5.2** First public Cyclegauge beta under the new extension identity `StefanSuess.cyclegauge`. The contemporaneous changelog records that native acceptance of the exact candidate remained pending; Windows storage remains disabled, and Linux/RHEL remain unverified. See [CHANGELOG.md](../CHANGELOG.md) for its release notes and limitations.
+- **1.0.0** First stable release under the name Bobert (macOS, Windows, Ubuntu): budget warnings, modelled overage cost with next-plan comparison and right-sizing hint, interactive dashboard with cycle comparison, results summary, cycle recap and CSV export, workspace audit with native view and size total, Steering and Hooks review (opt-in automatic mode), macOS session hints, first-minute walkthrough, Report a Problem and diagnostics, "update needed" message and storage migration path. Settings and history from Cyclegauge are not carried over. See [CHANGELOG.md](../CHANGELOG.md).
+- Earlier versions (0.7.0 and below, listed next) were published as Cyclegauge, the previous name of Bobert; their release notes are not part of the current changelog.
+- **0.7.0** Cross-platform beta: Windows storage, new default storage location (no migration), three-OS CI with extension-host tests, synthetic demo.
+- **0.5.3** Documentation, optional Ko-fi support metadata and release-pipeline update; no behavior change.
+- **0.5.2** First public Cyclegauge beta (extension identity `StefanSuess.cyclegauge`); Windows storage remained disabled, and Linux/RHEL unverified.
 - **0.5.1** UI-only simplification of the detail view (concise default reading flow, one collapsed "Advanced details" section). See [milestone-5-1-validation.md](milestone-5-1-validation.md).
 - **0.5.0** Usage trajectory chart, see [usage-chart.md](usage-chart.md).
 - **0.4.1** Pooled multi-week forecasting that survives weekends and billing resets, see [milestone-4c-validation.md](milestone-4c-validation.md).

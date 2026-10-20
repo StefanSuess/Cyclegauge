@@ -4,11 +4,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { appendFileSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const base = process.env.CYCLEGAUGE_SYNTHETIC_TEST_ROOT!;
+const base = process.env.BOBERT_SYNTHETIC_TEST_ROOT!;
 const source = join(base, 'synthetic source ü');
 // No storage setting: the store must appear in the editor's own per-extension storage folder.
 const globalStorage = join(base, 'profile', 'User', 'globalStorage');
-const owned = () => join(globalStorage, readdirSync(globalStorage).find(name => name.toLowerCase() === 'stefansuess.cyclegauge')!);
+const owned = () => join(globalStorage, readdirSync(globalStorage).find(name => name.toLowerCase() === 'stefansuess.bobert')!);
 const log = join(source, 'logs', 'synthetic-run', 'synthetic-window', 'exthost', 'kiro.kiroAgent', 'q-client.log');
 function state() {
  const db = new DatabaseSync(join(owned(), 'usage.sqlite'), { readOnly: true });
@@ -33,7 +33,7 @@ export async function run(): Promise<void> {
  const report = (ok: boolean) => writeFileSync(join(base, 'report.json'), JSON.stringify({ ok, phase, ...metadata }));
  try {
   const before = readFileSync(log), modified = statSync(log).mtimeMs;
-  const extension = vscode.extensions.getExtension('StefanSuess.cyclegauge');
+  const extension = vscode.extensions.getExtension('StefanSuess.bobert');
   assert.ok(extension); await extension.activate(); assert.ok(extension.isActive);
   phase = 'log-layout';
   // The collector's default discovery assumes this editor layout beneath the user-data root.
@@ -42,16 +42,16 @@ export async function run(): Promise<void> {
   assert.ok(sessions.some(name => statSync(join(base, 'profile', 'logs', name, 'window1', 'exthost')).isDirectory()));
   phase = 'commands';
   const commands = await vscode.commands.getCommands(true);
-  assert.ok(commands.includes('cyclegauge.showUsage')); assert.ok(commands.includes('cyclegauge.costAdvisor'));
-  assert.ok(commands.includes('cyclegauge.auditWorkspace')); // registered only; the audit runs only when a user invokes it
-  assert.ok(commands.includes('cyclegauge.copyDiagnostics')); // registered only; not executed here
-  assert.ok(commands.includes('cyclegauge.reportProblem')); // registered only; it would open the browser
-  assert.ok(commands.includes('cyclegauge.share')); // registered only; the footer link runs it
+  assert.ok(commands.includes('bobert.showUsage')); assert.ok(commands.includes('bobert.costAdvisor'));
+  assert.ok(commands.includes('bobert.auditWorkspace')); // registered only; the audit runs only when a user invokes it
+  assert.ok(commands.includes('bobert.copyDiagnostics')); // registered only; not executed here
+  assert.ok(commands.includes('bobert.reportProblem')); // registered only; it would open the browser
+  assert.ok(commands.includes('bobert.share')); // registered only; the footer link runs it
   phase = 'panel';
-  await vscode.commands.executeCommand('cyclegauge.showUsage');
+  await vscode.commands.executeCommand('bobert.showUsage');
   await until(() => vscode.window.tabGroups.all.some(group => group.tabs.some(tab => tab.label === 'Your credit budget')), 5_000);
   phase = 'sqlite';
-  const restart = process.env.CYCLEGAUGE_SYNTHETIC_RESTART === '1';
+  const restart = process.env.BOBERT_SYNTHETIC_RESTART === '1';
   assert.equal(state().rows.length, restart ? 2 : 1);
   assert.equal(state().rows[0].usage, '1.25');
   assert.deepEqual(readFileSync(log), before); assert.equal(statSync(log).mtimeMs, modified);

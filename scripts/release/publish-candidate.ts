@@ -27,8 +27,8 @@ async function run(): Promise<void> {
     return fail('PROMOTION_METADATA_MISMATCH');
   }
   if (!assertDigest(metadata.sha256) || !assertDigest(metadata.releaseNotesSha256) || !assertDigest(metadata.checksumFileSha256) ||
-      typeof metadata.vsixAssetName !== 'string' || metadata.vsixAssetName !== `cyclegauge-v${version}.vsix` ||
-      metadata.checksumAssetName !== 'SHA256SUMS.txt' || metadata.releaseName !== `Cyclegauge v${version}`) {
+      typeof metadata.vsixAssetName !== 'string' || metadata.vsixAssetName !== `bobert-v${version}.vsix` ||
+      metadata.checksumAssetName !== 'SHA256SUMS.txt' || metadata.releaseName !== `Bobert v${version}`) {
     return fail('PROMOTION_METADATA_INVALID');
   }
 

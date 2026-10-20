@@ -65,17 +65,17 @@ test('extracted publisher runs the full promotion from a relative bundle directo
     });
     const vsix = writeZip(entries);
     const hash = createHash('sha256').update(vsix).digest('hex');
-    const sums = Buffer.from(`${hash}  cyclegauge-v${version}.vsix\n`);
+    const sums = Buffer.from(`${hash}  bobert-v${version}.vsix\n`);
     const notes = Buffer.from('Synthetic release notes.');
     mkdirSync(bundle);
-    writeFileSync(join(bundle, `cyclegauge-v${version}.vsix`), vsix);
+    writeFileSync(join(bundle, `bobert-v${version}.vsix`), vsix);
     writeFileSync(join(bundle, 'SHA256SUMS.txt'), sums);
     writeFileSync(join(bundle, 'release-notes.md'), notes);
     writeFileSync(join(bundle, 'promotion.json'), JSON.stringify({
       version, commit, runId: 12, artifactId: 34, artifactName: 'release-candidate', sha256: hash,
       releaseNotesSha256: createHash('sha256').update(notes).digest('hex'),
       checksumFileSha256: createHash('sha256').update(sums).digest('hex'),
-      vsixAssetName: `cyclegauge-v${version}.vsix`, checksumAssetName: 'SHA256SUMS.txt', releaseName: `Cyclegauge v${version}`,
+      vsixAssetName: `bobert-v${version}.vsix`, checksumAssetName: 'SHA256SUMS.txt', releaseName: `Bobert v${version}`,
     }));
     const packed = spawnSync('bash', ['scripts/release/prepare-publisher-runtime.sh', bundle, tools], { cwd: repository, encoding: 'utf8' });
     assert.equal(packed.status, 0, packed.stderr);
@@ -97,7 +97,7 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.hostname === 'open-vsx.org') {
     if (!existsSync(process.env.SYNTHETIC_OPENVSX_MARKER)) return json({}, 404);
     if (path.endsWith('/file.vsix')) return new Response(vsix, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
-    return json({ namespace: 'StefanSuess', name: 'cyclegauge', version: '${version}', files: { download: 'https://open-vsx.org/api/StefanSuess/cyclegauge/${version}/file.vsix' } });
+    return json({ namespace: 'StefanSuess', name: 'bobert', version: '${version}', files: { download: 'https://open-vsx.org/api/StefanSuess/bobert/${version}/file.vsix' } });
   }
   if (url.hostname === 'uploads.github.com' && method === 'POST') {
     const bytes = Buffer.from(init.body);
@@ -121,7 +121,7 @@ globalThis.fetch = async (input, init = {}) => {
     const asset = assets.find(item => path.endsWith('/' + item.id));
     return asset ? new Response(asset.bytes, { status: 200, headers: { 'content-length': String(asset.bytes.length) } }) : json({}, 404);
   }
-  if (path.endsWith('/releases/77') && method === 'GET') return json({ upload_url: 'https://uploads.github.com/repos/StefanSuess/Cyclegauge/releases/77/assets{?name,label}' });
+  if (path.endsWith('/releases/77') && method === 'GET') return json({ upload_url: 'https://uploads.github.com/repos/StefanSuess/Bobert/releases/77/assets{?name,label}' });
   if (path.endsWith('/releases/77') && method === 'PATCH') { release.draft = false; writes.push('publish-release'); writeFileSync(process.env.SYNTHETIC_RESULT, JSON.stringify({ writes, tag, release, assets: assets.map(asset => asset.name) })); return json(release); }
   throw new Error('UNEXPECTED_REMOTE_REQUEST');
 };
@@ -130,18 +130,18 @@ globalThis.fetch = async (input, init = {}) => {
       cwd: repository, encoding: 'utf8', timeout: 60_000,
       env: {
         PATH: process.env.PATH || '', PROMOTION_BUNDLE_DIR: relative(repository, bundle), GITHUB_TOKEN: 'synthetic-github-token',
-        GITHUB_REPOSITORY: 'StefanSuess/Cyclegauge', GITHUB_API_URL: 'https://api.github.com',
+        GITHUB_REPOSITORY: 'StefanSuess/Bobert', GITHUB_API_URL: 'https://api.github.com',
         GITHUB_SHA: commit, SOURCE_SHA: commit, INPUT_VERSION: version, INPUT_AUTH_MODE: 'trusted-publishing',
         EXPECTED_RUN_ID: '12', EXPECTED_ARTIFACT_ID: '34', GITHUB_STEP_SUMMARY: join(temp, 'summary.md'),
-        SYNTHETIC_OPENVSX_MARKER: marker, SYNTHETIC_VSIX: join(bundle, `cyclegauge-v${version}.vsix`), SYNTHETIC_RESULT: resultFile,
+        SYNTHETIC_OPENVSX_MARKER: marker, SYNTHETIC_VSIX: join(bundle, `bobert-v${version}.vsix`), SYNTHETIC_RESULT: resultFile,
       },
     });
     assert.equal(execution.status, 0, `${execution.stdout}\n${execution.stderr}`);
     const result = JSON.parse(readFileSync(resultFile, 'utf8')) as { writes: string[]; tag: string; release: { draft: boolean }; assets: string[] };
-    assert.deepEqual(result.writes, ['tag', 'draft', `asset:cyclegauge-v${version}.vsix`, 'asset:SHA256SUMS.txt', 'publish-release']);
+    assert.deepEqual(result.writes, ['tag', 'draft', `asset:bobert-v${version}.vsix`, 'asset:SHA256SUMS.txt', 'publish-release']);
     assert.equal(result.tag, commit);
     assert.equal(result.release.draft, false);
-    assert.deepEqual(result.assets, [`cyclegauge-v${version}.vsix`, 'SHA256SUMS.txt']);
+    assert.deepEqual(result.assets, [`bobert-v${version}.vsix`, 'SHA256SUMS.txt']);
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }

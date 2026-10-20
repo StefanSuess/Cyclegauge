@@ -12,7 +12,7 @@ export const ACTION_TEXT: Record<ActionCode, string> = {
  cancelled: 'Nothing was saved.',
  failed: 'This could not be completed.',
  busy: 'Please wait a moment and try again.',
- refused_target: 'That location is not allowed. Choose a folder outside Kiro and Cyclegauge storage, and not a link or special file.',
+ refused_target: 'That location is not allowed. Choose a folder outside Kiro and Bobert storage, and not a link or special file.',
  invalid_image: 'The image could not be checked, so nothing was saved.',
  no_history: 'There are no account updates to export yet.',
  multiple_accounts: 'No CSV export: the retained updates come from more than one account, or the account could not be established, so they are not combined.',

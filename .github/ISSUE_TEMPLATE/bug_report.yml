@@ -36,5 +36,5 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics output (optional, only if your version has it)
-      description: Run "Cyclegauge: Report a Problem" (or "Cyclegauge: Copy Diagnostics") in the editor, or `--diagnostics` on the command line (fixed codes and counts only). Review it before pasting.
+      description: Run "Bobert: Report a Problem" (or "Bobert: Copy Diagnostics") in the editor, or `--diagnostics` on the command line (fixed codes and counts only). Review it before pasting.
       render: text

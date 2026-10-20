@@ -100,7 +100,7 @@ jobs:
             echo 'CANDIDATE_COMMIT_INVALID'
             exit 1
           fi
-          name="cyclegauge-v${version}-${short}-candidate.vsix"
+          name="bobert-v${version}-${short}-candidate.vsix"
           mkdir release
           pnpm release:build "release/$name"
           pnpm release:verify "release/$name" --out release/manifest-linux.json
@@ -161,7 +161,7 @@ jobs:
           CANDIDATE_VSIX: ${{ needs.candidate.outputs.vsix_name }}
         run: |
           export LC_ALL=C
-          if ! [[ "$CANDIDATE_VSIX" =~ ^cyclegauge-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
+          if ! [[ "$CANDIDATE_VSIX" =~ ^bobert-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
              [[ "$CANDIDATE_VSIX" != *"-${GITHUB_SHA:0:12}-candidate.vsix" ]]; then
             echo 'CANDIDATE_NAME_INVALID'
             exit 1
@@ -228,7 +228,7 @@ jobs:
           CANDIDATE_VSIX: ${{ needs.candidate.outputs.vsix_name }}
         run: |
           export LC_ALL=C
-          if ! [[ "$CANDIDATE_VSIX" =~ ^cyclegauge-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
+          if ! [[ "$CANDIDATE_VSIX" =~ ^bobert-v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-[0-9a-f]{12}-candidate\.vsix$ ]] ||
              [[ "$CANDIDATE_VSIX" != *"-${GITHUB_SHA:0:12}-candidate.vsix" ]]; then
             echo 'CANDIDATE_NAME_INVALID'
             exit 1

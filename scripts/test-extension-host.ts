@@ -32,25 +32,25 @@ try {
  writeFileSync(join(logs, 'q-client.log'), '2030-01-01T00:00:00Z [info] synthetic '+JSON.stringify({ commandName: 'GetUsageLimitsCommand', output: { userInfo: { userId: 'synthetic-host-account' }, prompt: 'SYNTHETIC_CONTENT_SENTINEL', nextDateReset: '2030-02-01T00:00:00Z', usageBreakdownList: [{ resourceType: 'CREDIT', currentUsageWithPrecision: 1.25, usageLimitWithPrecision: 100 }] }, metadata: { httpStatusCode: 200 } })+'\n');
  mkdirSync(join(profile, 'User'), { recursive: true });
  writeFileSync(join(profile, 'User', 'settings.json'), JSON.stringify({
-  'cyclegauge.sourceRoot': source, 'cyclegauge.sourceTimezone': 'UTC',
+  'bobert.sourceRoot': source, 'bobert.sourceTimezone': 'UTC',
   'telemetry.telemetryLevel': 'off', 'update.mode': 'none', 'extensions.autoUpdate': false,
   'extensions.autoCheckUpdates': false, 'workbench.startupEditor': 'none', 'security.workspace.trust.enabled': false,
  }));
  const suite = join(base, 'suite.cjs');
  await build({ entryPoints: [join(root, 'tests/host/suite.ts')], outfile: suite, bundle: true, platform: 'node', format: 'cjs', external: ['vscode'], logLevel: 'silent' });
- const executable = process.env.CYCLEGAUGE_TEST_KIRO_EXECUTABLE || await downloadAndUnzipVSCode({ version: VS_CODE_VERSION, cachePath: join(root, '.vscode-test') });
+ const executable = process.env.BOBERT_TEST_KIRO_EXECUTABLE || await downloadAndUnzipVSCode({ version: VS_CODE_VERSION, cachePath: join(root, '.vscode-test') });
  const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
  for (const restart of ['0', '1']) {
   try {
    await runTests({ vscodeExecutablePath: executable, extensionDevelopmentPath: extension, extensionTestsPath: suite,
     launchArgs: ['--user-data-dir', profile, '--extensions-dir', join(base, 'extensions'), '--disable-extensions', '--disable-extension', 'kiro.kiroAgent', '--password-store=basic', '--disable-telemetry', '--skip-welcome', '--skip-release-notes'],
-    extensionTestsEnv: { CYCLEGAUGE_SYNTHETIC_TEST_ROOT: base, CYCLEGAUGE_SYNTHETIC_RESTART: restart }, stdout: quiet, stderr: quiet,
+    extensionTestsEnv: { BOBERT_SYNTHETIC_TEST_ROOT: base, BOBERT_SYNTHETIC_RESTART: restart }, stdout: quiet, stderr: quiet,
    });
   } finally {
    // Host logs can contain paths. Emit only the fixed phase and version/platform metadata.
    try {
     const report = JSON.parse(readFileSync(join(base, 'report.json'), 'utf8'));
-    console.log(JSON.stringify({ host: process.env.CYCLEGAUGE_TEST_KIRO_EXECUTABLE ? 'kiro' : 'vscode', restart: restart === '1', sha256, ...report }));
+    console.log(JSON.stringify({ host: process.env.BOBERT_TEST_KIRO_EXECUTABLE ? 'kiro' : 'vscode', restart: restart === '1', sha256, ...report }));
    } catch { console.log('HOST_REPORT_UNAVAILABLE'); }
   }
  }

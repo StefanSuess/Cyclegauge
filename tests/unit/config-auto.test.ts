@@ -77,12 +77,12 @@ function setup(o: { mode?: unknown; workspaceMode?: unknown; supportPrompts?: bo
  const link = registerConfigReview(context, editor, check, () => { refreshes++; }, { reviewer, timers: clock, platform: o.platform ?? 'linux', support });
  const live = () => watchers.filter(w => !w.disposed);
  const emit = (rel: string, scheme = 'file', w = live()[0]!) => { for (const h of w.handlers) h({ scheme, fsPath: rel.startsWith('/') ? rel : `${(w.pattern.base as { uri: { fsPath: string } }).uri.fsPath}/${rel}` }); };
- const changeMode = (mode: unknown) => { state.mode = mode; for (const fn of listeners.config) fn({ affectsConfiguration: k => k === 'cyclegauge.configReviewAutomatically' }); };
+ const changeMode = (mode: unknown) => { state.mode = mode; for (const fn of listeners.config) fn({ affectsConfiguration: k => k === 'bobert.configReviewAutomatically' }); };
  const flatten = (nodes: ConfigNode[]): ConfigNode[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
  return { refusedNow, clock, reads, signals, messages, executed, updates, globalWrites, watchers, live, emit, changeMode, listeners, workspace, link, subscriptions, offerOpen, flatten,
   // The status line the Audit view shows for the review alone (no filename audit result).
   header: () => { const line = reviewTree(undefined, link.summary(), link.nodes(), { audit: 'off', config: 'off' }, new Date(clock.now()))[0]; return line ? `${line.label} ${line.description ?? ''}` : ''; },
-  run: () => commands.get('cyclegauge.reviewKiroConfig')!() as Promise<void>,
+  run: () => commands.get('bobert.reviewKiroConfig')!() as Promise<void>,
   set ids(v: FindingId[]) { ids = v; }, set gate(v: typeof gate) { gate = v; }, set answer(v: string | undefined) { answer = v; },
   get checks() { return checks; }, get refreshes() { return refreshes; } };
 }
@@ -161,7 +161,7 @@ test('a manual run wins over an automatic run, does not count toward the cap and
  s.gate = undefined;
  await s.run();
  assert.equal(s.signals[0]!.aborted, true); assert.equal(s.reads.length, 2); assert.equal(s.refreshes, 1, 'only the manual result is shown');
- assert.doesNotMatch(s.header(), /automatically/); assert.ok(s.executed.includes('cyclegauge.auditView.focus'));
+ assert.doesNotMatch(s.header(), /automatically/); assert.ok(s.executed.includes('bobert.auditView.focus'));
  void release;
  for (let i = 0; i < 30; i++) { s.emit('AGENTS.md'); await s.clock.advance(CONFIG_MIN_INTERVAL_MS); }
  assert.equal(s.reads.length, 2 + CONFIG_MAX_AUTO_RUNS - 1, 'the aborted open run counted; the manual run did not');
@@ -209,7 +209,7 @@ test('automatic runs never touch audit or support state: no workspace state, no 
  await s.clock.advance(CONFIG_REVIEW_DELAY_MS);
  s.ids = ['H5']; s.emit('AGENTS.md'); await s.clock.advance(CONFIG_MIN_INTERVAL_MS);
  assert.deepEqual(s.globalWrites, []); assert.deepEqual(s.updates, []);
- assert.ok(s.executed.every(id => id === 'cyclegauge.auditView.focus'));
+ assert.ok(s.executed.every(id => id === 'bobert.auditView.focus'));
  const w = s.live()[0]!;
  for (const d of s.subscriptions) d.dispose();
  assert.equal(w.disposed, true);

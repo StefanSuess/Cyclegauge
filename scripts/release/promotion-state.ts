@@ -70,12 +70,12 @@ function validateCandidate(candidate: PromotionCandidate): { tagName: string; ex
   if (!isVersion(candidate.version)) return fail('VERSION_INVALID');
   if (!validCommit(candidate.commit)) return fail('COMMIT_INVALID');
   if (!validHash(candidate.sha256) || sha256(candidate.vsixBytes) !== candidate.sha256) return fail('CANDIDATE_CHECKSUM_MISMATCH');
-  if (candidate.vsixAssetName !== `cyclegauge-v${candidate.version}.vsix` || candidate.checksumAssetName !== 'SHA256SUMS.txt') {
+  if (candidate.vsixAssetName !== `bobert-v${candidate.version}.vsix` || candidate.checksumAssetName !== 'SHA256SUMS.txt') {
     return fail('CANDIDATE_ASSET_NAME_INVALID');
   }
   const checksum = Buffer.from(candidate.checksumBytes).toString('utf8');
   if (checksum !== `${candidate.sha256}  ${candidate.vsixAssetName}\n`) return fail('CANDIDATE_CHECKSUM_FILE_INVALID');
-  if (candidate.releaseName !== `Cyclegauge v${candidate.version}` || !candidate.releaseNotes.trim()) return fail('CANDIDATE_RELEASE_METADATA_INVALID');
+  if (candidate.releaseName !== `Bobert v${candidate.version}` || !candidate.releaseNotes.trim()) return fail('CANDIDATE_RELEASE_METADATA_INVALID');
   const tagName = `v${candidate.version}`;
   return {
     tagName,

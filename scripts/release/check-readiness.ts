@@ -17,7 +17,7 @@ async function run(): Promise<void> {
     return fail('PROMOTION_METADATA_MISMATCH');
   }
   if (metadata.artifactName !== 'release-candidate' || typeof metadata.sha256 !== 'string' ||
-      metadata.vsixAssetName !== `cyclegauge-v${version}.vsix` || metadata.checksumAssetName !== 'SHA256SUMS.txt' ||
+      metadata.vsixAssetName !== `bobert-v${version}.vsix` || metadata.checksumAssetName !== 'SHA256SUMS.txt' ||
       typeof metadata.releaseName !== 'string') return fail('PROMOTION_METADATA_INVALID');
   const request = validateReleaseRequest({ version, dryRun: true, authMode: requiredEnv('AUTH_MODE') });
   const candidate: PromotionCandidate = {

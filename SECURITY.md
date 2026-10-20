@@ -15,14 +15,14 @@ as practical, but there is no guaranteed response time and no bug bounty.
 
 ## Scope
 
-Cyclegauge for Kiro IDE is a local, read-only extension. It reads Kiro's existing usage logs, stores
+Bobert is a local, read-only extension. It reads Kiro's existing usage logs, stores
 derived billing numbers in its own private directory, and has no network code and no telemetry.
 On macOS (observed), Windows and Linux (enabled, not yet verified natively) it also, for the optional session hints, parses up to 20 of the most recently changed
 sessions' `session.json` files (each whole, in memory, including titles and workspace paths) to find the
 newest session of your open folder and loads up to the last 256 KiB of that session's `messages.jsonl`
 (in memory; may contain prompts and replies). It keeps only that session's model identifier, context
 percentage and time, and persists nothing. The
-user setting `cyclegauge.sessionHints` turns this read off.
+user setting `bobert.sessionHints` turns this read off.
 In scope:
 
 - any path by which the extension writes to Kiro-owned files or databases

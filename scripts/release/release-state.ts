@@ -129,11 +129,11 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
   async readOpenVsx(version: string): Promise<OpenVsxState> {
     try {
       if (!/^\d+\.\d+\.\d+$/.test(version)) return { kind: 'unavailable' };
-      const url = `https://open-vsx.org/api/StefanSuess/cyclegauge/${version}`;
+      const url = `https://open-vsx.org/api/StefanSuess/bobert/${version}`;
       const metadataResponse = await openVsxRequest(url);
       if (metadataResponse.status === 404) return { kind: 'absent' };
       const metadata = metadataResponse.value;
-      if (!metadata || metadata.namespace !== 'StefanSuess' || metadata.name !== 'cyclegauge' || metadata.version !== version ||
+      if (!metadata || metadata.namespace !== 'StefanSuess' || metadata.name !== 'bobert' || metadata.version !== version ||
           typeof metadata.files !== 'object' || metadata.files === null || !('download' in metadata.files) ||
           typeof metadata.files.download !== 'string') return { kind: 'unavailable' };
       const downloadUrl = new URL(metadata.files.download);
@@ -233,7 +233,7 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
       if (!Array.isArray(body) || body.length > 100) return undefined;
       for (const asset of body) {
         if (!Number.isSafeInteger(asset.id) || typeof asset.name !== 'string' || !Number.isSafeInteger(asset.size) || asset.size! < 0 || asset.state !== 'uploaded') return undefined;
-        const expectedNames = new Set([`cyclegauge-v${version}.vsix`, 'SHA256SUMS.txt']);
+        const expectedNames = new Set([`bobert-v${version}.vsix`, 'SHA256SUMS.txt']);
         if (!expectedNames.has(asset.name)) {
           result.push({ name: asset.name, sha256: 'unverifiable' });
           continue;
@@ -253,7 +253,7 @@ export class GitHubOpenVsxAdapter implements PromotionAdapter {
 
   async publishOpenVsx(vsix: Uint8Array, authMode: AuthMode, preRelease: boolean): Promise<void> {
     if (authMode === 'pat' && !process.env.OPENVSX_PAT) throw new Error('OPENVSX_PAT_MISSING');
-    const tempDir = mkdtempSync(join(tmpdir(), 'cyclegauge-publish-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'bobert-publish-'));
     const file = join(tempDir, 'candidate.vsix');
     try {
       writeFileSync(file, vsix, { flag: 'wx' });

@@ -1,5 +1,5 @@
 {
-  "name": "cyclegauge-release-package-manager",
+  "name": "bobert-release-package-manager",
   "version": "1.0.0",
   "private": true,
   "dependencies": {

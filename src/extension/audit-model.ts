@@ -43,7 +43,7 @@ const REASONS: Record<string, string> = {
 };
 export const NOT_LISTED = 'Kiro IDE only uses .kiroignore when it is listed in Agent Ignore Files. Click to open that setting.';
 export const GLOBAL_RULES_NOTE = "Only this folder's ignore files were checked, not global ones.";
-export const KIROIGNORE_HEADER = '# Suggested by Cyclegauge - review before saving';
+export const KIROIGNORE_HEADER = '# Suggested by Bobert - review before saving';
 export const MAX_DISMISSED = 2000;
 
 export function formatSize(bytes: number): string {
@@ -72,7 +72,7 @@ export interface AuditNode {
  id: string; kind: NodeKind; label: string; description?: string; tooltip?: string; icon: string; contextValue: string;
  children?: AuditNode[]; finding?: Finding; action?: NodeAction; expanded?: boolean;
 }
-/** The sentence every apply group's tooltip and every annotation or notice carries: the edit is only prepared, never saved by Cyclegauge. */
+/** The sentence every apply group's tooltip and every annotation or notice carries: the edit is only prepared, never saved by Bobert. */
 export const NOTHING_CHANGES = 'Nothing changes until you save.';
 /** Description of an item whose file holds a prepared edit that is still unsaved in the editor (approved 2026-10-20). */
 export const PREPARED_DESCRIPTION = 'prepared — save the file to apply';
@@ -179,7 +179,7 @@ function findingNode(f: Finding, index: number, accepted: ReadonlySet<string>, r
  const label = escapeText(f.path) + (f.isDir ? '/' : '');
  const description = pending ? PREPARED_DESCRIPTION : STATUS_TEXT[f.coverage] + (done ? ' · rule prepared (unsaved)' : '');
  const tooltip = [label, `${LABELS[f.category]}: ${EXPLANATIONS[f.category]}`,
-  f.coverage === 'unknown' ? `Cyclegauge could not tell whether it is excluded: ${reason}.` : STATUS_MEANING[f.coverage],
+  f.coverage === 'unknown' ? `Bobert could not tell whether it is excluded: ${reason}.` : STATUS_MEANING[f.coverage],
   ...(f.size === undefined ? [] : [`Size: ${formatSize(f.size)}`]),
   f.suggestion === '' ? 'No safe rule could be suggested.' : `Suggested rule: ${escapeText(f.suggestion)}`, ...(done ? ['The rule is prepared but not saved.'] : [])].join('\n');
  return { id: `finding:${f.category}:${index}`, kind: 'finding', label, description, tooltip, icon: pending ? 'edit' : ICONS[f.category], contextValue: f.suggestion === '' ? 'finding' : 'finding-suggestible', finding: f };
@@ -212,7 +212,7 @@ export function auditTree(result: AuditResult, folderName: string, dismissedHash
  const stats: AuditStats = {
   suggestions: items + unclear, size: size ? `Kiro may read ${size}` : '', partial, checkedAt, folder: name,
   notes: [items > 0 ? 'These files are in your workspace and not excluded by its ignore files. Excluding the ones Kiro does not need keeps its context smaller and can save credits. Being listed does not mean Kiro has read them.'
-    : unclear > 0 ? 'Cyclegauge could not tell whether these are excluded by the ignore files. Review them: excluding the ones Kiro does not need keeps its context smaller. Being listed does not mean Kiro has read them.'
+    : unclear > 0 ? 'Bobert could not tell whether these are excluded by the ignore files. Review them: excluding the ones Kiro does not need keeps its context smaller. Being listed does not mean Kiro has read them.'
     : `No files matching these kinds by name or size were found. This does not prove there are no secrets.${hidden > 0 ? ' Items you hid are not counted.' : ''}`, GLOBAL_RULES_NOTE,
    ...(size ? [`Total size of the files Kiro may read but probably doesn't need.${total.lowerBound ? ' Some of them have no size, or the list is cut short, so the total is a lower bound.' : ''}`] : []),
    ...(partial ? ['The check is partial, so results may be incomplete:', ...(reasons.length ? reasons.map(r => `- ${escapeText(r)}`) : ['- Some results may be missing.'])] : []), summary],

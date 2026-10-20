@@ -14,7 +14,7 @@ const entry = (cycle: string, over: Partial<ResultsEntry> = {}): ResultsEntry =>
 const unknown = { status: 'unknown', entries: [] };
 
 test('the key is fixed and nothing else is stored under it', () => {
- assert.equal(RESULTS_KEY, 'cyclegauge.results.v1');
+ assert.equal(RESULTS_KEY, 'bobert.results.v1');
 });
 
 test('cycle keys are fixed-format ISO times derived from a billing reset', () => {
@@ -177,9 +177,9 @@ const text = (html: string) => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' '
 test('the summary section is headed, scoped, escaped and static', () => {
  const html = render({ status: 'ok', entries: [entry(C1, { bytes: 3 * 1024 * 1024, bytesLowerBound: true }), entry(C2, { bytes: 0, bytesLowerBound: true, items: 2, secrets: 0 })] });
  const s = section(html);
- assert.match(s, /<h2 id="results-summary-heading">Your Cyclegauge summary<\/h2>/);
+ assert.match(s, /<h2 id="results-summary-heading">Your Bobert summary<\/h2>/);
  assert.match(s, /aria-labelledby="results-summary-heading"/);
- assert.match(s, /The last two billing cycles with saved exclusions\. These are observations, not proof that Cyclegauge caused a change\./);
+ assert.match(s, /The last two billing cycles with saved exclusions\. These are observations, not proof that Bobert caused a change\./);
  assert.match(s, /<h3>Exclusions you saved<\/h3>/);
  assert.match(s, /3 items \(1 possible secret\), at least 3\.0 MiB\./);
  assert.match(s, /2 items \(0 possible secrets\), size unknown\./);
@@ -216,5 +216,5 @@ test('no section without a results parameter, and hostile entries are escaped or
  assert.ok(!html.includes('<b onload'));
  assert.equal(section(html), '');
  const t = resultsText({ status: 'ok', entries: [] }, history(series(days60)), NOW);
- assert.equal(t.heading, 'Your Cyclegauge summary');
+ assert.equal(t.heading, 'Your Bobert summary');
 });

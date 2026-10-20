@@ -1,12 +1,12 @@
-# Cyclegauge 1.0: see your Kiro credits run out before they do
+# Bobert 1.0: see your Kiro credits run out before they do
 
 > **DRAFT, NOT PUBLISHED. Outreach is not approved.** All figures are invented. Confirm every feature against the final 1.0.0 build before use; items marked *(confirm)* may still move.
 
-Kiro tells you after the fact. Cyclegauge, an unofficial extension for Kiro IDE, tells you while you can still change something.
+Kiro tells you after the fact. Bobert, an unofficial extension for Kiro IDE, tells you while you can still change something.
 
 ## What it does
 
-**Warns before credits run out.** Cyclegauge forecasts your pace against the cycle limit and speaks up once per cycle: "At this pace your credits run out on 24 Oct, 8 days before the reset." It also flags 80 % and 100 % of the reported limit. Thresholds and the warning itself are settings.
+**Warns before credits run out.** Bobert forecasts your pace against the cycle limit and speaks up once per cycle: "At this pace your credits run out on 24 Oct, 8 days before the reset." It also flags 80 % and 100 % of the reported limit. Thresholds and the warning itself are settings.
 
 **Shows the overage in dollars.** If the forecast exceeds the limit: "about 400 credits over ≈ $16 at $0.04 per credit". It is labelled a modelled scenario from a reviewed, dated price catalog, not an invoice.
 
@@ -26,7 +26,7 @@ The repository includes a synthetic demo: `pnpm demo:setup --open` opens an isol
 
 ## Getting it
 
-Install **Cyclegauge** from Open VSX in Kiro IDE (macOS, Windows, Ubuntu). It is unofficial and not affiliated with Kiro or AWS. Everything runs locally; nothing is sent anywhere.
+Install **Bobert** from Open VSX in Kiro IDE (macOS, Windows, Ubuntu). It is unofficial and not affiliated with Kiro or AWS. Everything runs locally; nothing is sent anywhere.
 
 If it is useful, a rating or a star helps; support is optional (Ko-fi link in the extension).
 

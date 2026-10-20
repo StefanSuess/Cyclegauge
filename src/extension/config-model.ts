@@ -3,15 +3,15 @@ import { configPathAllowed } from '../audit/config-read.ts';
 import { NOT_CHECKED_CODES, type ConfigFinding, type ConfigLocation, type FindingId, type NotCheckedCode } from '../audit/config-rules.ts';
 import { PREPARED_DESCRIPTION, checkedLabel, escapeText, formatSize, unsavedFilesText, type AuditNode, type AuditParts } from './audit-model.ts';
 
-export const CONFIG_BASIS = ["Kiro documents this behavior.", "Kiro documents this behavior; the threshold is a Cyclegauge heuristic.", "Cyclegauge inference from Kiro's documentation."] as const;
+export const CONFIG_BASIS = ["Kiro documents this behavior.", "Kiro documents this behavior; the threshold is a Bobert heuristic.", "Bobert inference from Kiro's documentation."] as const;
 export const CONFIG_CREDITS = ['Kiro documents that agent prompt actions use credits.', 'A larger always-included context is sent with every interaction; Kiro does not publish how this maps to credits.', 'Kiro documents that command actions do not use credits.'] as const;
 export const CONFIG_EXCLUSIONS = 'Global Steering and Hooks in your home folder, AGENTS.md in subfolders, legacy hook files, custom agent resources and cloud configuration are not checked.';
 const CLI_NOTE = 'Kiro CLI V1/V2 loads only always-included files automatically.';
-const PREVIEW_HEADER = '# Suggested by Cyclegauge - review before saving; nothing was changed';
+const PREVIEW_HEADER = '# Suggested by Bobert - review before saving; nothing was changed';
 const MANUAL = '---\ninclusion: manual\n---\n\nThis is a preview, not a replacement for the existing file.\nFor fileMatch, choose a pattern for the files it applies to.\nFor auto, write a name and a description.\n' + CLI_NOTE;
-const EDIT_NOTE = 'The action shows the edit in a change preview you can accept or discard, then leaves it unsaved in the file for you to review and save. Cyclegauge writes nothing itself.';
-const OPEN_NOTE = 'The action opens the file or selects the value for you to edit. Cyclegauge writes nothing itself.';
-/** Apply actions (approved 2026-10-18). Each prepares an unsaved edit in the real file, or only opens it; Cyclegauge writes nothing itself. */
+const EDIT_NOTE = 'The action shows the edit in a change preview you can accept or discard, then leaves it unsaved in the file for you to review and save. Bobert writes nothing itself.';
+const OPEN_NOTE = 'The action opens the file or selects the value for you to edit. Bobert writes nothing itself.';
+/** Apply actions (approved 2026-10-18). Each prepares an unsaved edit in the real file, or only opens it; Bobert writes nothing itself. */
 export type ConfigApplyAction = 'loadWhenNeeded' | 'narrowPattern' | 'runManually' | 'disable' | 'open';
 const ACTIONS: Record<FindingId, readonly ConfigApplyAction[]> = {
  S1: ['loadWhenNeeded', 'open'], S2: ['open'], S3: [], S4: ['narrowPattern', 'open'],
@@ -97,7 +97,7 @@ const GROUPS: Record<GroupKey, { label: string; description: string; tooltip: st
   tooltip: 'Always-included Steering is added to every request. Load only when needed… shows a change preview that makes a file load only when you reference it with # (inclusion: manual). Alternatives: fileMatch for specific files, or split the file. Nothing changes until you save.' },
  run: { label: 'Run only manually', description: 'the hook runs only when you start it', icon: 'play', context: 'config-group-run',
   tooltip: 'These hooks start agent work automatically, and each run uses credits. Run only manually… shows a change preview that makes a hook run only when you start it (trigger: Manual). Alternatives: narrow the matcher, use a shell command action, or disable the hook. Nothing changes until you save.' },
- look: { label: 'Worth a look', description: 'no automatic change', icon: 'search', context: 'config-group', tooltip: 'Cyclegauge makes no automatic change for these. Open an item for the reason and what you could do.' },
+ look: { label: 'Worth a look', description: 'no automatic change', icon: 'search', context: 'config-group', tooltip: 'Bobert makes no automatic change for these. Open an item for the reason and what you could do.' },
 };
 /** Largest first (bytes), then the more important notice, then the order of the review. */
 const byImpact = (a: { f: ConfigFinding; i: number }, b: { f: ConfigFinding; i: number }): number => (b.f.size ?? -1) - (a.f.size ?? -1) || Number(b.f.severity === 'notice') - Number(a.f.severity === 'notice') || a.i - b.i;

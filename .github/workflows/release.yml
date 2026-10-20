@@ -95,7 +95,7 @@ jobs:
           VERSION: ${{ steps.select.outputs.version }}
           SOURCE_SHA: ${{ steps.select.outputs.source_sha }}
         run: |
-          if ! gh attestation verify "release/promotion-bundle/cyclegauge-v${VERSION}.vsix" \
+          if ! gh attestation verify "release/promotion-bundle/bobert-v${VERSION}.vsix" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/ci.yml" \
             --source-ref refs/heads/main \
@@ -156,7 +156,7 @@ jobs:
     timeout-minutes: 30
     environment:
       name: release
-      url: https://open-vsx.org/extension/StefanSuess/cyclegauge
+      url: https://open-vsx.org/extension/StefanSuess/bobert
     permissions:
       contents: write
       id-token: write
@@ -202,7 +202,7 @@ jobs:
     timeout-minutes: 30
     environment:
       name: release
-      url: https://open-vsx.org/extension/StefanSuess/cyclegauge
+      url: https://open-vsx.org/extension/StefanSuess/bobert
     permissions:
       contents: write
     steps:

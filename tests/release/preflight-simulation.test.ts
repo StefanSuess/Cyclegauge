@@ -93,8 +93,8 @@ test('verify-promotion succeeds on a CI-shaped candidate and emits digit-bearing
   assert.equal(metadata.artifactId, 987654321);
   assert.equal(metadata.artifactName, 'release-candidate');
   assert.equal(metadata.candidateFileName, CANDIDATE_NAME);
-  assert.equal(metadata.vsixAssetName, `cyclegauge-v${version}.vsix`);
-  assert.deepEqual(readFileSync(join(bundle, `cyclegauge-v${version}.vsix`)), await vsixBytes());
+  assert.equal(metadata.vsixAssetName, `bobert-v${version}.vsix`);
+  assert.deepEqual(readFileSync(join(bundle, `bobert-v${version}.vsix`)), await vsixBytes());
 });
 
 test('verify-promotion fails closed on any deviation from the exact candidate artifact layout', async () => {

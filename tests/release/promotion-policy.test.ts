@@ -226,8 +226,8 @@ test('checks package/VSIX version, pre-release marker, full-file checksum, and u
 });
 
 test('derives the candidate file name from the plain version and the first 12 characters of the full commit', () => {
-  assert.equal(candidateFileName('0.7.0', 'ABCDEF0123456789abcdef0123456789abcdef01'), 'cyclegauge-v0.7.0-abcdef012345-candidate.vsix');
-  assert.equal(candidateFileName('1.0.0', sha('a')), 'cyclegauge-v1.0.0-aaaaaaaaaaaa-candidate.vsix');
+  assert.equal(candidateFileName('0.7.0', 'ABCDEF0123456789abcdef0123456789abcdef01'), 'bobert-v0.7.0-abcdef012345-candidate.vsix');
+  assert.equal(candidateFileName('1.0.0', sha('a')), 'bobert-v1.0.0-aaaaaaaaaaaa-candidate.vsix');
   for (const bad of ['0.7.0-beta.1', '0.09.0', '', 'v0.7.0', '0.7']) expectCode(() => candidateFileName(bad, sha('a')), 'VERSION_INVALID');
   for (const bad of ['', 'a'.repeat(12), 'a'.repeat(39), 'a'.repeat(41), 'g'.repeat(40)]) expectCode(() => candidateFileName('0.7.0', bad), 'COMMIT_INVALID');
 });

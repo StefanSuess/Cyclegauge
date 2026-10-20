@@ -1,6 +1,6 @@
 # Native macOS acceptance for a release candidate
 
-Native macOS acceptance checklist for a Cyclegauge release candidate.
+Native macOS acceptance checklist for a Bobert release candidate.
 
 Rules: isolated synthetic instance only (own `HOME`, user-data and extensions directories, synthetic source and storage). Never use your normal Kiro profile, logs or store, not even metadata. Do not sign in. Do not use Kiro's agent. No real billing numbers in notes or screenshots. This is a macOS observation; it verifies nothing for Windows, Ubuntu or RHEL.
 
@@ -9,11 +9,11 @@ Rules: isolated synthetic instance only (own `HOME`, user-data and extensions di
 Download the `release-candidate` artifact of the CI run for the commit you intend to release and check it:
 
 ```sh
-mkdir -m 700 ~/cg-rc && gh run download <RUN_ID> --repo StefanSuess/Cyclegauge -n release-candidate -D ~/cg-rc
-shasum -a 256 ~/cg-rc/cyclegauge-v<version>-<short-sha>-candidate.vsix   # must equal the SHA-256 in the run summary and SHA256SUMS.txt
+mkdir -m 700 ~/cg-rc && gh run download <RUN_ID> --repo StefanSuess/Bobert -n release-candidate -D ~/cg-rc
+shasum -a 256 ~/cg-rc/bobert-v<version>-<short-sha>-candidate.vsix   # must equal the SHA-256 in the run summary and SHA256SUMS.txt
 ```
 
-The artifact holds exactly `cyclegauge-v<version>-<short-sha>-candidate.vsix`, `manifest-linux.json` and `SHA256SUMS.txt`. `<short-sha>` is the first 12 hex characters of the commit the CI run built; confirm it matches that run's commit and that `<version>` is the version you intend to release.
+The artifact holds exactly `bobert-v<version>-<short-sha>-candidate.vsix`, `manifest-linux.json` and `SHA256SUMS.txt`. `<short-sha>` is the first 12 hex characters of the commit the CI run built; confirm it matches that run's commit and that `<version>` is the version you intend to release.
 
 Record: macOS version and architecture, Kiro version (About), SHA-256, run id. Stop on a mismatch.
 
@@ -23,7 +23,7 @@ After installing development dependencies (`pnpm install --frozen-lockfile`), us
 [simple synthetic setup](synthetic-demo.md) with the exact candidate from step 0:
 
 ```sh
-pnpm demo:setup --open --vsix "path/to/cyclegauge-v<version>-<short-sha>-candidate.vsix"
+pnpm demo:setup --open --vsix "path/to/bobert-v<version>-<short-sha>-candidate.vsix"
 ```
 
 Setup prints synthetic ingestion/repeat-import PASS, a regular qualified forecast and VSIX content verification
@@ -39,26 +39,26 @@ printed `node ".../open-demo.mjs"` command.
 
 | # | Check | Expected |
 |---|---|---|
-| A1 | Extensions: Install from VSIX, pick `cyclegauge-v<version>-<short-sha>-candidate.vsix` | Installs as **Cyclegauge for Kiro IDE**, ID `StefanSuess.cyclegauge`, flagged pre-release; icon shows |
+| A1 | Extensions: Install from VSIX, pick `bobert-v<version>-<short-sha>-candidate.vsix` | Installs as **Bobert: Kiro Credit Tracker**, ID `StefanSuess.bobert`, flagged pre-release; icon shows |
 | A2 | Reload window | Status bar item `Kiro: …` appears; no error toast |
 | A3 | Click it | A tab "Your credit budget" opens; hero, metrics, usage bar, chart with accessible text; tooltip is short and contains no path |
-| A4 | Command Palette, type "Cyclegauge" | Entries start with "Cyclegauge:"; no duplicates |
+| A4 | Command Palette, type "Bobert" | Entries start with "Bobert:"; no duplicates |
 | A5 | Cost Advisor via Command Palette, lightbulb title action and panel-visible status item | All open the native questions; Clear my answers resets; cancelling changes nothing. No old Optimizer commands |
-| A6 | Settings UI, search "cyclegauge" | Three settings, each shown as a user-level setting |
+| A6 | Settings UI, search "bobert" | Three settings, each shown as a user-level setting |
 | A7 | Cmd+Q, relaunch | Extension activates again; history from the first run is still reflected |
 
 ## B. Settings hardening (new in 0.5.2)
 
 | # | Check | Expected |
 |---|---|---|
-| B1 | Put `{ "cyclegauge.sourceRoot": "/tmp/cg-should-be-ignored", "cyclegauge.storageRoot": "/tmp/cg-should-be-ignored/store" }` into `$D/workspace/.vscode/settings.json`, reload | The values are ignored (VS Code reports the setting as unsupported in workspace); `/tmp/cg-should-be-ignored` is **not created**; the view still uses the user-level roots |
+| B1 | Put `{ "bobert.sourceRoot": "/tmp/cg-should-be-ignored", "bobert.storageRoot": "/tmp/cg-should-be-ignored/store" }` into `$D/workspace/.vscode/settings.json`, reload | The values are ignored (VS Code reports the setting as unsupported in workspace); `/tmp/cg-should-be-ignored` is **not created**; the view still uses the user-level roots |
 | B2 | Remove that workspace file | Nothing else changed |
 
 ## C. After publishing (installs the public listing, not a local file)
 
 | # | Check | Expected |
 |---|---|---|
-| C1 | In a clean isolated profile, search "Cyclegauge" in the Extensions view | The listing is found, shows icon, description, README and Changelog tab, the pre-release marker only for an odd-minor (beta) version and none for a stable even-minor version such as 1.0.0, and the listing wording of that line (stable: macOS stable, Windows and Ubuntu smoke-tested badges; beta: the beta badges) |
+| C1 | In a clean isolated profile, search "Bobert" in the Extensions view | The listing is found, shows icon, description, README and Changelog tab, the pre-release marker only for an odd-minor (beta) version and none for a stable even-minor version such as 1.0.0, and the listing wording of that line (stable: macOS stable, Windows and Ubuntu smoke-tested badges; beta: the beta badges) |
 | C2 | Install from the listing | Same file as the candidate: the extension version equals the changelog entry; repeat A2 and A3 |
 | C3 | Installed extension's contents (Developer: Show Running Extensions, or inspect the extensions directory) | No `src/`, tests or logs; metadata only |
 
@@ -82,7 +82,7 @@ Use the current-date [synthetic setup](synthetic-demo.md) with `--vsix` pointing
 | E3 | Unknown plan, not-sure add-ons, entered add-ons, Enterprise, changed limit, stale/no forecast | Assumptions are explicit; unsupported inputs withhold figures, never become zero; no purchases or online calls |
 | E4 | Cancel each question, clear answers, reload, account change/ambiguity | Cancellation preserves prior answers; clear/reload/account changes remove them; no answer file or values in diagnostics |
 | E5 | Hide/reveal/dispose budget panel | Advisor status item appears only while visible; budget item remains; no duplicate commands/items after reload |
-| E6 | Keyboard, narrow panel, light/dark/High Contrast | Advisor figures, uncertainty and details are readable and reachable; webview stays script-free and its command links are limited to five Cyclegauge commands (Cost Advisor, check workspace, show workspace audit, share, report a problem), none with arguments, plus three fixed web links in the footer that open only on click |
+| E6 | Keyboard, narrow panel, light/dark/High Contrast | Advisor figures, uncertainty and details are readable and reachable; webview stays script-free and its command links are limited to five Bobert commands (Cost Advisor, check workspace, show workspace audit, share, report a problem), none with arguments, plus three fixed web links in the footer that open only on click |
 
 ## F. Shut down and record
 

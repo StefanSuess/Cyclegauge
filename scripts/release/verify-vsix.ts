@@ -18,7 +18,7 @@ export const ALLOWLIST = [
  'extension.vsixmanifest',
  'extension/changelog.md',
  'extension/LICENSE.txt',
- 'extension/assets/branding/cyclegauge-icon-256.png',
+ 'extension/assets/branding/bobert-icon-256.png',
  'extension/dist/extension.cjs',
  'extension/package.json',
  'extension/readme.md',
@@ -26,7 +26,7 @@ export const ALLOWLIST = [
 /** Files whose bytes must be identical across independent builds of the same commit. */
 export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
 /** Intended Open VSX identity. */
-export const EXPECTED_ID = 'StefanSuess.cyclegauge';
+export const EXPECTED_ID = 'StefanSuess.bobert';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
 // The audit reminder, automatic configuration review, community prompt, budget warning and session hint settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
 const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number; enum?: string[] }> = {
@@ -73,19 +73,19 @@ export function verifyVsix(archive: Buffer): VerifyResult {
    if (result.version === 'unknown') problems.push('MANIFEST_VERSION');
    // The marketplace Preview badge must follow the channel too (package.json cannot compute it).
    else if ((manifest.preview === true) !== isPreReleaseVersion(result.version)) problems.push('MANIFEST_PREVIEW');
-   if (manifest.name !== 'cyclegauge') problems.push('MANIFEST_NAME');
+   if (manifest.name !== 'bobert') problems.push('MANIFEST_NAME');
    if (`${manifest.publisher}.${manifest.name}` !== EXPECTED_ID) problems.push('MANIFEST_EXTENSION_ID');
    if (manifest.license !== 'MIT') problems.push('MANIFEST_LICENSE');
    if (manifest.main !== './dist/extension.cjs') problems.push('MANIFEST_MAIN');
    if (manifest.dependencies && Object.keys(manifest.dependencies).length) problems.push('MANIFEST_RUNTIME_DEPENDENCIES');
    if (!manifest.engines?.vscode) problems.push('MANIFEST_ENGINE');
-   if (manifest.icon !== 'assets/branding/cyclegauge-icon-256.png') problems.push('MANIFEST_ICON');
+   if (manifest.icon !== 'assets/branding/bobert-icon-256.png') problems.push('MANIFEST_ICON');
    const props = manifest.contributes?.configuration?.properties ?? {};
-   if (Object.keys(props).sort().join(',') !== [...SETTING_KEYS, ...Object.keys(USER_SETTINGS)].map(key => `cyclegauge.${key}`).sort().join(',')) problems.push('MANIFEST_SETTING_PROPERTIES');
+   if (Object.keys(props).sort().join(',') !== [...SETTING_KEYS, ...Object.keys(USER_SETTINGS)].map(key => `bobert.${key}`).sort().join(',')) problems.push('MANIFEST_SETTING_PROPERTIES');
    // Workspace settings must not be able to redirect the source or storage roots.
-   for (const key of SETTING_KEYS) if (props[`cyclegauge.${key}`]?.scope !== 'machine') problems.push('MANIFEST_SETTING_SCOPE');
+   for (const key of SETTING_KEYS) if (props[`bobert.${key}`]?.scope !== 'machine') problems.push('MANIFEST_SETTING_SCOPE');
    for (const [key, expected] of Object.entries(USER_SETTINGS)) {
-    const p = props[`cyclegauge.${key}`];
+    const p = props[`bobert.${key}`];
     if (p?.scope !== 'application') problems.push('MANIFEST_SETTING_SCOPE');
     if (p?.type !== expected.type || p?.default !== expected.default || p?.minimum !== expected.minimum || p?.maximum !== expected.maximum
      || JSON.stringify(p?.enum) !== JSON.stringify(expected.enum)) problems.push('MANIFEST_SETTING_TYPE');
@@ -95,7 +95,7 @@ export function verifyVsix(archive: Buffer): VerifyResult {
  const vsixManifest = get('extension.vsixmanifest')?.toString('utf8');
  if (vsixManifest) {
   if (result.version !== 'unknown' && !new RegExp(`<Identity\\b[^>]*\\sVersion="${result.version.replaceAll('.', '\\.')}"`).test(vsixManifest)) problems.push('VSIXMANIFEST_VERSION');
-  if (!new RegExp(`<Identity\\b[^>]*\\sPublisher="StefanSuess"`).test(vsixManifest) || !/<Identity\b[^>]*\sId="cyclegauge"/.test(vsixManifest)) problems.push('VSIXMANIFEST_IDENTITY');
+  if (!new RegExp(`<Identity\\b[^>]*\\sPublisher="StefanSuess"`).test(vsixManifest) || !/<Identity\b[^>]*\sId="bobert"/.test(vsixManifest)) problems.push('VSIXMANIFEST_IDENTITY');
   // The flag must equal the channel of the VSIX's own version, in both directions.
   const flagged = /Microsoft\.VisualStudio\.Code\.PreRelease"\s+Value="true"/.test(vsixManifest);
   result.preRelease = flagged;

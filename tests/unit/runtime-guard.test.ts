@@ -17,11 +17,11 @@ async function setup() {
  return { base, root, storage: join(base, 'gauge'), db: join(base, 'gauge', 'usage.sqlite') };
 }
 const exists = (path: string) => access(path).then(() => true, () => false);
-const RUNTIME_STATUS = '$(warning) Kiro: Needs a newer Kiro', NEWER_STATUS = '$(warning) Kiro: Update Cyclegauge';
+const RUNTIME_STATUS = '$(warning) Kiro: Needs a newer Kiro', NEWER_STATUS = '$(warning) Kiro: Update Bobert';
 const UNAVAILABLE_TEXT = 'Use Kiro for a few minutes so it can write a credit update. If this stays empty, use Report a problem below.';
-const RUNTIME_TEXT = "This version of Kiro is too old for Cyclegauge's credit view. Update Kiro to see your credits. The workspace audit still works.";
+const RUNTIME_TEXT = "This version of Kiro is too old for Bobert's credit view. Update Kiro to see your credits. The workspace audit still works.";
 const RUNTIME_HTML = RUNTIME_TEXT.replaceAll("'", '&#39;'); // the view escapes the apostrophe
-const NEWER_TEXT = 'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.';
+const NEWER_TEXT = 'Your Bobert data was written by a newer Bobert version. Update Bobert; the data is left unchanged.';
 
 test('a runtime without usable node:sqlite is refused as RUNTIME_UNSUPPORTED before anything is created', async () => {
  const loaders: Array<[string, () => unknown]> = [

@@ -99,15 +99,15 @@ test('the Advisor form is styled with editor theme variables, not fixed colours'
 test('the command link is only a fallback while the inline form exists, and adds no new link',()=>{
  const html=formPage({plan:null,billing:null,addOns:null,addOnCredits:null});
  const hrefs=[...html.matchAll(/href="([^"]*)"/g)].map(m=>m[1]);
- assert.equal(hrefs.filter(h=>h==='command:cyclegauge.costAdvisor').length,1);
- assert.deepEqual(hrefs.filter(h=>h!.startsWith('command:')).sort(),['command:cyclegauge.costAdvisor','command:cyclegauge.reportProblem','command:cyclegauge.share']);
+ assert.equal(hrefs.filter(h=>h==='command:bobert.costAdvisor').length,1);
+ assert.deepEqual(hrefs.filter(h=>h!.startsWith('command:')).sort(),['command:bobert.costAdvisor','command:bobert.reportProblem','command:bobert.share']);
  assert.match(html,/<p class="advisor-actions advisor-fallback">/);
  const css=CSS_HEAD(html);
  assert.match(css,/html\[data-cg-live\] \.advisor-fallback\{display:none\}/);
  assert.match(css,/html:not\(\[data-cg-live\]\) \.advisor-change\{display:none\}/);
  // Without the inline form the link is the plain, always visible button.
  const bare=present(view([],'2030-01-01T00:00:00Z'),[],'','<section id="cost-advisor"></section>').html;
- assert.match(bare,/<p class="advisor-actions"><a class="button primary" href="command:cyclegauge\.costAdvisor">/);assert.ok(!bare.includes('advisor-fallback"><'));
+ assert.match(bare,/<p class="advisor-actions"><a class="button primary" href="command:bobert\.costAdvisor">/);assert.ok(!bare.includes('advisor-fallback"><'));
 });
 
 test('the status line is a live region outside the disclosure',()=>{

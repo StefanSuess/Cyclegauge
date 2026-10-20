@@ -4,10 +4,10 @@ import type { Finding } from '../audit/audit.ts';
 import { auditSizeTotal, formatBytes } from './audit-model.ts';
 import { date, updated } from './labels.ts';
 
-// "Your Cyclegauge summary": exclusions the user saved, counted per observed billing cycle, and the observed use trend. Pure and free of
-// editor APIs. The only persisted value is `cyclegauge.results.v1`: at most two entries of bounded numbers keyed by a billing reset time.
+// "Your Bobert summary": exclusions the user saved, counted per observed billing cycle, and the observed use trend. Pure and free of
+// editor APIs. The only persisted value is `bobert.results.v1`: at most two entries of bounded numbers keyed by a billing reset time.
 // No path, name, identifier or partition key is ever part of it. A value of any other shape is "unknown": shown as such, never overwritten.
-export const RESULTS_KEY = 'cyclegauge.results.v1';
+export const RESULTS_KEY = 'bobert.results.v1';
 export const MAX_CYCLES = 2;
 export const MAX_BYTES = Number.MAX_SAFE_INTEGER;
 export const MAX_COUNT = 1_000_000_000;
@@ -143,7 +143,7 @@ const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many
 /** The count, secret count and size of one saved-exclusion aggregate, as plain text. */
 export const describeExclusions = (e: ExclusionAggregate): string => `${n(e.items, 'item', 'items')} (${n(e.secrets, 'possible secret', 'possible secrets')}), ${size(e)}`;
 export interface ResultsText { heading: string; scope: string; exclusionsHeading: string; exclusions: string[]; notes: string[]; trendHeading: string; trend: string }
-export const RESULTS_HEADING = 'Your Cyclegauge summary';
+export const RESULTS_HEADING = 'Your Bobert summary';
 /** All wording of the summary section, as plain text for the renderer to escape. */
 export function resultsText(results: StoredResults, h: AccountHistory, now: string): ResultsText {
  const current = observedCycleKey(h, now), trend = observedTrend(h);
@@ -161,9 +161,9 @@ export function resultsText(results: StoredResults, h: AccountHistory, now: stri
  else text = `Not enough history yet for a 28-day comparison. Each window needs about ${COVERAGE_PERCENT}% of its time covered by comparable account updates, so this fills in as you keep using Kiro.`;
  return {
   heading: RESULTS_HEADING,
-  scope: 'The last two billing cycles with saved exclusions. These are observations, not proof that Cyclegauge caused a change.',
+  scope: 'The last two billing cycles with saved exclusions. These are observations, not proof that Bobert caused a change.',
   exclusionsHeading: 'Exclusions you saved',
-  exclusions: results.status === 'unknown' ? ['The saved exclusion summary could not be read, so none are shown. Run "Cyclegauge: Reset Reminders and Saved Summary" to clear it.']
+  exclusions: results.status === 'unknown' ? ['The saved exclusion summary could not be read, so none are shown. Run "Bobert: Reset Reminders and Saved Summary" to clear it.']
    : exclusions.length ? exclusions : ['No exclusions saved yet. When you save a .kiroignore change from the Workspace audit, it is counted here.'],
   notes,
   trendHeading: 'Observed use trend', trend: text,

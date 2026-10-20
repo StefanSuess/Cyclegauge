@@ -29,7 +29,7 @@ const explanations: Record<string,string> = {
  stale:'Forecast paused — the last account update is too old. Use Kiro for a few minutes to get a fresh one.',
  insufficient_comparable_coverage:'Keep using Kiro. A first estimate appears after about 2 days and 3 account updates; a regular forecast after 7 days.',
  multiple_accounts:'Updates from different accounts cannot be combined, so no forecast is shown.',
- unknown_account:`Cyclegauge cannot tell which account these updates belong to, so no forecast is shown. ${NEXT_STEP}`,
+ unknown_account:`Bobert cannot tell which account these updates belong to, so no forecast is shown. ${NEXT_STEP}`,
  conflicting_snapshots:'Two account updates for the same moment disagree, so an estimate would be misleading. Use Kiro for a few minutes; a newer update usually resolves this.',
  reset_elapsed:'The billing reset has passed. Use Kiro for a few minutes to get an account update from the new cycle.',
  reset_unknown:`The billing reset date is not known yet, so no forecast is shown. ${NEXT_STEP}`,
@@ -38,23 +38,23 @@ const explanations: Record<string,string> = {
  missing_billing:`Credit usage or the credit limit is missing from the latest update. ${NEXT_STEP}`,
  unsupported_extra_credits:'Extra-credit information is not supported, so a forecast is unavailable.',
  unavailable:NEXT_STEP,
- runtime_unsupported:"This version of Kiro is too old for Cyclegauge's credit view. Update Kiro to see your credits. The workspace audit still works.",
- storage_newer:'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.',
+ runtime_unsupported:"This version of Kiro is too old for Bobert's credit view. Update Kiro to see your credits. The workspace audit still works.",
+ storage_newer:'Your Bobert data was written by a newer Bobert version. Update Bobert; the data is left unchanged.',
 };
 // The status bar names the cause of an "update needed" state.
-const BLOCKED_TEXT: Record<string,string> = { runtime_unsupported: 'Kiro: Needs a newer Kiro', storage_newer: 'Kiro: Update Cyclegauge' };
+const BLOCKED_TEXT: Record<string,string> = { runtime_unsupported: 'Kiro: Needs a newer Kiro', storage_newer: 'Kiro: Update Bobert' };
 // Said once, behind the hero's "About these numbers" disclosure, instead of repeating in every card.
 const ABOUT='Figures are as of the last account update; usage since then is unknown. The reported limit is not verified as base-only or total capacity, so it may include purchased add-on credits, and usage can exceed it. Credits above it do not by themselves establish overage charges or a purchased balance. Forecasts assume the observed pace continues. Dollar amounts are modelled from list prices in USD before tax; they are not invoices.';
 const creditsText=(c:string)=>{try{return formatRational(decimalToRational(c),compare(c,'10')>=0 ? 0 : 1,'half_up').replace(/^0$/,'under 0.1');}catch{return c;}};
 const moneyText=(o:Overage)=>o.money===null ? '' : ` (≈ ${o.money==='0.00' ? 'under $0.01' : `$${o.money}`}, modelled)`;
 
-// The command links of this view are exactly five Cyclegauge commands (Cost Advisor, the two audit commands, Share and Report a problem); none carries arguments.
+// The command links of this view are exactly five Bobert commands (Cost Advisor, the two audit commands, Share and Report a problem); none carries arguments.
 // The footer's three web links are fixed constants and only ever followed on a click.
 // The workspace audit card shows counts and times only, never a path or folder name.
-const ADVISOR_LINK = 'command:cyclegauge.costAdvisor';
-const AUDIT_LINK = { check: 'command:cyclegauge.auditWorkspace', show: 'command:cyclegauge.audit.show' } as const;
-const SHARE_LINK = 'command:cyclegauge.share';
-const REPORT_LINK = 'command:cyclegauge.reportProblem';
+const ADVISOR_LINK = 'command:bobert.costAdvisor';
+const AUDIT_LINK = { check: 'command:bobert.auditWorkspace', show: 'command:bobert.audit.show' } as const;
+const SHARE_LINK = 'command:bobert.share';
+const REPORT_LINK = 'command:bobert.reportProblem';
 const FOOTER = `<footer class="community muted small"><a href="${REPORT_LINK}">Report a problem</a> · <a href="${SHARE_LINK}">Copy share link</a> · <a href="${LINKS.rate}"><span aria-hidden="true">★</span> Rate on Open VSX</a> · <a href="${LINKS.star}">Star on GitHub</a> · <a href="${LINKS.support}"><span aria-hidden="true">☕</span> Support</a></footer>`;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 function auditCard(a: AuditSummary | undefined, now: string): string {

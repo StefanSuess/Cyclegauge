@@ -1,7 +1,7 @@
 {
   "synthetic": true,
   "contract_version": 1,
-  "note": "Inputs outside raw fixture files are synthetic contract cases, not claims that these additional fields or states were observed in Kiro. Decimal strings in normalized cases are Cyclegauge contract notation. Hypothetical interpretations do not authorize CLI aggregation.",
+  "note": "Inputs outside raw fixture files are synthetic contract cases, not claims that these additional fields or states were observed in Kiro. Decimal strings in normalized cases are Bobert contract notation. Hypothetical interpretations do not authorize CLI aggregation.",
   "cases": [
     {
       "id": "same-cycle-gap",

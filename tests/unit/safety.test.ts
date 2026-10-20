@@ -94,7 +94,7 @@ test('dot-prefixed source descendants cannot be used as owned storage', async()=
  await assert.rejects(stat(join(f.root,'logs','..gauge')));await rm(f.base,{recursive:true});
 });
 test('storage location rules: default may sit beside the logs, a chosen location may not', async()=>{
- const f=await setup();const def=join(f.root,'User','globalStorage','stefansuess.cyclegauge');
+ const f=await setup();const def=join(f.root,'User','globalStorage','stefansuess.bobert');
  new Store(def,f.root,true).close();assert.throws(()=>new Store(def,f.root),/UNSAFE_STORAGE/);
  for(const p of [f.root,join(f.root,'logs'),join(f.root,'logs','x'),join(f.root,'..')])assert.throws(()=>new Store(p,f.root,true),/UNSAFE_STORAGE/);
  for(const n of ['kiro-cli','.kiro'])assert.throws(()=>new Store(join(f.base,n,'data'),f.root),/UNSAFE_STORAGE/);

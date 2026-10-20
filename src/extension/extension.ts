@@ -51,24 +51,24 @@ function logsRoot(path: string | undefined): string {
  return path;
 }
 let stop: (() => void) | undefined;
-// What Copy Diagnostics may report: fixed states only. Kept outside runCyclegauge so the command also works after a failed start.
+// What Copy Diagnostics may report: fixed states only. Kept outside runBobert so the command also works after a failed start.
 const gaugeState: { gauge: 'starting' | 'running' | 'failed_to_start'; diagnostics?: () => DiagnosticsInput; config?: Pick<DiagnosticsInput, 'storage' | 'source' | 'timezone'> } = { gauge: 'starting' };
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
- await runCyclegauge(context);
+ await runBobert(context);
 }
 // Builds the reviewable plain-text report in memory (fixed codes, counts and versions only); one function serves Copy Diagnostics and Report a Problem.
 function diagnosticsText(): string {
  return formatDiagnostics(buildDiagnostics({ ...gaugeState.config, ...gaugeState.diagnostics?.(), ...runtimeFacts(), surface: 'extension', gauge: gaugeState.gauge,
   editor: vscode.env.appName, editorVersion: vscode.version, audit: true, rejectedMessages, sessionHints: sessionHints?.code() ?? 'not_run', sessionHintNotices: sessionHints?.notices() ?? 0, sessionHintCapped: sessionHints?.capped() ?? 0 }));
 }
-// Opens the report as an unsaved document and copies it; Cyclegauge writes nothing to disk.
+// Opens the report as an unsaved document and copies it; Bobert writes nothing to disk.
 async function showAndCopyDiagnostics(): Promise<void> {
  const text = diagnosticsText();
  const document = await vscode.workspace.openTextDocument({ content: text, language: 'plaintext' });
  await vscode.window.showTextDocument(document);
  await vscode.env.clipboard.writeText(text);
 }
-// Cyclegauge's own fixed-text error notification with a Report a problem button. Not awaited: the notification resolves only when dismissed.
+// Bobert's own fixed-text error notification with a Report a problem button. Not awaited: the notification resolves only when dismissed.
 // The diagnostics failure messages deliberately offer no button, so a failing report can never loop back into itself.
 const REPORT_HINT = 'You can report it with the button below.';
 function showReportableError(text: string): void {
@@ -98,14 +98,14 @@ function registerDiagnostics(context: vscode.ExtensionContext): void {
  try { context.subscriptions.push(registerCommand((id, f) => vscode.commands.registerCommand(id, f), 'reportProblem', guardDashboardCommand(report))); } catch { /* A failing registration must not affect the rest of the extension. */ }
 }
 // The audit runs when the user invokes the command, or from the reminder: a prompt once per window when the workspace has never been
-// audited or is due again (reminderDays), and, only if the user set cyclegauge.auditAutomatically in their own user settings, a silent
-// re-run of the same audit when it is at least a day old (and, in onOpenAndChanges, after matching files appear). Cyclegauge itself writes no file and no setting: Accept only prepares an
+// audited or is due again (reminderDays), and, only if the user set bobert.auditAutomatically in their own user settings, a silent
+// re-run of the same audit when it is at least a day old (and, in onOpenAndChanges, after matching files appear). Bobert itself writes no file and no setting: Accept only prepares an
 // unsaved edit, and the only things persisted are, in the editor's per-workspace state, the salted-hash list of ignored findings
 // and, for the reminder, the UTC date of the last audit, a snooze date and a "never remind" flag. No path is ever stored.
-const DISMISSED_KEY = 'cyclegauge.audit.dismissed.v1';
-const LAST_KEY = 'cyclegauge.audit.last.v1';
-const SNOOZE_KEY = 'cyclegauge.audit.snoozeUntil.v1';
-const NEVER_KEY = 'cyclegauge.audit.neverRemind.v1';
+const DISMISSED_KEY = 'bobert.audit.dismissed.v1';
+const LAST_KEY = 'bobert.audit.last.v1';
+const SNOOZE_KEY = 'bobert.audit.snoozeUntil.v1';
+const NEVER_KEY = 'bobert.audit.neverRemind.v1';
 const REMINDER_DELAY_MS = 30_000;
 const MANAGE_TRUST = 'Manage Workspace Trust';
 const RECHECK_DELAY_MS = 1_000; // coalesces a burst of saves or setting changes into one re-check
@@ -123,7 +123,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  let userCancelled = false; // the user dismissed the folder picker or cancelled the progress notification of the current manual audit: no review then
  let configReview: ReturnType<typeof registerConfigReview> = { nodes: () => [], summary: () => configSummary(), run: async () => undefined }; // replaced when the review registers
  const accepted = new Set<string>();
- // Files in which Cyclegauge prepared an edit that is still unsaved (memory only): marks the items, counts in the status line and starts a re-check after a save.
+ // Files in which Bobert prepared an edit that is still unsaved (memory only): marks the items, counts in the status line and starts a re-check after a save.
  const prepared = createPreparedFiles(vscode);
  context.subscriptions.push({ dispose: () => prepared.dispose() });
  // A save must match the prepared edit, or contain every suggested line copied from the auto-save proposal. In memory only.
@@ -201,7 +201,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
  // `silent` is the opt-in automatic re-run: same guards and limits, but no messages, no picker and no progress notification.
  // `recheckOf` pins a silent re-check to the folder already checked and keeps its prepared, unsaved Exclude edit.
  const auditOnce = async (silent = false, signal?: AbortSignal, recheckOf?: string): Promise<AuditResult | undefined> => {
-  if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) { if (await vscode.window.showWarningMessage('Cyclegauge audits only trusted workspaces.', MANAGE_TRUST) === MANAGE_TRUST) await vscode.commands.executeCommand('workbench.trust.manage'); } return; }
+  if (!vscode.workspace.isTrusted) { refused = true; summaryChanged(); if (!silent) { if (await vscode.window.showWarningMessage('Bobert audits only trusted workspaces.', MANAGE_TRUST) === MANAGE_TRUST) await vscode.commands.executeCommand('workbench.trust.manage'); } return; }
   const folders = (vscode.workspace.workspaceFolders ?? []).filter(f => f.uri.scheme === 'file');
   if (folders.length === 0) { refused = true; summaryChanged(); if (!silent) await vscode.window.showInformationMessage('Open a local folder to audit.'); return; }
   let folder: vscode.WorkspaceFolder | undefined = recheckOf === undefined ? folders[0] : folders.find(f => f.uri.fsPath === recheckOf);
@@ -280,7 +280,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   if (!applied || after === current) { notify(APPLY_TEXT.discarded); return; }
   pendingSave = { path, text: after, accepted: aggregate };
   await vscode.window.showTextDocument(document);
-  // A saved .kiroignore has no effect while Agent Ignore Files does not list it: say so, and offer the setting (Cyclegauge never writes it).
+  // A saved .kiroignore has no effect while Agent Ignore Files does not list it: say so, and offer the setting (Bobert never writes it).
   if (result && ignoreNotEffective(result)) {
    void Promise.resolve(vscode.window.showInformationMessage(`${preparedText(1)} ${IGNORE_USE_NOTE}`, OPEN_SETTING))
     .then(choice => choice === OPEN_SETTING ? vscode.commands.executeCommand('workbench.action.openSettings', 'kiroAgent.agentIgnoreFiles') : undefined).catch(() => undefined);
@@ -350,7 +350,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
     else if (await vscode.window.showInformationMessage(message, 'Copy suggestions') === 'Copy suggestions') await vscode.env.clipboard.writeText(snippet(visible().filter(f => f.suggestion !== '')));
     return;
    }
-   let text = 'Cyclegauge can check this workspace for files that may end up in Kiro\'s context.', never = "Don't ask again";
+   let text = 'Bobert can check this workspace for files that may end up in Kiro\'s context.', never = "Don't ask again";
    // The walkthrough was just opened in this window and offers the same audit: the prompt waits for the next window (nothing is stored).
    if (due === 'first' && walkthroughOpenedNow) return;
    if (due === 'first') await store(SNOOZE_KEY, addDays(today, days)); // shown at most once per reminder period
@@ -510,7 +510,7 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
 // Community prompts: a share command, one support prompt per window once the user has seen value, and a one-time note outside Kiro.
 // State is bounded dates and flags in the editor's global state, never workspace data. Every failure is swallowed: nothing here may affect the gauge,
 // the collector, the Store or the audit, and nothing is sent anywhere (links open only when the user clicks a button).
-// "Your Cyclegauge summary": the saved-Exclude aggregates, per observed billing cycle, in the editor's global state under one versioned key.
+// "Your Bobert summary": the saved-Exclude aggregates, per observed billing cycle, in the editor's global state under one versioned key.
 // It holds bounded numbers and a billing reset time, never a path or identifier, and is not registered for Settings Sync. Reads and writes
 // are fail-silent; a value of an unknown shape is shown as unknown and never overwritten (the explicit reset clears it).
 interface ResultsLink { summary(): StoredResults; record(accepted: ExclusionAggregate): void }
@@ -555,13 +555,13 @@ function registerRecap(context: vscode.ExtensionContext): RecapLink {
  };
  return { state: read, shown(cycle) { void write(cycle, 'shown'); }, dismiss: cycle => write(cycle, 'dismissed') };
 }
-const SUPPORT_FIRST_KEY = 'cyclegauge.support.firstSeen.v1';
-const SUPPORT_NEXT_KEY = 'cyclegauge.support.next.v1';
-const SUPPORT_NEVER_KEY = 'cyclegauge.support.never.v1';
-const SUPPORT_VALUE_KEY = 'cyclegauge.support.valueSeen.v1';
-const SUPPORT_DETAIL_KEY = 'cyclegauge.support.detailDays.v1';
-const SUPPORT_ADVISOR_KEY = 'cyclegauge.support.advisorUsed.v1';
-const NOT_KIRO_KEY = 'cyclegauge.notKiro.shown.v1';
+const SUPPORT_FIRST_KEY = 'bobert.support.firstSeen.v1';
+const SUPPORT_NEXT_KEY = 'bobert.support.next.v1';
+const SUPPORT_NEVER_KEY = 'bobert.support.never.v1';
+const SUPPORT_VALUE_KEY = 'bobert.support.valueSeen.v1';
+const SUPPORT_DETAIL_KEY = 'bobert.support.detailDays.v1';
+const SUPPORT_ADVISOR_KEY = 'bobert.support.advisorUsed.v1';
+const NOT_KIRO_KEY = 'bobert.notKiro.shown.v1';
 const SUPPORT_DELAY_MS = 180_000;
 const inKiro = (): boolean => { try { return isKiroEditor(vscode.env.appName, vscode.env.uriScheme); } catch { return false; } };
 interface SupportLink extends SupportGate { valueSeen(): void; detailOpened(): void; advisorUsed(): void; auditSaved(): void; absent(): void; pause(): void }
@@ -573,7 +573,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
  let strongPending = false;
  // Explicit opt-in, isolated synthetic demo only. Never changes snoozes or the other prompt gates.
  const demoBase = join(homedir(), '..');
- const demo = basename(demoBase).startsWith('synthetic-cyclegauge-demo-') && inside(context.globalStorageUri.fsPath, join(demoBase, 'user-data')) && process.env.CYCLEGAUGE_SYNTHETIC_SOURCE === join(demoBase, 'source') && process.env.CYCLEGAUGE_SYNTHETIC_SUPPORT_TEST === '1' && process.env.CYCLEGAUGE_SYNTHETIC_SOURCE === readSetting((prefix, key) => vscode.workspace.getConfiguration(prefix).get<string>(key), 'sourceRoot');
+ const demo = basename(demoBase).startsWith('synthetic-bobert-demo-') && inside(context.globalStorageUri.fsPath, join(demoBase, 'user-data')) && process.env.BOBERT_SYNTHETIC_SOURCE === join(demoBase, 'source') && process.env.BOBERT_SYNTHETIC_SUPPORT_TEST === '1' && process.env.BOBERT_SYNTHETIC_SOURCE === readSetting((prefix, key) => vscode.workspace.getConfiguration(prefix).get<string>(key), 'sourceRoot');
  const firstDate = () => demo ? addDays(utcDate(new Date()), -1) : stored(SUPPORT_FIRST_KEY);
  const stored = (key: string): unknown => { try { return context.globalState.get<unknown>(key); } catch { return undefined; } };
  // True only when the write succeeded: a prompt whose "shown" mark cannot be saved is not shown, so a failing state cannot repeat it every window.
@@ -588,7 +588,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
    void Promise.resolve(vscode.window.showInformationMessage('Link copied — thanks for sharing!')).catch(() => undefined);
   } catch { try { showReportableError('The link could not be copied.'); } catch { /* nothing more to report */ } }
  }));
- // Clears support state, including the legacy never flag, for compatibility with existing opt-outs.
+ // Clears support state, including the older never flag if present.
  register('support.reset', async () => {
   for (const key of [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, RESULTS_KEY, RECAP_KEY, CONFIG_OFFER_KEY]) await store(key, undefined);
   seen = false; strongPending = false; if (strongTimer) clearTimeout(strongTimer);
@@ -609,7 +609,7 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
     if (!(await store(SUPPORT_NEXT_KEY, addDays(today, SNOOZE_DAYS)))) return; // a prompt left open or closed with the window is not repeated for a while
     if (disposed) return;
     shown = true;
-    try { choice = await vscode.window.showInformationMessage('Finding Cyclegauge useful? Rate it or support development. You can turn these off in Settings › Cyclegauge › Support Prompts.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
+    try { choice = await vscode.window.showInformationMessage('Finding Bobert useful? Rate it or support development. You can turn these off in Settings › Bobert › Support Prompts.', 'Rate', 'Support', 'Later') as SupportChoice | undefined; }
     finally { lastPromptAt = Date.now(); }
    } finally { promptOpen = false; }
    if (disposed) return;
@@ -669,8 +669,8 @@ function registerSupport(context: vscode.ExtensionContext): SupportLink {
 // First-minute walkthrough: a command to open it and, once, an automatic open for new users inside Kiro (never in extension tests). The only state is one
 // global-state key, written before the walkthrough opens; no write means no open. Existing users (first-use date already stored) just get the key. The reads happen
 // synchronously, before the support prompts store their own first-use date. Every failure is swallowed (the editor may not support walkthroughs): nothing here may affect the gauge.
-const WALKTHROUGH_KEY = 'cyclegauge.walkthrough.shown.v1';
-const WALKTHROUGH_ID = 'StefanSuess.cyclegauge#cyclegauge.gettingStarted';
+const WALKTHROUGH_KEY = 'bobert.walkthrough.shown.v1';
+const WALKTHROUGH_ID = 'StefanSuess.bobert#bobert.gettingStarted';
 // True once this window opened the walkthrough by itself; the first-time audit prompt then waits for a later window.
 let walkthroughOpenedNow = false;
 function registerWalkthrough(context: vscode.ExtensionContext): void {
@@ -679,8 +679,8 @@ function registerWalkthrough(context: vscode.ExtensionContext): void {
  let existing: boolean;
  try {
   if (!inKiro() || (vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test) || context.globalState.get<unknown>(WALKTHROUGH_KEY) !== undefined) return;
-  // Any earlier Cyclegauge state marks an existing user, as does a user who turned the support prompts off (they asked for fewer unsolicited views).
-  const earlier = [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, NOT_KIRO_KEY, 'cyclegauge.budgetWarning.v1'];
+  // Any earlier Bobert state marks an existing user, as does a user who turned the support prompts off (they asked for fewer unsolicited views).
+  const earlier = [SUPPORT_FIRST_KEY, SUPPORT_NEXT_KEY, SUPPORT_NEVER_KEY, SUPPORT_VALUE_KEY, SUPPORT_DETAIL_KEY, SUPPORT_ADVISOR_KEY, NOT_KIRO_KEY, 'bobert.budgetWarning.v1'];
   existing = earlier.some(key => context.globalState.get<unknown>(key) !== undefined)
    || !readSupportPrompts((prefix, key) => vscode.workspace.getConfiguration(prefix).get<unknown>(key));
  } catch { return; }
@@ -693,7 +693,7 @@ function registerWalkthrough(context: vscode.ExtensionContext): void {
 }
 // Budget warning: at most one notice per window, in Kiro only and never in the extension tests. The cycle and the kinds already shown are the only
 // state (one global-state key); it is written before the notice is shown, and a failed write means no notice. Every failure is swallowed.
-const BUDGET_KEY = 'cyclegauge.budgetWarning.v1';
+const BUDGET_KEY = 'bobert.budgetWarning.v1';
 const TURN_OFF_BUDGET = 'Turn off budget notices'; // turns off every kind of budget notice, the right-sizing tip included
 interface BudgetLink { evaluate(observation: ReturnType<typeof view>, eligible: boolean, now: string, insights: PlanInsights): void }
 function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void): BudgetLink {
@@ -725,7 +725,7 @@ function registerBudget(context: vscode.ExtensionContext, beforeShow: () => void
   },
  };
 }
-async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
+async function runBobert(context: vscode.ExtensionContext): Promise<void> {
  gaugeState.gauge = 'starting'; gaugeState.diagnostics = undefined; gaugeState.config = undefined; walkthroughOpenedNow = false;
  try { await startGauge(context); } catch (e) { gaugeState.gauge = 'failed_to_start'; throw e; }
 }
@@ -744,13 +744,13 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
  const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
- item.name = 'Cyclegauge credit budget';
+ item.name = 'Bobert credit budget';
  item.command = commandId('showUsage');
  item.text = '$(sync~spin) Kiro: Collecting data';
  item.show();
  // The five command links remain available if the enhanced webview script does not run.
  const advisorItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
- advisorItem.name = 'Cyclegauge Cost Advisor';
+ advisorItem.name = 'Bobert Cost Advisor';
  advisorItem.text = '$(lightbulb) Cost Advisor';
  advisorItem.tooltip = 'Confirm your plan and compare costs';
  advisorItem.command = commandId('costAdvisor');
@@ -765,7 +765,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  const chosenStorage = setting('storageRoot');
  const storage = chosenStorage || context.globalStorageUri.fsPath;
  const timezone = setting('sourceTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
- // The recap image and the CSV are written only through the save dialog, outside Cyclegauge storage and every Kiro folder (re-read at each save).
+ // The recap image and the CSV are written only through the save dialog, outside Bobert storage and every Kiro folder (re-read at each save).
  const saving: SaveDeps = {
   async dialog(defaultPath, filter) {
    const uri = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(defaultPath), filters: { [filter.name]: [filter.extension] }, saveLabel: 'Save', title: 'Save a file you can share' });
@@ -836,7 +836,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  } catch {
   gaugeState.gauge = 'failed_to_start';
   item.text = '$(warning) Kiro: Unavailable';
-  item.tooltip = 'Cyclegauge could not start. Click to report a problem.';
+  item.tooltip = 'Bobert could not start. Click to report a problem.';
   item.command = commandId('reportProblem');
   context.subscriptions.push(...disposables);
  }

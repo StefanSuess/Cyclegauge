@@ -12,25 +12,25 @@ type FolderCheck = (folder: vscode.WorkspaceFolder) => { chosen: string; resolve
 /** What the review may know about the support prompt: whether one is open or was closed recently, and that the offer is showing. */
 export interface SupportGate { promptOpen(): boolean; lastPromptAt(): number | undefined; offerOpen(open: boolean): void }
 interface Timers { now(): number; set(fn: () => void, ms: number): unknown; clear(handle: unknown): void }
-/** Cyclegauge's own fixed-text error notification with a Report a problem button, supplied by the extension. */
+/** Bobert's own fixed-text error notification with a Report a problem button, supplied by the extension. */
 interface Options { reviewer?: ReturnType<typeof createConfigReviewer>; support?: SupportGate; timers?: Timers; platform?: NodeJS.Platform; reportError?: (text: string) => void; prepared?: PreparedFiles }
 /** `nodes` are the top-level groups of the review (Load only when needed, Run only manually, Worth a look, Not checked); `summary` is what the combined status line may say. */
 export interface ConfigReviewLink { nodes(): ConfigNode[]; summary(): ConfigSummary; run(): Promise<void> }
 /**
- * Starts the manual review next to a manual (user-initiated) workspace audit: exactly the run `cyclegauge.reviewKiroConfig` performs, with the same guards,
+ * Starts the manual review next to a manual (user-initiated) workspace audit: exactly the run `bobert.reviewKiroConfig` performs, with the same guards,
  * bounded reads and manual-run semantics. Not awaited and never throwing, so neither the audit nor the review can block or hide the other's result.
  */
 export function startManualReview(link: Pick<ConfigReviewLink, 'run'>): void {
  try { void Promise.resolve(link.run()).catch(() => undefined); } catch { /* the audit result never depends on the review */ }
 }
 // The approved boolean (design question 11): set when the enable offer is shown, so it appears once ever. It holds no data.
-export const CONFIG_OFFER_KEY = 'cyclegauge.configReview.offered.v1';
+export const CONFIG_OFFER_KEY = 'bobert.configReview.offered.v1';
 export const CONFIG_OFFER_TEXT = 'Check Kiro Steering and Hooks automatically in trusted workspaces you open, and when those files change?';
-export const CONFIG_NOTICE_TEXT = 'Cyclegauge found things to review in your Kiro Steering and Hooks.';
+export const CONFIG_NOTICE_TEXT = 'Bobert found things to review in your Kiro Steering and Hooks.';
 const SETTING = 'configReviewAutomatically';
 const defaultTimers: Timers = { now: Date.now, set(fn, ms) { const t = setTimeout(fn, ms); t.unref?.(); return t; }, clear(handle) { clearTimeout(handle as ReturnType<typeof setTimeout>); } };
 // The review owns its result, cancellation and refresh, and never touches audit state. Registering it resolves or reads no folder
-// unless the user turned on cyclegauge.configReviewAutomatically; then it has its own scheduler and narrow watcher (design 4.1).
+// unless the user turned on bobert.configReviewAutomatically; then it has its own scheduler and narrow watcher (design 4.1).
 // The editor is injected so native command wiring can be tested with a minimal editor and synthetic roots.
 export function registerConfigReview(context: vscode.ExtensionContext, editor: typeof vscode, folderCheck: FolderCheck, refresh: () => void, options: Options = {}): ConfigReviewLink {
  const reviewer = options.reviewer ?? createConfigReviewer(), timers = options.timers ?? defaultTimers;
@@ -162,7 +162,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
    } finally { options.support?.offerOpen(false); }
   } catch { /* fixed and silent */ } finally { offering = false; }
  };
- // `quiet` is the re-check after the user saved a file Cyclegauge prepared: the same run, without taking focus or making the one-time offer.
+ // `quiet` is the re-check after the user saved a file Bobert prepared: the same run, without taking focus or making the one-time offer.
  const review = async (quiet: boolean): Promise<void> => {
   if (disposed) return;
   if (running) { if (quiet) followUp = true; return; } // a save during a running review is answered by exactly one more quiet review
@@ -187,7 +187,7 @@ export function registerConfigReview(context: vscode.ExtensionContext, editor: t
   if (shown && !quiet) void offer();
  };
  const run = (): Promise<void> => review(false);
- // Saving a Steering or Hook file Cyclegauge prepared starts one manual-equivalent review (single-flight, never counted toward the automatic cap). Nothing else triggers it.
+ // Saving a Steering or Hook file Bobert prepared starts one manual-equivalent review (single-flight, never counted toward the automatic cap). Nothing else triggers it.
  const reviewAfterSave = (path: string): void => {
   if (disposed || !drawn || !editor.workspace.isTrusted) return;
   const hit = drawn.paths.some(root => {

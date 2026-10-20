@@ -32,10 +32,10 @@ are not a guarantee about every installer. You can also omit `--open` to prepare
 
 | Check | Expected on macOS/Linux |
 | --- | --- |
-| Run **Cyclegauge: Show Credit Budget**; click the budget status bar item | Both open **Your credit budget**, with a usage chart |
+| Run **Bobert: Show Credit Budget**; click the budget status bar item | Both open **Your credit budget**, with a usage chart |
 | Compare with the numbers printed by setup | Limit **5000**, matching used/remaining credits, a fresh observation and next UTC-month reset |
 | Read the forecast | **Regular** estimate; invented consumption is **20 credits/day** |
-| Run **Cyclegauge: Open Cost Advisor**; select **Pro Max → Personal subscription (consumer) → No purchased add-on credits** | A conditional, modelled pre-tax USD comparison; expandable details, no guaranteed savings claim |
+| Run **Bobert: Open Cost Advisor**; select **Pro Max → Personal subscription (consumer) → No purchased add-on credits** | A conditional, modelled pre-tax USD comparison; expandable details, no guaranteed savings claim |
 | Cancel an Advisor question, then **Clear my answers**, then **Developer: Reload Window** | Cancel preserves answers; clear/reload removes them; usage/history stays unchanged |
 
 **Windows:** the same checks apply. The demo's chosen storage folder is verified with an owner-only permission
@@ -51,7 +51,7 @@ checklist tests the installed plugin itself. A supplied VSIX may behave differen
 Run setup again for a fresh demo; each run creates a new folder and observations go stale after 24 hours.
 To reopen an existing demo, use the printed `node ".../open-demo.mjs"` command. For a custom installation, append
 the IDE executable path to that command. Close the demo window, then delete **only the printed
-`synthetic-cyclegauge-demo-*` folder** when finished. Do not delete your normal Kiro or Cyclegauge storage.
+`synthetic-bobert-demo-*` folder** when finished. Do not delete your normal Kiro or Bobert storage.
 
 All data is invented. UTC timestamps preserve the cycle reset and provide pooled history even at the start of a
 month. `synthetic-anchor.txt` records generation time. No derived statistics are inserted into the store. The

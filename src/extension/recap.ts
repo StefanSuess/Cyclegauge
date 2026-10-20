@@ -6,11 +6,11 @@ import { date, updated } from './labels.ts';
 
 // "Your Kiro cycle": the recap of the cycle that has just ended, from account history evidence only. Pure and free of editor APIs.
 // Every figure carries what it is based on, and a figure the evidence does not support reads "not observed", "not comparable" or "unknown";
-// nothing is interpolated or invented. The only persisted value is `cyclegauge.recap.v1`: the newly observed cycle's reset time and whether
+// nothing is interpolated or invented. The only persisted value is `bobert.recap.v1`: the newly observed cycle's reset time and whether
 // the card was shown or dismissed. A value of any other shape is "unknown": the card stays hidden and the value is never overwritten.
-export const RECAP_KEY = 'cyclegauge.recap.v1';
+export const RECAP_KEY = 'bobert.recap.v1';
 export const RECAP_TITLE = 'Your Kiro cycle';
-export const RECAP_LINK_TEXT = 'Cyclegauge for Kiro IDE: https://open-vsx.org/extension/StefanSuess/cyclegauge';
+export const RECAP_LINK_TEXT = 'Bobert: https://open-vsx.org/extension/StefanSuess/bobert';
 export const LASTED_HOURS = 6;
 
 export interface RecapState { cycle: string; state: 'shown' | 'dismissed' }
@@ -57,7 +57,7 @@ export function computeRecap(h: AccountHistory, results: StoredResults, link: bo
 
  const lines = [used, lasted, trendLine(h, chain.at(-1)!.usage, previous.startAt, last.at), exclusionLine(results, previousKey), busiestLine(h, previous.resetAt, previous.startAt, last.at)];
  if (link) lines.push(RECAP_LINK_TEXT);
- return { cycle: key, period: `Cycle that ended ${date(previous.resetAt, true)} (UTC). Figures come from the account updates Cyclegauge observed; it is not a bill.`, lines };
+ return { cycle: key, period: `Cycle that ended ${date(previous.resetAt, true)} (UTC). Figures come from the account updates Bobert observed; it is not a bill.`, lines };
 }
 
 // Average credits per day over the observed part of each cycle (its evidence-backed start to its last observation), compared exactly.

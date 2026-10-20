@@ -68,7 +68,7 @@ export class Store {
  private prepareSchema(migrations: readonly Migration[]): void {
   const target = 1 + migrations.length;
   const tables = new Set(this.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name as string));
-  // Fresh only when the file has no schema objects at all (an empty file); anything else must be a valid Cyclegauge store.
+  // Fresh only when the file has no schema objects at all (an empty file); anything else must be a valid Bobert store.
   if ((this.db.prepare('SELECT count(*) AS n FROM sqlite_master').get() as { n: number }).n === 0) {
    this.db.exec(`CREATE TABLE meta(version INTEGER NOT NULL);
     CREATE TABLE snapshots(key TEXT PRIMARY KEY, partition TEXT NOT NULL, associated INTEGER NOT NULL, observed TEXT NOT NULL, body TEXT NOT NULL, ingested TEXT NOT NULL);

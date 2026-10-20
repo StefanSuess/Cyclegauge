@@ -29,7 +29,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 2. [agent] Wait for green CI on that exact `main` commit (all required checks, including the candidate and attestation jobs). A green run for an earlier commit is insufficient. Do not merge anything else until the release is done.
 
 **F. Native acceptance of the exact CI candidate**
-1. [maintainer] Download the `release-candidate` artifact of that CI run and compare the SHA-256 of `cyclegauge-v<version>-<sha12>-candidate.vsix` (`<sha12>` = first 12 characters of the CI run's commit) with the CI summary.
+1. [maintainer] Download the `release-candidate` artifact of that CI run and compare the SHA-256 of `bobert-v<version>-<sha12>-candidate.vsix` (`<sha12>` = first 12 characters of the CI run's commit) with the CI summary.
 2. [maintainer] Run macOS acceptance sections A, B, D and E ([macos-acceptance.md](macos-acceptance.md)); they are mandatory.
 3. [maintainer] When the release names Windows or Ubuntu, smoke-test the same VSIX in native Kiro on each; this is required before a release that names Windows or Ubuntu (until itemised checklists exist, issue #61). Record Kiro and OS versions.
 
@@ -38,7 +38,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 2. [maintainer] Dispatch `dry_run = false`, re-read the preflight summary and release notes, then approve the `release` deployment.
 
 **H. After publishing**
-1. [maintainer/agent] Verify the Open VSX listing and version, tag `vX.Y.Z`, and the GitHub release (pre-release for an odd minor, stable for an even minor) with its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`).
+1. [maintainer/agent] Verify the Open VSX listing and version, tag `vX.Y.Z`, and the GitHub release (pre-release for an odd minor, stable for an even minor) with its two assets (`bobert-vX.Y.Z.vsix`, `SHA256SUMS.txt`).
 2. [maintainer] Install from Open VSX in Kiro and run acceptance section C.
 3. [agent] After the release, record the evidence (version, SHA-256, CI run, Kiro and OS versions) in [platform-verification.md](platform-verification.md) via a pull request.
 4. [maintainer] Do not edit published notes or assets. A correction is a higher patch version.
@@ -52,7 +52,7 @@ Follow this every time. `X.Y.Z` is the version being released. **[agent]** steps
 
 ## What the workflow does
 
-CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The artifact's VSIX is named `cyclegauge-v<version>-<sha12>-candidate.vsix`; the release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation (the preflight renames it to `cyclegauge-v<version>.vsix` without changing its bytes; the published assets are unchanged), derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub release. The pre-release flag (VSIX, Open VSX, GitHub) follows the version's channel and a mismatch fails closed. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
+CI builds the candidate once, verifies it (content allowlist, rebuild payload comparison, host checks), and attests its exact VSIX bytes only on trusted `main`. The artifact's VSIX is named `bobert-v<version>-<sha12>-candidate.vsix`; the release workflow selects the newest successful CI candidate for the current `main` head by artifact ID, re-verifies the VSIX and its attestation (the preflight renames it to `bobert-v<version>.vsix` without changing its bytes; the published assets are unchanged), derives release notes from `CHANGELOG.md`, checks Open VSX, tag and GitHub release state read-only, and (live only) publishes after environment approval, then tags, drafts, uploads and publishes the GitHub release. The pre-release flag (VSIX, Open VSX, GitHub) follows the version's channel and a mismatch fails closed. It is create-only and fails closed on any mismatch; a rerun resumes a partial state.
 
 ## What you must do manually
 
@@ -79,7 +79,7 @@ The PAT worked for the earlier manual publish. You may reuse that token or creat
 3. Dispatch with `auth_mode = pat`. Revoke or rotate the token afterwards if you do not need it.
 
 ### 4b. Trusted Publishing (OIDC), optional
-Only after the namespace is verified and Open VSX offers Trusted Publisher registration for it: register repository `StefanSuess/Cyclegauge`, workflow path `.github/workflows/release.yml`, environment `release`. Registration steps and server support are controlled by Open VSX and were **not verified** here; the pinned `ovsx@1.2.0` CLI does expose `--trusted-publishing`. Until registered, use PAT mode; an unregistered OIDC run fails at publish time (nothing is published).
+Only after the namespace is verified and Open VSX offers Trusted Publisher registration for it: register repository `StefanSuess/Bobert`, workflow path `.github/workflows/release.yml`, environment `release`. Registration steps and server support are controlled by Open VSX and were **not verified** here; the pinned `ovsx@1.2.0` CLI does expose `--trusted-publishing`. Until registered, use PAT mode; an unregistered OIDC run fails at publish time (nothing is published).
 
 ### 5. Verify readiness before each dry run
 1. `package.json` is `X.Y.Z` and the `## X.Y.Z (...)` section in `CHANGELOG.md` is nonempty (the release-preparation PR is merged). Review those notes against the exact final candidate.
@@ -101,7 +101,7 @@ Only after the namespace is verified and Open VSX offers Trusted Publisher regis
 5. [ ] Native macOS acceptance of that VSIX: [macos-acceptance.md](macos-acceptance.md) sections A, B, D, E; smoke test on Windows and Ubuntu when the release names them.
 6. [ ] Dispatch `dry_run = false` with the chosen auth mode.
 7. [ ] In the run, re-read the preflight summary (same commit and SHA-256 as the dry run) and the release notes, then approve the `release` deployment.
-8. [ ] After success: check Open VSX listing/version, tag `vX.Y.Z`, the GitHub release (pre-release or stable per channel) and its two assets (`cyclegauge-vX.Y.Z.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section C.
+8. [ ] After success: check Open VSX listing/version, tag `vX.Y.Z`, the GitHub release (pre-release or stable per channel) and its two assets (`bobert-vX.Y.Z.vsix`, `SHA256SUMS.txt`); install from Open VSX in Kiro and run acceptance section C.
 9. [ ] Revoke or rotate the PAT if it is no longer needed.
 
 ## Failure handling

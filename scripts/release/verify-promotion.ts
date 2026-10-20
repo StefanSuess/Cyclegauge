@@ -80,7 +80,7 @@ function run(): void {
   const notes = buildReleaseNotes({ changelog, version, commit, sha256: result.sha256 });
 
   mkdirSync(bundleDir);
-  const assetName = `cyclegauge-v${version}.vsix`;
+  const assetName = `bobert-v${version}.vsix`;
   copyFileSync(vsixPath, join(bundleDir, assetName), constants.COPYFILE_EXCL);
   writeFileSync(join(bundleDir, 'SHA256SUMS.txt'), `${result.sha256}  ${assetName}\n`, { encoding: 'utf8', flag: 'wx' });
   writeFileSync(join(bundleDir, 'release-notes.md'), notes, { encoding: 'utf8', flag: 'wx' });
@@ -97,7 +97,7 @@ function run(): void {
     candidateFileName: candidateName,
     vsixAssetName: assetName,
     checksumAssetName: 'SHA256SUMS.txt',
-    releaseName: `Cyclegauge v${version}`,
+    releaseName: `Bobert v${version}`,
   }, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
 
   appendOutput('VSIX_SHA256', result.sha256);

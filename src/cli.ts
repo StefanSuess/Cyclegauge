@@ -4,7 +4,7 @@ import { collect } from './collector.ts';
 import { view } from './view.ts';
 import { defaultSource, defaultStorage } from './paths.ts';
 import { buildDiagnostics, formatDiagnostics, runtimeFacts, snapshotFacts, storeStateFor, type DiagnosticsInput } from './diagnostics.ts';
-const help = `Cyclegauge for Kiro IDE — local observed CREDIT usage (Node.js 24.13+)
+const help = `Bobert: Kiro Credit Tracker — local observed CREDIT usage (Node.js 24.13+)
 Usage: node --disable-warning=ExperimentalWarning src/cli.ts [options]
   --source-root <directory>     Kiro IDE data root; reads allowlisted logs only
   --source-timezone <IANA>      Required for offset-free log timestamps
@@ -12,7 +12,7 @@ Usage: node --disable-warning=ExperimentalWarning src/cli.ts [options]
   --max-age-hours <hours>       Freshness threshold (default 24)
   --json                       Billing fields and quality; no identity/source keys
   --diagnostics                Fixed codes and counts only, safe to paste into an issue
-                               (performs a normal import into Cyclegauge's own store)
+                               (performs a normal import into Bobert's own store)
   --help
 No Kiro commands, authenticated requests, session aggregation or cache reads.
 Remaining base credits are observed limit minus observed usage, clamped at zero.

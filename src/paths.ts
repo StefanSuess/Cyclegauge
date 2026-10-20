@@ -46,9 +46,9 @@ export function defaultSource(): string {
  return join(absoluteEnv('XDG_CONFIG_HOME') ?? join(homedir(), '.config'), 'Kiro');
 }
 export function defaultStorage(): string {
- if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Cyclegauge');
- if (process.platform === 'win32') return join(absoluteEnv('LOCALAPPDATA') ?? join(homedir(), 'AppData', 'Local'), 'Cyclegauge');
- return join(absoluteEnv('XDG_DATA_HOME') ?? join(homedir(), '.local', 'share'), 'Cyclegauge');
+ if (process.platform === 'darwin') return join(homedir(), 'Library', 'Application Support', 'Bobert');
+ if (process.platform === 'win32') return join(absoluteEnv('LOCALAPPDATA') ?? join(homedir(), 'AppData', 'Local'), 'Bobert');
+ return join(absoluteEnv('XDG_DATA_HOME') ?? join(homedir(), '.local', 'share'), 'Bobert');
 }
 function absoluteEnv(name: string): string | undefined {
  const value = process.env[name]; return value && isAbsolute(value) ? value : undefined;

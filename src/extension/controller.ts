@@ -28,9 +28,9 @@ export interface ExtensionUi {
 export interface ExtensionOptions { source: string; storage: string; profileStorage?: boolean; timezone: string; now?: () => string; maxAgeHours?: number;
  // Counts and times of the workspace check for the detail view's card; read on every render and never allowed to affect the gauge.
  auditSummary?: () => AuditSummary;
- // The validated saved-exclusion summary for "Your Cyclegauge summary"; read on every render and never allowed to affect the gauge.
+ // The validated saved-exclusion summary for "Your Bobert summary"; read on every render and never allowed to affect the gauge.
  resultsSummary?: () => StoredResults;
- // The stored recap state (`cyclegauge.recap.v1`) and whether the Open VSX text belongs on the card. Without `recapState` no card is shown.
+ // The stored recap state (`bobert.recap.v1`) and whether the Open VSX text belongs on the card. Without `recapState` no card is shown.
  recapState?: () => StoredRecap;
  recapLink?: () => boolean;
  // Called once per session and cycle when a card is first shown, and to dismiss it; both persist only through the caller's validated writer.

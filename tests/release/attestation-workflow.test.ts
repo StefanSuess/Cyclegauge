@@ -14,7 +14,7 @@ test('release preflight verifies the unchanged candidate provenance before remot
   assert.match(step, /GH_TOKEN: \$\{\{ github\.token \}\}/);
   assert.match(step, /VERSION: \$\{\{ steps\.select\.outputs\.version \}\}/);
   assert.match(step, /SOURCE_SHA: \$\{\{ steps\.select\.outputs\.source_sha \}\}/);
-  assert.match(step, /gh attestation verify "release\/promotion-bundle\/cyclegauge-v\$\{VERSION\}\.vsix"/);
+  assert.match(step, /gh attestation verify "release\/promotion-bundle\/bobert-v\$\{VERSION\}\.vsix"/);
   assert.match(step, /--repo "\$GITHUB_REPOSITORY"/);
   assert.match(step, /--signer-workflow "\$GITHUB_REPOSITORY\/\.github\/workflows\/ci\.yml"/);
   assert.match(step, /--source-ref refs\/heads\/main/);

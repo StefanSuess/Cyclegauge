@@ -1,10 +1,10 @@
 # Spend fewer Kiro credits
 
-Cyclegauge shows how fast your Kiro credits go and links here from its model hint. These are general habits for using fewer credits per task. Cyclegauge doesn't measure credits per task and never reads your prompts or conversations, so how much each habit saves depends on your work.
+Bobert shows how fast your Kiro credits go and links here from its model hint. These are general habits for using fewer credits per task. Bobert doesn't measure credits per task and never reads your prompts or conversations, so how much each habit saves depends on your work.
 
 ## Pick the model for each step
 
-Kiro charges each model at a different rate relative to **Auto**, the 1x baseline. Its model overview lists the current rates; Cyclegauge's model hint quotes them from a dated table.
+Kiro charges each model at a different rate relative to **Auto**, the 1x baseline. Its model overview lists the current rates; Bobert's model hint quotes them from a dated table.
 
 - Leave **Auto** on for routine work: small edits, renames, tests, boilerplate, explanations.
 - Switch to a stronger model only for the steps that need it, such as planning a feature, a design decision or a hard bug. Then switch back.
@@ -20,7 +20,7 @@ A plan you can check keeps the expensive part short:
 
 ## Keep sessions short and focused
 
-A long session carries more context into each request. Start a **new session** for unrelated work. Cyclegauge reminds you when the latest session is about 70 % and 85 % full.
+A long session carries more context into each request. Start a **new session** for unrelated work. Bobert reminds you when the latest session is about 70 % and 85 % full.
 
 ## Keep what Kiro always reads small
 
@@ -31,7 +31,7 @@ A long session carries more context into each request. Start a **new session** f
 ## Watch the budget, not every request
 
 - The status bar shows your daily budget and whether you are on track. A notice warns before the reported limit is reached.
-- **Cyclegauge: Show Credit Budget** shows the forecast and, past the limit, a modelled overage in dollars next to the next larger plan.
-- **Cyclegauge: Open Cost Advisor** compares plans for the next billing cycle once you confirm your plan details.
+- **Bobert: Show Credit Budget** shows the forecast and, past the limit, a modelled overage in dollars next to the next larger plan.
+- **Bobert: Open Cost Advisor** compares plans for the next billing cycle once you confirm your plan details.
 
 All dollar figures are modelled from list prices, not invoices. The model rates are Kiro's published list, and the credits an actual task uses vary.

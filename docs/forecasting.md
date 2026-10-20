@@ -10,7 +10,7 @@ Projected usage is anchored to the latest **observation**, including modeled con
 
 Daily budget divides as-of remaining reported credits by time from **now** to reset. It is an allocation, and rate-vs-budget is a qualified planning comparison. Unknown usage since the snapshot is not zero. Add-ons, total availability, monetary cost and future usage changes remain unknown. All arithmetic uses decimal strings/BigInt; calculated values are truncated to six decimals and exhaustion is displayed without an exact-time promise. Full formulas/policy and boundaries are in SPEC.md. `--json` contains billing-only `history` and `forecast` alongside existing fields; no private identity/source keys are added.
 
-No persistence migration, Kiro settings change, authenticated call or new runtime dependency is required. Install `dist/cyclegauge-<version>.vsix` using **Extensions: Install from VSIX**, then reload the window if Kiro requests it and open **Cyclegauge: Show Credit Budget**. This command only opens the local billing view.
+No persistence migration, Kiro settings change, authenticated call or new runtime dependency is required. Install `dist/bobert-<version>.vsix` using **Extensions: Install from VSIX**, then reload the window if Kiro requests it and open **Bobert: Show Credit Budget**. This command only opens the local billing view.
 
 ## Budget-first status bar and detail view (0.3.2, historical)
 

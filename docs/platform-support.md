@@ -1,6 +1,6 @@
 # Platform support and limitations
 
-Cyclegauge for Kiro IDE is an unofficial project. The table separates what has been observed from what has not.
+Bobert is an unofficial project. The table separates what has been observed from what has not.
 
 | Platform | Status |
 | --- | --- |

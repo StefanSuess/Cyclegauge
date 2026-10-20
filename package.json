@@ -1,16 +1,16 @@
 {
-  "name": "cyclegauge",
+  "name": "bobert",
   "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/StefanSuess/Cyclegauge.git"
+    "url": "https://github.com/StefanSuess/Bobert.git"
   },
   "bugs": {
-    "url": "https://github.com/StefanSuess/Cyclegauge/issues"
+    "url": "https://github.com/StefanSuess/Bobert/issues"
   },
-  "homepage": "https://github.com/StefanSuess/Cyclegauge#readme",
+  "homepage": "https://github.com/StefanSuess/Bobert#readme",
   "sponsor": {
     "url": "https://ko-fi.com/stefansuess"
   },
@@ -31,10 +31,10 @@
     "ai"
   ],
   "type": "module",
-  "displayName": "Cyclegauge for Kiro IDE",
+  "displayName": "Bobert: Kiro Credit Tracker",
   "description": "See when your Kiro credits run out, what going over would cost, and which files and hooks waste credits. Free, unofficial.",
   "publisher": "StefanSuess",
-  "icon": "assets/branding/cyclegauge-icon-256.png",
+  "icon": "assets/branding/bobert-icon-256.png",
   "main": "./dist/extension.cjs",
   "engines": {
     "vscode": "^1.90.0",
@@ -49,163 +49,163 @@
   "contributes": {
     "commands": [
       {
-        "command": "cyclegauge.showUsage",
-        "title": "Cyclegauge: Show Credit Budget"
+        "command": "bobert.showUsage",
+        "title": "Bobert: Show Credit Budget"
       },
       {
-        "command": "cyclegauge.costAdvisor",
-        "title": "Cyclegauge: Open Cost Advisor",
+        "command": "bobert.costAdvisor",
+        "title": "Bobert: Open Cost Advisor",
         "icon": "$(lightbulb)"
       },
       {
-        "command": "cyclegauge.auditWorkspace",
-        "title": "Cyclegauge: Run Workspace Audit",
+        "command": "bobert.auditWorkspace",
+        "title": "Bobert: Run Workspace Audit",
         "icon": "$(refresh)"
       },
       {
-        "command": "cyclegauge.reviewKiroConfig",
-        "title": "Cyclegauge: Review Kiro Steering and Hooks",
+        "command": "bobert.reviewKiroConfig",
+        "title": "Bobert: Review Kiro Steering and Hooks",
         "icon": "$(checklist)"
       },
       {
-        "command": "cyclegauge.config.loadWhenNeeded",
+        "command": "bobert.config.loadWhenNeeded",
         "title": "Load only when needed…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.config.loadWhenNeededAll",
+        "command": "bobert.config.loadWhenNeededAll",
         "title": "Load only when needed…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.config.narrowPattern",
+        "command": "bobert.config.narrowPattern",
         "title": "Narrow the pattern",
         "icon": "$(filter)"
       },
       {
-        "command": "cyclegauge.config.runManually",
+        "command": "bobert.config.runManually",
         "title": "Run only manually…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.config.runManuallyAll",
+        "command": "bobert.config.runManuallyAll",
         "title": "Run only manually…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.config.disable",
+        "command": "bobert.config.disable",
         "title": "Disable hook",
         "icon": "$(circle-slash)"
       },
       {
-        "command": "cyclegauge.config.open",
+        "command": "bobert.config.open",
         "title": "Show file",
         "icon": "$(go-to-file)"
       },
       {
-        "command": "cyclegauge.config.preview",
+        "command": "bobert.config.preview",
         "title": "Show suggestion",
         "icon": "$(info)"
       },
       {
-        "command": "cyclegauge.copyDiagnostics",
-        "title": "Cyclegauge: Copy Diagnostics"
+        "command": "bobert.copyDiagnostics",
+        "title": "Bobert: Copy Diagnostics"
       },
       {
-        "command": "cyclegauge.reportProblem",
-        "title": "Cyclegauge: Report a Problem"
+        "command": "bobert.reportProblem",
+        "title": "Bobert: Report a Problem"
       },
       {
-        "command": "cyclegauge.audit.accept",
+        "command": "bobert.audit.accept",
         "title": "Exclude from Kiro…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.audit.dismiss",
+        "command": "bobert.audit.dismiss",
         "title": "Hide this item",
         "icon": "$(eye-closed)"
       },
       {
-        "command": "cyclegauge.audit.reveal",
+        "command": "bobert.audit.reveal",
         "title": "Show file",
         "icon": "$(go-to-file)"
       },
       {
-        "command": "cyclegauge.audit.acceptAll",
+        "command": "bobert.audit.acceptAll",
         "title": "Exclude from Kiro…",
         "icon": "$(diff)"
       },
       {
-        "command": "cyclegauge.audit.copy",
+        "command": "bobert.audit.copy",
         "title": "Copy .kiroignore lines",
-        "category": "Cyclegauge",
+        "category": "Bobert",
         "icon": "$(copy)"
       },
       {
-        "command": "cyclegauge.audit.clearDismissed",
+        "command": "bobert.audit.clearDismissed",
         "title": "Show hidden items again",
-        "category": "Cyclegauge"
+        "category": "Bobert"
       },
       {
-        "command": "cyclegauge.audit.show",
-        "title": "Cyclegauge: Show Workspace Audit Results"
+        "command": "bobert.audit.show",
+        "title": "Bobert: Show Workspace Audit Results"
       },
       {
-        "command": "cyclegauge.audit.resetReminder",
-        "title": "Cyclegauge: Reset Workspace Audit Reminder"
+        "command": "bobert.audit.resetReminder",
+        "title": "Bobert: Reset Workspace Audit Reminder"
       },
       {
-        "command": "cyclegauge.share",
-        "title": "Cyclegauge: Copy Share Link"
+        "command": "bobert.share",
+        "title": "Bobert: Copy Share Link"
       },
       {
-        "command": "cyclegauge.support.reset",
-        "title": "Cyclegauge: Reset Reminders and Saved Summary"
+        "command": "bobert.support.reset",
+        "title": "Bobert: Reset Reminders and Saved Summary"
       },
       {
-        "command": "cyclegauge.gettingStarted",
-        "title": "Cyclegauge: Get Started"
+        "command": "bobert.gettingStarted",
+        "title": "Bobert: Get Started"
       }
     ],
     "walkthroughs": [
       {
-        "id": "cyclegauge.gettingStarted",
-        "title": "Get started with Cyclegauge",
+        "id": "bobert.gettingStarted",
+        "title": "Get started with Bobert",
         "description": "See your Kiro credits, find files Kiro doesn't need and get warned before credits run out.",
         "steps": [
           {
-            "id": "cyclegauge.gettingStarted.credits",
+            "id": "bobert.gettingStarted.credits",
             "title": "See your Kiro credits",
-            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. A forecast appears after a few days of usage; just keep working in Kiro.\n[Show credit budget](command:cyclegauge.showUsage)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge status bar item and credit budget" },
-            "completionEvents": ["onCommand:cyclegauge.showUsage"]
+            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. A forecast appears after a few days of usage; just keep working in Kiro.\n[Show credit budget](command:bobert.showUsage)",
+            "media": { "image": "assets/branding/bobert-icon-256.png", "altText": "Bobert status bar item and credit budget" },
+            "completionEvents": ["onCommand:bobert.showUsage"]
           },
           {
-            "id": "cyclegauge.gettingStarted.audit",
+            "id": "bobert.gettingStarted.audit",
             "title": "Find files Kiro doesn't need",
-            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Workspace Audit view in the Explorer" },
-            "completionEvents": ["onCommand:cyclegauge.auditWorkspace"]
+            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Run the workspace audit](command:bobert.auditWorkspace)",
+            "media": { "image": "assets/branding/bobert-icon-256.png", "altText": "Workspace Audit view in the Explorer" },
+            "completionEvents": ["onCommand:bobert.auditWorkspace"]
           },
           {
-            "id": "cyclegauge.gettingStarted.savings",
+            "id": "bobert.gettingStarted.savings",
             "title": "Find ways to use fewer credits",
-            "description": "The Cost Advisor compares Kiro plans against your usage. The Steering and Hooks review points out large always-included Steering files and hooks that start agent work automatically, which can add credits.\n[Open Cost Advisor](command:cyclegauge.costAdvisor)\n[Review Steering and Hooks](command:cyclegauge.reviewKiroConfig)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cost Advisor and Steering and Hooks review" },
-            "completionEvents": ["onCommand:cyclegauge.costAdvisor", "onCommand:cyclegauge.reviewKiroConfig"]
+            "description": "The Cost Advisor compares Kiro plans against your usage. The Steering and Hooks review points out large always-included Steering files and hooks that start agent work automatically, which can add credits.\n[Open Cost Advisor](command:bobert.costAdvisor)\n[Review Steering and Hooks](command:bobert.reviewKiroConfig)",
+            "media": { "image": "assets/branding/bobert-icon-256.png", "altText": "Cost Advisor and Steering and Hooks review" },
+            "completionEvents": ["onCommand:bobert.costAdvisor", "onCommand:bobert.reviewKiroConfig"]
           },
           {
-            "id": "cyclegauge.gettingStarted.budget",
+            "id": "bobert.gettingStarted.budget",
             "title": "Get warned before credits run out",
-            "description": "Cyclegauge can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22cyclegauge.budgetWarnings%22%5D)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Budget notice settings" },
+            "description": "Bobert can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22bobert.budgetWarnings%22%5D)",
+            "media": { "image": "assets/branding/bobert-icon-256.png", "altText": "Budget notice settings" },
             "completionEvents": ["onStepSelected"]
           },
           {
-            "id": "cyclegauge.gettingStarted.sessionHints",
+            "id": "bobert.gettingStarted.sessionHints",
             "title": "Nudges from your latest Kiro session",
-            "description": "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Session hint settings" },
+            "description": "Bobert can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22bobert.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Bobert/blob/HEAD/docs/privacy-and-storage.md)",
+            "media": { "image": "assets/branding/bobert-icon-256.png", "altText": "Session hint settings" },
             "completionEvents": ["onStepSelected"]
           }
         ]
@@ -214,39 +214,39 @@
     "views": {
       "explorer": [
         {
-          "id": "cyclegauge.auditView",
+          "id": "bobert.auditView",
           "name": "Workspace Audit"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "cyclegauge.auditView",
-        "contents": "Find files in this workspace that Kiro can read but probably doesn't need, like secrets, database dumps or build output, and Steering and Hooks that add avoidable context or credit use. Cyclegauge suggests changes; nothing changes until you save.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
+        "view": "bobert.auditView",
+        "contents": "Find files in this workspace that Kiro can read but probably doesn't need, like secrets, database dumps or build output, and Steering and Hooks that add avoidable context or credit use. Bobert suggests changes; nothing changes until you save.\n[Run the workspace audit](command:bobert.auditWorkspace)",
         "when": "workspaceFolderCount > 0 && isWorkspaceTrusted"
       },
       {
-        "view": "cyclegauge.auditView",
+        "view": "bobert.auditView",
         "contents": "Open a folder to check which of its files Kiro can read.\n[Open Folder](command:workbench.action.files.openFolder)",
         "when": "workspaceFolderCount == 0"
       },
       {
-        "view": "cyclegauge.auditView",
-        "contents": "Cyclegauge audits only trusted workspaces.\n[Manage Workspace Trust](command:workbench.trust.manage)",
+        "view": "bobert.auditView",
+        "contents": "Bobert audits only trusted workspaces.\n[Manage Workspace Trust](command:workbench.trust.manage)",
         "when": "workspaceFolderCount > 0 && !isWorkspaceTrusted"
       }
     ],
     "configuration": {
-      "title": "Cyclegauge",
+      "title": "Bobert",
       "properties": {
-        "cyclegauge.budgetWarnings": {
+        "bobert.budgetWarnings": {
           "type": "boolean",
           "default": true,
           "order": 1,
           "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, when usage passes the percent below or reaches the limit, and, near the end of a cycle, when a smaller plan would likely fit (a right-sizing tip). Each kind is shown at most once per billing cycle. The Turn off budget notices button on a notice turns off all of these.",
           "scope": "application"
         },
-        "cyclegauge.budgetWarningPercent": {
+        "bobert.budgetWarningPercent": {
           "type": "number",
           "default": 80,
           "minimum": 0,
@@ -255,14 +255,14 @@
           "description": "Show a budget notice once you have used this percent of your reported Kiro credits. 0 turns this notice off.",
           "scope": "application"
         },
-        "cyclegauge.sessionHints": {
+        "bobert.sessionHints": {
           "type": "boolean",
           "default": true,
           "order": 3,
           "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full, or, when your budget is tight or the session is getting long, set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
           "scope": "application"
         },
-        "cyclegauge.auditReminderDays": {
+        "bobert.auditReminderDays": {
           "type": "number",
           "default": 30,
           "minimum": 0,
@@ -271,7 +271,7 @@
           "description": "Remind you to run the workspace audit after this many days. 0 turns reminders off.",
           "scope": "application"
         },
-        "cyclegauge.auditAutomatically": {
+        "bobert.auditAutomatically": {
           "type": "string",
           "default": "off",
           "enum": ["off", "onOpen", "onOpenAndChanges"],
@@ -285,13 +285,13 @@
           "description": "Run the workspace audit automatically in trusted workspaces (same limits; nothing is written or sent).",
           "scope": "application"
         },
-        "cyclegauge.configReviewAutomatically": {
+        "bobert.configReviewAutomatically": {
           "type": "string",
           "default": "off",
           "enum": ["off", "onOpen", "onOpenAndChanges"],
           "enumItemLabels": ["Off", "On open", "On open and on changes"],
           "enumDescriptions": [
-            "Only when you run Cyclegauge: Review Kiro Steering and Hooks.",
+            "Only when you run Bobert: Review Kiro Steering and Hooks.",
             "Once per window, shortly after a trusted workspace opens.",
             "Also again after AGENTS.md, .kiro/steering/*.md or .kiro/hooks/*.json change. Notifies only for a kind of finding not yet seen in this window."
           ],
@@ -299,28 +299,28 @@
           "description": "Review Kiro Steering and Hooks automatically in trusted local workspaces. Uses the same bounded reads as the manual review and reads nothing else; nothing is written or sent. Only your user setting counts.",
           "scope": "application"
         },
-        "cyclegauge.supportPrompts": {
+        "bobert.supportPrompts": {
           "type": "boolean",
           "default": true,
           "order": 7,
-          "description": "Controls Cyclegauge's occasional suggestions: the reminder to rate or support Cyclegauge, the one-time offer to turn on the automatic Steering and Hooks review, opening the getting-started walkthrough on first use, and the Open VSX link line on the shareable cycle recap. Turn it off to see none of these. It does not affect budget notices, session hints or audit reminders; they have their own settings.",
+          "description": "Controls Bobert's occasional suggestions: the reminder to rate or support Bobert, the one-time offer to turn on the automatic Steering and Hooks review, opening the getting-started walkthrough on first use, and the Open VSX link line on the shareable cycle recap. Turn it off to see none of these. It does not affect budget notices, session hints or audit reminders; they have their own settings.",
           "scope": "application"
         },
-        "cyclegauge.sourceRoot": {
+        "bobert.sourceRoot": {
           "type": "string",
           "default": "",
           "order": 8,
-          "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
+          "description": "For testing and demos with synthetic logs only. Leave empty: Bobert then reads Kiro's standard data folder.",
           "scope": "machine"
         },
-        "cyclegauge.storageRoot": {
+        "bobert.storageRoot": {
           "type": "string",
           "default": "",
           "order": 9,
-          "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
+          "description": "Private Bobert storage folder. Leave empty to use the editor's standard per-extension storage.",
           "scope": "machine"
         },
-        "cyclegauge.sourceTimezone": {
+        "bobert.sourceTimezone": {
           "type": "string",
           "default": "",
           "order": 10,
@@ -332,210 +332,210 @@
     "menus": {
       "editor/title": [
         {
-          "command": "cyclegauge.costAdvisor",
-          "when": "activeWebviewPanelId == cyclegauge.usage",
+          "command": "bobert.costAdvisor",
+          "when": "activeWebviewPanelId == bobert.usage",
           "group": "navigation@0"
         }
       ],
       "view/title": [
         {
-          "command": "cyclegauge.auditWorkspace",
-          "when": "view == cyclegauge.auditView",
+          "command": "bobert.auditWorkspace",
+          "when": "view == bobert.auditView",
           "group": "navigation@1"
         },
         {
-          "command": "cyclegauge.audit.clearDismissed",
-          "when": "view == cyclegauge.auditView",
+          "command": "bobert.audit.clearDismissed",
+          "when": "view == bobert.auditView",
           "group": "1_actions@1"
         }
       ],
       "view/item/context": [
         {
-          "command": "cyclegauge.audit.acceptAll",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
+          "command": "bobert.audit.acceptAll",
+          "when": "view == bobert.auditView && viewItem == group-exclude",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.audit.acceptAll",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
+          "command": "bobert.audit.acceptAll",
+          "when": "view == bobert.auditView && viewItem == group-exclude",
           "group": "1_apply@1"
         },
         {
-          "command": "cyclegauge.audit.copy",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
+          "command": "bobert.audit.copy",
+          "when": "view == bobert.auditView && viewItem == group-exclude",
           "group": "2_copy@1"
         },
         {
-          "command": "cyclegauge.audit.accept",
-          "when": "view == cyclegauge.auditView && viewItem == finding-suggestible",
+          "command": "bobert.audit.accept",
+          "when": "view == bobert.auditView && viewItem == finding-suggestible",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.audit.dismiss",
-          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
+          "command": "bobert.audit.dismiss",
+          "when": "view == bobert.auditView && viewItem =~ /^finding/",
           "group": "inline@2"
         },
         {
-          "command": "cyclegauge.audit.reveal",
-          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
+          "command": "bobert.audit.reveal",
+          "when": "view == bobert.auditView && viewItem =~ /^finding/",
           "group": "inline@3"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeededAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-load",
+          "command": "bobert.config.loadWhenNeededAll",
+          "when": "view == bobert.auditView && viewItem == config-group-load",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeededAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-load",
+          "command": "bobert.config.loadWhenNeededAll",
+          "when": "view == bobert.auditView && viewItem == config-group-load",
           "group": "1_apply@1"
         },
         {
-          "command": "cyclegauge.config.runManuallyAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-run",
+          "command": "bobert.config.runManuallyAll",
+          "when": "view == bobert.auditView && viewItem == config-group-run",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.runManuallyAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-run",
+          "command": "bobert.config.runManuallyAll",
+          "when": "view == bobert.auditView && viewItem == config-group-run",
           "group": "1_apply@1"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeeded",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "command": "bobert.config.loadWhenNeeded",
+          "when": "view == bobert.auditView && viewItem == config-steering-always",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-steering-always",
           "group": "inline@2"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeeded",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "command": "bobert.config.loadWhenNeeded",
+          "when": "view == bobert.auditView && viewItem == config-steering-always",
           "group": "1_config@1"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-steering-always",
           "group": "1_config@2"
         },
         {
-          "command": "cyclegauge.config.runManually",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "command": "bobert.config.runManually",
+          "when": "view == bobert.auditView && viewItem == config-hook",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-hook",
           "group": "inline@2"
         },
         {
-          "command": "cyclegauge.config.runManually",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "command": "bobert.config.runManually",
+          "when": "view == bobert.auditView && viewItem == config-hook",
           "group": "1_config@1"
         },
         {
-          "command": "cyclegauge.config.disable",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "command": "bobert.config.disable",
+          "when": "view == bobert.auditView && viewItem == config-hook",
           "group": "1_config@2"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-hook",
           "group": "1_config@3"
         },
         {
-          "command": "cyclegauge.config.narrowPattern",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "command": "bobert.config.narrowPattern",
+          "when": "view == bobert.auditView && viewItem == config-steering-match",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-steering-match",
           "group": "inline@2"
         },
         {
-          "command": "cyclegauge.config.narrowPattern",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "command": "bobert.config.narrowPattern",
+          "when": "view == bobert.auditView && viewItem == config-steering-match",
           "group": "1_config@1"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-steering-match",
           "group": "1_config@2"
         },
         {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-agents",
+          "command": "bobert.config.open",
+          "when": "view == bobert.auditView && viewItem == config-agents",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.preview",
-          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "command": "bobert.config.preview",
+          "when": "view == bobert.auditView && viewItem == config-finding",
           "group": "inline@1"
         },
         {
-          "command": "cyclegauge.config.preview",
-          "when": "view == cyclegauge.auditView && viewItem == config-finding",
+          "command": "bobert.config.preview",
+          "when": "view == bobert.auditView && viewItem == config-finding",
           "group": "1_config@1"
         }
       ],
       "commandPalette": [
         {
-          "command": "cyclegauge.audit.accept",
+          "command": "bobert.audit.accept",
           "when": "false"
         },
         {
-          "command": "cyclegauge.audit.acceptAll",
+          "command": "bobert.audit.acceptAll",
           "when": "false"
         },
         {
-          "command": "cyclegauge.audit.dismiss",
+          "command": "bobert.audit.dismiss",
           "when": "false"
         },
         {
-          "command": "cyclegauge.audit.reveal",
+          "command": "bobert.audit.reveal",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeeded",
+          "command": "bobert.config.loadWhenNeeded",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.loadWhenNeededAll",
+          "command": "bobert.config.loadWhenNeededAll",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.narrowPattern",
+          "command": "bobert.config.narrowPattern",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.runManually",
+          "command": "bobert.config.runManually",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.runManuallyAll",
+          "command": "bobert.config.runManuallyAll",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.disable",
+          "command": "bobert.config.disable",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.open",
+          "command": "bobert.config.open",
           "when": "false"
         },
         {
-          "command": "cyclegauge.config.preview",
+          "command": "bobert.config.preview",
           "when": "false"
         },
         {
-          "command": "cyclegauge.audit.copy",
+          "command": "bobert.audit.copy",
           "when": "false"
         },
         {
-          "command": "cyclegauge.audit.clearDismissed",
+          "command": "bobert.audit.clearDismissed",
           "when": "false"
         }
       ]

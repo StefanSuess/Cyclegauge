@@ -26,7 +26,7 @@ function setup(operation?: (roots:readonly ConfigReviewRoot[],options?:{signal?:
  };
  const reviewer={async review(roots:readonly ConfigReviewRoot[],options?:{signal?:AbortSignal}){reads.push([...roots]);return operation ? operation(roots,options) : result();}};
  const link=registerConfigReview(context,editor,check,()=>{refreshes++;},{reviewer, ...extra});
- return{workspace,executed,commands,subscriptions,opened,messages,reads,link,folder,values,get checks(){return checks;},get refreshes(){return refreshes;},run:()=>commands.get('cyclegauge.reviewKiroConfig')!()};
+ return{workspace,executed,commands,subscriptions,opened,messages,reads,link,folder,values,get checks(){return checks;},get refreshes(){return refreshes;},run:()=>commands.get('bobert.reviewKiroConfig')!()};
 }
 test('registration with automatic mode off does nothing by itself and has no audit dependencies',async()=>{
  const s=setup();assert.equal(s.reads.length,0);assert.equal(s.checks,0);assert.equal(s.refreshes,0);
@@ -42,8 +42,8 @@ test('registration with automatic mode off does nothing by itself and has no aud
  assert.equal((main.match(/registerConfigReview\(/g)??[]).length,1);
  assert.match(main,/registerConfigReview\(context, vscode, folderCheck, \(\) => changed\?\.fire\(undefined\), \{ support: configGate, reportError: showReportableError, prepared \}\)/);
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
- assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig').length,1);
- assert.equal(manifest.contributes.configuration.properties['cyclegauge.configReviewAutomatically'].default,'off');
+ assert.equal(manifest.contributes.commands.filter((c:{command:string})=>c.command==='bobert.reviewKiroConfig').length,1);
+ assert.equal(manifest.contributes.configuration.properties['bobert.configReviewAutomatically'].default,'off');
 });
 test('untrusted roots do no filesystem work; nonlocal and refused roots are fixed counted gaps',async()=>{
  const s=setup();s.workspace.isTrusted=false;await s.run();assert.equal(s.checks,0);assert.equal(s.reads.length,0);assert.match(JSON.stringify(s.link.nodes()),/workspace is not trusted/);
@@ -62,7 +62,7 @@ test('the read-only suggestion (only for findings without an apply action) is un
  const s=setup(async()=>wide());await s.run();const flatten=(nodes:ReturnType<typeof s.link.nodes>):ReturnType<typeof s.link.nodes>=>nodes.flatMap(n=>[n,...flatten(n.children??[])]);
  const all=flatten(s.link.nodes()), node=all.find(n=>n.action==='previewKiroConfig')!;assert.ok(node);
  assert.equal(node.finding!.id,'S3');assert.equal(all.filter(n=>n.finding&&n.action!=='previewKiroConfig').length,2,'S1 findings use apply actions instead');
- const preview=s.commands.get('cyclegauge.config.preview')!;
+ const preview=s.commands.get('bobert.config.preview')!;
  await preview('synthetic-forged-id');await preview({id:'synthetic-forged-id'});await preview({});await preview(undefined);assert.equal(s.opened.length,0);
  await preview(node.id);assert.equal(s.opened.length,2);assert.equal((s.opened[0] as {language:string}).language,'plaintext');
  await preview({...node});assert.equal(s.opened.length,4,'the menu passes the tree element; only its id is read');
@@ -100,7 +100,7 @@ test('hostile synthetic content reaches no output surface; hook name is capped a
   for(const n of ns){
    assert.ok(!JSON.stringify(n).includes(sentinel));assert.ok(!n.id.includes(base));
    assert.ok(!n.tooltip?.includes('synthetic-name'));assert.ok(!n.description?.includes('synthetic-name'));assert.ok(!n.label.includes('SYNTHETIC-NAME-END'));
-   if(n.action==='previewKiroConfig')await s.commands.get('cyclegauge.config.preview')!(n.id);
+   if(n.action==='previewKiroConfig')await s.commands.get('bobert.config.preview')!(n.id);
   }
   assert.ok(ns.some(n=>n.label.includes('synthetic-name-\\u{202E}')),'positive control: a parsed hook name is shown');
   const out=JSON.stringify({opened:s.opened,messages:s.messages});
@@ -134,12 +134,12 @@ test('only the manual audit command starts the review: the silent re-runs and th
 });
 test('the Audit view title bar has one Check button, which also runs the review; the review command stays available in the palette', async()=>{
  const manifest=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
- const command=manifest.contributes.commands.find((c:{command:string})=>c.command==='cyclegauge.reviewKiroConfig');
+ const command=manifest.contributes.commands.find((c:{command:string})=>c.command==='bobert.reviewKiroConfig');
  assert.match(command.icon,/^\$\([a-z-]+\)$/);
  const nav=(manifest.contributes.menus['view/title'] as {command:string;when:string;group:string}[]).filter(m=>m.group.startsWith('navigation@')).sort((a,b)=>Number(a.group.split('@')[1])-Number(b.group.split('@')[1]));
- assert.deepEqual(nav.map(m=>m.command),['cyclegauge.auditWorkspace']);
- assert.ok(nav.every(m=>m.when==='view == cyclegauge.auditView'));
- assert.ok(!manifest.contributes.menus.commandPalette.some((m:{command:string})=>m.command==='cyclegauge.reviewKiroConfig'),'not hidden from the palette');
+ assert.deepEqual(nav.map(m=>m.command),['bobert.auditWorkspace']);
+ assert.ok(nav.every(m=>m.when==='view == bobert.auditView'));
+ assert.ok(!manifest.contributes.menus.commandPalette.some((m:{command:string})=>m.command==='bobert.reviewKiroConfig'),'not hidden from the palette');
  const main=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  assert.ok(!main.includes("'Review Kiro Steering and Hooks'"),'no Review entry in the tree');
 });
@@ -182,7 +182,7 @@ test('prepared files are marked while unsaved and cleared by a save, a close or 
  prepared.add([a.uri] as never); prepared.dispose(); assert.equal(prepared.count(),0);
  for(const name of ['config-apply']) { const code=await readFile(new URL(`../../src/extension/${name}.ts`,import.meta.url),'utf8'); const tracker=code.slice(code.indexOf('export function createPreparedFiles')); assert.doesNotMatch(tracker,/globalState|workspaceState|writeFile|\.update\(|showInformationMessage|console\./); }
 });
-test('saving a Steering or Hook file Cyclegauge prepared starts one manual review; other saves, unprepared files and a running review start none',async()=>{
+test('saving a Steering or Hook file Bobert prepared starts one manual review; other saves, unprepared files and a running review start none',async()=>{
  const e=events(), prepared=createPreparedFiles(e.editor,'linux');
  const s=setup(undefined,{prepared});
  await s.run(); assert.equal(s.reads.length,1); const focused=s.executed.length;

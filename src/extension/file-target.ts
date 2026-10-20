@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { defaultSource, inside } from '../paths.ts';
 
-// Vscode-free guards for the two files Cyclegauge may write on request (the recap image and the CSV export). The editor's save dialog picks the
+// Vscode-free guards for the two files Bobert may write on request (the recap image and the CSV export). The editor's save dialog picks the
 // target; this module decides whether that target may be written and writes it atomically. It returns fixed codes only, never a path.
 export type TargetCode = 'invalid_target' | 'forbidden_target' | 'not_regular' | 'write_failed';
 export type CheckedTarget = { ok: true; dir: string; name: string; path: string } | { ok: false; code: TargetCode };
@@ -34,7 +34,7 @@ export function realish(path: string): string {
   rest.push(basename(p)); p = parent;
  }
 }
-/** Every folder a write must stay out of: the given roots (Cyclegauge storage, configured Kiro source) and Kiro's default data folders. */
+/** Every folder a write must stay out of: the given roots (Bobert storage, configured Kiro source) and Kiro's default data folders. */
 export function protectedRoots(extra: readonly string[]): string[] {
  // defaultSource() is the per-platform Kiro data folder: ~/Library/Application Support/Kiro, %APPDATA%\Kiro, or $XDG_CONFIG_HOME|~/.config/Kiro.
  return [...new Set([...extra, defaultSource(), join(homedir(), '.kiro')].filter(p => typeof p === 'string' && p !== '' && isAbsolute(p)))];
@@ -77,7 +77,7 @@ export function checkTarget(target: string, protectedPaths: readonly string[], p
  * again just before the rename and the temporary file is removed on every failure. Returns a fixed code; never throws.
  */
 export async function writeAtomically(target: Extract<CheckedTarget, { ok: true }>, data: Uint8Array | string, protectedPaths: readonly string[], platform: NodeJS.Platform = process.platform): Promise<'saved' | TargetCode> {
- const temp = join(target.dir, `.cyclegauge-${randomBytes(8).toString('hex')}.tmp`);
+ const temp = join(target.dir, `.bobert-${randomBytes(8).toString('hex')}.tmp`);
  let created = false;
  try {
   const handle = await open(temp, 'wx', 0o600);

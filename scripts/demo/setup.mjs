@@ -26,7 +26,7 @@ if (major < 24 || (major === 24 && minor < 13)) {
 }
 // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
 // macOS: a long $TMPDIR pushes Kiro's IPC socket past the 103-character limit, so demoParentDir falls back to /tmp.
-const base = realpathSync.native(mkdtempSync(join(demoParentDir(), 'synthetic-cyclegauge-demo-')));
+const base = realpathSync.native(mkdtempSync(join(demoParentDir(), 'synthetic-bobert-demo-')));
 const source = join(base, 'source'), storage = join(base, 'storage');
 const home = join(base, 'home'), userData = join(base, 'user-data'), extensions = join(base, 'extensions');
 const workspace = join(base, 'workspace');
@@ -72,11 +72,11 @@ try {
  console.log(`VSIX content verification PASS; version ${verified.version} (${candidate ? 'supplied candidate' : 'current checkout'}).`);
  copyFileSync(vsix, join(base, 'install-this.vsix'));
  writeFileSync(join(userData, 'User', 'settings.json'), JSON.stringify({
-  'cyclegauge.sourceRoot': source, 'cyclegauge.storageRoot': storage, 'cyclegauge.sourceTimezone': 'UTC',
+  'bobert.sourceRoot': source, 'bobert.storageRoot': storage, 'bobert.sourceTimezone': 'UTC',
   'window.title': 'SYNTHETIC DEMO - not real usage', 'workbench.startupEditor': 'none',
   'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'telemetry.telemetryLevel': 'off',
  }, null, 2), { mode: 0o600 });
- writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Cyclegauge: Show Credit Budget from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
+ writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Bobert: Show Credit Budget from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
  const launch = join(base, 'open-demo.mjs');
  copyFileSync(join(root, 'scripts/demo/open.mjs'), launch);
  console.log(`Demo folder: ${base}\nReopen: node "${launch}"\nInstall in the DEMO window: ${join(base, 'install-this.vsix')}\nChecklist: docs/synthetic-demo.md\nClose the demo window before deleting its folder. Run setup again for fresh data.`);

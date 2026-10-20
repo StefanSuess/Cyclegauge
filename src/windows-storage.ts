@@ -10,8 +10,8 @@ import { isAbsolute, join } from 'node:path';
 const script = String.raw`
 $ErrorActionPreference = 'Stop'
 try {
- $p = $env:CYCLEGAUGE_ACL_PATH
- $directory = $env:CYCLEGAUGE_ACL_DIRECTORY -eq '1'
+ $p = $env:BOBERT_ACL_PATH
+ $directory = $env:BOBERT_ACL_DIRECTORY -eq '1'
  $volume = [System.IO.DriveInfo]::new([System.IO.Path]::GetPathRoot($p))
  if ($volume.DriveType -ne 'Fixed' -or $volume.DriveFormat -ne 'NTFS') { exit 2 }
  $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
@@ -61,7 +61,7 @@ export function windowsStorageCheck(path: string, directory = false): number {
  if (!systemRoot || !isAbsolute(systemRoot)) return 1;
  const result = spawnSync(join(systemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
   ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script], {
-   env: { ...process.env, CYCLEGAUGE_ACL_PATH: path, CYCLEGAUGE_ACL_DIRECTORY: directory ? '1' : '0' },
+   env: { ...process.env, BOBERT_ACL_PATH: path, BOBERT_ACL_DIRECTORY: directory ? '1' : '0' },
    windowsHide: true, stdio: 'ignore', timeout: 10_000,
   });
  return result.error || result.signal || typeof result.status !== 'number' ? 1 : result.status;

@@ -12,9 +12,9 @@ git diff --check
 pnpm package:vsix
 ```
 
-Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE`, `CHANGELOG.md`, `dist/extension.cjs` and `assets/branding/cyclegauge-icon-256.png` (the packaged extension icon); `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
+Equivalent manual build: `./node_modules/.bin/tsc --noEmit`, then esbuild to `dist/extension.cjs`, then `./node_modules/.bin/vsce package --no-dependencies --out dist/` (see the `scripts` in `package.json`). The VSIX allowlist in `.vscodeignore` is exactly `package.json`, `README.md`, `LICENSE`, `CHANGELOG.md`, `dist/extension.cjs` and `assets/branding/bobert-icon-256.png` (the packaged extension icon); `vsce` stores `LICENSE` as `LICENSE.txt` inside the package; its content is byte-identical (MIT, Copyright (c) 2026 Stefan Suess). Source logs, stores, tests and local caches never ship. Because `README.md` ships in the VSIX, its links must be absolute.
 
-Packaging check after `pnpm package:vsix`: `unzip -l dist/cyclegauge-<version>.vsix` must list exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`, `extension/changelog.md`, `extension/dist/extension.cjs`, `extension/assets/branding/cyclegauge-icon-256.png` plus the two VSIX manifest files (8 entries, no `src/`, tests, logs or stores), and `unzip -p dist/cyclegauge-<version>.vsix extension/LICENSE.txt | cmp - LICENSE` must report no difference. `tests/unit/identity.test.ts` also pins the `.vscodeignore` allowlist. For release candidates use the content verifier instead of eyeballing: see [release-process.md](release-process.md).
+Packaging check after `pnpm package:vsix`: `unzip -l dist/bobert-<version>.vsix` must list exactly `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`, `extension/changelog.md`, `extension/dist/extension.cjs`, `extension/assets/branding/bobert-icon-256.png` plus the two VSIX manifest files (8 entries, no `src/`, tests, logs or stores), and `unzip -p dist/bobert-<version>.vsix extension/LICENSE.txt | cmp - LICENSE` must report no difference. `tests/unit/identity.test.ts` also pins the `.vscodeignore` allowlist. For release candidates use the content verifier instead of eyeballing: see [release-process.md](release-process.md).
 
 ## Simple synthetic plugin test
 
@@ -53,12 +53,12 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 
 | Kind | Value today | Note |
 | --- | --- | --- |
-| Public repository | `StefanSuess/Cyclegauge` | Canonical repository for Cyclegauge. |
-| Brand / product display name | Cyclegauge / Cyclegauge for Kiro IDE | User-visible text only. |
-| npm package / extension name | `cyclegauge` | Extension ID `StefanSuess.cyclegauge`. |
-| Publisher | `StefanSuess` | Extension ID `StefanSuess.cyclegauge`. The public registry reports the namespace exists and is unverified (2026-10-12); publishing access is a separate maintainer check. |
-| Command IDs, settings keys, webview panel ID | `cyclegauge.*` | Cost Advisor is available as `cyclegauge.costAdvisor`. |
-| Storage folder | Editor per-extension storage (`globalStorage/stefansuess.cyclegauge`); CLI: `Cyclegauge` under the platform data directory | Private storage owned by Cyclegauge. |
+| Public repository | `StefanSuess/Bobert` | Canonical repository for Bobert. |
+| Brand / product display name | Bobert / Bobert: Kiro Credit Tracker (display name) | User-visible text only. |
+| npm package / extension name | `bobert` | Extension ID `StefanSuess.bobert`. |
+| Publisher | `StefanSuess` | Extension ID `StefanSuess.bobert`. The public registry reports the namespace exists and is unverified (2026-10-12); publishing access is a separate maintainer check. |
+| Command IDs, settings keys, webview panel ID | `bobert.*` | Cost Advisor is available as `bobert.costAdvisor`. |
+| Storage folder | Editor per-extension storage (`globalStorage/stefansuess.bobert`); CLI: `Bobert` under the platform data directory | Private storage owned by Bobert. |
 
 The identifiers live in code in `src/extension/identity.ts` and the contributed settings live in `package.json`.
 

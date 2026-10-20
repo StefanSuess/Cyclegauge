@@ -7,12 +7,12 @@ import { join } from 'node:path';
 
 // Vscode-free orchestration of the two file writes: validate the payload, ask for a location through the injected save dialog, guard the
 // location and write atomically. The editor glue supplies the dialog and the protected folders; every outcome is a fixed code.
-export const PNG_FILE = 'cyclegauge-cycle-recap.png';
-export const CSV_FILE = 'cyclegauge-credit-history.csv';
+export const PNG_FILE = 'bobert-cycle-recap.png';
+export const CSV_FILE = 'bobert-credit-history.csv';
 export interface SaveDeps {
  /** Shows the editor's save dialog at the default path; undefined when cancelled. */
  dialog(defaultPath: string, filter: { name: string; extension: string }): Promise<{ scheme: string; fsPath: string } | undefined>;
- /** Cyclegauge storage, Kiro source roots and Kiro data folders, read when the save happens. */
+ /** Bobert storage, Kiro source roots and Kiro data folders, read when the save happens. */
  protectedPaths(): string[];
  /** Folder offered first; defaults to Downloads, then the home folder. */
  folder?(): string;

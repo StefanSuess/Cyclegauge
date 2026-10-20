@@ -16,7 +16,7 @@ jobs:
   auto-merge:
     name: Enable verified npm patch auto-merge
     if: >-
-      github.repository == 'StefanSuess/Cyclegauge' &&
+      github.repository == 'StefanSuess/Bobert' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.actor.login == 'dependabot[bot]'

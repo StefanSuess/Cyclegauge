@@ -10,7 +10,7 @@ const identity = (path: string) => path;
 const realpathStub = (path: string) => (path === '/tmp' ? '/private/tmp' : path);
 
 test('darwin with a long temp directory uses the /tmp fallback', () => {
- assert.ok(join(longDarwinTmp, 'synthetic-cyclegauge-demo-XXXXXX', 'user-data', '1.000-main.sock').length > 100);
+ assert.ok(join(longDarwinTmp, 'synthetic-bobert-demo-XXXXXX', 'user-data', '1.000-main.sock').length > 100);
  assert.equal(demoParentDir({ platform: 'darwin', tmp: longDarwinTmp, realpath: realpathStub }), '/private/tmp');
 });
 

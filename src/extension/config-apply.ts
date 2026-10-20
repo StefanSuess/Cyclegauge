@@ -5,17 +5,17 @@ import { planHookEdit, planSteeringEdit, type ConfigEditPlan } from '../audit/co
 import { configPathAllowed, readConfigForEdit, sameStamp, type FileStamp } from '../audit/config-read.ts';
 import type { ConfigApplyAction } from './config-model.ts';
 
-// Apply actions for Steering and Hook findings (approved 2026-10-18; Review changes… flow approved 2026-10-18). Exactly like Exclude from Kiro, Cyclegauge writes nothing itself:
+// Apply actions for Steering and Hook findings (approved 2026-10-18; Review changes… flow approved 2026-10-18). Exactly like Exclude from Kiro, Bobert writes nothing itself:
 // it opens the real file in the editor and prepares small unsaved edits (or a selection) for the user to review in the editor's change preview and save. Each file is first
 // proven unchanged since the review, and the only text read is the already-approved Steering prefix or Hook JSON, used for one edit computation and dropped.
 // Every message is fixed text (or a fixed template with counts).
 export const APPLY_TEXT = {
- untrusted: 'Cyclegauge changes configuration files only in trusted workspaces.',
+ untrusted: 'Bobert changes configuration files only in trusted workspaces.',
  stale: 'This file changed since the review, so no change was prepared. Run the review again.',
  unsaved: 'This file has unsaved changes, so no change was prepared. Save or revert it, then run the review again.',
  autoSave: 'Your editor saves files automatically, so no change was prepared. The file was opened for you to edit yourself.',
  unsafe: 'This file cannot be opened safely, so nothing was prepared.',
- notLocated: 'Cyclegauge could not locate this setting safely, so the file was opened without a change.',
+ notLocated: 'Bobert could not locate this setting safely, so the file was opened without a change.',
  discarded: 'No changes were made. To prepare a change, tick it in the preview, then select Apply.',
  // The editor's change preview starts with every change unticked (it is a change that needs confirmation), so Apply alone changes nothing.
  preview: 'Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.',
@@ -94,7 +94,7 @@ async function prepare(editor: typeof vscode, request: ApplyRequest, quiet: bool
   shown.revealRange(range(planned.start, planned.end));
   say(APPLY_TEXT.selected); return { outcome: 'selected' };
  }
- return { ready: { uri, document, version: document.version, planned, annotation: request.annotation ?? { label: 'Cyclegauge', description: '' } } };
+ return { ready: { uri, document, version: document.version, planned, annotation: request.annotation ?? { label: 'Bobert', description: '' } } };
 }
 /**
  * Review changes… for one request or a whole group: every change that passes its own guards goes into ONE edit, each with an annotation that needs confirmation, so the
@@ -149,8 +149,8 @@ export const applyConfigAction = (editor: typeof vscode, request: ApplyRequest, 
 /** What happened to a prepared file: it was prepared (`added`), saved by the user, or closed or reverted without saving (`cleared`). */
 export type PreparedEvent = 'added' | 'saved' | 'cleared';
 /**
- * The files in which Cyclegauge prepared an edit that is still unsaved (approved 2026-10-20). In memory only, keyed by the file's path, never persisted and never shown as a path.
- * A mark is removed when the document is saved, closed or reverted. Cyclegauge saves nothing itself; a save here is always the user's.
+ * The files in which Bobert prepared an edit that is still unsaved (approved 2026-10-20). In memory only, keyed by the file's path, never persisted and never shown as a path.
+ * A mark is removed when the document is saved, closed or reverted. Bobert saves nothing itself; a save here is always the user's.
  */
 export interface PreparedFiles {
  add(uris: readonly vscode.Uri[]): void;

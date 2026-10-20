@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please check [ROADMAP.md](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/ROADMAP.md) first. Features that read more Kiro data or touch
+        Please check [ROADMAP.md](https://github.com/StefanSuess/Bobert/blob/HEAD/ROADMAP.md) first. Features that read more Kiro data or touch
         privacy-sensitive areas need explicit maintainer approval. Never include real Kiro data.
   - type: textarea
     id: problem

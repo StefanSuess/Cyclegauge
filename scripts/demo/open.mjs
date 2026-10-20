@@ -8,8 +8,8 @@ const base = dirname(fileURLToPath(import.meta.url));
 // Refuse to launch from the checkout or an incomplete profile: no fallback to real Kiro data.
 let settings;
 try { settings = JSON.parse(readFileSync(join(base, 'user-data', 'User', 'settings.json'), 'utf8')); } catch { /* fixed refusal below */ }
-if (!existsSync(join(base, 'synthetic-anchor.txt')) || settings?.['cyclegauge.sourceRoot'] !== join(base, 'source') ||
- settings?.['cyclegauge.storageRoot'] !== join(base, 'storage') || settings?.['cyclegauge.sourceTimezone'] !== 'UTC') {
+if (!existsSync(join(base, 'synthetic-anchor.txt')) || settings?.['bobert.sourceRoot'] !== join(base, 'source') ||
+ settings?.['bobert.storageRoot'] !== join(base, 'storage') || settings?.['bobert.sourceTimezone'] !== 'UTC') {
  console.log('SYNTHETIC_PROFILE_REQUIRED: run pnpm demo:setup first.'); process.exit(1);
 }
 const candidates = process.platform === 'darwin' ? ['/Applications/Kiro.app/Contents/MacOS/Kiro']
@@ -23,7 +23,7 @@ if (!executable || !existsSync(executable)) {
  process.exit(1);
 }
 const home = join(base, 'home');
-const env = { ...process.env, CYCLEGAUGE_SYNTHETIC_SOURCE: join(base, 'source'), HOME: home, USERPROFILE: home,
+const env = { ...process.env, BOBERT_SYNTHETIC_SOURCE: join(base, 'source'), HOME: home, USERPROFILE: home,
  APPDATA: join(home, 'AppData', 'Roaming'), LOCALAPPDATA: join(home, 'AppData', 'Local'),
  XDG_CONFIG_HOME: home, XDG_DATA_HOME: home, XDG_STATE_HOME: home, XDG_CACHE_HOME: home };
 delete env.VSCODE_IPC_HOOK_CLI;

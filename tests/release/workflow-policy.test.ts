@@ -92,7 +92,7 @@ test('CI names the candidate by version and commit and passes the name only thro
   const ci = read('../../.github/workflows/ci.yml');
   assert.doesNotMatch(ci, /(?<![\w${}"-])candidate\.vsix/);
   assert.doesNotMatch(ci, /release\/candidate\.vsix/);
-  assert.match(ci, /name="cyclegauge-v\$\{version\}-\$\{short\}-candidate\.vsix"/);
+  assert.match(ci, /name="bobert-v\$\{version\}-\$\{short\}-candidate\.vsix"/);
   assert.match(ci, /short="\$\{GITHUB_SHA:0:12\}"/);
   assert.match(ci, /^      vsix_name: \$\{\{ steps\.build\.outputs\.vsix_name \}\}$/m);
   assert.match(ci, /echo "\$sha  \$name" > release\/SHA256SUMS\.txt/);
@@ -102,7 +102,7 @@ test('CI names the candidate by version and commit and passes the name only thro
   }
   const consumers = ci.split(/^  candidate-host:\s*$/m)[1];
   assert.equal((consumers.match(/CANDIDATE_VSIX: \$\{\{ needs\.candidate\.outputs\.vsix_name \}\}/g) || []).length, 2);
-  assert.equal((consumers.match(/\^cyclegauge-v\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)-\[0-9a-f\]\{12\}-candidate\\\.vsix\$/g) || []).length, 2);
+  assert.equal((consumers.match(/\^bobert-v\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)\\\.\(0\|\[1-9\]\[0-9\]\*\)-\[0-9a-f\]\{12\}-candidate\\\.vsix\$/g) || []).length, 2);
   assert.equal((consumers.match(/needs\.candidate\.outputs\.vsix_name/g) || []).length, 2);
   // Windows defaults to PowerShell. Only the validation, verify-vsix and macOS host steps pin bash; the Windows
   // host test stays in PowerShell (no Git Bash TEMP/8.3 path rewriting) and reads the path from $env:.
@@ -147,7 +147,7 @@ test('both candidate validation steps run the same strict pure-bash script', () 
 test('the candidate validation script accepts only the exact artifact directory', { skip: process.platform === 'win32' }, () => {
   const [script] = validationScripts();
   const sha = 'abcdef0123456789abcdef0123456789abcdef01';
-  const good = 'cyclegauge-v1.0.0-abcdef012345-candidate.vsix';
+  const good = 'bobert-v1.0.0-abcdef012345-candidate.vsix';
   const root = mkdtempSync(join(tmpdir(), 'synthetic-validate-'));
   try {
     const run = (tag: string, build: (dir: string) => void, env: Record<string, string> = {}) => {
@@ -175,10 +175,10 @@ test('the candidate validation script accepts only the exact artifact directory'
       assert.equal(String(result.stdout).trim(), code, tag);
       assert.equal(output, '', tag);
     };
-    const wrongSha = 'cyclegauge-v1.0.0-abcdef012346-candidate.vsix';
+    const wrongSha = 'bobert-v1.0.0-abcdef012346-candidate.vsix';
     bad('wrong-sha', 'CANDIDATE_NAME_INVALID', dir => layout(dir, wrongSha), { CANDIDATE_VSIX: wrongSha });
     bad('old-name', 'CANDIDATE_NAME_INVALID', dir => layout(dir, 'candidate.vsix'), { CANDIDATE_VSIX: 'candidate.vsix' });
-    bad('leading-zero', 'CANDIDATE_NAME_INVALID', dir => layout(dir, 'cyclegauge-v01.0.0-abcdef012345-candidate.vsix'), { CANDIDATE_VSIX: 'cyclegauge-v01.0.0-abcdef012345-candidate.vsix' });
+    bad('leading-zero', 'CANDIDATE_NAME_INVALID', dir => layout(dir, 'bobert-v01.0.0-abcdef012345-candidate.vsix'), { CANDIDATE_VSIX: 'bobert-v01.0.0-abcdef012345-candidate.vsix' });
     bad('injected', 'CANDIDATE_NAME_INVALID', layout, { CANDIDATE_VSIX: `${good}; echo synthetic-injected` });
     bad('extra', 'CANDIDATE_ARTIFACT_CONTENTS_INVALID', dir => { layout(dir); writeFileSync(join(dir, '.synthetic-hidden'), 'x'); });
     bad('missing', 'CANDIDATE_ARTIFACT_CONTENTS_INVALID', dir => { layout(dir); rmSync(join(dir, 'manifest-linux.json')); });

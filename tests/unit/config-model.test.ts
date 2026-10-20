@@ -60,14 +60,14 @@ test('apply actions per finding kind, their context values and the closed tree w
  for (const n of ns) {
   assert.equal(n.action==='previewKiroConfig', configActions(n.finding!).length===0, n.finding!.id);
   assert.equal(n.tooltip!.includes('change preview'), ['S1','H1','H2','H3','H4'].includes(n.finding!.id), n.finding!.id);
-  assert.equal(n.tooltip!.includes('Cyclegauge writes nothing itself'), configActions(n.finding!).length>0, n.finding!.id);
+  assert.equal(n.tooltip!.includes('Bobert writes nothing itself'), configActions(n.finding!).length>0, n.finding!.id);
   assert.ok(!/preview/i.test(n.description!), n.finding!.id);
  }
 });
 test('cross-root total is explicitly inference and gaps are counted, never success',()=>{
  const r=review(); r.findings.find(f=>f.id==='S3')!.behaviour='inferred'; r.status='partial';r.notChecked={schema_unknown:2, root_not_local:1};
  const ns=flatten(configTree(r,['synthetic-root']));
- assert.match(ns.find(n=>n.finding?.id==='S3')!.tooltip!, /Cyclegauge inference from Kiro's documentation/);
+ assert.match(ns.find(n=>n.finding?.id==='S3')!.tooltip!, /Bobert inference from Kiro's documentation/);
  assert.ok(ns.some(n=>n.label==='Not checked'));
  assert.match(JSON.stringify(ns), /unknown schema version/);
  const status=reviewTree(undefined,configSummary(r,'2030-01-01T00:00:00Z'),configTree(r,['synthetic-root']),{audit:'off',config:'off'},new Date('2030-01-01T00:30:00Z'))[0]!;assert.match(status.description!, /partial check/);assert.equal(status.icon,'warning');

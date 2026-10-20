@@ -89,14 +89,14 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  const unscoped = pack(e => e.map(x => {
   if (x.name !== 'extension/package.json') return x;
   const m = JSON.parse(x.data.toString('utf8'));
-  delete m.contributes.configuration.properties['cyclegauge.storageRoot'].scope;
+  delete m.contributes.configuration.properties['bobert.storageRoot'].scope;
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.ok(unscoped.problems.includes('MANIFEST_SETTING_SCOPE'));
  const extraSetting = pack(e => e.map(x => {
   if (x.name !== 'extension/package.json') return x;
   const m = JSON.parse(x.data.toString('utf8'));
-  m.contributes.configuration.properties['cyclegauge.extraSetting'] = { type: 'string', default: '', scope: 'machine' };
+  m.contributes.configuration.properties['bobert.extraSetting'] = { type: 'string', default: '', scope: 'machine' };
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.ok(extraSetting.problems.includes('MANIFEST_SETTING_PROPERTIES'));
@@ -108,7 +108,7 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.deepEqual(edited(() => {}).problems, []);
- const days = 'cyclegauge.auditReminderDays', auto = 'cyclegauge.auditAutomatically';
+ const days = 'bobert.auditReminderDays', auto = 'bobert.auditAutomatically';
  assert.ok(edited(p => { p[days].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { p[days].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { p[auto].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
@@ -124,15 +124,15 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { p[days].maximum = 9999; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[days].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[auto]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- assert.ok(edited(p => { p['cyclegauge.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
+ assert.ok(edited(p => { p['bobert.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  // The automatic configuration review must stay a user-only setting that is off by default; a workspace scope or an on default fails closed.
- const review = 'cyclegauge.configReviewAutomatically';
+ const review = 'bobert.configReviewAutomatically';
  for (const scope of ['window', 'resource', 'machine', undefined]) assert.ok(edited(p => { p[review].scope = scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), String(scope));
  for (const value of ['onOpen', 'onOpenAndChanges', true]) assert.ok(edited(p => { p[review].default = value; }).problems.includes('MANIFEST_SETTING_TYPE'), String(value));
  assert.ok(edited(p => { p[review].enum = [...p[review].enum, 'always']; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[review]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  // The community prompt setting is held to the same standard: application scope, boolean, default true, nothing else.
- const prompts = 'cyclegauge.supportPrompts';
+ const prompts = 'bobert.supportPrompts';
  assert.ok(edited(p => { p[prompts].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { p[prompts].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { delete p[prompts].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
@@ -141,7 +141,7 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { p[prompts].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[prompts]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
  // The budget warning settings are held to the same standard, including the percent range.
- const warnings = 'cyclegauge.budgetWarnings', percent = 'cyclegauge.budgetWarningPercent';
+ const warnings = 'bobert.budgetWarnings', percent = 'bobert.budgetWarningPercent';
  for (const key of [warnings, percent]) {
   assert.ok(edited(p => { p[key].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
   assert.ok(edited(p => { p[key].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
@@ -149,7 +149,7 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   assert.ok(edited(p => { delete p[key]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
  }
  // The session hints setting (a read of Kiro's session files, on by default) is pinned as well: application scope, boolean, default on.
- const hints = 'cyclegauge.sessionHints';
+ const hints = 'bobert.sessionHints';
  assert.ok(edited(p => { p[hints].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { p[hints].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.ok(edited(p => { delete p[hints].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
@@ -165,7 +165,7 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
  assert.ok(edited(p => { p[percent].maximum = 1000; }).problems.includes('MANIFEST_SETTING_TYPE'));
  assert.ok(edited(p => { delete p[percent].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
  // The existing machine-scoped keys may not move to resource scope.
- assert.ok(edited(p => { p['cyclegauge.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
+ assert.ok(edited(p => { p['bobert.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
  assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 

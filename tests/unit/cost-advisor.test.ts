@@ -232,10 +232,10 @@ test('detail view shows the advisor first, answers are applied through the nativ
 });
 test('manifest exposes the advisor as the first panel title action',async()=>{
  const p=JSON.parse(await readFile(new URL('../../package.json',import.meta.url),'utf8'));
- assert.ok(p.contributes.commands.some((c:any)=>c.command==='cyclegauge.costAdvisor'&&c.icon==='$(lightbulb)'));
+ assert.ok(p.contributes.commands.some((c:any)=>c.command==='bobert.costAdvisor'&&c.icon==='$(lightbulb)'));
  const menu=p.contributes.menus['editor/title'];assert.equal(menu.length,1);
  const first=menu[0];
- assert.equal(first.command,'cyclegauge.costAdvisor');assert.equal(first.when,'activeWebviewPanelId == cyclegauge.usage');
+ assert.equal(first.command,'bobert.costAdvisor');assert.equal(first.when,'activeWebviewPanelId == bobert.usage');
  const ext=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  for(const gone of ['configureCostOptimizer','editCostScenario','clearCostInputs'])assert.ok(!p.contributes.commands.some((c:any)=>c.command.endsWith(gone)),gone);
  assert.ok(!JSON.stringify(p.contributes).includes('Cost Optimizer'));
