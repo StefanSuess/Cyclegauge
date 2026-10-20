@@ -9,7 +9,7 @@ const stub = (log: string[]) => (id: string) => { log.push(id); return { dispose
 
 test('manifest identity and commands use the Cyclegauge names', () => {
  assert.equal(manifest.name, 'cyclegauge');
- assert.equal(manifest.displayName, 'Cyclegauge for Kiro IDE');
+ assert.equal(manifest.displayName, 'Cyclegauge: Kiro Credit Tracker');
  const commands: string[] = manifest.contributes.commands.map((c: any) => c.command);
  assert.ok(commands.length > 0 && commands.every(c => c.startsWith('cyclegauge.')));
  for (const suffix of ['showUsage', 'costAdvisor']) assert.ok(commands.includes(commandId(suffix)));

@@ -6,7 +6,7 @@ Status: icon assets. Technical identifiers (package `cyclegauge`, `cyclegauge.*`
 
 The current official Cyclegauge icon is `assets/branding/source/cyclegauge-icon-source-1254.png`. Every other file in `assets/branding/` is generated from it: cropped to the rounded tile, black corner background made transparent, then resized with Lanczos resampling. Do not edit the derivatives by hand; regenerate them from the source and keep the filenames stable (`cyclegauge-icon-<size>.png`).
 
-The icon stands for Cyclegauge only. Product branding stays "Cyclegauge for Kiro IDE" (unofficial, not affiliated with AWS or Kiro). Do not combine the icon with a Kiro logo or Kiro-derived artwork, and do not use it in a way that suggests endorsement.
+The icon stands for Cyclegauge only. Product branding stays "Cyclegauge", shown in the editor as "Cyclegauge: Kiro Credit Tracker" (unofficial, not affiliated with AWS or Kiro). Do not combine the icon with a Kiro logo or Kiro-derived artwork, and do not use it in a way that suggests endorsement.
 
 ## Where each size is used
 

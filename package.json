@@ -31,7 +31,7 @@
     "ai"
   ],
   "type": "module",
-  "displayName": "Cyclegauge for Kiro IDE",
+  "displayName": "Cyclegauge: Kiro Credit Tracker",
   "description": "See when your Kiro credits run out, what going over would cost, and which files and hooks waste credits. Free, unofficial.",
   "publisher": "StefanSuess",
   "icon": "assets/branding/cyclegauge-icon-256.png",

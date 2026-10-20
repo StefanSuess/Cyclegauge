@@ -54,7 +54,7 @@ Verified here: synthetic tests on macOS and live VSIX installation, activation, 
 | Kind | Value today | Note |
 | --- | --- | --- |
 | Public repository | `StefanSuess/Cyclegauge` | Canonical repository for Cyclegauge. |
-| Brand / product display name | Cyclegauge / Cyclegauge for Kiro IDE | User-visible text only. |
+| Brand / product display name | Cyclegauge / Cyclegauge: Kiro Credit Tracker | User-visible text only. |
 | npm package / extension name | `cyclegauge` | Extension ID `StefanSuess.cyclegauge`. |
 | Publisher | `StefanSuess` | Extension ID `StefanSuess.cyclegauge`. The public registry reports the namespace exists and is unverified (2026-10-12); publishing access is a separate maintainer check. |
 | Command IDs, settings keys, webview panel ID | `cyclegauge.*` | Cost Advisor is available as `cyclegauge.costAdvisor`. |

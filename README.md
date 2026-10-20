@@ -1,6 +1,6 @@
 <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/HEAD/assets/branding/cyclegauge-icon-128.png" alt="Cyclegauge icon" width="96" height="96">
 
-# Cyclegauge for Kiro IDE
+# Cyclegauge: Kiro Credit Tracker
 
 **Know where your Kiro credits are going and never run dry before the reset.**
 

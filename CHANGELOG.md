@@ -67,6 +67,7 @@ The first stable release. Since 0.7.0 Cyclegauge has gone from counting credits 
 
 ### Changed
 
+- **Name and listing**: the extension is now listed as **Cyclegauge: Kiro Credit Tracker** (extension ID `StefanSuess.cyclegauge`, settings and history unchanged), with a shorter description that says what it does and a README that leads with why to install it.
 - **Change preview hint**: Kiro's change preview shows every change that Cyclegauge prepares (**Exclude from Kiro…**, **Load only when needed…**, **Run only manually…** and **Disable hook**) unticked. A notice says to tick each change before **Apply** when the preview opens, and "No changes were made." says how to prepare the change. The edits stay unsaved until you save.
 - **Status bar**: reads "Kiro credits: On track • 12/day" and "runs out 28 Oct" (per-day units everywhere). "Update needed" now names the cause ("Kiro: Needs a newer Kiro" or "Kiro: Update Cyclegauge"). The warning background is only for budget risk, red only once the reported limit is reached or exceeded; stale or unavailable data shows just the warning icon.
 - **Credit view**: the caveats (as-of time, observed pace, limit not verified as base-only or total, modelled dollar amounts) are said once under **About these numbers**; the as-of time and freshness stay in the status. Over the limit, the status shows one headline figure (credits over so far, with the modelled dollar value) and one line for the pace until the reset. Stat values drop repeated units, and "Credits left" is left out when you are over the limit.
