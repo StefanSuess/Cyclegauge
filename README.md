@@ -14,7 +14,7 @@ Bobert looks like he has seen a ghost. He has: your credit forecast.
 Kiro tells you how many credits you have used. Bobert tells you what that means: whether they will last until the reset, what going over would cost, and where credits quietly leak away. It's all in your status bar, a few days before it matters rather than at the end of the cycle.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/demo.gif" alt="Animated demo with invented data: a Bobert notice says the credits run out on 26 Oct, 6 days before the reset, about $40 over the limit (modelled); Show details opens the credit view, About these numbers expands, then the workspace audit runs and Exclude from Kiro opens Kiro's change preview with the suggested .kiroignore lines." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/demo.gif" alt="Animated story with invented data: Bobert the robot appears, a notice warns that the credits run out on 27 Oct, 5 days before the reset (about $38 over the limit, modelled), the credit view shows the forecast and the usage chart, the workspace audit finds a database dump and an archive Kiro may read, and Bobert prepares the .kiroignore lines for review." width="900">
 </p>
 
 ## Why you'll want it
@@ -29,14 +29,14 @@ Kiro tells you how many credits you have used. Bobert tells you what that means:
 Free and open source, with no account, no sign-in and no telemetry. Everything stays on your machine, and Kiro's files are only ever read.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/credit-view.png" alt="Bobert credit view with invented data: 3810 of 5000 reported credits used, likely to exceed with a run-out date of 26 Oct before the 1 Nov reset, a modelled overage of about 1009 credits (about $40) next to the cost of the next larger plan, and the usage chart with forecast lines. No real account information is shown." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/credit-view.png" alt="Bobert credit view with invented data: Likely to exceed, 3810 of 5000 reported credits used, the credits run out on 27 Oct before the 1 Nov reset, about 958 credits over (about $38.33, modelled) next to the cost of the next larger plan, and the usage chart with forecast lines. No real account information is shown." width="900">
 </p>
 
 <details>
 <summary><b>More screenshots:</b> budget notice, Cost Advisor, workspace audit, Steering and Hooks review</summary>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/budget-notice.png" alt="Kiro status bar reading Kiro credits: Likely to exceed, runs out 26 Oct, and a Bobert notice that the invented credits run out 6 days before the reset, about $40.27 over the limit (modelled), with Show details and Turn off budget notices buttons." width="700">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/budget-notice.png" alt="Bobert, a worried robot with a gauge for a mouth, next to a notice with invented data: at this pace the Kiro credits run out on 27 Oct, 5 days before the reset (about $38.33 over the limit, modelled), with Show details and Turn off budget notices buttons." width="700">
 </p>
 
 <p align="center">
@@ -44,11 +44,11 @@ Free and open source, with no account, no sign-in and no telemetry. Everything s
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/workspace-audit.png" alt="Workspace Audit view listing invented files Kiro may read but probably doesn't need, about 190.7 MiB in total (a database dump and an archive), beside Kiro's change preview of the suggested .kiroignore lines, which stay unsaved until you apply and save them." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/workspace-audit.png" alt="Workspace Audit view with invented files: 4 suggestions, Kiro may read about 190.7 MiB, a database dump and an archive to exclude, a large always-included Steering file and a hook that runs on every file change, beside the prepared .kiroignore lines that stay unsaved until you save them." width="900">
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/steering-hooks.png" alt="Steering and Hooks review flagging an invented always-included Steering file and a hook that runs on every file change, with Kiro's change preview of switching the Steering file from inclusion always to manual." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/steering-hooks.png" alt="Steering and Hooks review with invented files: a large always-included Steering file and a hook that runs on every file change, with Kiro's change preview switching the Steering file from inclusion always to manual." width="900">
 </p>
 
 </details>

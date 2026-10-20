@@ -2,7 +2,7 @@
 
 > **DRAFT, NOT PUBLISHED. Outreach is not approved.** Records only the synthetic demo from [synthetic-demo.md](../synthetic-demo.md). Never record a real profile, real workspace, real path, real account name or the normal Kiro window.
 
-**Status 2026-10-20:** S1–S5 and the GIF were captured from candidate `c7f259d` with this setup and embedded in the README; `dashboard.jpg` and `cost-advisor.jpg` were removed. S5 uses the default pace (at the high pace the Cost Advisor prices no strategy). The GIF has no burned-in captions (the local ffmpeg lacks `drawtext`); its alt text describes it. The GIF was later cut from 30.5 s to about 14 s (waiting time removed, same flow). Re-capture only when the UI changes.
+**Status 2026-10-20 (Bobert 1.0.0):** credit view, budget notice, workspace audit and Steering and Hooks stills and the GIF were re-captured from the Bobert build in fresh synthetic demo profiles (window 1440×900, Retina, `screencapture -l`). The GIF is a cut of a story video: intro "Meet Bobert.", notice, credit view, chart, audit, prepared `.kiroignore`, outro with the tagline, with Bobert captions burned in. Social versions (16:9 and 9:16 MP4 with generated music) are kept outside the repository. `cost-advisor.png` is unchanged (it shows no product name). Lesson: the budget notice appears once per cycle and its toast hides after a few seconds, so capture it in a burst right after trusting the workspace. Re-capture only when the UI changes.
 
 ## Setup (not filmed)
 
