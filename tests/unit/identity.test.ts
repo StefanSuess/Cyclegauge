@@ -96,7 +96,7 @@ test('support prompts are on unless explicitly false; Kiro is recognised by name
 });
 
 test('the external links are fixed https constants without a query string', () => {
- assert.deepEqual(LINKS, { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev' });
+ assert.deepEqual(LINKS, { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev', tips: 'https://github.com/StefanSuess/Cyclegauge/blob/main/docs/credit-tips.md' });
  for (const url of Object.values(LINKS)) assert.ok(url.startsWith('https://') && !/[?#]/.test(url), url);
 });
 

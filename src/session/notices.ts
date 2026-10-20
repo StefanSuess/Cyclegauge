@@ -5,6 +5,11 @@ export const REARM_MARGIN = 10; // a threshold is armed again when the value fal
 export const FRESH_MS = 600_000; // an observation older than this never produces a notice
 export const MIN_GAP_MS = 1_800_000; // per session: at most one notice in 30 minutes
 export const MAX_PER_SESSION = 3; // and three per run
+// The model hint needs a reason (maintainer decision 2026-10-20): a tight budget (the gauge's warning or limit state) or a long session (context at least this full).
+export const LONG_SESSION_PERCENT = 30;
+export type HintReason = 'budget' | 'long';
+/** The model hint's budget reason: the gauge's warning (at risk, likely to exceed) or limit state only; stale, unavailable and on-track data never count. */
+export const budgetTightFrom = (severity: unknown): boolean => severity === 'warning' || severity === 'error';
 const MAX_SESSIONS = 50;
 export interface Observation { key: string; modelId: string | null; sessionAsOf: number; context?: { percent: number; asOf: number } }
 export type Notice = { kind: 'context'; threshold: number; text: string } | { kind: 'model'; text: string };
@@ -19,17 +24,19 @@ export function contextText(threshold: number, percent: number, asOf: number): s
  const head = `Your most recent Kiro session in this workspace was about ${Math.round(percent)}% full as of ${clock(asOf)}`;
  return threshold >= 85 ? `${head}, close to its limit.` : `${head}. Kiro may compact it soon; consider starting a new session for unrelated work.`;
 }
-export function hintText(hint: ModelHint, asOf: number): string {
- const head = `Your most recent Kiro session in this workspace is set to ${hint.name} as of ${clock(asOf)}.`;
- return hint.stale ? `${head} Kiro lists it above the credits of Auto (check Kiro's current model table; last retrieved ${hint.date}); actual credits per task vary.`
-  : `${head} Kiro lists it ${hint.from ? 'from about' : 'at about'} ${hint.multiplier}x the credits of Auto (${TABLE_SOURCE}, as of ${hint.date}); actual credits per task vary.`;
+export function hintText(hint: ModelHint, asOf: number, reason: HintReason): string {
+ const lead = reason === 'budget' ? 'Your Kiro credit budget is tight, and your most recent session in this workspace' : 'Your most recent Kiro session in this workspace is getting long and';
+ const rate = hint.stale ? `which Kiro lists above the credits of Auto (check Kiro's current model table; last retrieved ${hint.date})`
+  : `which Kiro lists ${hint.from ? 'from about' : 'at about'} ${hint.multiplier}x the credits of Auto (${TABLE_SOURCE}, as of ${hint.date})`;
+ return `${lead} uses ${hint.name} (as of ${clock(asOf)}), ${rate}. For routine steps, Auto or a lighter model uses fewer credits; actual credits per task vary.`;
 }
 /**
  * One evaluation per tick. Hysteresis is updated from every value; a notice needs a fresh observation (after the extension started, within ten minutes).
- * At most one notice: the highest armed context threshold first, then the model hint (once per model per run, across sessions). A rate limit applies per session.
+ * At most one notice: the highest armed context threshold first, then the model hint (once per model per run, across sessions, and only with a reason:
+ * a tight budget or a session at least LONG_SESSION_PERCENT full). A rate limit applies per session.
  * The state is committed only for the notice that is returned.
  */
-export function evaluate(state: HintState, o: Observation, now: number, started: number, table?: readonly ModelRow[]): Notice | undefined {
+export function evaluate(state: HintState, o: Observation, now: number, started: number, table?: readonly ModelRow[], budgetTight = false): Notice | undefined {
  let s = state.sessions.get(o.key);
  if (!s) {
   if (state.sessions.size >= MAX_SESSIONS) state.sessions.delete(state.sessions.keys().next().value as string);
@@ -49,9 +56,10 @@ export function evaluate(state: HintState, o: Observation, now: number, started:
    return { kind: 'context', threshold: top, text: contextText(top, percent, o.context.asOf) };
   }
  }
- if (o.modelId !== null && fresh(o.sessionAsOf) && !state.hinted.has(o.modelId)) {
+ const reason: HintReason | undefined = budgetTight ? 'budget' : percent !== undefined && percent >= LONG_SESSION_PERCENT ? 'long' : undefined;
+ if (reason && o.modelId !== null && fresh(o.sessionAsOf) && !state.hinted.has(o.modelId)) {
   const hint = modelHint(o.modelId, now, table);
-  if (hint) { state.hinted.add(o.modelId); s.last = now; s.count++; return { kind: 'model', text: hintText(hint, o.sessionAsOf) }; }
+  if (hint) { state.hinted.add(o.modelId); s.last = now; s.count++; return { kind: 'model', text: hintText(hint, o.sessionAsOf, reason) }; }
  }
  return undefined;
 }

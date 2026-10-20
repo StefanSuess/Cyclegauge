@@ -26,11 +26,13 @@ import { RECAP_KEY, nextRecapState, readRecap, type StoredRecap } from './recap.
 import { protectedRoots } from './file-target.ts';
 import { exportCsv, saveRecapImage, type SaveDeps } from './recap-io.ts';
 import { registerSessionHints, type SessionHintsLink } from './session-hints.ts';
+import { budgetTightFrom } from '../session/notices.ts';
 import { RESULTS_KEY, aggregateFindings, readResults, record, type ExclusionAggregate, type StoredResults } from './results-summary.ts';
 
 declare const __DASHBOARD_SCRIPT__: string;
 let rejectedMessages = 0;
 let sessionHints: SessionHintsLink | undefined;
+let budgetTight = false; // the status bar's warning or limit state, read by the model hint
 // Shared at each native command registration, so links, title buttons and command-palette calls obey the same guard.
 function guardDashboardCommand<T extends unknown[]>(fn: (...args: T) => unknown): (...args: T) => Promise<void> {
  let busy = false, last = -Infinity;
@@ -737,7 +739,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
  try { recap = registerRecap(context); } catch { /* Nor the cycle recap. */ }
  sessionHints = undefined;
  // Context reminder and model hint from the newest IDE session: Kiro only, never in the extension tests, silent on any failure.
- try { sessionHints = registerSessionHints(context, () => inKiro() && !(vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test), () => support?.pause()); } catch { /* Nor must the session hints. */ }
+ try { sessionHints = registerSessionHints(context, () => inKiro() && !(vscode.ExtensionMode !== undefined && context.extensionMode === vscode.ExtensionMode.Test), () => support?.pause(), () => budgetTight); } catch { /* Nor must the session hints. */ }
  try { audit = registerAudit(context, () => support?.valueSeen(), accepted => { try { support?.auditSaved(); } catch { /* the support prompt never affects the audit */ } results?.record(accepted); }, support); } catch { /* The audit must never stop the gauge from starting. */ }
  try { registerDiagnostics(context); } catch { /* Neither must the diagnostics. */ }
  // Right alignment/priority is controllable; native Kiro item ordering is not a stable API.
@@ -788,6 +790,7 @@ async function startGauge(context: vscode.ExtensionContext): Promise<void> {
   setStatus(text, html, meta) {
    item.text = text;
    item.tooltip = meta?.tooltip ?? 'Open your credit budget and forecast';
+   budgetTight = budgetTightFrom(meta?.severity);
    item.backgroundColor = meta?.severity === 'error' ? new vscode.ThemeColor('statusBarItem.errorBackground') : meta?.warning ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
    detail = html;
    dashboard?.set(detail);

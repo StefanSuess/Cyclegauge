@@ -11,7 +11,7 @@ export interface TickRequest {
  enabled: boolean; platform: string; remote: boolean;
  folders: readonly string[]; // fsPath of every file: workspace folder
  home: () => string; // resolved only after the gate
- now: number; started: number; state: HintState;
+ now: number; started: number; state: HintState; budgetTight?: boolean;
  signal?: AbortSignal; budgetMs?: number; fs?: SessionFs; table?: readonly ModelRow[]; decode?: (b: Uint8Array) => string;
 }
 export interface TickResult { code: HintCode; text?: string; kind?: 'context' | 'model'; opened: number; capped: number }
@@ -30,7 +30,7 @@ export async function tick(r: TickRequest): Promise<TickResult> {
   const signal = r.signal ? AbortSignal.any([r.signal, budget]) : budget;
   const out = await readSession({ home: r.home(), folders: r.folders, platform: r.platform, now: r.now, signal, fs: r.fs, decode: r.decode });
   if (out.code !== 'ok') return { code: out.code, opened: out.opened, capped: out.capped };
-  const notice = evaluate(r.state, out.observation, r.now, r.started, r.table);
+  const notice = evaluate(r.state, out.observation, r.now, r.started, r.table, r.budgetTight === true);
   return notice ? { code: 'ok', text: notice.text, kind: notice.kind, opened: out.opened, capped: out.capped } : { code: 'ok', opened: out.opened, capped: out.capped };
  } catch { return { code: 'error', opened: 0, capped: 0 }; }
 }
