@@ -19,7 +19,10 @@ const relabel = (archive: Buffer, version: string, flagged: boolean) => writeZip
  if (e.name === 'extension/package.json') { const m = JSON.parse(data.toString('utf8')); m.version = version; m.preview = isPlainVersion(version) ? isPreReleaseVersion(version) : flagged; data = Buffer.from(JSON.stringify(m)); }
  if (e.name === 'extension.vsixmanifest') {
   const text = data.toString('utf8').replaceAll(`Version="${packageVersion}"`, `Version="${version}"`);
-  data = Buffer.from(text.replace(/(Microsoft\.VisualStudio\.Code\.PreRelease" Value=")(?:true|false)/, `$1${flagged}`));
+  // vsce writes the PreRelease property only on a pre-release build, so a stable base needs it added to be flagged.
+  const flag = /Microsoft\.VisualStudio\.Code\.PreRelease" Value="(?:true|false)/;
+  data = Buffer.from(flag.test(text) ? text.replace(flag, `Microsoft.VisualStudio.Code.PreRelease" Value="${flagged}`)
+   : flagged ? text.replace('</Properties>', '<Property Id="Microsoft.VisualStudio.Code.PreRelease" Value="true" /></Properties>') : text);
  }
  return { name: e.name, data };
 }));
@@ -44,7 +47,7 @@ test('the build derives the pre-release flag from the version and rejects a disa
 test('verification requires the pre-release flag to match the channel of the VSIX version, both ways', async () => {
  const base = await build('channel.vsix');
  // Odd minor without the flag, even minor with the flag: both fail closed with one fixed code.
- assert.deepEqual(verifyVsix(relabel(base, packageVersion, false)).problems, ['VSIXMANIFEST_CHANNEL_MISMATCH']);
+ assert.deepEqual(verifyVsix(relabel(base, '0.13.0', false)).problems, ['VSIXMANIFEST_CHANNEL_MISMATCH']);
  assert.deepEqual(verifyVsix(relabel(base, '1.0.0', true)).problems, ['VSIXMANIFEST_CHANNEL_MISMATCH']);
  assert.deepEqual(verifyVsix(relabel(base, '0.10.2', true)).problems, ['VSIXMANIFEST_CHANNEL_MISMATCH']);
  // Matching states verify.

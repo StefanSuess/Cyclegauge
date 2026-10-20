@@ -1,4 +1,4 @@
-# Release process (Open VSX beta)
+# Release process (Open VSX)
 
 Maintainer-only. For the step-by-step setup, dry run and live checklist see [release-runbook.md](release-runbook.md). `.github/workflows/release.yml` is manually triggered and never runs on merge. A live run pauses at the protected `release` environment so the maintainer can review the verified candidate and explicitly approve publication.
 
@@ -40,7 +40,7 @@ The workflow is create-only. Existing Open VSX versions, tags, releases, or asse
 
 If the candidate artifact has expired, run the existing CI workflow manually on `main` at the same commit and wait for its candidate and verification jobs to pass. The release workflow will derive that new artifact. It never rebuilds during promotion. If `main` has advanced, dispatch from the new head and review that new candidate.
 
-The package is universal (no `--target`), so Kiro on any OS may offer it. The listing and README describe a beta for macOS, Windows and Ubuntu with the evidence level per platform (see [platform support](platform-support.md)); Windows default storage relies on profile permissions and a chosen location uses a fail-closed owner-only NTFS DACL; itemised native Windows/Ubuntu acceptance remains outstanding. One universal package is retained because there are no platform-specific runtime dependencies. The same artifact must pass every supported-platform host test and native acceptance before expanding support claims. See [platform verification](platform-verification.md).
+The package is universal (no `--target`), so Kiro on any OS may offer it. The listing and README describe the release line (stable for an even minor, beta for an odd one) for macOS, Windows and Ubuntu with the evidence level per platform (see [platform support](platform-support.md)); Windows default storage relies on profile permissions and a chosen location uses a fail-closed owner-only NTFS DACL; itemised native Windows/Ubuntu acceptance remains outstanding. One universal package is retained because there are no platform-specific runtime dependencies. The same artifact must pass every supported-platform host test and native acceptance before expanding support claims. See [platform verification](platform-verification.md).
 
 ## 4. Rollback
 
@@ -63,7 +63,7 @@ Versions are plain `major.minor.patch`. Extension registries do not accept seman
 
 Version numbers do not track milestone numbers. A version is never reused or republished; a correction is a higher patch.
 
-The release channel is derived from the version in one place, `scripts/release/channel.ts`; CI, the build, `release:verify`, the promotion checks, `ovsx publish --pre-release` and the GitHub `prerelease` value all use it. A mismatch between the VSIX flag and the version's channel fails closed (`VSIXMANIFEST_CHANNEL_MISMATCH`, `VSIX_CHANNEL_MISMATCH`). `package.json` `preview` must equal the channel (a test checks it). A stable line also needs native acceptance on every platform it names as supported.
+The release channel is derived from the version in one place, `scripts/release/channel.ts`; CI, the build, `release:verify`, the promotion checks, `ovsx publish --pre-release` and the GitHub `prerelease` value all use it. A mismatch between the VSIX flag and the version's channel fails closed (`VSIXMANIFEST_CHANNEL_MISMATCH`, `VSIX_CHANNEL_MISMATCH`). `package.json` `preview` must equal the channel (a test checks it). A stable release (1.0.0) needs native acceptance of the exact candidate on macOS and a native smoke test on Windows and Ubuntu, recorded in [platform-verification.md](platform-verification.md) before the live release; a platform without that evidence is not named as supported.
 
 ## Support links and marketplace listing
 

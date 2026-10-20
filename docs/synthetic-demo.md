@@ -26,7 +26,7 @@ pnpm demo:setup --open --vsix "path/to/candidate.vsix"
 
 If Kiro is installed in a custom location, add `--kiro "path/to/Kiro executable"` (the **IDE executable**, not
 `kiro-cli`, a `.cmd` wrapper or the macOS `.app` directory). Setup tries common installation locations; those paths
-are not a guarantee about every installer. You can also omit `--open` to prepare everything without launching Kiro.
+are not a guarantee about every installer. You can also omit `--open` to prepare everything without launching Kiro. Add `--pace high` to invent about 200 credits/day instead of 20, so the budget warning and the overage projection appear (the 5000 limit is reached before the reset). Late in the month the invented usage can exceed the 5000 limit, which shows the over-limit state; this is expected.
 
 ## Five quick checks
 

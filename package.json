@@ -1,6 +1,6 @@
 {
   "name": "cyclegauge",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -555,6 +555,5 @@
     "@vscode/vsce": "^4.0.0",
     "esbuild": "0.28.2",
     "typescript": "^5.9.0"
-  },
-  "preview": true
+  }
 }

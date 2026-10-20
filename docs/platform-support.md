@@ -4,10 +4,10 @@ Cyclegauge for Kiro IDE is an unofficial project. The table separates what has b
 
 | Platform | Status |
 | --- | --- |
-| macOS | Verified target: synthetic tests, plus VSIX installation, activation, status bar and detail view observed in Kiro 1.2.56. |
-| Ubuntu | **Beta, smoke-tested.** Automated tests in a real VS Code host on Ubuntu 24.04; the maintainer reported a development candidate working in native Kiro on Ubuntu 26 (2026-10-14). No itemised acceptance yet. See [platform verification](platform-verification.md). |
+| macOS | **Stable release line (Apple Silicon; Intel unverified).** Verified target: synthetic tests, plus VSIX installation, activation, status bar and detail view observed in Kiro 1.2.56. |
+| Ubuntu | **Smoke-tested (stable release line).** Automated tests in a real VS Code host on Ubuntu 24.04; the maintainer reported a development candidate working in native Kiro on Ubuntu 26 (2026-10-14). No itemised acceptance yet. See [platform verification](platform-verification.md). |
 | RHEL | **Unverified, best effort.** Not an officially supported Kiro platform. |
-| Windows | **Beta, smoke-tested.** Automated tests in a real VS Code host on Windows Server 2025; the maintainer reported a development candidate working in native Kiro on Windows 11 Pro (2026-10-14). No itemised acceptance yet. Default storage (the editor's per-extension folder) relies on the Windows user profile's permissions; a chosen storage location gets a verified owner-only NTFS DACL and fails closed otherwise. See [platform verification](platform-verification.md). |
+| Windows | **Smoke-tested (stable release line).** Automated tests in a real VS Code host on Windows Server 2025; the maintainer reported a development candidate working in native Kiro on Windows 11 Pro (2026-10-14). No itemised acceptance yet. Default storage (the editor's per-extension folder) relies on the Windows user profile's permissions; a chosen storage location gets a verified owner-only NTFS DACL and fails closed otherwise. See [platform verification](platform-verification.md). |
 
 macOS observations for one Kiro version do not verify any other platform or version.
 
