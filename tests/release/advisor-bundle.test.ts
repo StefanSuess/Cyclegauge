@@ -852,7 +852,7 @@ test('packaged support prompt: only when due, once per window, each button sets 
   seed('2029-12-01',{'cyclegauge.support.never.v1':true});s=await start();await s.commands.get('cyclegauge.support.reset')!();await s.later();
   assert.deepEqual([...env.store.keys()].filter(k=>k.startsWith('cyclegauge.support.')),[]);s.dispose();
   // A broken global state never breaks activation, the gauge or the prompt check.
-  seed(undefined);env.throwState=true;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)),env.statusTexts.join('|'));
+  seed(undefined);env.throwState=true;const shown=env.statusTexts.length;s=await start();assert.ok(s.commands.has('cyclegauge.showUsage'));assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)),env.statusTexts.join('|'));
   await s.fire();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.equal(env.written.length,0);env.throwState=false;s.dispose();
   // The setting off: neither the first-use date nor the value flag is recorded.
   seed(undefined);env.prompts=false;s=await start();await s.fire();s.dispose();assert.deepEqual([...env.store.keys()],[WALKTHROUGH_KEY]);assert.deepEqual(env.written,[WALKTHROUGH_KEY]);assert.deepEqual(env.infos,[]);
@@ -1299,7 +1299,7 @@ test('packaged budget warning: one notice per window, once per cycle and kind, s
   wipe();env.budgetPercent=85;s=await start();await until(()=>env.infos.length>0);assert.equal(budgetInfos(env).length,1);s.dispose();
   // A state that cannot be written, or neither read nor written, shows nothing (fail closed).
   wipe();budgetData(env,[5,15,25,35,45,55,65,75]);env.failWrites=true;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);s.dispose();
-  wipe();env.throwState=true;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.ok(env.statusTexts.every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)));s.dispose();
+  wipe();env.throwState=true;const shown=env.statusTexts.length;s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.deepEqual(env.errors,[]);assert.ok(env.statusTexts.slice(shown).every(t=>!/unavailable|update needed|Needs a newer Kiro|Update Cyclegauge/i.test(t)));s.dispose();
   // Stale data (the last update is more than a day old) gives no notice.
   wipe();env.now='2030-01-10T00:00:00Z';s=await start();await s.later();await s.later();assert.deepEqual(env.infos,[]);assert.equal(env.store.has(BUDGET_KEY),false);s.dispose();env.now=BUDGET_NOW;
   // A provisional forecast (five updates) is too early for a forecast notice, even though it would be exhausted before the reset.
