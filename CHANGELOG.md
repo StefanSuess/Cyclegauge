@@ -6,6 +6,10 @@ All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-
 
 Beta, macOS. Adds **session hints**: a context-fill reminder and a model hint taken from the newest IDE session of the open workspace. **It is on by default** and is a new, narrow read of Kiro's local session files (see Privacy below); turn it off with the user setting `cyclegauge.sessionHints`. Collector, store, projection, billing, forecast and Cost Advisor algorithms and data formats are preserved.
 
+### Changed (change preview hint, maintainer decision 2026-10-20)
+
+- Kiro's change preview shows every change that Cyclegauge prepares (the actions that open a change preview: **Exclude from Kiro…**, **Load only when needed…**, **Run only manually…** and **Disable hook**) **unticked**, so **Apply** alone changed nothing. A notice now says to tick each change before **Apply** when the preview opens, and the "No changes were made." notice says how to prepare the change. The edits still stay unsaved until you save.
+
 ### Changed (calmer credit view and status bar, maintainer goal 2026-10-20)
 
 - **Status bar**: reads "Kiro credits: On track • 12/day" and "runs out Oct 28" (per-day units everywhere). "Update needed" now names the cause ("Kiro: Needs a newer Kiro" or "Kiro: Update Cyclegauge"). The warning background is only for budget risk, red only once the reported limit is reached or exceeded; stale or unavailable data shows just the warning icon.

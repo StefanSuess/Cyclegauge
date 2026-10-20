@@ -189,7 +189,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   // Discarding the change preview is not an error: nothing is marked as prepared, nothing is remembered for a save, and one fixed note is shown.
   st.docs.clear();st.discard=true;infos.length=0;const discardEdits=st.edits.length;
   await commands.get('cyclegauge.audit.accept')!(find('.env'));
-  st.discard=false;assert.equal(st.edits.length,discardEdits+1);assert.deepEqual(infoTexts(),['No changes were made.']);assert.ok(!find('.env').description.includes('rule prepared'));assert.equal(st.saves,0);
+  st.discard=false;assert.equal(st.edits.length,discardEdits+1);assert.deepEqual(infoTexts(),['Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.','No changes were made. To prepare a change, tick it in the preview, then select Apply.']);assert.ok(!find('.env').description.includes('rule prepared'));assert.equal(st.saves,0);
   infos.length=0;st.docs.clear();
   // Accept without a .kiroignore: an unsaved untitled document at that path; nothing is created on disk.
   unlinkSync(kiroignore);st.docs.clear();
@@ -276,7 +276,7 @@ test('packaged audit sidebar survives a failing start, refuses untrusted workspa
   // After a successful Review changes… the notice says the file counts only when listed, with an Open setting button that opens the setting (never writes it).
   st.docs.clear();infos.length=0;st.executed.length=0;infoChoice='Open setting';
   await commands.get('cyclegauge.audit.accept')!(find('.env'));await new Promise(r=>setImmediate(r));infoChoice=undefined;
-  assert.deepEqual(infos,[{text:"Changes prepared in 1 file — review and save. Kiro uses .kiroignore only when it's listed in Agent Ignore Files.",extra:1}]);
+  assert.deepEqual(infos,[{text:'Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.',extra:0},{text:"Changes prepared in 1 file — review and save. Kiro uses .kiroignore only when it's listed in Agent Ignore Files.",extra:1}]);
   assert.deepEqual(st.executed.at(-1),['workbench.action.openSettings','kiroAgent.agentIgnoreFiles']);
   for(const fn of st.closeListeners)fn(st.docs.get(`file:${kiroignore}`));infos.length=0;
   ignoreFiles=[];await run();assert.equal(roots()[1].description,"won't take effect yet — add .kiroignore to Agent Ignore Files");assert.ok(!roots().some(n=>n.label==='Workspace ignore files are turned off'));ignoreFiles=undefined;await run();assert.ok(roots().some(n=>n.label==="Couldn't read the Agent Ignore Files setting"));ignoreFiles=['.kiroignore'];
