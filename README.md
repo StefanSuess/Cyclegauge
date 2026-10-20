@@ -26,22 +26,36 @@ Cyclegauge adds a status-bar item and a credit view to Kiro IDE. It warns you wh
 - **Session hints (macOS; Windows and Linux enabled, not yet verified natively).** A reminder when your latest session's context is about 70 % or 85 % full, and a note when its model is listed above Auto's credit rate. On by default, one setting to turn off.
 - **Credit view with a cycle recap.** Usage chart with forecast scenarios, pace against your daily budget and a recap of the cycle that just ended (when your history supports it) that you can copy as text or save as an image to a file you choose.
 
-<!-- TODO(maintainer): add a short synthetic GIF of the warning, overage cost and workspace audit here (see docs/launch/demo-script.md). Synthetic data only. -->
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/demo.gif" alt="Animated demo with invented data: a Cyclegauge notice says the credits run out on 26 Oct, 6 days before the reset, about $40 over the limit (modelled); Show details opens the credit view, About these numbers expands, then the workspace audit runs and Exclude from Kiro opens Kiro's change preview with the suggested .kiroignore lines." width="900">
+</p>
 
 Everything runs locally: no telemetry, no sign-in, Kiro's files are only read, never changed (details under Privacy).
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/dashboard.jpg" alt="Cyclegauge dashboard with synthetic data: 58.4 of 1000 reported credits used, 941.6 remaining, a November 1 reset, and a regular forecast. No personal account information is shown." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/credit-view.png" alt="Cyclegauge credit view with invented data: 3810 of 5000 reported credits used, likely to exceed with a run-out date of 26 Oct before the 1 Nov reset, a modelled overage of about 1009 credits (about $40) next to the cost of the next larger plan, and the usage chart with forecast lines. No real account information is shown." width="900">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/budget-notice.png" alt="Kiro status bar reading Kiro credits: Likely to exceed, runs out 26 Oct, and a Cyclegauge notice that the invented credits run out 6 days before the reset, about $40.27 over the limit (modelled), with Show details and Turn off budget notices buttons." width="700">
 </p>
 
 <details>
-<summary>Cost Advisor and usage trajectory</summary>
+<summary>Cost Advisor, workspace audit and Steering and Hooks review</summary>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/cost-advisor.jpg" alt="Cost Advisor presents an unconfirmed Pro plan and a modelled USD 20 next-cycle estimate above the synthetic usage trajectory chart, which shows observed credits, the reported limit, expected usage scenarios, daily budget pace, and reset date." width="820">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/cost-advisor.png" alt="Cost Advisor in the credit view with invented data: likely plan Pro Max (unconfirmed), based on assumptions, an $80 modelled saving per billing cycle by moving from Pro Max to Pro, with the note that it is modelled from list prices, not a guarantee and not an invoice." width="760">
 </p>
 
 The plan hint is unconfirmed and the estimate is conditional, modelled, and before tax. It is not a guaranteed saving or an invoice. Unknown purchase or billing rules are not filled in.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/workspace-audit.png" alt="Workspace Audit view listing invented files Kiro may read but probably doesn't need, about 190.7 MiB in total (a database dump and an archive), beside Kiro's change preview of the suggested .kiroignore lines, which stay unsaved until you apply and save them." width="900">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Cyclegauge/main/docs/media/steering-hooks.png" alt="Steering and Hooks review flagging an invented always-included Steering file and a hook that runs on every file change, with Kiro's change preview of switching the Steering file from inclusion always to manual." width="900">
+</p>
 
 </details>
 
