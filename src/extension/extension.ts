@@ -10,7 +10,7 @@ import { defaultSource, defaultStorage, inside } from '../paths.ts';
 import { folderCheck as checkFolder } from './audit-root.ts';
 import { CONFIG_OFFER_KEY, registerConfigReview, startManualReview, type SupportGate } from './config-review.ts';
 import { configSummary, reviewTree, type ConfigNode, type ViewNode } from './config-model.ts';
-import { createPreparedFiles, preparedText } from './config-apply.ts';
+import { APPLY_TEXT, createPreparedFiles, preparedText } from './config-apply.ts';
 import { readConfigReviewMode } from './config-schedule.ts';
 import { IGNORE_USE_NOTE, MAX_DISMISSED, OPEN_SETTING, auditTree, auditSizeTotal, dismissHash, excludeAnnotation, findingKey, findingsToast, ignoreNotEffective, isHash, countFindings, kiroignoreAppend, revealTarget, sizePhrase, visibleFindings, type AuditNode, type AuditParts, type AuditSummary } from './audit-model.ts';
 import { startExtension, type ExtensionUi } from './controller.ts';
@@ -271,10 +271,11 @@ function registerAudit(context: vscode.ExtensionContext, onFinding: () => void, 
   const rules = text.split(/\r?\n/).filter(line => line !== '' && !line.startsWith('#')).length;
   const edit = new vscode.WorkspaceEdit();
   edit.insert(document.uri, document.positionAt(current.length), text, { ...excludeAnnotation(rules), needsConfirmation: true });
+  notify(APPLY_TEXT.preview);
   const applied = await vscode.workspace.applyEdit(edit);
-  // Discarding the preview (or unchecking the change) leaves the document as it was; that is not an error and prepares nothing.
+  // Discarding the preview (or leaving the change unticked) leaves the document as it was; that is not an error and prepares nothing.
   const after = document.getText();
-  if (!applied || after === current) { notify('No changes were made.'); return; }
+  if (!applied || after === current) { notify(APPLY_TEXT.discarded); return; }
   pendingSave = { path, text: after, accepted: aggregate };
   await vscode.window.showTextDocument(document);
   // A saved .kiroignore has no effect while Agent Ignore Files does not list it: say so, and offer the setting (Cyclegauge never writes it).
