@@ -2,7 +2,7 @@
 
 > **DRAFT, NOT PUBLISHED. Outreach is not approved.** Records only the synthetic demo from [synthetic-demo.md](../synthetic-demo.md). Never record a real profile, real workspace, real path, real account name or the normal Kiro window.
 
-**Status 2026-10-20:** S1–S5 and the GIF were captured from candidate `c7f259d` with this setup and embedded in the README; `dashboard.jpg` and `cost-advisor.jpg` were removed. S5 uses the default pace (at the high pace the Cost Advisor prices no strategy). The GIF has no burned-in captions (the local ffmpeg lacks `drawtext`); its alt text describes it. Re-capture only when the UI changes.
+**Status 2026-10-20:** S1–S5 and the GIF were captured from candidate `c7f259d` with this setup and embedded in the README; `dashboard.jpg` and `cost-advisor.jpg` were removed. S5 uses the default pace (at the high pace the Cost Advisor prices no strategy). The GIF has no burned-in captions (the local ffmpeg lacks `drawtext`); its alt text describes it. The GIF was later cut from 30.5 s to about 14 s (waiting time removed, same flow). Re-capture only when the UI changes.
 
 ## Setup (not filmed)
 
