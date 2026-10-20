@@ -16,7 +16,9 @@ export const APPLY_TEXT = {
  autoSave: 'Your editor saves files automatically, so no change was prepared. The file was opened for you to edit yourself.',
  unsafe: 'This file cannot be opened safely, so nothing was prepared.',
  notLocated: 'Cyclegauge could not locate this setting safely, so the file was opened without a change.',
- discarded: 'No changes were made.',
+ discarded: 'No changes were made. To prepare a change, tick it in the preview, then select Apply.',
+ // The editor's change preview starts with every change unticked (it is a change that needs confirmation), so Apply alone changes nothing.
+ preview: 'Tick each change you want in the preview, then select Apply. Nothing changes on disk until you save the file.',
  selected: 'The pattern is selected. Type the pattern you want, then save the file.',
  rejected: 'The editor could not prepare this change (the file may be read-only or too large), so nothing was changed.',
  notOpened: 'The editor could not open this file, so nothing was prepared.',
@@ -131,6 +133,7 @@ export async function applyConfigChanges(editor: typeof vscode, requests: readon
   const range = new editor.Range(document.positionAt(planned.start), document.positionAt(planned.end));
   if (planned.start === planned.end) edit.insert(uri, range.start, planned.text, metadata); else edit.replace(uri, range, planned.text, metadata);
  }
+ say(APPLY_TEXT.preview);
  let applied = false;
  try { applied = await editor.workspace.applyEdit(edit); } catch { say(APPLY_TEXT.rejected); return 'refused'; }
  // Discarding the preview (or unchecking every change) leaves the documents as they were; that is not an error.

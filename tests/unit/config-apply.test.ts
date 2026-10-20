@@ -343,7 +343,7 @@ test('one item: the edit carries an annotation that needs confirmation, with the
  assert.equal(meta!.needsConfirmation, true); assert.equal(meta!.label, 'Load only when needed');
  assert.equal(meta!.description, 'Always-included Steering is added to every request (32.5 KiB). With inclusion: manual Kiro loads it only when you reference it with #. Alternatives: fileMatch for specific files, or split the file.');
  assert.equal(s.log.saves, 0); assert.ok(!JSON.stringify(metadataOf(s.log.edits[0]!)).includes(root), 'no path in the annotation');
- assert.deepEqual(s.log.messages, [preparedText(1)]);
+ assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, preparedText(1)]);
  // Disable is the hook's alternative and goes through the same preview.
  const hookRoot = await workspace(t, { '.kiro/hooks/synthetic.json': hooks(agent('synthetic-one')) });
  const h = setup(hookRoot); await h.run();
@@ -366,7 +366,7 @@ test('a whole group: ONE edit with an annotated change per item across files, on
  assert.equal(s.log.edits.length, 1, 'one WorkspaceEdit');
  const metadata = metadataOf(s.log.edits[0]!);
  assert.equal(metadata.length, 3); assert.ok(metadata.every(m => m.needsConfirmation === true && m.label === 'Load only when needed' && m.description.length > 40));
- assert.deepEqual(s.log.messages, [preparedText(3)]); assert.equal(s.log.shown.length, 0); assert.equal(s.log.saves, 0);
+ assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, preparedText(3)]); assert.equal(s.log.shown.length, 0); assert.equal(s.log.saves, 0);
  for (const rel of ['a', 'b', 'c']) assert.equal(s.doc(`.kiro/steering/synthetic-${rel}.md`).isDirty, true);
  for (const rel of ['a', 'b']) assert.ok(s.doc(`.kiro/steering/synthetic-${rel}.md`).text.startsWith('---\ninclusion: manual\n---\n'));
  // Two hooks of one file: two changes in one file.
@@ -386,7 +386,7 @@ test('a group skips and counts the items whose guard fails and applies the rest;
  await writeFile(join(root, '.kiro/steering/synthetic-b.md'), 'changed\n' + pad(30000)); // changed since the review
  await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
  assert.equal(s.log.edits.length, 1); assert.equal(metadataOf(s.log.edits[0]!).length, 2);
- assert.deepEqual(s.log.messages, [`${preparedText(2)} ${skippedText(1)}`]); assert.equal(s.log.shown.length, 0); assert.equal(s.log.saves, 0);
+ assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, `${preparedText(2)} ${skippedText(1)}`]); assert.equal(s.log.shown.length, 0); assert.equal(s.log.saves, 0);
  assert.equal(s.doc('.kiro/steering/synthetic-b.md'), undefined, 'the changed file is never opened by the group');
  // A document with unsaved changes is skipped too.
  const again = setup(root, {}); await again.run(); const group = groupNode(again, 'config-group-load'); again.state.dirtyNext = true;
@@ -414,7 +414,7 @@ test('a group edit that the user discards (or unchecks entirely) leaves every fi
  const root = await workspace(t, { '.kiro/steering/synthetic-a.md': 'a\n' + pad(12000), '.kiro/steering/synthetic-b.md': 'b\n' + pad(30000) });
  const s = setup(root); await s.run(); s.state.applyResult = false;
  await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(groupNode(s, 'config-group-load'));
- assert.deepEqual(s.log.messages, [APPLY_TEXT.discarded]); assert.deepEqual(s.log.errors, []);
+ assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, APPLY_TEXT.discarded]); assert.deepEqual(s.log.errors, []);
  for (const rel of ['a', 'b']) assert.equal(s.doc(`.kiro/steering/synthetic-${rel}.md`).isDirty, false);
 });
 
@@ -442,7 +442,7 @@ test('one hook with two findings (a broad trigger and a large prompt) is changed
  await s.commands.get('cyclegauge.config.runManuallyAll')!(run);
  assert.equal(s.log.edits.length, 1); assert.equal(s.log.edits[0]!.replaces.length, 2, 'one replace per hook');
  assert.deepEqual(JSON.parse(s.doc('.kiro/hooks/synthetic.json').text).hooks.map((h: { trigger: string }) => h.trigger), ['Manual', 'Manual']);
- assert.deepEqual(s.log.messages, [preparedText(1)]); assert.equal(s.log.saves, 0);
+ assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, preparedText(1)]); assert.equal(s.log.saves, 0);
 });
 
 test('a file that became unsaved or changed while later items were prepared is skipped and counted, not edited', async t => {
@@ -453,7 +453,7 @@ test('a file that became unsaved or changed while later items were prepared is s
   s.workspace.openTextDocument = async (u: { fsPath: string }) => { const d = await open(u); if (++n === 2) { const first = [...s.docs.values()][0]!; if (change === 'dirty') first.isDirty = true; else first.version++; } return d; };
   await s.commands.get('cyclegauge.config.loadWhenNeededAll')!(load);
   assert.equal(s.log.edits.length, 1, change); assert.equal(s.log.edits[0]!.inserts.length + s.log.edits[0]!.replaces.length, 1, change);
-  assert.deepEqual(s.log.messages, [`${preparedText(1)} ${skippedText(1)}`], change);
+  assert.deepEqual(s.log.messages, [APPLY_TEXT.preview, `${preparedText(1)} ${skippedText(1)}`], change);
  }
 });
 
