@@ -14,7 +14,7 @@ Bobert looks like he has seen a ghost. He has: your credit forecast.
 Kiro tells you how many credits you have used. Bobert tells you what that means: whether they will last until the reset, what going over would cost, and where credits quietly leak away. It's all in your status bar, a few days before it matters rather than at the end of the cycle.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/demo.gif" alt="Animated story with invented data: Bobert the robot appears, a notice warns that the credits run out on 27 Oct, 5 days before the reset (about $38 over the limit, modelled), the credit view shows the forecast and the usage chart, the workspace audit finds a database dump and an archive Kiro may read, and Bobert prepares the .kiroignore lines for review." width="900">
+  <img src="https://raw.githubusercontent.com/StefanSuess/Bobert/main/docs/media/demo.gif" alt="Animated story with invented data: Bobert, a robot with a gauge for a mouth, asks whether you ran out of Kiro credits before the reset; a notice warns that the credits run out on 27 Oct, 5 days before the reset (about $38 over the limit, modelled); the credit view shows what going over would cost; the workspace audit finds database dumps and archives Kiro may read; Bobert prepares the .kiroignore lines for review; the end card says Bobert is free, open source and runs locally." width="900">
 </p>
 
 ## Why you'll want it
