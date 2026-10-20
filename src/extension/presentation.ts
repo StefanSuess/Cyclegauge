@@ -109,6 +109,11 @@ function observedContext(h: ReturnType<typeof view>['history'], now: string): st
  return `<section id="usage-context" aria-labelledby="usage-context-heading"><h2 id="usage-context-heading">Observed usage</h2><h3>This cycle vs last cycle</h3><p>${safe(cycle)}</p><h3>Today (UTC)</h3><p>${safe(today)}</p></section>`;
 }
 
+// The observed-usage card can never take the gauge down.
+function contextCard(h: ReturnType<typeof view>['history'], now: string): string {
+ try { return observedContext(h, now); } catch { return ''; }
+}
+
 // Static, script-free summary of saved exclusions and the observed use trend; every string is escaped here and a failure only omits the section.
 function resultsSection(results: StoredResults | undefined, h: ReturnType<typeof view>['history'], now: string): string {
  if (!results) return '';
@@ -159,11 +164,15 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  const lastsLine=eligible && selected.projectedUsageAtReset!==null && o.baseLimit!==null && !exhausted && !exhaustion ? `At the observed pace you will use about ${whole(selected.projectedUsageAtReset)} of ${whole(o.baseLimit)} reported credits by the reset${resetDate ? ` on ${resetDate}` : ''}.` : '';
  // Modelled overage (exact decimals, catalog price only); never an invoice and absent when nothing exceeds the reported limit.
  const projectedOver=eligible && selected.projectedUsageAtReset!==null ? overageOver(selected.projectedUsageAtReset,o.baseLimit,now) : null;
- const observedOver=above && !o.flags.includes('unsupported_extra_credits') ? overageOver(o.usage,o.baseLimit,now) : null;
+ // Only for a current observation: after a reset or with stale data the figure belongs to another cycle and is not "so far".
+ const observedOver=above && o.status==='observed' && !o.flags.includes('unsupported_extra_credits') ? overageOver(o.usage,o.baseLimit,now) : null;
  // Plan hints (controller) are already empty unless every condition holds. The next-larger-plan comparison follows the projected overage line.
  const attempt=(text:()=>string)=>{try{return text();}catch{return '';}}; // a hint can never take the view down
  const noteLines=[projectedOver ? `At this pace by the reset: about ${creditsText(projectedOver.credits)} credits over${moneyText(projectedOver)}.` : '',
   projectedOver && insights.larger ? attempt(()=>largerPlanText(insights.larger!)) : '',insights.rightsize ? attempt(()=>rightSizeText(insights.rightsize!)) : ''].filter(Boolean);
+ // The dollar figures above trace back to one reviewed price; said once, inside About these numbers.
+ const priced=[observedOver,projectedOver].find(x=>x?.money);
+ const priceNote=priced ? attempt(()=>`Dollar figures use $${priced.pricePerCredit} per credit from price list ${priced.catalogVersion}, reviewed ${date(priced.reviewedOn!,true)}.`) : '';
  const overFigure=observedOver ? `${creditsText(observedOver.credits)} credits` : '';
  const explanation=absent ? NOT_KIRO_TEXT : eligible ? exhausted ? above ? (observedOver ? '' : 'Usage was above the reported credit limit at the last account update.') : 'You had reached the reported credit limit at the last account update.' : exhaustion ? `At the observed pace your credits run out on ${date(exhaustion,true)} (UTC), before the reset${resetDate ? ` on ${resetDate}` : ''}.` : selected.exhaustionStatus==='zero_observed_rate' ? 'Your counter has not moved recently, so no run-out date is projected. New usage can change this.' : `${lastsLine ? lastsLine.replace(/\.$/,' — enough to last until then.') : 'Your credits are not projected to run out before the reset.'}${tight ? ' The margin is small: your pace is within 10% of the daily budget.' : ''}` : explanations[stale ? 'stale' : reason] ?? 'The available account updates do not support a safe forecast.';
  // A provisional estimate is never styled or headlined as reassuringly as a regular forecast.
@@ -229,9 +238,9 @@ export function present(o: ReturnType<typeof view>, diagnostics: string[] = [], 
  ${overFigure ? `<p class="lead overage-now"><strong>${safe(overFigure)}</strong> over the limit so far${safe(moneyText(observedOver!))}.</p>` : ''}${explanation ? `<p class="lead">${safe(explanation)}</p>` : ''}${limitations ? `<p class="small">${safe(limitations)}</p>` : ''}${noteLines.map(l=>`<p class="small overage">${safe(l)}</p>`).join('')}
  ${usedPct===null ? '' : `<svg class="bar" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect width="${usedPct}" height="10"/></svg><p class="bar-label muted small">${usedPct}% of the reported credit limit used</p>`}
  ${hasFigures ? `<dl class="stats">${stat('Credits used',o.usage ?? 'Not available',o.baseLimit===null ? '' : `of ${o.baseLimit} reported credits`,true)}${above ? '' : stat('Credits left',o.remainingBaseCredits ?? 'Not available',budget!==null && compare(budget,'0')>0 ? `Daily budget until reset: ${compact(budget)} per day` : '')}${stat('Next reset',o.resetAt ? date(o.resetAt,true) : 'Not available',[resetIn,'UTC'].filter(Boolean).join(' · '))}</dl>` : ''}
- ${o.observedAt ? `<div class="meta muted small"><p>Last account update: ${safe(`${updated(o.observedAt)} · ${freshness}`)}</p><details class="about"><summary><span aria-hidden="true">ⓘ</span> About these numbers</summary><p>${safe(ABOUT)}</p></details></div>` : ''}</section>
+ ${o.observedAt ? `<div class="meta muted small"><p>Last account update: ${safe(`${updated(o.observedAt)} · ${freshness}`)}</p><details class="about"><summary><span aria-hidden="true">ⓘ</span> About these numbers</summary><p>${safe(ABOUT)}</p>${priceNote ? `<p>${safe(priceNote)}</p>` : ''}</details></div>` : ''}</section>
  ${chart.main}
- ${observedContext(h, now)}
+ ${contextCard(h, now)}
  ${recapCard(recap)}
  ${withAdvisorButton(advisorHtml,advisorForm)}
  ${auditCard(audit, now)}

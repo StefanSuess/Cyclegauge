@@ -339,6 +339,8 @@ test('a forecast beyond the reported limit shows the modelled overage below the 
  assert.ok(!r.html.includes('over the limit so far')); // nothing is above the limit yet
  assert.ok(!hero.includes('does not establish overage charges') && !/The counter alone/.test(r.html)); // the caveat is said once, in About these numbers
  assert.ok(!/\$\d/.test(r.text) && !/\$\d/.test(r.tooltip)); // the status bar stays short
+ // The dollar figure traces back to the catalog price, version and review date, said once in About these numbers.
+ assert.match(r.html, /<details class="about">[\s\S]*?<p>Dollar figures use \$\d+\.\d+ per credit from price list [^<]+, reviewed [^<]+\.<\/p><\/details>/);
 });
 test('already-observed overage gets its own modelled line; the projected line stays separate', () => {
  const hero = heroText(at(view(series(10, '60'), NOW)).html);
