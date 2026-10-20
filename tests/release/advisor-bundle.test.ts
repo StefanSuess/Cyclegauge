@@ -928,7 +928,7 @@ test('packaged Kiro-not-detected notice: once, only outside Kiro with no chosen 
   assert.equal(s.support().length,0);assert.deepEqual([...env.store.keys()],['cyclegauge.notKiro.shown.v1']);
   assert.equal(env.statusTexts.at(-1),'$(info) Kiro not detected');
   await s.commands.get('cyclegauge.showUsage')!();const html:string=env.panels.at(-1).webview.html;
-  assert.ok(html.includes(NOT_KIRO.replace("'",'&#39;')));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
+  assert.ok(html.includes(NOT_KIRO.replaceAll("'",'&#39;')));assert.match(html,/Kiro not detected/);assert.ok(!html.includes(work));s.dispose();
   // Never again once shown; Got it opens nothing.
   env.infos.length=0;env.opened.length=0;s=await start();assert.deepEqual(notices(),[]);assert.deepEqual(env.opened,[]);s.dispose();
   reset();env.choice='Got it';s=await start();assert.equal(notices().length,1);assert.deepEqual(env.opened,[]);s.dispose();

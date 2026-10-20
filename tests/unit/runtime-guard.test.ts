@@ -20,7 +20,7 @@ const exists = (path: string) => access(path).then(() => true, () => false);
 const RUNTIME_STATUS = '$(warning) Kiro: Needs a newer Kiro', NEWER_STATUS = '$(warning) Kiro: Update Cyclegauge';
 const UNAVAILABLE_TEXT = 'Use Kiro for a few minutes so it can write a credit update. If this stays empty, use Report a problem below.';
 const RUNTIME_TEXT = "This version of Kiro is too old for Cyclegauge's credit view. Update Kiro to see your credits. The workspace audit still works.";
-const RUNTIME_HTML = RUNTIME_TEXT.replace("'", '&#39;'); // the view escapes the apostrophe
+const RUNTIME_HTML = RUNTIME_TEXT.replaceAll("'", '&#39;'); // the view escapes the apostrophe
 const NEWER_TEXT = 'Your Cyclegauge data was written by a newer Cyclegauge version. Update Cyclegauge; the data is left unchanged.';
 
 test('a runtime without usable node:sqlite is refused as RUNTIME_UNSUPPORTED before anything is created', async () => {
@@ -104,7 +104,7 @@ test('presentation maps only the two fixed codes and ignores other diagnostics',
  for (const [code, status, text] of [['runtime_unsupported', RUNTIME_STATUS, RUNTIME_TEXT], ['storage_newer', NEWER_STATUS, NEWER_TEXT]]) {
   const p = present(o, [code]);
   // The cause is named in the status bar; the warning icon is the only emphasis, with no background colour.
-  assert.equal(p.text, status); assert.equal(p.tooltip, text); assert.equal(p.warning, false); assert.equal(p.severity, 'none'); assert.ok(p.html.includes(text.replace("'", '&#39;')));
+  assert.equal(p.text, status); assert.equal(p.tooltip, text); assert.equal(p.warning, false); assert.equal(p.severity, 'none'); assert.ok(p.html.includes(text.replaceAll("'", '&#39;')));
  }
  const generic = present(o, ['unavailable']);
  assert.ok(generic.text !== RUNTIME_STATUS && generic.text !== NEWER_STATUS); assert.ok(generic.html.includes(UNAVAILABLE_TEXT));
