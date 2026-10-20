@@ -85,10 +85,11 @@ test('an enabled tick produces one fixed-text notice, then stays silent for the 
  const second = await tick(request(() => f.home, { state, now: NOW + 31 * 60_000 }));
  assert.equal(second.code, 'ok'); assert.equal(second.text, undefined); // the Sonnet hint would be due, but the session is now older than ten minutes
  const hintOnly = await home({ pct: 10 });
- const hint = await tick(request(() => hintOnly.home));
- assert.equal(hint.kind, 'model'); assert.match(hint.text!, /set to Claude Sonnet 4\.5 as of \d\d:\d\d\. Kiro lists it at about 1\.3x the credits of Auto \(Kiro model table, as of 2026-10-18\)/);
- const auto = await home({ model: 'auto', pct: 10 }); assert.equal((await tick(request(() => auto.home))).text, undefined);
- const unlisted = await home({ model: 'synthetic-unlisted', pct: 10 }); assert.equal((await tick(request(() => unlisted.home))).text, undefined);
+ assert.equal((await tick(request(() => hintOnly.home))).text, undefined); // a short session with the budget on track: no reason for the model hint
+ const hint = await tick(request(() => hintOnly.home, { budgetTight: true }));
+ assert.equal(hint.kind, 'model'); assert.match(hint.text!, /^Your Kiro credit budget is tight, and your most recent session in this workspace uses Claude Sonnet 4\.5 \(as of \d\d:\d\d\), which Kiro lists at about 1\.3x the credits of Auto \(Kiro model table, as of 2026-10-18\)/);
+ const auto = await home({ model: 'auto', pct: 10 }); assert.equal((await tick(request(() => auto.home, { budgetTight: true }))).text, undefined);
+ const unlisted = await home({ model: 'synthetic-unlisted', pct: 10 }); assert.equal((await tick(request(() => unlisted.home, { budgetTight: true }))).text, undefined);
  for (const x of [f, hintOnly, auto, unlisted]) await rm(x.base, { recursive: true, force: true });
 });
 
@@ -148,8 +149,10 @@ test('windows and linux ticks run the same bounded read; an unmatched layout is 
  }
 });
 
-test('the session hint notice names exactly what its button turns off', async () => {
+test('the session hint notice names exactly what its buttons do; the model hint adds Show credit budget and the fixed Tips page', async () => {
  const code = await readFile(fileURLToPath(new URL('../../src/extension/session-hints.ts', import.meta.url)), 'utf8');
- assert.ok(code.includes("showInformationMessage(result.text, 'Turn off session hints')") && code.includes("choice === 'Turn off session hints'"));
+ assert.ok(code.includes("const TURN_OFF = 'Turn off session hints', SHOW_BUDGET = 'Show credit budget', TIPS = 'Tips';"));
+ assert.ok(code.includes("result.kind === 'model' ? [SHOW_BUDGET, TIPS, TURN_OFF] : [TURN_OFF]") && code.includes('choice === TURN_OFF'));
+ assert.ok(code.includes("executeCommand(commandId('showUsage'))") && code.includes('openExternal(vscode.Uri.parse(LINKS.tips))'));
  assert.ok(!/'Turn off'/.test(code));
 });

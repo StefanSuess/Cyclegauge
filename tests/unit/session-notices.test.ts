@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MAX_PER_SESSION, MIN_GAP_MS, clock, contextText, evaluate, hintText, newHintState, type Observation } from '../../src/session/notices.ts';
+import { LONG_SESSION_PERCENT, MAX_PER_SESSION, budgetTightFrom, MIN_GAP_MS, clock, contextText, evaluate, hintText, newHintState, type Observation } from '../../src/session/notices.ts';
 import { modelHint, type ModelRow } from '../../src/session/models.ts';
 
 const T0 = Date.parse('2026-10-18T09:00:00Z');
@@ -54,8 +54,8 @@ test('stale or pre-start observations are silent, but still update the hysteresi
  assert.equal(seen(s, 0, 80, null, 'synthetic-session-a', at(0) + 6 * 60_000), undefined); // future
  assert.ok(seen(s, 0, 80, null, 'synthetic-session-a', at(0) - 90_000)); // fresh and after the start: fine
  // the model hint is gated by the session time in the same way
- assert.equal(evaluate(newHintState(), { key: 'k', modelId: 'synthetic-model-x', sessionAsOf: at(0) - 11 * 60_000 }, at(0), T0, table), undefined);
- assert.equal(evaluate(newHintState(), { key: 'k', modelId: 'synthetic-model-x', sessionAsOf: T0 - 1 }, at(0), T0, table), undefined);
+ assert.equal(evaluate(newHintState(), { key: 'k', modelId: 'synthetic-model-x', sessionAsOf: at(0) - 11 * 60_000 }, at(0), T0, table, true), undefined);
+ assert.equal(evaluate(newHintState(), { key: 'k', modelId: 'synthetic-model-x', sessionAsOf: T0 - 1 }, at(0), T0, table, true), undefined);
 });
 
 test('only one notice per tick: the context threshold wins, the model hint follows later', () => {
@@ -81,13 +81,27 @@ test('rate limits: one notice per session per 30 minutes and three per run; sess
 });
 
 test('model hint: once per model per run, across sessions; Auto, unlisted and rows at or below 1.0 are silent; pattern rows may hint', () => {
+ const s = newHintState(), long = LONG_SESSION_PERCENT + 5; // a long session gives the reason here
+ for (const [i, id] of ['auto', 'synthetic-unlisted', null].entries()) assert.equal(seen(s, i, long, id), undefined, String(id));
+ assert.equal(seen(s, 3, long, 'synthetic-model-pattern')?.kind, 'model');
+ assert.equal(seen(s, 4, long, 'synthetic-model-pattern'), undefined);
+ assert.equal(seen(s, 5, long, 'synthetic-model-x')?.kind, 'model'); // a switch to another listed model, after the gap
+ assert.equal(seen(s, 6, long, 'synthetic-model-x', 'synthetic-session-b'), undefined); // the same model in another session: not again in this run
+ assert.equal(seen(s, 7, long, 'synthetic-model-pattern', 'synthetic-session-b'), undefined);
+});
+
+test('model hint needs a reason: a tight budget or a session at least 30 % full; otherwise silent and not spent', () => {
+ const o = (percent?: number) => ({ key: 'synthetic-session-a', modelId: 'synthetic-model-x', sessionAsOf: at(0) - 60_000, context: percent === undefined ? undefined : { percent, asOf: at(0) - 60_000 } });
  const s = newHintState();
- for (const [i, id] of ['auto', 'synthetic-unlisted', null].entries()) assert.equal(seen(s, i, undefined, id), undefined, String(id));
- assert.equal(seen(s, 3, undefined, 'synthetic-model-pattern')?.kind, 'model');
- assert.equal(seen(s, 4, undefined, 'synthetic-model-pattern'), undefined);
- assert.equal(seen(s, 5, undefined, 'synthetic-model-x')?.kind, 'model'); // a switch to another listed model, after the gap
- assert.equal(seen(s, 6, undefined, 'synthetic-model-x', 'synthetic-session-b'), undefined); // the same model in another session: not again in this run
- assert.equal(seen(s, 7, undefined, 'synthetic-model-pattern', 'synthetic-session-b'), undefined);
+ assert.equal(evaluate(s, o(), at(0), T0, table, false), undefined); // no context, budget on track
+ assert.equal(evaluate(s, o(LONG_SESSION_PERCENT - 1), at(0), T0, table, false), undefined); // short session
+ const long = evaluate(s, o(LONG_SESSION_PERCENT), at(0), T0, table, false); // the model was not spent by the silent ticks
+ assert.ok(long && long.kind === 'model' && long.text.startsWith('Your most recent Kiro session in this workspace is getting long and uses Synthetic X'));
+ const tight = evaluate(newHintState(), o(), at(0), T0, table, true);
+ assert.ok(tight && tight.kind === 'model' && tight.text.startsWith('Your Kiro credit budget is tight, and your most recent session in this workspace uses Synthetic X'));
+ // Auto and unlisted models stay silent even with a reason
+ assert.equal(evaluate(newHintState(), { ...o(90), modelId: 'auto' }, at(0), T0, table, true)?.kind, 'context');
+ assert.equal(evaluate(newHintState(), { ...o(), modelId: 'auto' }, at(0), T0, table, true), undefined);
 });
 
 test('wording: fixed texts with the rounded percentage, local time, table name and date; never the raw identifier', () => {
@@ -96,11 +110,20 @@ test('wording: fixed texts with the rounded percentage, local time, table name a
  assert.equal(contextText(70, 71.6, asOf), `Your most recent Kiro session in this workspace was about 72% full as of ${hm}. Kiro may compact it soon; consider starting a new session for unrelated work.`);
  assert.equal(contextText(85, 100, asOf), `Your most recent Kiro session in this workspace was about 100% full as of ${hm}, close to its limit.`);
  const now = Date.parse('2026-10-20T00:00:00Z');
- assert.equal(hintText(modelHint('claude-sonnet-4.5', now)!, asOf), `Your most recent Kiro session in this workspace is set to Claude Sonnet 4.5 as of ${hm}. Kiro lists it at about 1.3x the credits of Auto (Kiro model table, as of 2026-10-18); actual credits per task vary.`);
- const luna = hintText(modelHint('gpt-5.6-sol', now)!, asOf); assert.match(luna, /Kiro lists it from about 4\.4x the credits of Auto \(Kiro model table, as of 2026-10-18\)/);
- const x = hintText(modelHint('synthetic-model-x', now, table)!, asOf); assert.match(x, /about 2x the credits of Auto/); assert.ok(!x.includes('synthetic-model-x'));
- const stale = hintText(modelHint('claude-sonnet-4.5', Date.parse('2027-02-01T00:00:00Z'))!, asOf);
+ assert.equal(hintText(modelHint('claude-sonnet-4.5', now)!, asOf, 'long'), `Your most recent Kiro session in this workspace is getting long and uses Claude Sonnet 4.5 (as of ${hm}), which Kiro lists at about 1.3x the credits of Auto (Kiro model table, as of 2026-10-18). For routine steps, Auto or a lighter model uses fewer credits; actual credits per task vary.`);
+ assert.equal(hintText(modelHint('claude-sonnet-4.5', now)!, asOf, 'budget'), `Your Kiro credit budget is tight, and your most recent session in this workspace uses Claude Sonnet 4.5 (as of ${hm}), which Kiro lists at about 1.3x the credits of Auto (Kiro model table, as of 2026-10-18). For routine steps, Auto or a lighter model uses fewer credits; actual credits per task vary.`);
+ const luna = hintText(modelHint('gpt-5.6-sol', now)!, asOf, 'long'); assert.match(luna, /which Kiro lists from about 4\.4x the credits of Auto \(Kiro model table, as of 2026-10-18\)/);
+ const x = hintText(modelHint('synthetic-model-x', now, table)!, asOf, 'budget'); assert.match(x, /about 2x the credits of Auto/); assert.ok(!x.includes('synthetic-model-x'));
+ const stale = hintText(modelHint('claude-sonnet-4.5', Date.parse('2027-02-01T00:00:00Z'))!, asOf, 'long');
  assert.match(stale, /check Kiro's current model table; last retrieved 2026-10-18/); assert.ok(!/\d(\.\d)?x/.test(stale));
  for (const t of [contextText(70, 71.6, asOf), x, stale]) assert.ok(!/synthetic-session|\/Users|sentinel/.test(t));
  assert.ok(MIN_GAP_MS === 1_800_000);
+});
+
+test('the budget reason is the gauge warning or limit state only, and budget wins over a long session', async () => {
+ assert.deepEqual(['none', 'warning', 'error', undefined, 'other'].map(budgetTightFrom), [false, true, true, false, false]);
+ const code = await (await import('node:fs/promises')).readFile(new URL('../../src/extension/extension.ts', import.meta.url), 'utf8');
+ assert.ok(code.includes('budgetTight = budgetTightFrom(meta?.severity);') && code.includes('() => support?.pause(), () => budgetTight)'));
+ const both = evaluate(newHintState(), { key: 'k', modelId: 'synthetic-model-x', sessionAsOf: at(0) - 60_000, context: { percent: 50, asOf: at(0) - 60_000 } }, at(0), T0, table, true);
+ assert.ok(both && both.kind === 'model' && both.text.startsWith('Your Kiro credit budget is tight'));
 });
