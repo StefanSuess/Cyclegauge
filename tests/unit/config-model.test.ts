@@ -59,7 +59,7 @@ test('apply actions per finding kind, their context values and the closed tree w
  assert.equal(context('H1').contextValue,'config-hook'); assert.equal(context('S3').contextValue,'config-finding'); assert.equal(context('H5').contextValue,'config-finding');
  for (const n of ns) {
   assert.equal(n.action==='previewKiroConfig', configActions(n.finding!).length===0, n.finding!.id);
-  assert.equal(n.tooltip!.includes('Review changes…'), ['S1','H1','H2','H3','H4'].includes(n.finding!.id), n.finding!.id);
+  assert.equal(n.tooltip!.includes('change preview'), ['S1','H1','H2','H3','H4'].includes(n.finding!.id), n.finding!.id);
   assert.equal(n.tooltip!.includes('Cyclegauge writes nothing itself'), configActions(n.finding!).length>0, n.finding!.id);
   assert.ok(!/preview/i.test(n.description!), n.finding!.id);
  }
@@ -118,7 +118,7 @@ test('annotations carry the short why and the alternatives; fixed text and a siz
  assert.deepEqual(s1, { label: 'Load only when needed', description: 'Always-included Steering is added to every request (32.5 KiB). With inclusion: manual Kiro loads it only when you reference it with #. Alternatives: fileMatch for specific files, or split the file.' });
  const h1 = configAnnotation('runManually', { id: 'H1' });
  assert.equal(h1.label, 'Run only manually');
- assert.equal(h1.description, 'This hook starts agent work on every matching file change, and each run uses credits. With trigger: Manual it runs only when you start it. Alternatives: narrow the matcher, use a shell command action, or Disable.');
+ assert.equal(h1.description, 'This hook starts agent work on every matching file change, and each run uses credits. With trigger: Manual it runs only when you start it. Alternatives: narrow the matcher, use a shell command action, or disable the hook.');
  assert.ok(configAnnotation('runManually', { id: 'H2' }).description.includes('on every matching tool use'));
  assert.deepEqual(configAnnotation('disable', { id: 'H1' }), { label: 'Disable hook', description: 'The hook stays in its file but is turned off (enabled: false). Alternative: Run only manually.' });
  assert.ok(!configAnnotation('loadWhenNeeded', { id: 'S1' }).description.includes('undefined'));
@@ -161,4 +161,20 @@ test('an item whose file has a prepared, unsaved edit says "prepared — save th
  assert.ok(!view(0)[0]!.description?.includes('unsaved'));
  assert.ok(view(1)[0]!.description!.includes('1 file with unsaved prepared changes'));
  assert.ok(view(2)[0]!.description!.includes('2 files with unsaved prepared changes'));
+});
+
+test('finding titles say what happens in plain words, and the lightbulb is not used in the view', () => {
+ const hook = (trigger: 'UserPromptSubmit' | 'PreToolUse') => ({ rel: '.kiro/hooks/synthetic-hooks.json', index: 0, name: 'synthetic-hook', trigger, action: 'agent' as const, matcher: 'none' as const, enabled: true as const, promptBytes: 100, commandBytes: 0 });
+ const titles = new Map<string, string>();
+ for (const r of [review(), (() => { const roots = [{ root: 0, steering: [], nestedNotChecked: 0, hooks: [hook('UserPromptSubmit')] }]; return { ...evaluateConfigRules(roots), roots, status: 'complete' as const, bytesRead: 0 }; })(),
+  (() => { const roots = [{ root: 0, steering: [], nestedNotChecked: 0, hooks: [hook('PreToolUse')] }]; return { ...evaluateConfigRules(roots), roots, status: 'complete' as const, bytesRead: 0 }; })()])
+  for (const n of flatten(configTree(r, ['synthetic-root'])).filter(x => x.finding)) titles.set(n.finding!.id, n.label);
+ for (const label of titles.values()) assert.ok(!/information|Agent work on|effectively|Combined/i.test(label), label);
+ assert.ok(titles.get('H1')!.startsWith('Hook runs on every file change'));
+ assert.ok(titles.get('H3')!.startsWith('Hook runs on every prompt or stop'), String(titles.get('H3')));
+ assert.ok(titles.get('H2')!.startsWith('Hook runs on every tool use'), String(titles.get('H2')));
+ assert.ok(titles.get('H4')!.startsWith('Hook has a large prompt'));
+ const all = flatten(configTree(review(), ['synthetic-root']));
+ assert.ok(!all.some(n => n.icon === 'lightbulb'));
+ assert.equal(all.find(n => n.id === 'config:g:look')!.icon, 'search');
 });

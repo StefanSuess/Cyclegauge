@@ -42,7 +42,7 @@ const num = (s: string) => { const v = Number(s); return Number.isFinite(v) ? v 
 
 function summaryText(m: ChartModel): string {
  const l = m.latest!;
- const parts = [`As of ${m.asOf} UTC the observed cumulative account counter was ${l.usage} CREDIT against a reported credit limit of ${l.limit} CREDIT: ${l.difference} credits ${l.aboveLimit ? 'above' : 'below'} the reported limit${l.aboveLimit ? ' (usage above the reported limit is displayed as observed)' : ''}.`];
+ const parts = [`As of ${m.asOf} UTC the observed cumulative account counter was ${l.usage} credits against a reported credit limit of ${l.limit} credits: ${l.difference} credits ${l.aboveLimit ? 'above' : 'below'} the reported limit${l.aboveLimit ? ' (usage above the reported limit is displayed as observed)' : ''}.`];
  if (m.omittedPoints > 0) parts.push(`${m.omittedPoints} retained account updates are not plotted or listed (evenly thinned; first, last and every update beside an unknown period or event are kept).`);
  const p = m.projection;
  if (p) {
@@ -93,7 +93,7 @@ export const presentChart = (o: ReturnType<typeof view>): string => { const c = 
 /** Default reading flow in `main`; full legend, caveats, text alternative and data table in `advanced`. */
 export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  const m = chartModel(o);
- if (m.status === 'empty') return { main: `<section id="usage-chart" aria-label="Usage trajectory"><h2>Usage trajectory</h2><p>No usable observed account updates yet, so no chart is shown. Missing history is unknown, never zero.</p></section>`, advanced: '' };
+ if (m.status === 'empty') return { main: `<section id="usage-chart" aria-label="Usage trajectory"><h2>Usage trajectory</h2><p>There are no account updates to chart yet. The chart appears after Kiro writes its first credit update.</p></section>`, advanced: '' };
  const H = m.points.length < SPARSE_POINTS ? SHORT : TALL;
  const startMs = Date.parse(m.axis.startAt), endMs = Math.max(Date.parse(m.axis.endAt), startMs + DAY_MS);
  const pw = W - L - R, ph = H - T - B;
@@ -148,7 +148,7 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  // Budget guide
  if (m.budget) out.push(`<line class="budget" stroke-dasharray="3 3" x1="${n(xt(m.budget.from.at))}" y1="${n(y(num(m.budget.from.usage)))}" x2="${n(xt(m.budget.to.at))}" y2="${n(y(num(m.budget.to.usage)))}"><title>Budget guide: even allocation of remaining reported capacity</title></line>`);
  // Reported limit segments (a changed limit starts a new segment)
- for (const l of m.limits) out.push(`<line class="limit" x1="${n(xt(l.from))}" y1="${n(y(num(l.value)))}" x2="${n(xt(l.to))}" y2="${n(y(num(l.value)))}"><title>Reported credit limit ${safe(l.value)} CREDIT (not verified as base-only or total capacity)</title></line>`);
+ for (const l of m.limits) out.push(`<line class="limit" x1="${n(xt(l.from))}" y1="${n(y(num(l.value)))}" x2="${n(xt(l.to))}" y2="${n(y(num(l.value)))}"><title>Reported credit limit ${safe(l.value)} credits (not verified as base-only or total capacity)</title></line>`);
  const lastLimit = m.limits.at(-1)!;
  out.push(`<text x="${L + 6}" y="${n(Math.max(y(num(lastLimit.value)) - 6, T + 10))}">Reported limit ${safe(lastLimit.value)}</text>`);
  // Reset and evaluation time
@@ -193,7 +193,6 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  const summary = summaryText(m);
  const startNote = m.axis.startKnown ? '' : ' The earlier part of the cycle was not observed; the series starts at the first retained update.';
  const notes = `<p class="muted small">Points are the observed cumulative account counter, net usage as of each account update — not independently verified gross charges. Missing or incompatible periods are unknown, never zero.${startNote}</p>`
-  + `<p class="muted small">Reported credit limit: the CREDIT limit reported with the account update. It is not verified as base-only or total available capacity and may include purchased add-on credits. Observed usage can exceed it. A usage counter alone does not establish actual overage charges, purchased balance or billing eligibility.</p>`
   + (p ? `<p class="muted small">The shaded range is a scenario range, not a statistical confidence interval. Lower-usage means lower consumption (${LOWER_FACTOR.label} of the selected observed rate); higher-usage means higher consumption (${HIGHER_FACTOR.label}). Observed history is never scaled.</p>` : '');
  const caption = p ? `Expected usage assumes the observed rate continues; the shaded range is a ${LOWER_FACTOR.label}–${HIGHER_FACTOR.label} scenario, not a confidence interval.` : 'No forecast trajectory is drawn while the forecast is unavailable or stale.';
  const main = `<section id="usage-chart" aria-labelledby="chart-heading"><h2 id="chart-heading">Usage trajectory</h2>`
@@ -202,6 +201,6 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
   + `<ul class="chart-legend">${brief.join('')}</ul><p class="muted small">${safe(caption)}</p>`
   + `<details class="chart-help"><summary>How to read this chart</summary>${notes}<h4>Chart key</h4><ul class="chart-legend chart-legend-full">${legend.join('')}</ul></details></section>`;
  const advanced = `<div id="chart-details"><h3>Chart details</h3><p id="chart-summary">${safe(summary)}</p>`
-  + `<details><summary>Chart data table</summary><div id="chart-data-table" class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; credits are the CREDIT unit)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
+  + `<details><summary>Chart data table</summary><div id="chart-data-table" class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; amounts are credits)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
  return { main, advanced };
 }

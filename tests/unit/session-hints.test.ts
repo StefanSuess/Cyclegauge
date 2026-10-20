@@ -81,7 +81,7 @@ test('an enabled tick produces one fixed-text notice, then stays silent for the 
  const f = await home({ pct: 72 });
  const state = newHintState();
  const first = await tick(request(() => f.home, { state }));
- assert.equal(first.code, 'ok'); assert.equal(first.kind, 'context'); assert.match(first.text!, /^Your most recent Kiro session in this workspace was about 72 % full as of \d\d:\d\d\. Kiro may compact it soon/);
+ assert.equal(first.code, 'ok'); assert.equal(first.kind, 'context'); assert.match(first.text!, /^Your most recent Kiro session in this workspace was about 72% full as of \d\d:\d\d\. Kiro may compact it soon/);
  const second = await tick(request(() => f.home, { state, now: NOW + 31 * 60_000 }));
  assert.equal(second.code, 'ok'); assert.equal(second.text, undefined); // the Sonnet hint would be due, but the session is now older than ten minutes
  const hintOnly = await home({ pct: 10 });
@@ -146,4 +146,10 @@ test('windows and linux ticks run the same bounded read; an unmatched layout is 
   assert.equal(other.code, 'no_match', platform);
   assert.equal((await tick(request(() => join(fixture.home, 'synthetic-missing'), { platform }))).code, 'no_root', platform);
  }
+});
+
+test('the session hint notice names exactly what its button turns off', async () => {
+ const code = await readFile(fileURLToPath(new URL('../../src/extension/session-hints.ts', import.meta.url)), 'utf8');
+ assert.ok(code.includes("showInformationMessage(result.text, 'Turn off session hints')") && code.includes("choice === 'Turn off session hints'"));
+ assert.ok(!/'Turn off'/.test(code));
 });

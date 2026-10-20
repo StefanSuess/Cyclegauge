@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { view } from '../../src/view.ts';
-import { decideBudgetNotice, largerPlanText, readBudgetState, rightSizeText, type BudgetInput } from '../../src/extension/budget-warning.ts';
+import { decideBudgetNotice, largerPlanText, overPhrase, readBudgetState, rightSizeText, type BudgetInput } from '../../src/extension/budget-warning.ts';
 import { syntheticSnapshot as snapshot } from './synthetic.ts';
 
 const RESET = '2030-07-01T00:00:00.000Z';
@@ -15,7 +15,7 @@ const decide = (v: ReturnType<typeof view>, extra: Partial<BudgetInput> = {}) =>
 test('forecast: a qualified fresh forecast that reaches the limit before the reset', () => {
  const n = decide(rate(10, '100'))!; // usage 70 of 100, 10 a day: empty on 11 Jun
  assert.equal(n.kind, 'forecast');
- assert.equal(n.text, 'At this pace your Kiro credits run out on 11 Jun 2030, 20 days before the reset. If you continue at this pace: about 200 credits over the limit ≈ $8.00 by the reset, at $0.04 per credit (price list reviewed 18 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).');
+ assert.equal(n.text, 'At this pace your Kiro credits run out on 11 Jun, 20 days before the reset (about $8.00 over the limit, modelled).');
  assert.deepEqual(n.state, { cycle: RESET, done: ['forecast'] });
  assert.equal(decide(rate(10, '100'), { eligible: false }), null); // an ineligible forecast says nothing about exhaustion
  assert.equal(decide(rate(10, '1000')), null); // enough capacity: nothing
@@ -38,7 +38,7 @@ test('percent: usage reaches the configured share of the reported limit', () => 
 test('limit: usage at or above the reported limit, with the projected cost when a price is validated', () => {
  const n = decide(rate(10, '70'))!;
  assert.equal(n.kind, 'limit');
- assert.equal(n.text, 'You have reached the reported Kiro credit limit (70 of 70); the reset is in 23 days. If you continue at this pace: about 230 credits over the limit ≈ $9.20 by the reset, at $0.04 per credit (price list reviewed 18 Oct 2026; modelled, not an invoice; whether overage applies depends on your plan and settings).');
+ assert.equal(n.text, 'You have reached the reported Kiro credit limit (70 of 70); the reset is in 23 days (at this pace about $9.20 over the limit by the reset, modelled).');
  assert.deepEqual(n.state, { cycle: RESET, done: ['limit', 'percent'] });
  const noCost = decide(flat('100', '100'))!; // zero observed rate: nothing projected over the limit
  assert.equal(noCost.kind, 'limit');
@@ -208,4 +208,18 @@ test('amounts follow the rounding direction: the extra fee rounds up, the saving
  assert.ok(largerPlanText({ ...LARGER, feeDiff: '20.001' }, true).includes('costs $20.01 a month more'));
  assert.ok(rightSizeText({ ...RIGHTSIZE, saving: '20.009', unusedCredits: '1999.999' }).includes('about 1999 credits unused'));
  assert.ok(rightSizeText({ ...RIGHTSIZE, saving: '20.009', unusedCredits: '1999.999' }).includes('about $20 a month less'));
+});
+
+test('notices stay short: the price list, the unit price and the caveats are left to the detail view', () => {
+ for (const n of [decide(rate(10, '100'))!, decide(rate(10, '70'))!]) {
+  assert.ok(n.text.length < 170, n.text);
+  assert.ok(/\$\d/.test(n.text) && !/≈|per credit|price list|invoice|depends on your plan|USD/i.test(n.text), n.text);
+ }
+});
+
+test('a modelled overage under one cent reads "under $0.01", never "about under"', () => {
+ assert.equal(overPhrase({ money: '0.00' }), 'under $0.01');
+ assert.equal(overPhrase({ money: '4.80' }), 'about $4.80');
+ const n = decide(rate(10, '100'))!;
+ assert.ok(n.text.includes('(about $8.00 over the limit, modelled)'));
 });

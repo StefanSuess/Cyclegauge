@@ -292,9 +292,9 @@ test('the review keeps only a size, time and digest per read file, and no text',
 test('manifest: the apply commands are contributed, hidden from the palette and shown on the matching group and item kinds only', async () => {
  const manifest = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
  const commands = new Map<string, { title: string; icon: string }>(manifest.contributes.commands.map((c: { command: string; title: string; icon: string }) => [c.command, c]));
- const expected: Record<string, string> = { loadWhenNeeded: 'Review changes…', loadWhenNeededAll: 'Review changes…', narrowPattern: 'Narrow the pattern', runManually: 'Review changes…', runManuallyAll: 'Review changes…', disable: 'Disable', open: 'Show file', preview: 'Show suggestion' };
+ const expected: Record<string, string> = { loadWhenNeeded: 'Load only when needed…', loadWhenNeededAll: 'Load only when needed…', narrowPattern: 'Narrow the pattern', runManually: 'Run only manually…', runManuallyAll: 'Run only manually…', disable: 'Disable hook', open: 'Show file', preview: 'Show suggestion' };
  for (const [id, title] of Object.entries(expected)) { const c = commands.get(`cyclegauge.config.${id}`)!; assert.equal(c.title, title); assert.match(c.icon, /^\$\([a-z-]+\)$/); }
- for (const id of ['loadWhenNeeded', 'loadWhenNeededAll', 'runManually', 'runManuallyAll']) assert.equal(commands.get(`cyclegauge.config.${id}`)!.icon, '$(check)');
+ for (const id of ['loadWhenNeeded', 'loadWhenNeededAll', 'runManually', 'runManuallyAll']) assert.equal(commands.get(`cyclegauge.config.${id}`)!.icon, '$(diff)');
  const hidden = manifest.contributes.menus.commandPalette.filter((c: { when: string }) => c.when === 'false').map((c: { command: string }) => c.command);
  for (const id of Object.keys(expected)) assert.ok(hidden.includes(`cyclegauge.config.${id}`), id);
  const items = manifest.contributes.menus['view/item/context'] as { command: string; when: string; group: string }[];

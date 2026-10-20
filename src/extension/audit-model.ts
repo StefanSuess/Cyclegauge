@@ -4,7 +4,7 @@ import type { AuditResult, Category, Finding } from '../audit/audit.ts';
 import { CATEGORY_ORDER } from '../audit/audit.ts';
 import { inside } from '../paths.ts';
 
-// Vscode-free model of the "Kiro Workspace Audit" sidebar. Paths come from the user's workspace and are untrusted text:
+// Vscode-free model of the "Workspace Audit" sidebar. Paths come from the user's workspace and are untrusted text:
 // control and invisible/bidi formatting characters are made visible instead of reordering or hiding what the user reads.
 const HIDDEN = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/gu;
 export const escapeText = (s: string): string => s.replace(HIDDEN, c => `\\u{${c.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}}`);
@@ -85,11 +85,11 @@ export const IGNORE_USE_NOTE = "Kiro uses .kiroignore only when it's listed in A
 export const OPEN_SETTING = 'Open setting';
 /** True when a .kiroignore saved now would have no effect: Agent Ignore Files is empty or does not list an existing .kiroignore. */
 export const ignoreNotEffective = (result: Pick<AuditResult, 'ignore' | 'kiroignoreNotListed'>): boolean => result.ignore === 'disabled' || result.kiroignoreNotListed === true;
-const EXCLUDE_NOTE = `Kiro may read these files into the agent's context; excluding them keeps requests smaller. Review changes… shows exactly what would be added to .kiroignore. ${NOTHING_CHANGES} Alternative: Not a problem hides an item.`;
+const EXCLUDE_NOTE = `Kiro may read these files into the agent's context; excluding them keeps requests smaller. Exclude from Kiro… shows exactly what would be added to .kiroignore. ${NOTHING_CHANGES} Alternative: hide the item with Hide this item.`;
 /** The annotation of the one .kiroignore change shown in the editor's change preview: the short why and the alternative. `rules` is the number of lines added. */
 export const excludeAnnotation = (rules: number): { label: string; description: string } => ({
  label: 'Exclude from Kiro',
- description: `Adds ${rules} ${rules === 1 ? 'line' : 'lines'} to .kiroignore. Kiro may read ${rules === 1 ? 'this file' : 'these files'} into the agent's context; excluding ${rules === 1 ? 'it' : 'them'} keeps requests smaller. Alternative: Not a problem. ${NOTHING_CHANGES}`,
+ description: `Adds ${rules} ${rules === 1 ? 'line' : 'lines'} to .kiroignore. Kiro may read ${rules === 1 ? 'this file' : 'these files'} into the agent's context; excluding ${rules === 1 ? 'it' : 'them'} keeps requests smaller. Alternative: Hide this item. ${NOTHING_CHANGES}`,
 });
 /** Local time of the check as HH:MM when it was today, otherwise the relative wording (yesterday, N days ago); '' when unknown. */
 export function checkedLabel(checkedAt: string | undefined, now: Date): string {
@@ -112,6 +112,12 @@ export const isHash = (s: unknown): s is string => typeof s === 'string' && /^[0
 export function countsText(items: number, unclear: number, size = ''): string {
  const n = (k: number): string => `${k} ${k === 1 ? 'item' : 'items'}`;
  return items > 0 ? `${n(items)} Kiro may read${size ? ` (${size})` : ''}${unclear > 0 ? ` · ${unclear} unclear` : ''}` : unclear > 0 ? `${n(unclear)} to review` : 'No risky files found';
+}
+/** The notification after an audit, in plain words: files Kiro may read, their size when known and how many are unclear. It points to the view only when the view exists. */
+export function findingsToast(items: number, unclear: number, size: string, viewReady: boolean): string {
+ const files = (k: number): string => `${k} ${k === 1 ? 'file' : 'files'}`;
+ const lead = items > 0 ? `Found ${files(items)} Kiro may read${size ? ` (${size})` : ''}${unclear > 0 ? `, ${unclear} unclear` : ''}.` : unclear > 0 ? `Found ${files(unclear)} to review.` : 'No risky files found.';
+ return viewReady ? `${lead} Open the Workspace Audit view.` : lead;
 }
 /** Items Kiro may read (coverage not_covered, listed) and unclear ones (coverage unknown, plus those beyond the listed maximum). */
 export const countFindings = (findings: readonly Pick<Finding, 'coverage'>[], omitted: number): { items: number; unclear: number } =>
@@ -185,7 +191,7 @@ const bySize = (a: { f: Finding; i: number }, b: { f: Finding; i: number }): num
 /**
  * Builds the audit part of the sidebar. `dismissedHashes` are the stored hashes, `hashFn` maps a finding to the same kind of hash and
  * `accepted` holds findingKey values of findings whose change is prepared but unsaved; `preparedUnsaved` says the .kiroignore document holding that edit is still unsaved in the editor. `checkedAt` is the in-memory time of the run.
- * The findings sit in one **Exclude from Kiro** group (the verb of its Review changes… button) with the categories as sub-groups, largest first.
+ * The findings sit in one **Exclude from Kiro** group (the verb of its Exclude from Kiro… button) with the categories as sub-groups, largest first.
  */
 export function auditTree(result: AuditResult, folderName: string, dismissedHashes: Iterable<string>, hashFn: (category: string, path: string) => string, accepted: ReadonlySet<string> = new Set(), checkedAt?: string, preparedUnsaved = false): AuditParts {
  const dismissed = new Set(dismissedHashes);
@@ -227,7 +233,7 @@ export function auditTree(result: AuditResult, folderName: string, dismissedHash
   const ready = visible.some(f => f.suggestion !== '');
   parts.exclude = { id: 'group:exclude', kind: 'group', label: `Exclude from Kiro (${indexed.length})`, description: merged ? IGNORE_OFF_DESCRIPTION : 'adds lines to .kiroignore',
    tooltip: merged ? `${EXCLUDE_NOTE}\n${result.ignore === 'disabled' ? 'kiroAgent.agentIgnoreFiles is empty, so no workspace ignore file applies.' : NOT_LISTED}` : EXCLUDE_NOTE,
-   icon: merged ? 'warning' : 'eye-closed', contextValue: ready ? 'group-exclude' : 'group-exclude-none', expanded: false,
+   icon: merged ? 'warning' : 'exclude', contextValue: ready ? 'group-exclude' : 'group-exclude-none', expanded: false,
    children: [...(merged ? [{ id: 'action:ignore_setting', kind: 'info' as const, label: IGNORE_ACTION_LABEL, tooltip: NOT_LISTED, icon: 'gear', contextValue: 'info-action', action: 'openIgnoreSetting' as const }] : []), ...categories] };
  }
  if (hidden > 0) parts.footers.push({ id: 'footer:dismissed', kind: 'footer', label: `${hidden} hidden by you`, description: 'Show again', tooltip: 'These items are hidden for this workspace. Select to show them again.', icon: 'eye-closed', contextValue: 'footer-action', action: 'clearDismissed' });

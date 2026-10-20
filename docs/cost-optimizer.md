@@ -1,6 +1,6 @@
 # Cost Advisor and cost engine
 
-In 0.5.2 the Cost Advisor replaces the standalone Cost Optimizer UI. Open **Cyclegauge: Cost Advisor** in the Command Palette, the lightbulb title action, or the **Cost Advisor** status item shown while the budget panel is visible.
+In 0.5.2 the Cost Advisor replaces the standalone Cost Optimizer UI. Open **Cyclegauge: Open Cost Advisor** in the Command Palette, the lightbulb title action, or the **Cost Advisor** status item shown while the budget panel is visible.
 
 A nominal reported limit can suggest a plan with moderate confidence, but never identifies it uniquely. Your explicit selection wins. Native questions ask about the plan, billing and purchased add-ons; cancellation changes nothing. **Clear my answers** forgets the session answers. Account changes, ambiguity and reload clear them too. Nothing is persisted (SC5 open).
 

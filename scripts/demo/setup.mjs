@@ -76,7 +76,7 @@ try {
   'window.title': 'SYNTHETIC DEMO - not real usage', 'workbench.startupEditor': 'none',
   'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'telemetry.telemetryLevel': 'off',
  }, null, 2), { mode: 0o600 });
- writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Cyclegauge: Show Account Credits from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
+ writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Cyclegauge: Show Credit Budget from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
  const launch = join(base, 'open-demo.mjs');
  copyFileSync(join(root, 'scripts/demo/open.mjs'), launch);
  console.log(`Demo folder: ${base}\nReopen: node "${launch}"\nInstall in the DEMO window: ${join(base, 'install-this.vsix')}\nChecklist: docs/synthetic-demo.md\nClose the demo window before deleting its folder. Run setup again for fresh data.`);
