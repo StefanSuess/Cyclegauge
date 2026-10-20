@@ -13,5 +13,3 @@ export function recapSection(recap: Recap): string {
   + `<p class="recap-actions">${hiddenButton('recap-save', 'Save image…')} ${hiddenButton('recap-copy', 'Copy text')} ${hiddenButton('recap-dismiss', 'Dismiss')}</p>`
   + `<p id="recap-status" role="status"></p></section>`;
 }
-
-export const EXPORT_SECTION = `<section id="export-tools" aria-labelledby="export-heading"><h2 id="export-heading">Export your observed history</h2><p class="muted small">Save your retained account updates as a CSV file. You choose where it goes; Cyclegauge never writes to your workspace or to Kiro's folders. It contains only times, credit amounts, reset times and fixed quality codes.</p><p class="recap-actions">${hiddenButton('export-csv', 'Export CSV…')}</p><p id="export-status" role="status"></p></section>`;

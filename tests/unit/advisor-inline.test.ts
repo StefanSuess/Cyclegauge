@@ -32,7 +32,7 @@ test('inline form remains static and within the constrained model', () => {
  const html=present(view([],'2030-01-01T00:00:00Z'),[],'','<section id="cost-advisor"></section>',undefined,'2030-01-01T00:00:00Z',false,undefined,form).html;
  const model=buildDomModel(html);
  assert.ok(JSON.stringify(model).includes('advisor-form'));
- assert.match(html, /<fieldset><legend>Review your Cost Advisor answers<\/legend>/);
+ assert.match(html, /<fieldset><legend>Your plan details<\/legend>/);
  assert.match(html, /data-advisor-epoch="7"/);
  assert.ok(!html.includes('<script'));
 });
@@ -73,8 +73,13 @@ test('the inline form sits in a details disclosure that is open only while the p
 test('every field keeps its bound label and a primary submit button; labels sit above fields',()=>{
  const html=formPage({plan:null,billing:null,addOns:null,addOnCredits:null});
  for(const [id,name] of [['advisor-plan','plan'],['advisor-billing','billing'],['advisor-add-ons','addOns'],['advisor-credits','addOnCredits']])
-  assert.match(html,new RegExp(`<div class="field"><label for="${id}">[^<]+</label><(select|input) id="${id}" name="${name}"`));
- assert.match(html,/<button type="submit">Review costs<\/button>/);
+  assert.match(html,new RegExp(`<div class="field"><label for="${id}">[^<]+</label>(<div class="input-unit">)?<(select|input) id="${id}" name="${name}"`));
+ assert.match(html,/<label for="advisor-billing">Account type<\/label>/);
+ assert.match(html,/<button type="submit">Update estimate<\/button>/);assert.match(html,/Reload my answers<\/button>/);
+ // The add-on amount is described as credits, with an example, and every answer has its own error line.
+ assert.match(html,/<input id="advisor-credits" name="addOnCredits" type="text"\/><span class="unit">credits, e\.g\. 250<\/span>/);
+ for(const id of ['advisor-plan-error','advisor-billing-error','advisor-add-ons-error','advisor-credits-error'])assert.match(html,new RegExp(`<p id="${id}" class="field-error"></p>`));
+ assert.ok(!html.includes('id="advisor-error"'));
  const css=CSS_HEAD(html);
  assert.match(css,/#advisor-form label\{display:block/);
  assert.match(css,/#advisor-form \.field\{[^}]*max-width:26rem/);
