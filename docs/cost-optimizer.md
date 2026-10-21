@@ -8,4 +8,4 @@ The card can show a **modelled estimate** when the current plan and an alternati
 
 Expandable details show 1/3/6-cycle comparisons, 75/100/125% demand sensitivity, conditions and engine calculations. “Supported estimate”, “no action needed” and “potential savings” require explicit inputs and a supported engine result; the current bundled catalog keeps production comparisons conditional.
 
-The independent exact cost engine, catalog and pricing algorithms remain. Ordinary extension interactions use `optimizeCosts()`; exhaustive `findBreakEven()` stays engine-only. No purchases, network requests, telemetry or authenticated access. See [Advisor specification](cost-advisor-spec.md) and [integration validation](cost-advisor-integration-validation.md).
+The independent exact cost engine, catalog and pricing algorithms remain. Ordinary extension interactions use `optimizeCosts()`; exhaustive `findBreakEven()` stays engine-only. No purchases, network requests, telemetry or authenticated access.

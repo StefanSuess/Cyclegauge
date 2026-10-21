@@ -1,5 +1,5 @@
 // Pure parsers for the session hints: no IO, no editor API. Every function returns a small projection or undefined; nothing here keeps or reports
-// any other field of the Kiro-owned data it is given. See docs/wp11-13-data-proof.md (combined implementation design).
+// any other field of the Kiro-owned data it is given. (Design evidence: archived Cyclegauge repository.)
 export const MODEL_ID = /^[a-z0-9][a-z0-9._-]{0,39}$/;
 export const LIMITS = { sessionJsonBytes: 65_536, tailWindowBytes: 262_144, maxLineBytes: 4_096, maxWorkspacePaths: 8, maxPathChars: 4_096, futureMs: 300_000, mtimeAgreementMs: 600_000 } as const;
 const ISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:?\d{2})$/;
@@ -39,7 +39,7 @@ export function projectSession(json: unknown): SessionProjection | 'unsupported_
 /**
  * Pure string normalisation for the workspace comparison, by platform rule (no filesystem call). darwin: NFC and case-insensitive. win32: NFC,
  * case-insensitive, backslashes as `/`, a leading `/` before a drive letter removed (`/c:/x` is `c:/x`) and trailing separators trimmed. linux: NFC,
- * case-sensitive, trailing `/` trimmed. The Windows and Linux forms are assumptions: only macOS paths were observed (docs/wp11-13-data-proof.md).
+ * case-sensitive, trailing `/` trimmed. The Windows and Linux forms are assumptions: only macOS paths were observed (historical evidence in the archived Cyclegauge repository).
  * Any other platform behaves like linux (the gate never lets it reach the comparison). The platform is a required parameter: no result depends on the host running this code.
  */
 export function normalizePath(p: string, platform: string): string {

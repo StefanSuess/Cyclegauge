@@ -5,7 +5,7 @@ export type ForecastTier = 'unavailable' | 'provisional' | 'regular';
 export type HistoryMethod = 'history_7_day' | 'history_14_day' | 'history_28_day' | 'history_84_day';
 export type ForecastMethod = 'cycle_to_date' | 'rolling_7_day' | 'observed_window' | HistoryMethod;
 export interface Heuristics { sustainedChange: boolean; completedBreakExclusion: boolean }
-// Heuristic defaults are decided by the walk-forward backtest (docs/milestone-4c-validation.md).
+// Heuristic defaults are decided by the walk-forward backtest (historical evidence in the archived Cyclegauge repository).
 // Completed-break exclusion improved break-return error without regressing decreases on design and held-out sets.
 // Sustained-change selection regressed bursty usage and underprediction, so it stays off and only reports qualifiers.
 export const DEFAULT_HEURISTICS: Heuristics = { sustainedChange: false, completedBreakExclusion: true };

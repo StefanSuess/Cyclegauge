@@ -78,4 +78,4 @@ Bobert is free, with no paid features. Support is entirely optional.
 
 [Documentation](https://github.com/StefanSuess/Bobert/blob/HEAD/docs/README.md) · [Changelog](https://github.com/StefanSuess/Bobert/blob/HEAD/CHANGELOG.md) · [Roadmap](https://github.com/StefanSuess/Bobert/blob/HEAD/ROADMAP.md) · [Contributing](https://github.com/StefanSuess/Bobert/blob/HEAD/CONTRIBUTING.md) · [Security](https://github.com/StefanSuess/Bobert/blob/HEAD/SECURITY.md) · [MIT License](https://github.com/StefanSuess/Bobert/blob/HEAD/LICENSE)
 
-> Unofficial open-source project. Not affiliated with, endorsed by or sponsored by Amazon Web Services or Kiro. "Kiro" is a trademark of its owner.
+> Unofficial open-source project. Not affiliated with, endorsed by or sponsored by Amazon Web Services or Kiro. "Kiro" is a trademark of its owner. The code is MIT-licensed; the Bobert name, icon and mascot are not (see [name, icon and mascot](https://github.com/StefanSuess/Bobert/blob/HEAD/TRADEMARKS.md)).

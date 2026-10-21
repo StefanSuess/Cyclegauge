@@ -1,6 +1,5 @@
 // Dated model table for the model hint. Source: Kiro's public models overview, available-models and settings pages, "Cost" relative to Auto (1.0x baseline),
-// as of 2026-10-18 (pages updated 2026-10-17; re-read 2026-10-18 against the models overview and available-models pages, values as relayed by a page summariser; those pages list no model identifiers; see docs/wp10-13-evidence.md and
-// docs/wp11-13-data-proof.md). Review on every Kiro model release, together with the pricing catalog.
+// as of 2026-10-18 (pages updated 2026-10-17; re-read 2026-10-18 against the models overview and available-models pages, values as relayed by a page summariser; those pages list no model identifiers; historical evidence in the archived Cyclegauge repository). Review on every Kiro model release, together with the pricing catalog.
 // basis 'observed': the identifier was seen in a local session.json (IDE, macOS, 2026-10-18). 'documented': the identifier string appears in Kiro's settings
 // documentation. 'pattern': derived by the rule "published name, lowercased, spaces to hyphens, dot in the version" (a guess; two vendors fit it). Maintainer
 // decision D2 (2026-10-18): pattern-derived rows may show a hint. An unlisted identifier, and Auto, never produce a hint; only multipliers above 1.0 do.

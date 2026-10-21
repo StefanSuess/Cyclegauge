@@ -25,6 +25,6 @@ Start with one worker, at most two concurrent unless more clearly saves time/cos
 
 ## Agent-specific integration
 
-Claude Code uses `.claude/agents/implementer.md` for inexpensive scoped changes and `.claude/agents/reviewer.md` for independent review. For non-trivial code it uses `implementer-senior.md`, and for mandatory high-risk review `security-reviewer.md`. `release-orchestrator.md` runs as the main session (`claude --agent release-orchestrator`) to execute one approved work package from [path to 1.0](path-to-1.0.md). Codex does **not** load Claude-specific role files automatically: include the applicable instructions in delegated prompts. Fixed model names in role files are defaults, not a requirement to invoke those agents.
+Claude Code uses `.claude/agents/implementer.md` for inexpensive scoped changes and `.claude/agents/reviewer.md` for independent review. For non-trivial code it uses `implementer-senior.md`, and for mandatory high-risk review `security-reviewer.md`. Codex does **not** load Claude-specific role files automatically: include the applicable instructions in delegated prompts. Fixed model names in role files are defaults, not a requirement to invoke those agents.
 
 Keep PR text short: summary, checks **actually** run, limitations and decisions. No private Kiro data, Claude session URLs or private thread links.

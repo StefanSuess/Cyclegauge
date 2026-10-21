@@ -8,6 +8,8 @@ The official Bobert icon is the vector file `assets/branding/source/bobert-icon.
 
 The icon stands for Bobert only. Product branding stays "Bobert: Kiro Credit Tracker" (unofficial, not affiliated with AWS or Kiro). Do not combine the icon with a Kiro logo or Kiro-derived artwork, and do not use it in a way that suggests endorsement.
 
+The Bobert name, icon and mascot are not covered by the MIT License; see [TRADEMARKS.md](../TRADEMARKS.md).
+
 ## Bobert, the mascot
 
 Bobert is a small robot whose mouth is a credit gauge. He is the product's personality: a little anxious about your credits, so you don't have to be. Use him to make the product memorable, never to make figures look less serious.

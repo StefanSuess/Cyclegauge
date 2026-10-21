@@ -46,7 +46,7 @@ After installation, new users inside Kiro get a short walkthrough, **Get started
 - **Export CSV…** writes your own accepted history to a file you choose: allowlisted columns, exact decimals, `unknown` instead of zero, no free text. With several or unknown accounts a fixed message replaces the export.
 - **Live updates.** The view refreshes as new observations arrive.
 
-Native verification of the dashboard on Windows and Ubuntu is not recorded; see the [acceptance checklist](validation/1.0-acceptance.md).
+Native verification of the dashboard on Windows and Ubuntu is not recorded.
 
 ## Session hints
 
