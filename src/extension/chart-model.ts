@@ -10,7 +10,7 @@ export const HIGHER_FACTOR = { numerator: 5n, denominator: 4n, label: '125%' } a
 /** Lines beyond this multiple of the larger of the reported limit and observed usage are clipped, not plotted to scale. */
 const RANGE_CAP = 2;
 
-export interface ChartPoint { at: string; usage: string; limit: string; aboveLimit: boolean; change: string | null }
+export interface ChartPoint { at: string; usage: string; limit: string; aboveLimit: boolean }
 export interface ChartLimit { from: string; to: string; value: string }
 export interface ChartUnknown { from: string; to: string; reason: string }
 export interface ChartEvent { kind: string; at: string }
@@ -69,12 +69,7 @@ export function chartModel(o: ReturnType<typeof view>): ChartModel {
   const picked = Array.from({ length: slots }, (_, s) => rest[Math.floor((s + 0.5) * rest.length / slots)]);
   chosen = [...order, ...picked].sort((a, b) => a - b);
  }
- const points: ChartPoint[] = chosen.map(k => {
-  const { p, index } = all[k];
-  const previous = index > 0 ? h.intervals[index - 1] : null;
-  return { at: p.observedAt, usage: p.usage!, limit: p.baseLimit!, aboveLimit: limitAbove(k),
-   change: previous?.status === 'comparable' ? previous.netChange : null };
- });
+ const points: ChartPoint[] = chosen.map(k => ({ at: all[k].p.observedAt, usage: all[k].p.usage!, limit: all[k].p.baseLimit!, aboveLimit: limitAbove(k) }));
  const connectors: [number, number][] = [];
  const unknown: ChartUnknown[] = [], events: ChartEvent[] = [];
  for (let c = 1; c < chosen.length; c++) {

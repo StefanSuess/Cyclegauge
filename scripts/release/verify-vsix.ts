@@ -28,16 +28,8 @@ export const PAYLOAD = ALLOWLIST.filter(n => n.startsWith('extension/'));
 /** Intended Open VSX identity. */
 export const EXPECTED_ID = 'StefanSuess.cyclegauge';
 const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'];
-// The audit reminder, automatic configuration review, community prompt, budget warning and session hint settings are the user's own (application scope: a workspace cannot set them): exactly these keys, with exactly this scope, type, default and range.
-const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number; enum?: string[] }> = {
- auditReminderDays: { type: 'number', default: 30, minimum: 0, maximum: 365 },
- auditAutomatically: { type: 'string', default: 'off', enum: ['off', 'onOpen', 'onOpenAndChanges'] },
- configReviewAutomatically: { type: 'string', default: 'off', enum: ['off', 'onOpen', 'onOpenAndChanges'] },
- supportPrompts: { type: 'boolean', default: true },
- budgetWarnings: { type: 'boolean', default: true },
- budgetWarningPercent: { type: 'number', default: 80, minimum: 0, maximum: 100 },
- sessionHints: { type: 'boolean', default: true },
-};
+// Cyclegauge 0.8.0 has only the three machine-scoped settings above; the user-level settings belong to Bobert.
+const USER_SETTINGS: Record<string, { type: string; default: unknown; minimum?: number; maximum?: number; enum?: string[] }> = {};
 
 export interface FileHash { name: string; bytes: number; sha256: string }
 export interface VerifyResult { ok: boolean; problems: string[]; files: FileHash[]; version: string; preRelease: boolean; channel: ReleaseChannel | 'unknown' }

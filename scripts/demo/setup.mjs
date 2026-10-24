@@ -2,31 +2,29 @@
 // Synthetic-only demo. Never reads or changes an existing Kiro profile.
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync, readFileSync, copyFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { demoParentDir } from './base.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const args = process.argv.slice(2);
 if (args.includes('--help')) {
- console.log('Usage: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>] [--pace high]\nChecks fresh synthetic usage; --open launches an isolated Kiro window; --pace high invents about 200 credits/day instead of 20 so budget warnings and the overage projection appear. Default: build the current checkout.');
+ console.log('Usage: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>]\nChecks fresh synthetic usage; --open launches an isolated Kiro window. Default: build the current checkout.');
  process.exit(0);
 }
-let open = false, candidate, kiro, pace;
+let open = false, candidate, kiro;
 for (let i = 0; i < args.length; i++) {
  if (args[i] === '--open' && !open) open = true;
  else if (args[i] === '--vsix' && candidate === undefined && args[i + 1] && !args[i + 1].startsWith('--')) candidate = resolve(args[++i]);
- else if (args[i] === '--pace' && pace === undefined && args[i + 1] === 'high') { pace = 'high'; i++; }
  else if (args[i] === '--kiro' && kiro === undefined && args[i + 1] && !args[i + 1].startsWith('--')) kiro = resolve(args[++i]);
- else { console.log('USAGE: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>] [--pace high]'); process.exit(2); }
+ else { console.log('USAGE: pnpm demo:setup [--open] [--kiro <IDE executable>] [--vsix <candidate.vsix>]'); process.exit(2); }
 }
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major < 24 || (major === 24 && minor < 13)) {
  console.log('NODE_REQUIRED: install Node.js 24.13 or newer.'); process.exit(1);
 }
 // Native realpath: the collector rejects a source spelled through a Windows 8.3 short-name alias.
-// macOS: a long $TMPDIR pushes Kiro's IPC socket past the 103-character limit, so demoParentDir falls back to /tmp.
-const base = realpathSync.native(mkdtempSync(join(demoParentDir(), 'synthetic-cyclegauge-demo-')));
+const base = realpathSync.native(mkdtempSync(join(tmpdir(), 'synthetic-cyclegauge-demo-')));
 const source = join(base, 'source'), storage = join(base, 'storage');
 const home = join(base, 'home'), userData = join(base, 'user-data'), extensions = join(base, 'extensions');
 const workspace = join(base, 'workspace');
@@ -41,14 +39,13 @@ try {
  mkdirSync(logs, { recursive: true, mode: 0o700 });
  const anchor = new Date(Math.floor(Date.now() / 1000) * 1000);
  const lines = [];
- const perDay = pace === 'high' ? 200 : 20; // invented pace; high reaches the 5000 limit before the reset
  for (let offset = 35; offset >= 0; offset--) {
   const at = new Date(anchor.getTime() - offset * 86_400_000);
   const reset = new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth() + 1, 1)).toISOString();
   const envelope = { commandName: 'GetUsageLimitsCommand', input: {}, output: {
    userInfo: { userId: 'synthetic-acceptance-account' }, nextDateReset: reset,
    usageBreakdownList: [{ resourceType: 'CREDIT', unit: 'INVOCATIONS',
-    currentUsageWithPrecision: perDay * (at.getUTCDate() - 1) + 10, usageLimitWithPrecision: 5000,
+    currentUsageWithPrecision: 20 * (at.getUTCDate() - 1) + 10, usageLimitWithPrecision: 5000,
     nextDateReset: reset, bonuses: [], overageCredits: [] }],
   }, metadata: { httpStatusCode: 200 } };
   lines.push(`${at.toISOString()} [info] synthetic-envelope ${JSON.stringify(envelope)}\n`);
@@ -66,7 +63,7 @@ try {
  const { buildVsix } = await import('../release/build-vsix.ts');
  const { verifyVsix } = await import('../release/verify-vsix.ts');
  const vsix = candidate ?? join(base, 'synthetic-demo.vsix');
- if (!candidate) await buildVsix(vsix); // channel derived from the version (channel.ts)
+ if (!candidate) await buildVsix(vsix, true);
  const verified = verifyVsix(readFileSync(vsix));
  if (!verified.ok) throw new Error('PACKAGE_CHECK_FAILED');
  console.log(`VSIX content verification PASS; version ${verified.version} (${candidate ? 'supplied candidate' : 'current checkout'}).`);
@@ -76,7 +73,7 @@ try {
   'window.title': 'SYNTHETIC DEMO - not real usage', 'workbench.startupEditor': 'none',
   'extensions.autoUpdate': false, 'extensions.autoCheckUpdates': false, 'update.mode': 'none', 'telemetry.telemetryLevel': 'off',
  }, null, 2), { mode: 0o600 });
- writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Cyclegauge: Show Credit Budget from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
+ writeFileSync(join(workspace, 'README.txt'), 'SYNTHETIC DEMO — invented usage, not your account.\nOpen Cyclegauge: Show Account Credits from the Command Palette.\nSee docs/synthetic-demo.md in the project for the checklist.\n', { mode: 0o600 });
  const launch = join(base, 'open-demo.mjs');
  copyFileSync(join(root, 'scripts/demo/open.mjs'), launch);
  console.log(`Demo folder: ${base}\nReopen: node "${launch}"\nInstall in the DEMO window: ${join(base, 'install-this.vsix')}\nChecklist: docs/synthetic-demo.md\nClose the demo window before deleting its folder. Run setup again for fresh data.`);

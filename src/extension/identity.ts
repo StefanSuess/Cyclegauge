@@ -2,26 +2,6 @@
 export const ID_PREFIX = 'cyclegauge';
 export const PANEL_VIEW_TYPE = `${ID_PREFIX}.usage`;
 export const SETTING_KEYS = ['sourceRoot', 'storageRoot', 'sourceTimezone'] as const;
-// Non-string settings (application scope: user settings only): the audit reminder and its opt-in automatic re-run.
-export const AUDIT_SETTING_KEYS = ['auditReminderDays', 'auditAutomatically'] as const;
-// The opt-in automatic Kiro configuration review (application scope; only the user's own global value counts, default off).
-export const CONFIG_REVIEW_SETTING_KEYS = ['configReviewAutomatically'] as const;
-// The community prompts' user setting (application scope, boolean, default on).
-export const SUPPORT_SETTING_KEYS = ['supportPrompts'] as const;
-// The budget warning's user settings (application scope): an on/off switch and the usage share (percent of the reported limit) that triggers the early notice.
-export const BUDGET_SETTING_KEYS = ['budgetWarnings', 'budgetWarningPercent'] as const;
-export const BUDGET_PERCENT_DEFAULT = 80;
-// The session hints' user setting (application scope, boolean, default on): the context reminder and the model hint read from the newest IDE session.
-export const SESSION_HINT_SETTING_KEYS = ['sessionHints'] as const;
-// Fixed constants: the only external addresses the extension ever opens, and only when the user clicks. No data, no query strings.
-export const LINKS = { rate: 'https://open-vsx.org/extension/StefanSuess/cyclegauge/reviews', star: 'https://github.com/StefanSuess/Cyclegauge', support: 'https://ko-fi.com/stefansuess', kiro: 'https://kiro.dev', tips: 'https://github.com/StefanSuess/Cyclegauge/blob/main/docs/credit-tips.md' } as const;
-// The fixed bug-report form opened by Report a Problem. Nothing, not even a diagnostics value, is ever added to it.
-export const REPORT_PROBLEM_URL = 'https://github.com/StefanSuess/Cyclegauge/issues/new?template=bug_report.yml';
-export const REPORT_PROBLEM_ACTION = 'Report a problem';
-export const SHARE_TEXT = "Cyclegauge shows your Kiro credit usage, forecasts when you'll run out and finds files Kiro may read but probably doesn't need. Free and open source: https://open-vsx.org/extension/StefanSuess/cyclegauge";
-export const NOT_KIRO_TEXT = "Cyclegauge is built for Kiro IDE, so there is no credit view in this editor. What helps here is the workspace audit: run Cyclegauge: Run Workspace Audit to find files Kiro may read but doesn't need.";
-export const REMINDER_DAYS_DEFAULT = 30;
-export const REMINDER_DAYS_MAX = 365;
 export const commandId = (suffix: string): string => `${ID_PREFIX}.${suffix}`;
 
 type Disposable = { dispose(): unknown };
@@ -31,38 +11,4 @@ export function registerCommand(register: (id: string, fn: () => unknown) => Dis
 
 export function readSetting(get: (prefix: string, key: string) => string | undefined, key: (typeof SETTING_KEYS)[number]): string {
  return get(ID_PREFIX, key) || '';
-}
-
-type Getter = (prefix: string, key: string) => unknown;
-/** Whole days between audit reminders, 0..365; anything that is not a finite number uses the default. 0 turns reminders off. */
-export function readReminderDays(get: Getter): number {
- const value = get(ID_PREFIX, 'auditReminderDays');
- return typeof value === 'number' && Number.isFinite(value) ? Math.min(REMINDER_DAYS_MAX, Math.max(0, Math.floor(value))) : REMINDER_DAYS_DEFAULT;
-}
-export type AuditAutomatic = 'off' | 'onOpen' | 'onOpenAndChanges';
-/** Only an explicit mode enables automatic audits; the earlier boolean true means onOpen, anything else is off. */
-export function readAuditAutomatically(get: Getter): AuditAutomatic {
- const value = get(ID_PREFIX, 'auditAutomatically');
- return value === true ? 'onOpen' : value === 'onOpen' || value === 'onOpenAndChanges' ? value : 'off';
-}
-/** Prompts are on unless the user explicitly sets false. */
-export function readSupportPrompts(get: Getter): boolean {
- return get(ID_PREFIX, 'supportPrompts') !== false;
-}
-/** Budget warnings are on unless the user explicitly sets false. */
-export function readBudgetWarnings(get: Getter): boolean {
- return get(ID_PREFIX, 'budgetWarnings') !== false;
-}
-/** Session hints are on unless the user's own (application-scope) value is explicitly false; workspace and folder values are never consulted. */
-export function readSessionHints(inspect: { globalValue?: unknown; defaultValue?: unknown } | undefined): boolean {
- return (inspect?.globalValue ?? inspect?.defaultValue) !== false;
-}
-/** Whole percent of the reported limit, 0..100; anything that is not a finite number uses the default. 0 turns the percent notice off. */
-export function readBudgetWarningPercent(get: Getter): number {
- const value = get(ID_PREFIX, 'budgetWarningPercent');
- return typeof value === 'number' && Number.isFinite(value) ? Math.min(100, Math.max(0, Math.floor(value))) : BUDGET_PERCENT_DEFAULT;
-}
-/** Kiro IDE by product name or URL scheme; any other editor (or unreadable metadata) is not Kiro. */
-export function isKiroEditor(appName: unknown, uriScheme: unknown): boolean {
- return (typeof appName === 'string' && /kiro/i.test(appName)) || uriScheme === 'kiro';
 }

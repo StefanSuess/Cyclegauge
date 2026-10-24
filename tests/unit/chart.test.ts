@@ -39,11 +39,10 @@ test('capacity labels never claim base-only or total capacity and billing is not
   const html = chart(snaps), plain = text(html);
   assert.match(plain, /Reported credit limit/);
   assert.match(plain, /not verified as (base-only|base-plan-only) or total/i);
-  // The fuller caveat is said once, in the credit view's "About these numbers", not repeated in the chart help.
-  assert.ok(!/does not establish actual overage charges/.test(plain));
-  const about = text(present(observe(snaps)).html);
-  assert.match(about, /may include purchased add-on credits/i);
-  assert.match(about, /do not by themselves establish overage charges or a purchased balance/i);
+  assert.match(plain, /may include purchased (add-on )?credits/i);
+  assert.match(plain, /does not (establish|show|prove) (actual )?overage charges/i);
+  assert.match(plain, /purchased balance/);
+  assert.match(plain, /billing eligibility/);
   assert.ok(!/base credit limit/i.test(plain));
   assert.ok(!/verified total available/i.test(plain.replace(/not verified[^.]*\./gi, '')));
  }
@@ -62,20 +61,19 @@ test('individual prepaid capacity 2100 / 2125 stays below the reported limit and
 
 test('both capacity cases render the same observed counter without claiming overage charges', () => {
  const a = text(chart(enterprise())), b = text(chart(individualPrepaid()));
- assert.match(a, /2100 credits/);
- assert.match(b, /2100 credits/);
+ assert.match(a, /2100 CREDIT/);
+ assert.match(b, /2100 CREDIT/);
  assert.ok(!/overage (charge|bill|cost) (of|is|will)/i.test(a + b));
 });
 
 test('presentation terminology no longer calls the reported limit base-only', () => {
  const p = present(observe(enterprise()));
- assert.match(p.html, /reported credits/); // above the limit there is no remaining figure to show
- assert.ok(!/Credits left/.test(p.html));
+ assert.match(p.html, /Remaining reported capacity/);
  assert.match(p.html, /Reported credit limit/);
  assert.match(p.text, /Above reported limit/);
  assert.ok(!/Base credits exhausted/.test(p.text + p.html));
  const q = present(observe(individualPrepaid()));
- assert.match(q.html, /Credits left/);
+ assert.match(q.html, /Remaining reported capacity/);
 });
 
 test('clipped higher scenario is flagged on the chart and its full endpoint is in the accessible summary and table', () => {
@@ -118,7 +116,7 @@ test('accessible data parity: every displayed value appears in the text alternat
  const m = chartModel(o);
  const html = presentChart(o);
  const t = table(html);
- for (const p of m.points) { assert.ok(t.includes(p.at), p.at); assert.ok(t.includes(`>${p.usage}<`) || t.includes(`${p.usage} credits`), p.usage); }
+ for (const p of m.points) { assert.ok(t.includes(p.at), p.at); assert.ok(t.includes(`>${p.usage}<`) || t.includes(`${p.usage} CREDIT`), p.usage); }
  const markers = plot(html).match(/<(circle|polygon) class="pt/g) ?? [];
  // Markers are reduced to the ends, isolated and above-limit updates; every update stays in the data table.
  assert.ok(markers.length >= 2 && markers.length <= m.points.length);
@@ -218,7 +216,7 @@ test('decimation is bounded, keeps barriers and the table lists exactly the plot
  assert.equal((table(html).match(/data-kind="point"/g) ?? []).length, m.points.length);
  { const markers = (plot(html).match(/<(circle|polygon) class="pt/g) ?? []).length; assert.ok(markers >= 2 && markers <= m.points.length); }
  assert.match(text(html), new RegExp(`${m.omittedPoints} retained account updates`));
- assert.ok(html.length < 72_000, `chart HTML ${html.length} bytes`); // Measured at 62 KB for 96 keyboard-labeled points.
+ assert.ok(html.length < 60_000, `chart HTML ${html.length} bytes`);
 });
 
 test('decimation never drops a barrier endpoint', () => {
@@ -238,22 +236,16 @@ test('chart output is script-free, escaped and carries no private identifiers', 
  assert.ok(!/<script/i.test(p.html));
  assert.ok(!/\son[a-z]+=/i.test(p.html));
  assert.ok(!/javascript:/i.test(p.html));
- // The only web links are the community footer's; the chart itself links nowhere and loads nothing.
- assert.ok(!/(href|src)="https?:/i.test(p.html.replace(/<footer class="community[\s\S]*?<\/footer>/, '')));
- assert.ok(!/src="/i.test(p.html));
+ assert.ok(!/(href|src)="https?:/i.test(p.html));
  assert.match(p.html, /Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"/);
  for (const marker of ['synthetic-private', 'partition', 'sourceTimezone']) assert.ok(!p.html.includes(marker));
- assert.match(p.html, /<svg[^>]*role="group"/); // the chart; the usage bar is decorative and aria-hidden
- assert.match(p.html, /<svg class="bar"[^>]*aria-hidden="true"/);
+ assert.match(p.html, /<svg[^>]*role="img"/);
  assert.match(p.html, /id="usage-chart"/);
 });
 
 test('accessible alternatives and non-color encodings are present', () => {
  const html = presentChart(observe(series(10, '100')));
- assert.match(html, /role="group" aria-labelledby="chart-title" aria-describedby="chart-desc chart-data-table"/);
- assert.equal((html.match(/data-chart-point="/g) ?? []).length, chartModel(observe(series(10, '100'))).points.length);
- assert.equal((html.match(/tabindex="0"/g) ?? []).length, 1);
- assert.match(html, /id="chart-tooltip"[^>]*role="tooltip" hidden/);
+ assert.match(html, /aria-labelledby="chart-title chart-desc"/);
  assert.match(html, /<title id="chart-title">/);
  assert.match(html, /<desc id="chart-desc">/);
  assert.match(html, /stroke-dasharray=/);
@@ -264,18 +256,9 @@ test('accessible alternatives and non-color encodings are present', () => {
  assert.match(present(observe(series(10, '100'))).html, /forced-colors:active/);
 });
 
-test('plotted points report the change from the preceding observed update and barriers as not comparable', () => {
- const points = [snapshot(day(0), '1'), snapshot(day(1), '2.25'), snapshot(day(2), '0.5'), snapshot(day(3), '1.75')];
- const model = chartModel(observe(points, day(3)));
- assert.deepEqual(model.points.map(p => p.change), [null, '1.25', null, '1.25']);
- const html = presentChart(observe(points, day(3)));
- assert.match(html, /change since previous update: 1\.25 credits/);
- assert.match(html, /change since previous update: not comparable/);
-});
-
 test('unavailable history renders an honest empty state', () => {
  const html = presentChart(view([], day(0)));
- assert.match(text(html), /There are no account updates to chart yet\./);
+ assert.match(text(html), /No usable observed account updates/);
  assert.ok(!html.includes('<svg'));
 });
 

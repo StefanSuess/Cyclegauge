@@ -14,7 +14,7 @@ export const CHART_CSS = `.chart-frame{margin:0}.chart-frame svg{display:block;w
 .chart-frame .budget{stroke:var(--vscode-charts-yellow,#cca700);stroke-width:1.5;stroke-dasharray:3 3;fill:none}.chart-frame .reset{stroke:var(--vscode-foreground);stroke-width:1.5;fill:none}
 .chart-frame .query{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1.5;stroke-dasharray:1 4;stroke-linecap:round;fill:none}
 .chart-frame .unk{fill:url(#chart-unknown);stroke:var(--vscode-panel-border,#8888);stroke-dasharray:4 3}.chart-frame .unk-hatch{stroke:var(--vscode-descriptionForeground,#888);stroke-width:1}
-.chart-frame .mark{stroke:var(--vscode-foreground);stroke-width:2.5;fill:none}.chart-frame .flag{fill:var(--vscode-editorWarning-foreground,#cca700);stroke:var(--vscode-foreground);stroke-width:1}.chart-frame [data-chart-point]:focus-visible{outline:2px solid var(--vscode-focusBorder);outline-offset:3px}.chart-tooltip{border:1px solid var(--vscode-panel-border);padding:6px 9px;margin:6px 0;max-width:max-content;background:var(--vscode-editorWidget-background,var(--vscode-editor-background))}.chart-tooltip[hidden]{display:none}
+.chart-frame .mark{stroke:var(--vscode-foreground);stroke-width:2.5;fill:none}.chart-frame .flag{fill:var(--vscode-editorWarning-foreground,#cca700);stroke:var(--vscode-foreground);stroke-width:1}
 .chart-clip{margin:8px 0;padding-left:20px;font-weight:600;font-size:.95rem}.chart-legend{list-style:none;padding:0;margin:10px 0;display:flex;flex-wrap:wrap;gap:4px 16px;font-size:.85rem}.chart-help{margin-top:6px}.chart-help>summary{font-weight:500}.chart-legend-full{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));font-size:.95rem}.chart-legend li{display:flex;gap:8px;align-items:flex-start}.chart-legend svg{flex:none;margin-top:3px}
 .chart-legend line,.chart-legend path{fill:none}.chart-table th,.chart-table td{padding:6px 8px 6px 0;font-size:.9rem}.chart-table th,.chart-table td{overflow-wrap:normal;word-break:normal}.chart-table th{width:auto}.chart-table th[scope=row]{min-width:9em}.chart-table th[scope=col]{white-space:nowrap}.chart-table td:nth-child(2){min-width:12em}.chart-table td:nth-child(3){white-space:nowrap}.chart-scroll{overflow-x:auto}
 @media(forced-colors:active){.chart-frame .obs,.chart-frame .limit,.chart-frame .central,.chart-frame .lower,.chart-frame .higher,.chart-frame .budget,.chart-frame .reset,.chart-frame .query,.chart-frame .axis,.chart-frame .mark{stroke:CanvasText}.chart-frame circle.pt{fill:CanvasText;stroke:Canvas}.chart-frame polygon.over,.chart-frame .flag{fill:Canvas;stroke:Highlight}.chart-frame .env,.chart-frame .above{fill:Highlight;fill-opacity:.25}.chart-frame text{fill:CanvasText}}`;
@@ -42,7 +42,7 @@ const num = (s: string) => { const v = Number(s); return Number.isFinite(v) ? v 
 
 function summaryText(m: ChartModel): string {
  const l = m.latest!;
- const parts = [`As of ${m.asOf} UTC the observed cumulative account counter was ${l.usage} credits against a reported credit limit of ${l.limit} credits: ${l.difference} credits ${l.aboveLimit ? 'above' : 'below'} the reported limit${l.aboveLimit ? ' (usage above the reported limit is displayed as observed)' : ''}.`];
+ const parts = [`As of ${m.asOf} UTC the observed cumulative account counter was ${l.usage} CREDIT against a reported credit limit of ${l.limit} CREDIT: ${l.difference} credits ${l.aboveLimit ? 'above' : 'below'} the reported limit${l.aboveLimit ? ' (usage above the reported limit is displayed as observed)' : ''}.`];
  if (m.omittedPoints > 0) parts.push(`${m.omittedPoints} retained account updates are not plotted or listed (evenly thinned; first, last and every update beside an unknown period or event are kept).`);
  const p = m.projection;
  if (p) {
@@ -93,7 +93,7 @@ export const presentChart = (o: ReturnType<typeof view>): string => { const c = 
 /** Default reading flow in `main`; full legend, caveats, text alternative and data table in `advanced`. */
 export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  const m = chartModel(o);
- if (m.status === 'empty') return { main: `<section id="usage-chart" aria-label="Usage trajectory"><h2>Usage trajectory</h2><p>There are no account updates to chart yet. The chart appears after Kiro writes its first credit update.</p></section>`, advanced: '' };
+ if (m.status === 'empty') return { main: `<section id="usage-chart" aria-label="Usage trajectory"><h2>Usage trajectory</h2><p>No usable observed account updates yet, so no chart is shown. Missing history is unknown, never zero.</p></section>`, advanced: '' };
  const H = m.points.length < SPARSE_POINTS ? SHORT : TALL;
  const startMs = Date.parse(m.axis.startAt), endMs = Math.max(Date.parse(m.axis.endAt), startMs + DAY_MS);
  const pw = W - L - R, ph = H - T - B;
@@ -148,7 +148,7 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  // Budget guide
  if (m.budget) out.push(`<line class="budget" stroke-dasharray="3 3" x1="${n(xt(m.budget.from.at))}" y1="${n(y(num(m.budget.from.usage)))}" x2="${n(xt(m.budget.to.at))}" y2="${n(y(num(m.budget.to.usage)))}"><title>Budget guide: even allocation of remaining reported capacity</title></line>`);
  // Reported limit segments (a changed limit starts a new segment)
- for (const l of m.limits) out.push(`<line class="limit" x1="${n(xt(l.from))}" y1="${n(y(num(l.value)))}" x2="${n(xt(l.to))}" y2="${n(y(num(l.value)))}"><title>Reported credit limit ${safe(l.value)} credits (not verified as base-only or total capacity)</title></line>`);
+ for (const l of m.limits) out.push(`<line class="limit" x1="${n(xt(l.from))}" y1="${n(y(num(l.value)))}" x2="${n(xt(l.to))}" y2="${n(y(num(l.value)))}"><title>Reported credit limit ${safe(l.value)} CREDIT (not verified as base-only or total capacity)</title></line>`);
  const lastLimit = m.limits.at(-1)!;
  out.push(`<text x="${L + 6}" y="${n(Math.max(y(num(lastLimit.value)) - 6, T + 10))}">Reported limit ${safe(lastLimit.value)}</text>`);
  // Reset and evaluation time
@@ -157,12 +157,12 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  // Observed connectors, then points on top
  for (const [a, b] of m.connectors) out.push(`<line class="obs" x1="${n(xt(m.points[a].at))}" y1="${n(y(num(m.points[a].usage)))}" x2="${n(xt(m.points[b].at))}" y2="${n(y(num(m.points[b].usage)))}"><title>Comparable interval; timing within the interval was not observed</title></line>`);
  for (const e of m.events) out.push(`<path class="flag" d="M${n(xt(e.at))} ${H - B - 2} l-6 -11 h12 z"><title>${safe(eventLabels[e.kind] ?? 'Series broken')}</title></path>`);
- // Every plotted update is a focusable marker. The source may contain more updates than the plot's bounded selection.
+ const connected = new Set(m.connectors.flat());
+ // Markers only where a line cannot carry the point: the ends, isolated updates and above-limit updates. Every update stays in the data table.
  m.points.forEach((pt, i) => {
-  const cx = xt(pt.at), cy = y(num(pt.usage));
-  const label = `${pt.at} UTC, ${pt.usage} credits used; change since previous update: ${pt.change === null ? 'not comparable' : `${pt.change} credits`}`;
-  const attrs = `data-chart-point="${safe(pt.at)}" tabindex="${i === 0 ? '0' : '-1'}" aria-label="${safe(label)}"`;
-  out.push(pt.aboveLimit ? `<polygon class="pt over" ${attrs} points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}"/>` : `<circle class="pt obs" ${attrs} cx="${n(cx)}" cy="${n(cy)}" r="3.5"/>`);
+  if (!(i === 0 || i === m.points.length - 1 || pt.aboveLimit || !connected.has(i))) return;
+  const cx = xt(pt.at), cy = y(num(pt.usage)), title = `<title>${safe(pt.at)} · ${safe(pt.usage)} CREDIT${pt.aboveLimit ? ' · above reported limit' : ''}</title>`;
+  out.push(pt.aboveLimit ? `<polygon class="pt over" points="${n(cx)},${n(cy - 6)} ${n(cx + 6)},${n(cy)} ${n(cx)},${n(cy + 6)} ${n(cx - 6)},${n(cy)}">${title}</polygon>` : `<circle class="pt obs" cx="${n(cx)}" cy="${n(cy)}" r="3.5">${title}</circle>`);
  });
  if (m.exhaustion?.approxAt) { const ex = xt(m.exhaustion.approxAt), ey = y(num(lastLimit.value)); out.push(`<path class="mark" d="M${n(ex - 6)} ${n(ey - 6)} l12 12 m0 -12 l-12 12"><title>Reported limit reached (conditional): UTC day ${safe(m.exhaustion.day)}</title></path>`); }
 
@@ -193,14 +193,15 @@ export function presentChartParts(o: ReturnType<typeof view>): ChartParts {
  const summary = summaryText(m);
  const startNote = m.axis.startKnown ? '' : ' The earlier part of the cycle was not observed; the series starts at the first retained update.';
  const notes = `<p class="muted small">Points are the observed cumulative account counter, net usage as of each account update — not independently verified gross charges. Missing or incompatible periods are unknown, never zero.${startNote}</p>`
+  + `<p class="muted small">Reported credit limit: the CREDIT limit reported with the account update. It is not verified as base-only or total available capacity and may include purchased add-on credits. Observed usage can exceed it. A usage counter alone does not establish actual overage charges, purchased balance or billing eligibility.</p>`
   + (p ? `<p class="muted small">The shaded range is a scenario range, not a statistical confidence interval. Lower-usage means lower consumption (${LOWER_FACTOR.label} of the selected observed rate); higher-usage means higher consumption (${HIGHER_FACTOR.label}). Observed history is never scaled.</p>` : '');
  const caption = p ? `Expected usage assumes the observed rate continues; the shaded range is a ${LOWER_FACTOR.label}–${HIGHER_FACTOR.label} scenario, not a confidence interval.` : 'No forecast trajectory is drawn while the forecast is unavailable or stale.';
  const main = `<section id="usage-chart" aria-labelledby="chart-heading"><h2 id="chart-heading">Usage trajectory</h2>`
-  + `<figure class="chart-frame"><svg viewBox="0 0 ${W} ${H}" role="group" aria-labelledby="chart-title" aria-describedby="chart-desc chart-data-table" xmlns="http://www.w3.org/2000/svg"><title id="chart-title">Observed credit usage and scenario trajectories until the billing reset</title><desc id="chart-desc">${safe(summary)} Use arrow keys to move through plotted account updates.</desc>${out.join('')}</svg><p id="chart-tooltip" class="chart-tooltip" role="tooltip" hidden></p></figure>`
+  + `<figure class="chart-frame"><svg viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="chart-title chart-desc" xmlns="http://www.w3.org/2000/svg"><title id="chart-title">Observed credit usage and scenario trajectories until the billing reset</title><desc id="chart-desc">${safe(summary)}</desc>${out.join('')}</svg></figure>`
   + (clipNotes ? `<ul class="chart-clip">${clipNotes}</ul>` : '')
   + `<ul class="chart-legend">${brief.join('')}</ul><p class="muted small">${safe(caption)}</p>`
   + `<details class="chart-help"><summary>How to read this chart</summary>${notes}<h4>Chart key</h4><ul class="chart-legend chart-legend-full">${legend.join('')}</ul></details></section>`;
  const advanced = `<div id="chart-details"><h3>Chart details</h3><p id="chart-summary">${safe(summary)}</p>`
-  + `<details><summary>Chart data table</summary><div id="chart-data-table" class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; amounts are credits)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
+  + `<details><summary>Chart data table</summary><div class="chart-scroll"><table class="chart-data chart-table"><caption>Every value drawn on the chart (UTC; credits are the CREDIT unit)</caption><thead><tr><th scope="col">Layer</th><th scope="col">Time (UTC)</th><th scope="col">Credits</th><th scope="col">Meaning</th></tr></thead><tbody>${tableRows(m)}</tbody></table></div></details></div>`;
  return { main, advanced };
 }

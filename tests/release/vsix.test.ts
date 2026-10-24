@@ -100,7 +100,6 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.ok(extraSetting.problems.includes('MANIFEST_SETTING_PROPERTIES'));
- // The two audit reminder settings must keep exactly their application scope (the user's own settings, never a workspace's), type, default and range; anything else fails closed.
  const edited = (edit: (props: Record<string, any>) => void) => pack(e => e.map(x => {
   if (x.name !== 'extension/package.json') return x;
   const m = JSON.parse(x.data.toString('utf8'));
@@ -108,65 +107,11 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   return { ...x, data: Buffer.from(JSON.stringify(m)) };
  }));
  assert.deepEqual(edited(() => {}).problems, []);
- const days = 'cyclegauge.auditReminderDays', auto = 'cyclegauge.auditAutomatically';
- assert.ok(edited(p => { p[days].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[days].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[auto].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[auto].scope = 'window'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { delete p[auto].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[days].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[auto].type = 'boolean'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[auto].default = 'onOpen'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[auto].enum = [...p[auto].enum, 'always']; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[auto].enum; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[days].default = 31; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[auto].default = true; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[days].maximum = 9999; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[days].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[auto]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- assert.ok(edited(p => { p['cyclegauge.extraSetting'] = { type: 'boolean', default: false, scope: 'application' }; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- // The automatic configuration review must stay a user-only setting that is off by default; a workspace scope or an on default fails closed.
- const review = 'cyclegauge.configReviewAutomatically';
- for (const scope of ['window', 'resource', 'machine', undefined]) assert.ok(edited(p => { p[review].scope = scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), String(scope));
- for (const value of ['onOpen', 'onOpenAndChanges', true]) assert.ok(edited(p => { p[review].default = value; }).problems.includes('MANIFEST_SETTING_TYPE'), String(value));
- assert.ok(edited(p => { p[review].enum = [...p[review].enum, 'always']; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[review]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- // The community prompt setting is held to the same standard: application scope, boolean, default true, nothing else.
- const prompts = 'cyclegauge.supportPrompts';
- assert.ok(edited(p => { p[prompts].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[prompts].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { delete p[prompts].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[prompts].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[prompts].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[prompts].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[prompts]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- // The budget warning settings are held to the same standard, including the percent range.
- const warnings = 'cyclegauge.budgetWarnings', percent = 'cyclegauge.budgetWarningPercent';
- for (const key of [warnings, percent]) {
-  assert.ok(edited(p => { p[key].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
-  assert.ok(edited(p => { p[key].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
-  assert.ok(edited(p => { delete p[key].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), key);
-  assert.ok(edited(p => { delete p[key]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
+ // Cyclegauge 0.8.0 has only the three machine-scoped settings; a workspace must never be able to redirect the roots.
+ for (const key of ['sourceRoot', 'storageRoot', 'sourceTimezone']) {
+  for (const scope of ['window', 'resource', 'application', undefined]) assert.ok(edited(p => { p[`cyclegauge.${key}`].scope = scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), `${key} ${String(scope)}`);
+  assert.ok(edited(p => { delete p[`cyclegauge.${key}`]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
  }
- // The session hints setting (a read of Kiro's session files, on by default) is pinned as well: application scope, boolean, default on.
- const hints = 'cyclegauge.sessionHints';
- assert.ok(edited(p => { p[hints].scope = 'machine'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { p[hints].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { delete p[hints].scope; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.ok(edited(p => { delete p[hints]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'));
- assert.ok(edited(p => { p[hints].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[hints].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[warnings].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[warnings].default = false; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[warnings].maximum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[percent].type = 'string'; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[percent].default = 90; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[percent].minimum = 1; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { p[percent].maximum = 1000; }).problems.includes('MANIFEST_SETTING_TYPE'));
- assert.ok(edited(p => { delete p[percent].minimum; }).problems.includes('MANIFEST_SETTING_TYPE'));
- // The existing machine-scoped keys may not move to resource scope.
- assert.ok(edited(p => { p['cyclegauge.sourceRoot'].scope = 'resource'; }).problems.includes('MANIFEST_SETTING_SCOPE'));
- assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 
 test('the verifier rejects a wrong publisher', async () => {
