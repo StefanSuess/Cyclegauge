@@ -187,7 +187,7 @@ test('answers cannot cross accounts, ambiguity or stale editor tickets',()=>{
 test('presentation is script-free, escaped, traceable to the catalog and never offers a purchase instruction',()=>{
  const hint=planHint('1000',catalog);
  const html=presentAdvisor({hint,context:ctx({planSource:'hint',plan:'pro',billingConfirmed:false,addOns:'assumed_none',assumptions:['plan_is_hint','billing_assumed_consumer','add_ons_assumed_none']}),horizons:[],advice:[],singleAccount:true,limit:'<img src=x onerror=synthetic-sentinel>'});
- for(const marker of ['Cost Advisor','Unconfirmed','only a hint',catalog.version,catalog.verifiedOn.slice(0,10),'qualified forecast is needed'])assert.ok(html.includes(marker),marker);
+ for(const marker of ['Cost Advisor','Unconfirmed','only a hint',catalog.version,catalog.verifiedOn.slice(0,10),'Offline only','qualified forecast is needed'])assert.ok(html.includes(marker),marker);
  assert.ok(!html.includes('<img'));assert.ok(html.includes('&lt;img'));assert.ok(!html.includes('<script'));assert.ok(!html.includes('command:'));
  assert.ok(!/buy now|purchase now|click to buy/i.test(html));
 });
@@ -213,9 +213,9 @@ test('detail view shows the advisor first, answers are applied through the nativ
  try{
   const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now});
   assert.ok(html.includes('id="cost-advisor"'));assert.ok(!html.includes('Cost Optimizer'));assert.ok(!html.includes('cost-optimizer'));
-  // The Cost Advisor follows the status, chart and observed usage, and comes before the workspace check and advanced details.
+  // Recommendation at a glance: directly after the current status and before the chart and advanced details.
   assert.ok(html.indexOf('class="hero ')<html.indexOf('id="cost-advisor"'));assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('id="advanced-details"'));
-  if(html.includes('id="usage-chart"'))assert.ok(html.indexOf('id="usage-chart"')<html.indexOf('id="cost-advisor"'));
+  if(html.includes('<svg'))assert.ok(html.indexOf('id="cost-advisor"')<html.indexOf('<svg'));
   assert.ok(commands.has('advisor'));assert.ok(!html.includes('Confirmed by you'));
    assert.ok(html.includes('Unconfirmed'));
    const budget=status;
@@ -224,7 +224,7 @@ test('detail view shows the advisor first, answers are applied through the nativ
    // The engine marks every priced comparison conditional, so any figure is a labelled model, never a supported claim.
    assert.ok(!/Potential saving|No cheaper option|Supported estimate/.test(html));
    assert.ok(html.includes('Modelled estimate'));assert.match(html,/No cheaper plan found/);assert.ok(!/class="figure"><strong>USD/.test(html));
-   assert.match(html,/not a guarantee and not an invoice/);assert.match(html,/<span class="badge">Based on assumptions<\/span>/);
+   assert.match(html,/Not a guarantee and not an invoice/);
    await appendFile(env.log,line('synthetic-b','2030-01-04 00:00:01.000',11));await controller.refresh();
    assert.ok(!html.includes('Confirmed by you'));assert.ok(!html.includes('synthetic-a'));assert.ok(!html.includes('synthetic-b'));
   controller.dispose();
@@ -239,7 +239,7 @@ test('manifest exposes the advisor as the first panel title action',async()=>{
  const ext=await readFile(new URL('../../src/extension/extension.ts',import.meta.url),'utf8');
  for(const gone of ['configureCostOptimizer','editCostScenario','clearCostInputs'])assert.ok(!p.contributes.commands.some((c:any)=>c.command.endsWith(gone)),gone);
  assert.ok(!JSON.stringify(p.contributes).includes('Cost Optimizer'));
- assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: true/);
+ assert.match(ext,/advisor:'costAdvisor'/);assert.match(ext,/enableScripts: false/);
 });
 
 test('advisor verdict wording per outcome never claims a saving unless potential_savings',()=>{
@@ -285,25 +285,4 @@ test('Enterprise unknown add-ons are disclosed as unknown, never assumed absent'
  assert.ok(!html.includes('Modelled estimate'));
  const assumed=presentAdvisor({hint,context:ctx({addOns:'assumed_none',assumptions:[]}),horizons:[],advice:[],singleAccount:true,limit:'5000'});
  assert.ok(assumed.includes('No purchased add-on credits are assumed'));
-});
-
-test('inline review refreshes, rejects replay and account changes, and counts completed reviews',async()=>{
- const lines=['2030-01-01','2030-01-02','2030-01-03','2030-01-04'].map((d,i)=>line('synthetic-inline-a',`${d} 00:00:00.000`,i===3?10:0)).join('');
- const env=await setup(lines);let html='',used=0;let native:()=>Promise<void>=async()=>{};
- const ui={setStatus(_text:string,detail:string){html=detail;},showDetails(){},onClick(){},onChange(){},everyMinute(){},dispose(){},
-  costInput:{async pick(){return undefined;},async input(){return undefined;}},onCostCommand(_id:string,fn:()=>Promise<void>){native=fn;}};
- try{
-  const controller=await startExtension(ui,{...env,timezone:'UTC',now:()=>now,onAdvisorUsed:()=>{used++;}});
-  const ticket=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);
-  const answers={plan:'pro',billing:'consumer_prepaid',addOns:'none',addOnCredits:''};
-  assert.deepEqual(await controller.submitAdvisor(ticket,answers),{status:'ok',epoch:ticket+1});assert.equal(used,1);
-  assert.equal((await controller.submitAdvisor(ticket,answers)).status,'stale');assert.equal(used,1);
-  const current=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);
-  assert.deepEqual(await controller.submitAdvisor(current,{...answers,addOns:'some',addOnCredits:'invalid'}),{status:'invalid',fields:['addOnCredits'],epoch:current});
-  await native();const afterCancel=Number(/data-advisor-epoch="(\d+)"/.exec(html)![1]);assert.ok(afterCancel>current);
-  assert.equal((await controller.submitAdvisor(current,answers)).status,'stale');
-  await writeFile(env.log,lines+line('synthetic-inline-b','2030-01-04 01:00:00.000',12));await controller.refresh();
-  assert.equal((await controller.submitAdvisor(afterCancel,answers)).status,'stale');assert.equal(used,1);
-  controller.dispose();
- }finally{await rm(env.base,{recursive:true,force:true});}
 });

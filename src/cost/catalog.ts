@@ -14,7 +14,7 @@ export function validAmount(value:unknown): value is string {
 const source=(url:string,section:string):Provenance=>({url,section});
 const billing='https://kiro.dev/docs/billing/';
 const urls=[`${billing}add-on-credits/`,`${billing}add-on-credits/`,billing,`${billing}related-questions/`,`${billing}downgrading/`,`${billing}cancelling/`,'https://kiro.dev/docs/enterprise/billing/','https://kiro.dev/pricing/','https://kiro.dev/docs/enterprise/subscription-management/'];
-const catalogData:PricingCatalog={schemaVersion:1,id:'kiro-commercial',version:'2026-10-18',verifiedOn:'2026-10-18T00:00:00Z',currency:'USD',market:'commercial',evidence:'reviewed',schedule:'utc_calendar_month',
+const catalogData:PricingCatalog={schemaVersion:1,id:'kiro-commercial',version:'2026-10-10',verifiedOn:'2026-10-10T00:00:00Z',currency:'USD',market:'commercial',evidence:'reviewed',schedule:'utc_calendar_month',
  plans:PLAN_IDS.map((id,i)=>({id,fee:['0','20','40','100','200'][i],credits:['50','1000','2000','5000','10000'][i],source:source('https://kiro.dev/pricing/','Tier pricing')})),
  rules:urls.map((url,i)=>({id:`B${i+1}`,url,section:`Billing rule B${i+1}`,status:'verified',effectiveFrom:null,effectiveTo:null})),
  consumer:{billingSystem:'consumer_prepaid',pricePerCredit:'0.04',minimumCredits:'125',maximumCredits:'2500',maximumPacks:5,expiryMonths:12,purchaseStepCredits:null,moneyRounding:null,depletedSlotRelease:null},

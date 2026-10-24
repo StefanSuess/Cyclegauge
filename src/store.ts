@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, createHmac } from 'node:crypto';
 import { writeFileSync, readFileSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,27 +6,9 @@ import { prepareStorage, noSymlinks } from './paths.ts';
 import { persistedSnapshot, type Snapshot } from './projection.ts';
 import { windowsStorageAccess } from './windows-storage.ts';
 export interface StoredSnapshot extends Snapshot { partition: string; associated: boolean; ingestedAt: string }
-/** MIGRATIONS[i] upgrades storage version i + 1 to i + 2. Append only; STORE_VERSION follows the list length.
- * Migrations run inside the open BEGIN IMMEDIATE transaction and must not BEGIN, COMMIT, VACUUM or change PRAGMAs. */
-export type Migration = (db: DatabaseSync) => void;
-export const MIGRATIONS: readonly Migration[] = Object.freeze([]);
-export const STORE_VERSION = 1 + MIGRATIONS.length;
-export const MAX_IMPORT_ROWS = 10_000;
-/** Test-only overrides; production callers use the defaults. `sqlite` replaces the loader for the `node:sqlite` module. */
-export interface StoreOptions { migrations?: readonly Migration[]; maxImportRows?: number; sqlite?: () => unknown }
-type DatabaseConstructor = new (path: string) => DatabaseSync;
-// node:sqlite is loaded lazily so that a runtime without it still loads the extension bundle; the check runs before any filesystem work.
-const builtinSqlite = (): unknown => process.getBuiltinModule?.('node:sqlite');
-function databaseConstructor(load: () => unknown): DatabaseConstructor {
- let ctor: unknown;
- try { ctor = (load() as { DatabaseSync?: unknown } | undefined)?.DatabaseSync; } catch { /* fixed code below */ }
- if (typeof ctor !== 'function') throw new Error('RUNTIME_UNSUPPORTED');
- return ctor as DatabaseConstructor;
-}
 export class Store {
- private db: DatabaseSync; private secret: Buffer; private maxImports: number;
- constructor(directory: string, source: string, profile = false, options: StoreOptions = {}) {
-  const Database = databaseConstructor(options.sqlite ?? builtinSqlite);
+ private db: DatabaseSync; private secret: Buffer;
+ constructor(directory: string, source: string, profile = false) {
   const root = prepareStorage(directory, source, profile);
   const verifyAcl = !profile;
   const secureFile = (name: string, initial: Buffer) => {
@@ -50,42 +32,16 @@ export class Store {
    }
    catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw new Error('UNSAFE_STORAGE'); }
   }
-  this.maxImports = options.maxImportRows ?? MAX_IMPORT_ROWS;
-  this.db = new Database(dbPath);
-  let open = false;
+  this.db = new DatabaseSync(dbPath);
   try {
-   this.db.exec('PRAGMA busy_timeout=3000');
-   this.db.exec('BEGIN IMMEDIATE'); open = true;
-   this.prepareSchema(options.migrations ?? MIGRATIONS);
-   this.db.exec('COMMIT'); open = false;
-  } catch (e) {
-   if (open) { try { this.db.exec('ROLLBACK'); } catch { /* the connection is closed next */ } }
-   try { this.db.close(); } catch { /* fixed code below */ }
-   throw new Error((e as Error)?.message === 'STORAGE_NEWER' ? 'STORAGE_NEWER' : 'STORAGE_UNAVAILABLE');
-  }
- }
- /** Runs inside BEGIN IMMEDIATE. A file written by a newer version or without a valid meta row is never written to or repaired. */
- private prepareSchema(migrations: readonly Migration[]): void {
-  const target = 1 + migrations.length;
-  const tables = new Set(this.db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(row => row.name as string));
-  // Fresh only when the file has no schema objects at all (an empty file); anything else must be a valid Cyclegauge store.
-  if ((this.db.prepare('SELECT count(*) AS n FROM sqlite_master').get() as { n: number }).n === 0) {
-   this.db.exec(`CREATE TABLE meta(version INTEGER NOT NULL);
-    CREATE TABLE snapshots(key TEXT PRIMARY KEY, partition TEXT NOT NULL, associated INTEGER NOT NULL, observed TEXT NOT NULL, body TEXT NOT NULL, ingested TEXT NOT NULL);
-    CREATE TABLE sources(key TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, bytes INTEGER NOT NULL);
-    CREATE TABLE imports(id INTEGER PRIMARY KEY, ingested TEXT NOT NULL, body TEXT NOT NULL);`);
-   this.db.prepare('INSERT INTO meta(version) VALUES (?)').run(target);
-   return;
-  }
-  if (!tables.has('meta')) throw new Error('STORAGE_UNAVAILABLE');
-  const rows = this.db.prepare('SELECT version FROM meta').all();
-  const version = rows[0]?.version;
-  if (rows.length !== 1 || typeof version !== 'number' || !Number.isSafeInteger(version) || version < 1) throw new Error('STORAGE_UNAVAILABLE');
-  if (version > target) throw new Error('STORAGE_NEWER');
-  if (!['snapshots', 'sources', 'imports'].every(name => tables.has(name))) throw new Error('STORAGE_UNAVAILABLE');
-  if (version === target) return;
-  for (let v = version; v < target; v++) migrations[v - 1](this.db);
-  if (this.db.prepare('UPDATE meta SET version=?').run(target).changes !== 1) throw new Error('STORAGE_UNAVAILABLE');
+   this.db.exec(`PRAGMA busy_timeout=3000;
+    CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL);
+    INSERT INTO meta SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM meta);
+    CREATE TABLE IF NOT EXISTS snapshots(key TEXT PRIMARY KEY, partition TEXT NOT NULL, associated INTEGER NOT NULL, observed TEXT NOT NULL, body TEXT NOT NULL, ingested TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS sources(key TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, bytes INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY, ingested TEXT NOT NULL, body TEXT NOT NULL);`);
+   if ((this.db.prepare('SELECT version FROM meta').get() as {version:number})?.version !== 1) throw new Error('UNSUPPORTED_STORAGE');
+  } catch { this.db.close(); throw new Error('STORAGE_UNAVAILABLE'); }
  }
  token(kind: string, value: string): string { return createHmac('sha256', this.secret).update(kind + '\0' + value).digest('hex'); }
  transaction<T>(work: () => T): T {
@@ -106,13 +62,7 @@ export class Store {
   return !!old && (old.fingerprint !== fingerprint || bytes < old.bytes);
  }
  evidence(ingestedAt: string, codes: Record<string, number>): void {
-  const body = JSON.stringify(codes);
-  const last = this.db.prepare('SELECT id, body FROM imports ORDER BY id DESC LIMIT 1').get() as { id: number; body: string } | undefined;
-  // Unchanged codes refresh the latest row's time instead of adding a row: bounded, and the last import stays visible.
-  if (last?.body === body) { this.db.prepare('UPDATE imports SET ingested=? WHERE id=?').run(ingestedAt, last.id); return; }
-  this.db.prepare('INSERT INTO imports(ingested, body) VALUES (?, ?)').run(ingestedAt, body);
-  // Keep only the newest rows; snapshots and sources are never touched.
-  this.db.prepare('DELETE FROM imports WHERE id <= (SELECT id FROM imports ORDER BY id DESC LIMIT 1 OFFSET ?)').run(this.maxImports);
+  this.db.prepare('INSERT INTO imports(ingested, body) VALUES (?, ?)').run(ingestedAt, JSON.stringify(codes));
  }
  snapshots(): StoredSnapshot[] {
   try {

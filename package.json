@@ -1,6 +1,6 @@
 {
   "name": "cyclegauge",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -44,280 +44,32 @@
     "commands": [
       {
         "command": "cyclegauge.showUsage",
-        "title": "Cyclegauge: Show Credit Budget"
+        "title": "Cyclegauge: Show Account Credits"
       },
       {
         "command": "cyclegauge.costAdvisor",
-        "title": "Cyclegauge: Open Cost Advisor",
+        "title": "Cyclegauge: Cost Advisor",
         "icon": "$(lightbulb)"
-      },
-      {
-        "command": "cyclegauge.auditWorkspace",
-        "title": "Cyclegauge: Run Workspace Audit",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "cyclegauge.reviewKiroConfig",
-        "title": "Cyclegauge: Review Kiro Steering and Hooks",
-        "icon": "$(checklist)"
-      },
-      {
-        "command": "cyclegauge.config.loadWhenNeeded",
-        "title": "Load only when needed…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.config.loadWhenNeededAll",
-        "title": "Load only when needed…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.config.narrowPattern",
-        "title": "Narrow the pattern",
-        "icon": "$(filter)"
-      },
-      {
-        "command": "cyclegauge.config.runManually",
-        "title": "Run only manually…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.config.runManuallyAll",
-        "title": "Run only manually…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.config.disable",
-        "title": "Disable hook",
-        "icon": "$(circle-slash)"
-      },
-      {
-        "command": "cyclegauge.config.open",
-        "title": "Show file",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "cyclegauge.config.preview",
-        "title": "Show suggestion",
-        "icon": "$(info)"
-      },
-      {
-        "command": "cyclegauge.copyDiagnostics",
-        "title": "Cyclegauge: Copy Diagnostics"
-      },
-      {
-        "command": "cyclegauge.reportProblem",
-        "title": "Cyclegauge: Report a Problem"
-      },
-      {
-        "command": "cyclegauge.audit.accept",
-        "title": "Exclude from Kiro…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.audit.dismiss",
-        "title": "Hide this item",
-        "icon": "$(eye-closed)"
-      },
-      {
-        "command": "cyclegauge.audit.reveal",
-        "title": "Show file",
-        "icon": "$(go-to-file)"
-      },
-      {
-        "command": "cyclegauge.audit.acceptAll",
-        "title": "Exclude from Kiro…",
-        "icon": "$(diff)"
-      },
-      {
-        "command": "cyclegauge.audit.copy",
-        "title": "Copy .kiroignore lines",
-        "category": "Cyclegauge",
-        "icon": "$(copy)"
-      },
-      {
-        "command": "cyclegauge.audit.clearDismissed",
-        "title": "Show hidden items again",
-        "category": "Cyclegauge"
-      },
-      {
-        "command": "cyclegauge.audit.show",
-        "title": "Cyclegauge: Show Workspace Audit Results"
-      },
-      {
-        "command": "cyclegauge.audit.resetReminder",
-        "title": "Cyclegauge: Reset Workspace Audit Reminder"
-      },
-      {
-        "command": "cyclegauge.share",
-        "title": "Cyclegauge: Copy Share Link"
-      },
-      {
-        "command": "cyclegauge.support.reset",
-        "title": "Cyclegauge: Reset Reminders and Saved Summary"
-      },
-      {
-        "command": "cyclegauge.gettingStarted",
-        "title": "Cyclegauge: Get Started"
-      }
-    ],
-    "walkthroughs": [
-      {
-        "id": "cyclegauge.gettingStarted",
-        "title": "Get started with Cyclegauge",
-        "description": "See your Kiro credits, find files Kiro doesn't need and get warned before credits run out.",
-        "steps": [
-          {
-            "id": "cyclegauge.gettingStarted.credits",
-            "title": "See your Kiro credits",
-            "description": "The status bar shows how many Kiro credits you have used and whether you are on track until the reset. A forecast appears after a few days of usage; just keep working in Kiro.\n[Show credit budget](command:cyclegauge.showUsage)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cyclegauge status bar item and credit budget" },
-            "completionEvents": ["onCommand:cyclegauge.showUsage"]
-          },
-          {
-            "id": "cyclegauge.gettingStarted.audit",
-            "title": "Find files Kiro doesn't need",
-            "description": "Check this workspace for files Kiro may read but probably doesn't need, like secrets, database dumps or build output. This works right away, without any usage history.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Workspace Audit view in the Explorer" },
-            "completionEvents": ["onCommand:cyclegauge.auditWorkspace"]
-          },
-          {
-            "id": "cyclegauge.gettingStarted.savings",
-            "title": "Find ways to use fewer credits",
-            "description": "The Cost Advisor compares Kiro plans against your usage. The Steering and Hooks review points out large always-included Steering files and hooks that start agent work automatically, which can add credits.\n[Open Cost Advisor](command:cyclegauge.costAdvisor)\n[Review Steering and Hooks](command:cyclegauge.reviewKiroConfig)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Cost Advisor and Steering and Hooks review" },
-            "completionEvents": ["onCommand:cyclegauge.costAdvisor", "onCommand:cyclegauge.reviewKiroConfig"]
-          },
-          {
-            "id": "cyclegauge.gettingStarted.budget",
-            "title": "Get warned before credits run out",
-            "description": "Cyclegauge can tell you when your credits are on course to run out before the reset, and what the overage could cost. It is on by default; you can change it in the settings.\n[Open budget settings](command:workbench.action.openSettings?%5B%22cyclegauge.budgetWarnings%22%5D)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Budget notice settings" },
-            "completionEvents": ["onStepSelected"]
-          },
-          {
-            "id": "cyclegauge.gettingStarted.sessionHints",
-            "title": "Nudges from your latest Kiro session",
-            "description": "Cyclegauge can tell you when your newest Kiro session is nearly full or set to a pricier model. It reads only the newest session's model, context level and time, on your computer. Nothing is stored or sent. Turn it off any time. Seen on macOS; not yet verified on Windows or Linux.\n[Open session hint settings](command:workbench.action.openSettings?%5B%22cyclegauge.sessionHints%22%5D)\n[What is read, exactly](https://github.com/StefanSuess/Cyclegauge/blob/HEAD/docs/privacy-and-storage.md)",
-            "media": { "image": "assets/branding/cyclegauge-icon-256.png", "altText": "Session hint settings" },
-            "completionEvents": ["onStepSelected"]
-          }
-        ]
-      }
-    ],
-    "views": {
-      "explorer": [
-        {
-          "id": "cyclegauge.auditView",
-          "name": "Workspace Audit"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "cyclegauge.auditView",
-        "contents": "Find files in this workspace that Kiro can read but probably doesn't need, like secrets, database dumps or build output, and Steering and Hooks that add avoidable context or credit use. Cyclegauge suggests changes; nothing changes until you save.\n[Run the workspace audit](command:cyclegauge.auditWorkspace)",
-        "when": "workspaceFolderCount > 0 && isWorkspaceTrusted"
-      },
-      {
-        "view": "cyclegauge.auditView",
-        "contents": "Open a folder to check which of its files Kiro can read.\n[Open Folder](command:workbench.action.files.openFolder)",
-        "when": "workspaceFolderCount == 0"
-      },
-      {
-        "view": "cyclegauge.auditView",
-        "contents": "Cyclegauge audits only trusted workspaces.\n[Manage Workspace Trust](command:workbench.trust.manage)",
-        "when": "workspaceFolderCount > 0 && !isWorkspaceTrusted"
       }
     ],
     "configuration": {
       "title": "Cyclegauge",
       "properties": {
-        "cyclegauge.budgetWarnings": {
-          "type": "boolean",
-          "default": true,
-          "order": 1,
-          "description": "Show a notice when your reported Kiro credits are on course to run out before the reset, when usage passes the percent below or reaches the limit, and, near the end of a cycle, when a smaller plan would likely fit (a right-sizing tip). Each kind is shown at most once per billing cycle. The Turn off budget notices button on a notice turns off all of these.",
-          "scope": "application"
-        },
-        "cyclegauge.budgetWarningPercent": {
-          "type": "number",
-          "default": 80,
-          "minimum": 0,
-          "maximum": 100,
-          "order": 2,
-          "description": "Show a budget notice once you have used this percent of your reported Kiro credits. 0 turns this notice off.",
-          "scope": "application"
-        },
-        "cyclegauge.sessionHints": {
-          "type": "boolean",
-          "default": true,
-          "order": 3,
-          "description": "On macOS, Windows and Linux (Windows and Linux not yet verified natively), show a notice when your most recent Kiro session in this workspace is nearly full, or, when your budget is tight or the session is getting long, set to a model Kiro lists above Auto's credit rate. This parses up to 20 recently changed sessions' session.json files (each whole, in memory, including titles and workspace paths) to find the newest session of your folder, then loads up to the last 256 KiB of that session's conversation file (may contain prompts and replies) into memory. It keeps only that session's model, context percentage and time (read-only, nothing stored or sent). Turn off to stop all reading.",
-          "scope": "application"
-        },
-        "cyclegauge.auditReminderDays": {
-          "type": "number",
-          "default": 30,
-          "minimum": 0,
-          "maximum": 365,
-          "order": 4,
-          "description": "Remind you to run the workspace audit after this many days. 0 turns reminders off.",
-          "scope": "application"
-        },
-        "cyclegauge.auditAutomatically": {
-          "type": "string",
-          "default": "off",
-          "enum": ["off", "onOpen", "onOpenAndChanges"],
-          "enumItemLabels": ["Off", "On open", "On open and on changes"],
-          "enumDescriptions": [
-            "Only remind you; never run the audit by itself.",
-            "When a trusted workspace opens, run the audit again if the last one is more than a day old.",
-            "Also re-check when a new file matching the audit's own name patterns appears. Notifies at most once a day, and only for new secret files."
-          ],
-          "order": 5,
-          "description": "Run the workspace audit automatically in trusted workspaces (same limits; nothing is written or sent).",
-          "scope": "application"
-        },
-        "cyclegauge.configReviewAutomatically": {
-          "type": "string",
-          "default": "off",
-          "enum": ["off", "onOpen", "onOpenAndChanges"],
-          "enumItemLabels": ["Off", "On open", "On open and on changes"],
-          "enumDescriptions": [
-            "Only when you run Cyclegauge: Review Kiro Steering and Hooks.",
-            "Once per window, shortly after a trusted workspace opens.",
-            "Also again after AGENTS.md, .kiro/steering/*.md or .kiro/hooks/*.json change. Notifies only for a kind of finding not yet seen in this window."
-          ],
-          "order": 6,
-          "description": "Review Kiro Steering and Hooks automatically in trusted local workspaces. Uses the same bounded reads as the manual review and reads nothing else; nothing is written or sent. Only your user setting counts.",
-          "scope": "application"
-        },
-        "cyclegauge.supportPrompts": {
-          "type": "boolean",
-          "default": true,
-          "order": 7,
-          "description": "Controls Cyclegauge's occasional suggestions: the reminder to rate or support Cyclegauge, the one-time offer to turn on the automatic Steering and Hooks review, opening the getting-started walkthrough on first use, and the Open VSX link line on the shareable cycle recap. Turn it off to see none of these. It does not affect budget notices, session hints or audit reminders; they have their own settings.",
-          "scope": "application"
-        },
         "cyclegauge.sourceRoot": {
           "type": "string",
           "default": "",
-          "order": 8,
           "description": "For testing and demos with synthetic logs only. Leave empty: Cyclegauge then reads Kiro's standard data folder.",
           "scope": "machine"
         },
         "cyclegauge.storageRoot": {
           "type": "string",
           "default": "",
-          "order": 9,
           "description": "Private Cyclegauge storage folder. Leave empty to use the editor's standard per-extension storage.",
           "scope": "machine"
         },
         "cyclegauge.sourceTimezone": {
           "type": "string",
           "default": "",
-          "order": 10,
           "description": "IANA timezone used by offset-free Kiro account logs; leave empty for the device timezone.",
           "scope": "machine"
         }
@@ -330,208 +82,6 @@
           "when": "activeWebviewPanelId == cyclegauge.usage",
           "group": "navigation@0"
         }
-      ],
-      "view/title": [
-        {
-          "command": "cyclegauge.auditWorkspace",
-          "when": "view == cyclegauge.auditView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "cyclegauge.audit.clearDismissed",
-          "when": "view == cyclegauge.auditView",
-          "group": "1_actions@1"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "cyclegauge.audit.acceptAll",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.audit.acceptAll",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
-          "group": "1_apply@1"
-        },
-        {
-          "command": "cyclegauge.audit.copy",
-          "when": "view == cyclegauge.auditView && viewItem == group-exclude",
-          "group": "2_copy@1"
-        },
-        {
-          "command": "cyclegauge.audit.accept",
-          "when": "view == cyclegauge.auditView && viewItem == finding-suggestible",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.audit.dismiss",
-          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
-          "group": "inline@2"
-        },
-        {
-          "command": "cyclegauge.audit.reveal",
-          "when": "view == cyclegauge.auditView && viewItem =~ /^finding/",
-          "group": "inline@3"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeededAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-load",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeededAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-load",
-          "group": "1_apply@1"
-        },
-        {
-          "command": "cyclegauge.config.runManuallyAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-run",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.runManuallyAll",
-          "when": "view == cyclegauge.auditView && viewItem == config-group-run",
-          "group": "1_apply@1"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeeded",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
-          "group": "inline@2"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeeded",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
-          "group": "1_config@1"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-always",
-          "group": "1_config@2"
-        },
-        {
-          "command": "cyclegauge.config.runManually",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
-          "group": "inline@2"
-        },
-        {
-          "command": "cyclegauge.config.runManually",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
-          "group": "1_config@1"
-        },
-        {
-          "command": "cyclegauge.config.disable",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
-          "group": "1_config@2"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-hook",
-          "group": "1_config@3"
-        },
-        {
-          "command": "cyclegauge.config.narrowPattern",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
-          "group": "inline@2"
-        },
-        {
-          "command": "cyclegauge.config.narrowPattern",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
-          "group": "1_config@1"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-steering-match",
-          "group": "1_config@2"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "view == cyclegauge.auditView && viewItem == config-agents",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.preview",
-          "when": "view == cyclegauge.auditView && viewItem == config-finding",
-          "group": "inline@1"
-        },
-        {
-          "command": "cyclegauge.config.preview",
-          "when": "view == cyclegauge.auditView && viewItem == config-finding",
-          "group": "1_config@1"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "cyclegauge.audit.accept",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.audit.acceptAll",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.audit.dismiss",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.audit.reveal",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeeded",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.loadWhenNeededAll",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.narrowPattern",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.runManually",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.runManuallyAll",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.disable",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.open",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.config.preview",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.audit.copy",
-          "when": "false"
-        },
-        {
-          "command": "cyclegauge.audit.clearDismissed",
-          "when": "false"
-        }
       ]
     }
   },
@@ -540,7 +90,7 @@
     "test:host": "node --disable-warning=ExperimentalWarning scripts/test-extension-host.ts",
     "test": "node --disable-warning=ExperimentalWarning --test tests/unit/*.test.ts",
     "test:coverage": "node --disable-warning=ExperimentalWarning --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=80 --test tests/unit/*.test.ts",
-    "typecheck": "tsc --noEmit && tsc --project tsconfig.webview.json",
+    "typecheck": "tsc --noEmit",
     "start": "node --disable-warning=ExperimentalWarning src/cli.ts",
     "build:extension": "node --disable-warning=ExperimentalWarning scripts/build-extension.ts dist/extension.cjs",
     "package:vsix": "pnpm build:extension && vsce package --no-dependencies --out dist/",
@@ -553,7 +103,7 @@
     "@types/vscode": "1.90.0",
     "@vscode/test-electron": "3.1.0",
     "@vscode/vsce": "^4.0.0",
-    "esbuild": "0.28.2",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.0"
   }
 }

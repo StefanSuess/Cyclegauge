@@ -1,6 +1,6 @@
 # Cyclegauge specification
 
-Status: version 0.7.0 beta for macOS, Windows and Ubuntu is the last published release (an Open VSX pre-release); 1.0.0 stable is prepared as the next release, directly and published quietly (0.9.0, 0.11.0 and 0.13.0 are skipped; decision of 2026-10-18), and includes the user-triggered workspace audit; see [path to 1.0](docs/path-to-1.0.md). Milestones 1–3, 4A–4C, 5 and 6 are implemented: log collector, IDE extension, account history and qualified forecasts, independent cost engine behind the session-only Cost Advisor, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
+Status: version 0.5.2 macOS beta candidate (native acceptance pending). Milestones 1–3, 4A–4C and 5 are implemented: log collector, IDE extension, account history and qualified forecasts, independent cost engine behind the session-only Cost Advisor, pooled history forecasting and the usage trajectory chart. Sections below labeled by milestone are historical records unless stated otherwise. The VSIX was installed and its status bar and details verified in macOS Kiro 1.2.56. Discovery evidence is documented in [data findings](docs/kiro-data-format.md) and [multi-application findings](docs/multi-application-usage-investigation.md).
 
 ## Purpose
 
@@ -24,10 +24,6 @@ Provide local credit tracking and qualified forecasts that distinguish account-w
 - Keep plans, base credits, overages, bonuses, and add-on credits distinct. Unknown bonus schemas must not be folded into a fabricated remaining-credit balance.
 - Preserve provenance, partial coverage, unsupported-format status, stale/conflicting observations, and unresolved account association. A missing value is not zero.
 - Milestone 3 forecasting discloses its method, observation window, policy and coverage. Insufficient coverage yields unavailable estimates; interval net rates never imply complete daily measurements.
-
-## Session hints (advisory)
-
-Status: implemented for 1.0.0 (unreleased until published), IDE format only, default on; observed on macOS only, enabled on Windows and Linux without native verification (maintainer decision of 2026-10-18, also for Windows and Linux; on those platforms an unexpected session folder or path format leaves the feature silent; the narrow runtime read of session metadata was approved the same day, not session aggregation). From the newest IDE session of the open workspace the extension may show (a) a context-fill reminder at about 70 % and 85 % and (b) a hint when the session's model is listed above Auto's credit rate and there is a reason for it (the gauge shows a tight budget or the session is at least 30 % full; maintainer decision of 2026-10-20) in a dated in-extension table. These are advisory observations labelled "as of HH:MM": the percentage is a snapshot of the selected model's window and not Kiro's live meter, the multiplier is Kiro's published relative rate ("about Nx", actual credits vary), thresholds are educated guesses and only one table row is confirmed by a real session. Silent when the data is missing, stale, out of range, unmatched or uncertain; never stored, never added to account totals, never fed to the forecast. Details and limits: [data proof](docs/wp11-13-data-proof.md) and [privacy and storage](docs/privacy-and-storage.md).
 
 ## Privacy and platform requirements
 

@@ -15,8 +15,7 @@ function state() {
  try {
   return {
    rows: db.prepare('SELECT body FROM snapshots ORDER BY observed').all().map(r => JSON.parse(r.body as string)),
-   // Unchanged import codes refresh the latest evidence row's time, so polling is visible without new rows.
-   lastImport: (db.prepare('SELECT MAX(ingested) AS t FROM imports').get() as { t: string | null }).t ?? '',
+   imports: (db.prepare('SELECT COUNT(*) AS n FROM imports').get() as { n: number }).n,
   };
  } finally { db.close(); }
 }
@@ -43,10 +42,6 @@ export async function run(): Promise<void> {
   phase = 'commands';
   const commands = await vscode.commands.getCommands(true);
   assert.ok(commands.includes('cyclegauge.showUsage')); assert.ok(commands.includes('cyclegauge.costAdvisor'));
-  assert.ok(commands.includes('cyclegauge.auditWorkspace')); // registered only; the audit runs only when a user invokes it
-  assert.ok(commands.includes('cyclegauge.copyDiagnostics')); // registered only; not executed here
-  assert.ok(commands.includes('cyclegauge.reportProblem')); // registered only; it would open the browser
-  assert.ok(commands.includes('cyclegauge.share')); // registered only; the footer link runs it
   phase = 'panel';
   await vscode.commands.executeCommand('cyclegauge.showUsage');
   await until(() => vscode.window.tabGroups.all.some(group => group.tabs.some(tab => tab.label === 'Your credit budget')), 5_000);
@@ -64,9 +59,9 @@ export async function run(): Promise<void> {
    await until(() => state().rows.length === 2, 20_000);
    assert.equal(state().rows[1].usage, '2.25');
    phase = 'polling-timer';
-   const lastImport = state().lastImport;
+   const imports = state().imports;
    // No further filesystem changes: the real minute timer must perform another import.
-   await until(() => state().lastImport > lastImport, 75_000);
+   await until(() => state().imports > imports, 75_000);
    phase = 'polling-deduplication';
    assert.equal(state().rows.length, 2);
   } else {

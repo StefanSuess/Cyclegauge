@@ -10,30 +10,13 @@ import {noAnswers,type AdvisorAnswers,type PlanHint} from '../cost/advisor.ts';
 export class AdvisorInputs {
  #scope:string|null=null;#state='unobserved';#epoch=0;#value:AdvisorAnswers|null=null;
  get value():AdvisorAnswers{return this.#value?{...this.#value}:{...noAnswers};}
- get epoch():number{return this.#epoch;}
  get isSingleAccount():boolean{return this.#state==='single';}
  observe(scope:string|null,state:'single'|'ambiguous'|'unavailable'){
   if(scope!==this.#scope||state!==this.#state){this.clear();this.#scope=scope;this.#state=state;}
  }
  begin(){return ++this.#epoch;}
- commit(ticket:number,value:AdvisorAnswers){if(ticket!==this.#epoch||this.#state!=='single')return false;this.#value={...value};this.#epoch++;return true;}
+ commit(ticket:number,value:AdvisorAnswers){if(ticket!==this.#epoch||this.#state!=='single')return false;this.#value={...value};return true;}
  clear(){this.#epoch++;this.#value=null;}
-}
-
-export type AdvisorFormValues={plan:string;billing:string;addOns:string;addOnCredits:string};
-export type AdvisorField=keyof AdvisorFormValues;
-/** Shared by native questions and the webview; invalid values never become Advisor answers. */
-export function validateAdvisorAnswers(raw:AdvisorFormValues):{value:AdvisorAnswers|null;errors:AdvisorField[];reset:boolean}{
- const errors:AdvisorField[]=[];
- if(raw.plan==='reset')return {value:{...noAnswers},errors,reset:true};
- if(raw.plan!=='unsure'&&!PLAN_IDS.includes(raw.plan as PlanId))errors.push('plan');
- if(!['unsure','consumer_prepaid','enterprise_postpaid'].includes(raw.billing))errors.push('billing');
- if(!['unsure','none','some'].includes(raw.addOns))errors.push('addOns');
- const credits=raw.addOnCredits===''||raw.addOnCredits.length>4096?null:parseAmount(raw.addOnCredits);
- if(raw.addOnCredits.length>4096||credits===null&&raw.addOnCredits!==''&&raw.billing!=='enterprise_postpaid'&&raw.addOns==='some')errors.push('addOnCredits');
- if(errors.length)return {value:null,errors,reset:false};
- const enterprise=raw.billing==='enterprise_postpaid';
- return {value:{plan:enterprise&&raw.plan==='free'||raw.plan==='unsure'?null:raw.plan as PlanId,billing:raw.billing==='unsure'?null:raw.billing as AdvisorAnswers['billing'],addOns:enterprise||raw.addOns==='unsure'?null:raw.addOns as AdvisorAnswers['addOns'],addOnCredits:enterprise||raw.addOns!=='some'?null:credits},errors,reset:false};
 }
 
 const PLAN_PICK_PREFIX='plan:';
@@ -51,7 +34,7 @@ export async function reviewAdvisor(ui:NativeCostInput,hint:PlanHint,current:Adv
   {id:'reset',label:'Clear my answers',description:'Forget what you told the Cost Advisor in this session'},
  ];
  const plan=await ui.pick('Cost Advisor — which plan are you on?',planItems);if(!plan)return null;
- if(plan==='reset')return validateAdvisorAnswers({plan:'reset',billing:'unsure',addOns:'unsure',addOnCredits:''}).value;
+ if(plan==='reset')return {...noAnswers};
  const billing=await ui.pick('Cost Advisor — how is the plan billed?',[
   {id:'unsure',label:'Not sure',description:'Personal pricing is assumed and the result stays conditional'},
   {id:'consumer_prepaid',label:'Personal subscription (consumer)',description:'Add-on credit packs apply'},
@@ -72,6 +55,8 @@ export async function reviewAdvisor(ui:NativeCostInput,hint:PlanHint,current:Adv
    if(text!==''&&addOnCredits===null)return null;
   }
  }
- const checked=validateAdvisorAnswers({plan:plan.startsWith(PLAN_PICK_PREFIX)?plan.slice(PLAN_PICK_PREFIX.length):plan,billing,addOns:addOns??'unsure',addOnCredits:addOnCredits??''});
- return checked.value;
+ const chosen=plan.startsWith(PLAN_PICK_PREFIX)?plan.slice(PLAN_PICK_PREFIX.length) as PlanId:null;
+ if(chosen!==null&&!PLAN_IDS.includes(chosen))return null;
+ // Free does not exist on Enterprise; the plan stays unknown instead of silently cancelling.
+ return {plan:billing==='enterprise_postpaid'&&chosen==='free'?null:chosen,billing:billing==='unsure'?null:billing as AdvisorAnswers['billing'],addOns,addOnCredits};
 }
