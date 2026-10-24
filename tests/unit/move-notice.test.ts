@@ -37,3 +37,10 @@ test('the notice text names Bobert, says it is the last update and that nothing 
  assert.match(MOVE_NOTICE_TEXT, /last one/);
  assert.match(MOVE_NOTICE_TEXT, /not carried over/);
 });
+
+test('a failing flag write rejects before anything is shown', async () => {
+ const calls: string[] = [];
+ const h: MoveNoticeHost = { seen: () => false, markSeen: () => { throw new Error('synthetic'); }, show: async () => { calls.push('show'); return undefined; }, openBobert: () => { calls.push('open'); } };
+ await assert.rejects(showMoveNotice(h));
+ assert.deepEqual(calls, []);
+});

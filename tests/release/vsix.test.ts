@@ -112,6 +112,7 @@ test('the verifier rejects extra entries, missing entries, leaked paths and work
   for (const scope of ['window', 'resource', 'application', undefined]) assert.ok(edited(p => { p[`cyclegauge.${key}`].scope = scope; }).problems.includes('MANIFEST_SETTING_SCOPE'), `${key} ${String(scope)}`);
   assert.ok(edited(p => { delete p[`cyclegauge.${key}`]; }).problems.includes('MANIFEST_SETTING_PROPERTIES'), key);
  }
+ assert.equal(verifyVsix(Buffer.from('not a zip')).ok, false);
 });
 
 test('the verifier rejects a wrong publisher', async () => {

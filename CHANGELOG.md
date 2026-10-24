@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial pre-release; versions with an odd minor number (0.5.x, 0.7.x) are beta builds; see [versioning](docs/release-process.md#versioning).
+All notable changes to Cyclegauge for Kiro IDE. Cyclegauge is an unofficial project; versions with an odd minor number (0.5.x, 0.7.x) are beta builds, and 0.8.0 is the final, stable release; see [versioning](docs/release-process.md#versioning).
 
 ## 0.8.0 (stable, final release)
 

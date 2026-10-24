@@ -11,7 +11,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   seen: () => context.globalState.get<boolean>(MOVE_NOTICE_KEY) === true,
   markSeen: () => context.globalState.update(MOVE_NOTICE_KEY, true),
   show: (message, ...buttons) => vscode.window.showInformationMessage(message, ...buttons),
-  openBobert: () => vscode.commands.executeCommand('workbench.extensions.search', 'StefanSuess.bobert')
+  openBobert: () => vscode.commands.executeCommand('workbench.extensions.search', '@id:StefanSuess.bobert')
  }).catch(() => { /* The notice is optional; the gauge keeps working. */ });
 }
 async function runCyclegauge(context: vscode.ExtensionContext): Promise<void> {
